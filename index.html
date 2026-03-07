@@ -54,7 +54,7 @@
             100% { transform: translate(60px,60px); }
         }
         
-        /* ===== 音乐控制台 (置顶) ===== */
+        /* 音乐控制台 (置顶) */
         .music-bar {
             position: fixed;
             top: 0;
@@ -81,13 +81,16 @@
             transition: all 0.3s;
             background: rgba(255,255,255,0.05);
             border: 1px solid transparent;
-        }
-        
-        .voice-switch:hover {
-            background: rgba(255,255,255,0.1);
+            opacity: 0.3;
+            pointer-events: none;
         }
         
         .voice-switch.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .voice-switch.on {
             border-color: currentColor;
             box-shadow: 0 0 15px currentColor;
         }
@@ -109,7 +112,7 @@
             text-align: center;
         }
         
-        .play-btn {
+        .master-btn {
             background: linear-gradient(135deg, var(--neon-cyan), #0088aa);
             border: none;
             color: #000;
@@ -122,16 +125,13 @@
             transition: all 0.3s;
         }
         
-        .play-btn:hover {
+        .master-btn:hover {
             box-shadow: 0 0 20px var(--neon-cyan);
             transform: scale(1.05);
         }
         
-        .bpm-display {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 11px;
-            color: #666;
-            margin-left: 10px;
+        .master-btn.playing {
+            background: linear-gradient(135deg, #ff0040, #ff0040);
         }
         
         /* 头部 */
@@ -141,7 +141,6 @@
             position: relative;
         }
         
-        /* Logo */
         .logo {
             font-family: 'Share Tech Mono', monospace;
             font-size: 12px;
@@ -152,7 +151,6 @@
             text-shadow: 0 0 10px var(--neon-cyan);
         }
         
-        /* 标题 */
         .main-title {
             font-size: 72px;
             font-weight: 900;
@@ -354,12 +352,14 @@
         }
         
         .game-title { font-size: 20px; margin-bottom: 8px; color: #fff; }
+        
         .game-meta {
             font-family: 'Share Tech Mono', monospace;
             font-size: 11px;
             color: var(--neon-green);
             margin-bottom: 12px;
         }
+        
         .game-desc { font-size: 13px; color: #aaa; line-height: 1.6; margin-bottom: 15px; }
         
         .play-link {
@@ -430,24 +430,26 @@
 <body>
     <div class="glitch-bg"></div>
     
-    <!-- 音乐控制台 (置顶) -->
+    <!-- 音乐控制台 -->
     <div class="music-bar">
-        <div class="voice-switch v0 active" onclick="toggleVoice(0)" id="v0">
+        <div class="voice-switch v0" id="v0" onclick="toggleVoice(0)">
             <span class="voice-icon">🎹</span>
-            <span class="voice-status">ON</span>
+            <span class="voice-status">OFF</span>
         </div>
-        <div class="voice-switch v1" onclick="toggleVoice(1)" id="v1">
+        <div class="voice-switch v1" id="v1" onclick="toggleVoice(1)">
             <span class="voice-icon">🎸</span>
             <span class="voice-status">OFF</span>
         </div>
-        <div class="voice-switch v2" onclick="toggleVoice(2)" id="v2">
+        <div class="voice-switch v2" id="v2" onclick="toggleVoice(2)">
             <span class="voice-icon">🥁</span>
             <span class="voice-status">OFF</span>
         </div>
-        <div class="voice-switch v3" onclick="toggleVoice(3)" id="v3">
+        <div class="voice-switch v3" id="v3" onclick="toggleVoice(3)">
             <span class="voice-icon">✨</span>
             <span class="voice-status">OFF</span>
         </div>
+        
+        <button class="master-btn" id="masterBtn" onclick="toggleMaster()">▶ PLAY</button>
     </div>
     
     <header>
@@ -573,33 +575,28 @@
     </footer>
     
     <script>
-        // ===== 音频引擎 =====
+        // 音频上下文
         let audioCtx = null;
         let isPlaying = false;
         let BPM = 128;
-        let beatDuration = 60 / BPM; // 一个节拍的时长
+        let beatDuration = 60 / BPM;
         let nextBeatTime = 0;
         let currentBeat = 0;
         
-        // 声部状态: [目标状态, 实际状态, 待激活标记]
-        // 目标状态: 用户想要的开关
-        // 实际状态: 当前是否在播放
-        // 待激活: 等待下一个节拍点激活
+        // 声部状态: [target, active]
         let voices = [
-            { target: true, active: false, pending: false, name: 'melody' },
-            { target: false, active: false, pending: false, name: 'bass' },
-            { target: false, active: false, pending: false, name: 'drums' },
-            { target: false, active: false, pending: false, name: 'arp' }
+            { target: false, active: false },
+            { target: false, active: false },
+            { target: false, active: false },
+            { target: false, active: false }
         ];
         
-        // 音阶 (C小调)
-        const SCALE = [261.63, 293.66, 311.13, 349.23, 392.00, 415.30, 466.16, 523.25]; // C4-Bb4
-        const BASS_SCALE = [65.41, 73.42, 77.78, 87.31, 98.00, 103.83, 116.54, 130.81]; // C2-C3
+        // 音阶
+        const SCALE = [261.63, 293.66, 311.13, 349.23, 392.00, 415.30, 466.16, 523.25];
+        const BASS_SCALE = [65.41, 73.42, 77.78, 87.31, 98.00, 103.83, 116.54, 130.81];
         
-        // 节奏模式 (16步序列)
-        // 1 = 强拍, 0.5 = 弱拍, 0 = 休止
+        // 节奏模式
         const PATTERNS = {
-            // 旋律: 律动的合成器主音
             melody: [
                 { note: 0, vel: 1, len: 0.5 }, { note: 2, vel: 0.7, len: 0.5 },
                 { note: 4, vel: 1, len: 0.5 }, { note: 2, vel: 0.7, len: 0.5 },
@@ -610,7 +607,6 @@
                 { note: 4, vel: 1, len: 0.5 }, { note: 2, vel: 0.7, len: 0.5 },
                 { note: 0, vel: 1, len: 0.5 }, { note: 7, vel: 0.7, len: 0.5 },
             ],
-            // 低音: 稳重的贝斯线
             bass: [
                 { note: 0, vel: 1, len: 1 }, { note: 0, vel: 0, len: 1 },
                 { note: 3, vel: 1, len: 1 }, { note: 3, vel: 0, len: 1 },
@@ -621,7 +617,6 @@
                 { note: 2, vel: 1, len: 1 }, { note: 2, vel: 0, len: 1 },
                 { note: 0, vel: 1, len: 1 }, { note: 0, vel: 0, len: 1 },
             ],
-            // 鼓点: 经典的四四拍
             drums: [
                 { type: 'kick', vel: 1 }, { type: 'hihat', vel: 0.5 },
                 { type: 'snare', vel: 0.8 }, { type: 'hihat', vel: 0.5 },
@@ -632,7 +627,6 @@
                 { type: 'kick', vel: 0.8 }, { type: 'hihat', vel: 0.5 },
                 { type: 'snare', vel: 1 }, { type: 'hihat', vel: 0.7 },
             ],
-            // 琶音: 快速的分解和弦
             arp: [
                 { note: 0, vel: 0.6 }, { note: 2, vel: 0.5 },
                 { note: 4, vel: 0.6 }, { note: 7, vel: 0.5 },
@@ -649,25 +643,19 @@
         function playTone(time, freq, duration, type = 'sine', vol = 0.3) {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            
             osc.frequency.value = freq;
             osc.type = type;
-            
-            // ADSR包络
             const attack = 0.01;
             const decay = 0.1;
             const sustain = vol * 0.5;
             const release = duration - attack - decay;
-            
             gain.gain.setValueAtTime(0, time);
             gain.gain.linearRampToValueAtTime(vol, time + attack);
             gain.gain.linearRampToValueAtTime(sustain, time + attack + decay);
             gain.gain.setValueAtTime(sustain, time + duration - release);
             gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-            
             osc.start(time);
             osc.stop(time + duration);
         }
@@ -724,20 +712,8 @@
         // 节拍调度器
         function scheduler() {
             if (!isPlaying) return;
-            
             const lookahead = 0.1;
-            
             while (nextBeatTime < audioCtx.currentTime + lookahead) {
-                // 处理待激活的声部（在节拍点上同步切换）
-                voices.forEach((voice, idx) => {
-                    if (voice.pending) {
-                        voice.active = voice.target;
-                        voice.pending = false;
-                        updateVoiceUI(idx);
-                    }
-                });
-                
-                // 播放当前节拍的所有活跃声部
                 const step = currentBeat % 16;
                 
                 // 旋律
@@ -768,68 +744,61 @@
                     playTone(nextBeatTime, SCALE[note.note] * 2, 0.1, 'sine', note.vel * 0.1);
                 }
                 
-                // 推进到下一拍
-                nextBeatTime += beatDuration / 2; // 16分音符
+                nextBeatTime += beatDuration / 2;
                 currentBeat++;
             }
-            
             requestAnimationFrame(scheduler);
         }
         
-        // 切换声部（用户点击）
-        function toggleVoice(idx) {
-            voices[idx].target = !voices[idx].target;
-            
-            // 如果正在播放，标记为待激活（等待下一个节拍点）
-            if (isPlaying) {
-                voices[idx].pending = true;
-            } else {
-                // 未播放时直接切换
-                voices[idx].active = voices[idx].target;
-                updateVoiceUI(idx);
-            }
-            
-            // 立即更新UI显示目标状态
-            const btn = document.getElementById('v' + idx);
-            const status = btn.querySelector('.voice-status');
-            status.textContent = voices[idx].target ? 'ON' : 'OFF';
-            btn.classList.toggle('active', voices[idx].target);
-        }
-        
-        // 更新声部UI
-        function updateVoiceUI(idx) {
-            const btn = document.getElementById('v' + idx);
-            const status = btn.querySelector('.voice-status');
-            status.textContent = voices[idx].active ? 'ON' : 'OFF';
-            btn.classList.toggle('active', voices[idx].active);
-        }
-        
-        // 播放/暂停
-        function togglePlay() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
+        // 总开关
+        function toggleMaster() {
+            const btn = document.getElementById('masterBtn');
             
             if (!isPlaying) {
+                // 启动
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
                 audioCtx.resume().then(() => {
                     isPlaying = true;
                     nextBeatTime = audioCtx.currentTime + 0.1;
                     currentBeat = 0;
+                    scheduler();
                     
-                    // 初始化声部状态
-                    voices.forEach((v, i) => {
-                        v.active = v.target;
-                        v.pending = false;
-                        updateVoiceUI(i);
+                    // 启用所有声部按钮
+                    document.querySelectorAll('.voice-switch').forEach(el => {
+                        el.classList.add('active');
                     });
                     
-                    scheduler();
-                    document.getElementById('playBtn').textContent = '⏸ STOP';
+                    btn.textContent = '⏸ STOP';
+                    btn.classList.add('playing');
                 });
             } else {
+                // 停止
                 isPlaying = false;
-                document.getElementById('playBtn').textContent = '▶ PLAY';
+                
+                // 禁用所有声部按钮
+                document.querySelectorAll('.voice-switch').forEach(el => {
+                    el.classList.remove('active');
+                });
+                
+                btn.textContent = '▶ PLAY';
+                btn.classList.remove('playing');
             }
+        }
+        
+        // 切换声部
+        function toggleVoice(idx) {
+            if (!isPlaying) return;
+            
+            voices[idx].target = !voices[idx].target;
+            voices[idx].active = voices[idx].target;
+            
+            const btn = document.getElementById('v' + idx);
+            const status = btn.querySelector('.voice-status');
+            status.textContent = voices[idx].active ? 'ON' : 'OFF';
+            btn.classList.toggle('on', voices[idx].active);
         }
         
         // 故障效果
@@ -839,41 +808,6 @@
                 setTimeout(() => document.body.style.filter = 'none', 50);
             }
         }, 2000);
-        
-        // 页面加载后等待用户第一次交互才播放（浏览器策略要求）
-        let audioStarted = false;
-        
-        function startAudio() {
-            if (audioStarted) return;
-            audioStarted = true;
-            
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            
-            audioCtx.resume().then(() => {
-                isPlaying = true;
-                nextBeatTime = audioCtx.currentTime + 0.1;
-                currentBeat = 0;
-                
-                // 初始化声部状态
-                voices.forEach((v, i) => {
-                    v.active = v.target;
-                    v.pending = false;
-                    updateVoiceUI(i);
-                });
-                
-                scheduler();
-                
-                // 移除事件监听
-                document.removeEventListener('click', startAudio);
-                document.removeEventListener('touchstart', startAudio);
-            });
-        }
-        
-        // 监听用户首次交互
-        document.addEventListener('click', startAudio);
-        document.addEventListener('touchstart', startAudio);
     </script>
 </body>
 </html>
