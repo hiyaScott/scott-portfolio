@@ -840,28 +840,40 @@
             }
         }, 2000);
         
-        // 页面加载后自动播放第一个声部
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                audioCtx.resume().then(() => {
-                    isPlaying = true;
-                    nextBeatTime = audioCtx.currentTime + 0.1;
-                    currentBeat = 0;
-                    
-                    // 初始化声部状态
-                    voices.forEach((v, i) => {
-                        v.active = v.target;
-                        v.pending = false;
-                        updateVoiceUI(i);
-                    });
-                    
-                    scheduler();
+        // 页面加载后等待用户第一次交互才播放（浏览器策略要求）
+        let audioStarted = false;
+        
+        function startAudio() {
+            if (audioStarted) return;
+            audioStarted = true;
+            
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            audioCtx.resume().then(() => {
+                isPlaying = true;
+                nextBeatTime = audioCtx.currentTime + 0.1;
+                currentBeat = 0;
+                
+                // 初始化声部状态
+                voices.forEach((v, i) => {
+                    v.active = v.target;
+                    v.pending = false;
+                    updateVoiceUI(i);
                 });
-            }, 500); // 延迟500ms确保页面完全加载
-        });
+                
+                scheduler();
+                
+                // 移除事件监听
+                document.removeEventListener('click', startAudio);
+                document.removeEventListener('touchstart', startAudio);
+            });
+        }
+        
+        // 监听用户首次交互
+        document.addEventListener('click', startAudio);
+        document.addEventListener('touchstart', startAudio);
     </script>
 </body>
 </html>
