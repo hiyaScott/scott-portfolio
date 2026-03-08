@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>引力弹弓 - Gravity Slingshot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        #gameContainer {
+            position: relative;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 20px #00ffff40, inset 0 0 50px #00ffff10;
+            border-radius: 4px;
+        }
+        
+        canvas {
+            display: block;
+            background: radial-gradient(ellipse at center, #0d1b2a 0%, #000000 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            font-size: 14px;
+            pointer-events: none;
+        }
+        
+        #ui h2 {
+            font-size: 18px;
+            margin-bottom: 5px;
+            color: #ff00ff;
+            text-shadow: 0 0 15px #ff00ff;
+        }
+        
+        #levelInfo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            font-size: 16px;
+            text-align: right;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+            font-size: 12px;
+            text-align: center;
+            opacity: 0.8;
+        }
+        
+        #victory {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ff00;
+            text-shadow: 0 0 30px #00ff00;
+            font-size: 32px;
+            text-align: center;
+            display: none;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.05); }
+        }
+        
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 2s ease-in-out infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="700"></canvas>
+        <div id="ui">
+            <h2>🚀 引力弹弓</h2>
+            <div>收集星星: <span id="stars">0</span>/<span id="totalStars">0</span></div>
+            <div>速度: <span id="velocity">0</span></div>
+        </div>
+        <div id="levelInfo">
+            <div>关卡 <span id="level">1</span>/3</div>
+        </div>
+        <div id="instructions">
+            拖拽鼠标调整发射角度和力度 | R键重置关卡 | 到达绿色星门获胜
+        </div>
+        <div id="victory">
+            <div>🎉 关卡完成! 🎉</div>
+            <div style="font-size: 16px; margin-top: 10px;">按 R 进入下一关</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 游戏状态
+        const game = {
+            level: 1,
+            maxLevels: 3,
+            stars: 0,
+            totalStars: 0,
+            won: false,
+            particles: [],
+            starsCollected: [],
+            camera: { x: 0, y: 0 }
+        };
+        
+        // 飞船
+        const ship = {
+            x: 100,
+            y: 350,
+            vx: 0,
+            vy: 0,
+            angle: 0,
+            radius: 8,
+            launched: false,
+            dragging: false,
+            dragStartX: 0,
+            dragStartY: 0,
+            dragCurrentX: 0,
+            dragCurrentY: 0,
+            trail: []
+        };
+        
+        // 引力常数
+        const G = 800;
+        const MAX_POWER = 15;
+        const TRAIL_LENGTH = 30;
+        
+        // 关卡数据
+        const levels = {
+            1: {
+                // 第1关：单一星球引力弹弓
+                planets: [
+                    { x: 500, y: 350, radius: 40, mass: 2000, color: '#ff00ff', gravityRadius: 200 }
+                ],
+                target: { x: 900, y: 350, radius: 30 },
+                stars: [
+                    { x: 500, y: 150, radius: 10, collected: false },
+                    { x: 750, y: 200, radius: 10, collected: false }
+                ],
+                shipStart: { x: 100, y: 350 }
+            },
+            2: {
+                // 第2关：多个星球连续弹射
+                planets: [
+                    { x: 300, y: 250, radius: 30, mass: 1500, color: '#ff00ff', gravityRadius: 150 },
+                    { x: 600, y: 450, radius: 35, mass: 1800, color: '#00ffff', gravityRadius: 170 },
+                    { x: 800, y: 200, radius: 25, mass: 1200, color: '#ff00ff', gravityRadius: 130 }
+                ],
+                target: { x: 950, y: 500, radius: 30 },
+                stars: [
+                    { x: 450, y: 150, radius: 10, collected: false },
+                    { x: 600, y: 300, radius: 10, collected: false },
+                    { x: 750, y: 350, radius: 10, collected: false }
+                ],
+                shipStart: { x: 100, y: 400 }
+            },
+            3: {
+                // 第3关：复杂轨道规划
+                planets: [
+                    { x: 250, y: 200, radius: 25, mass: 1200, color: '#ff00ff', gravityRadius: 130 },
+                    { x: 400, y: 500, radius: 35, mass: 1800, color: '#00ffff', gravityRadius: 170 },
+                    { x: 550, y: 250, radius: 30, mass: 1500, color: '#ff00ff', gravityRadius: 150 },
+                    { x: 700, y: 450, radius: 28, mass: 1400, color: '#00ffff', gravityRadius: 140 },
+                    { x: 850, y: 300, radius: 32, mass: 1600, color: '#ff00ff', gravityRadius: 160 }
+                ],
+                target: { x: 950, y: 150, radius: 30 },
+                stars: [
+                    { x: 325, y: 350, radius: 10, collected: false },
+                    { x: 475, y: 375, radius: 10, collected: false },
+                    { x: 625, y: 350, radius: 10, collected: false },
+                    { x: 775, y: 375, radius: 10, collected: false }
+                ],
+                shipStart: { x: 80, y: 350 }
+            }
+        };
+        
+        let currentLevel = null;
+        
+        // 初始化关卡
+        function initLevel(levelNum) {
+            game.level = levelNum;
+            game.won = false;
+            game.particles = [];
+            document.getElementById('victory').style.display = 'none';
+            
+            const levelData = levels[levelNum];
+            currentLevel = JSON.parse(JSON.stringify(levelData));
+            
+            // 重置飞船
+            ship.x = currentLevel.shipStart.x;
+            ship.y = currentLevel.shipStart.y;
+            ship.vx = 0;
+            ship.vy = 0;
+            ship.angle = 0;
+            ship.launched = false;
+            ship.dragging = false;
+            ship.trail = [];
+            
+            // 重置星星
+            game.stars = 0;
+            game.totalStars = currentLevel.stars.length;
+            game.starsCollected = new Array(currentLevel.stars.length).fill(false);
+            
+            updateUI();
+        }
+        
+        // 更新UI
+        function updateUI() {
+            document.getElementById('stars').textContent = game.stars;
+            document.getElementById('totalStars').textContent = game.totalStars;
+            document.getElementById('level').textContent = game.level;
+            const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+            document.getElementById('velocity').textContent = speed.toFixed(1);
+        }
+        
+        // 粒子类
+        class Particle {
+            constructor(x, y, vx, vy, color, life) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.life = life;
+                this.maxLife = life;
+                this.size = Math.random() * 3 + 1;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+                this.size *= 0.98;
+            }
+            
+            draw(ctx) {
+                const alpha = this.life / this.maxLife;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // 添加粒子
+        function addParticles(x, y, count, color, speed = 2) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const v = Math.random() * speed;
+                game.particles.push(new Particle(
+                    x, y,
+                    Math.cos(angle) * v,
+                    Math.sin(angle) * v,
+                    color,
+                    30 + Math.random() * 20
+                ));
+            }
+        }
+        
+        // 绘制星球
+        function drawPlanet(planet) {
+            // 引力场范围
+            ctx.save();
+            ctx.strokeStyle = planet.color + '30';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.gravityRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // 引力场填充
+            const gradient = ctx.createRadialGradient(
+                planet.x, planet.y, planet.radius,
+                planet.x, planet.y, planet.gravityRadius
+            );
+            gradient.addColorStop(0, planet.color + '40');
+            gradient.addColorStop(1, planet.color + '05');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // 星球本体
+            const planetGradient = ctx.createRadialGradient(
+                planet.x - planet.radius * 0.3, planet.y - planet.radius * 0.3, 0,
+                planet.x, planet.y, planet.radius
+            );
+            planetGradient.addColorStop(0, planet.color);
+            planetGradient.addColorStop(0.5, planet.color + 'cc');
+            planetGradient.addColorStop(1, '#000000');
+            
+            ctx.fillStyle = planetGradient;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = planet.color;
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 星球光晕
+            ctx.strokeStyle = planet.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.radius + 5, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+        
+        // 绘制目标星门
+        function drawTarget(target) {
+            ctx.save();
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#00ff00';
+            
+            const time = Date.now() / 1000;
+            const rotation = time * 2;
+            
+            // 外圈
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, target.radius, rotation, rotation + Math.PI * 1.5);
+            ctx.stroke();
+            
+            // 内圈（反向旋转）
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, target.radius - 8, -rotation, -rotation + Math.PI * 1.5);
+            ctx.stroke();
+            
+            // 中心光点
+            ctx.fillStyle = '#00ff00';
+            ctx.shadowBlur = 50;
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        // 绘制星星
+        function drawStar(star, index) {
+            if (game.starsCollected[index]) return;
+            
+            ctx.save();
+            const time = Date.now() / 200;
+            const scale = 1 + Math.sin(time + index) * 0.2;
+            
+            ctx.translate(star.x, star.y);
+            ctx.scale(scale, scale);
+            
+            ctx.fillStyle = '#ffd700';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffd700';
+            
+            // 五角星
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+                const x = Math.cos(angle) * star.radius;
+                const y = Math.sin(angle) * star.radius;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+                
+                const innerAngle = ((i + 0.5) * 2 * Math.PI / 5) - Math.PI / 2;
+                const innerX = Math.cos(innerAngle) * (star.radius * 0.4);
+                const innerY = Math.sin(innerAngle) * (star.radius * 0.4);
+                ctx.lineTo(innerX, innerY);
+            }
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        // 绘制飞船
+        function drawShip() {
+            ctx.save();
+            ctx.translate(ship.x, ship.y);
+            ctx.rotate(ship.angle);
+            
+            // 飞船轨迹
+            ship.trail.forEach((point, i) => {
+                const alpha = i / ship.trail.length;
+                ctx.fillStyle = `rgba(0, 255, 255, ${alpha * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(point.x - ship.x, point.y - ship.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // 飞船本体（三角形）
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#00ffff';
+            ctx.beginPath();
+            ctx.moveTo(12, 0);
+            ctx.lineTo(-8, -6);
+            ctx.lineTo(-4, 0);
+            ctx.lineTo(-8, 6);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 引擎光晕
+            if (ship.launched) {
+                ctx.fillStyle = '#ff00ff';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ff00ff';
+                ctx.beginPath();
+                ctx.moveTo(-6, -3);
+                ctx.lineTo(-12 - Math.random() * 8, 0);
+                ctx.lineTo(-6, 3);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            ctx.restore();
+        }
+        
+        // 绘制拖拽线
+        function drawDragLine() {
+            if (!ship.dragging) return;
+            
+            ctx.save();
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ffff00';
+            
+            // 拖拽线
+            ctx.beginPath();
+            ctx.moveTo(ship.dragStartX, ship.dragStartY);
+            ctx.lineTo(ship.dragCurrentX, ship.dragCurrentY);
+            ctx.stroke();
+            
+            // 力度指示
+            const dx = ship.dragStartX - ship.dragCurrentX;
+            const dy = ship.dragStartY - ship.dragCurrentY;
+            const power = Math.min(Math.sqrt(dx * dx + dy * dy) / 20, MAX_POWER);
+            
+            ctx.fillStyle = '#ffff00';
+            ctx.font = '14px Arial';
+            ctx.fillText(`力度: ${power.toFixed(1)}`, ship.dragCurrentX + 10, ship.dragCurrentY - 10);
+            
+            // 预测轨迹
+            drawPredictedTrajectory(dx / 20, dy / 20);
+            
+            ctx.restore();
+        }
+        
+        // 绘制预测轨迹
+        function drawPredictedTrajectory(vx, vy) {
+            ctx.save();
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.globalAlpha = 0.5;
+            
+            let px = ship.x;
+            let py = ship.y;
+            let pvx = Math.min(Math.max(vx, -MAX_POWER), MAX_POWER);
+            let pvy = Math.min(Math.max(vy, -MAX_POWER), MAX_POWER);
+            
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            
+            for (let i = 0; i < 100; i++) {
+                // 计算引力
+                currentLevel.planets.forEach(planet => {
+                    const dx = planet.x - px;
+                    const dy = planet.y - py;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < planet.gravityRadius && dist > planet.radius) {
+                        const force = G * planet.mass / (dist * dist);
+                        pvx += (dx / dist) * force * 0.1;
+                        pvy += (dy / dist) * force * 0.1;
+                    }
+                });
+                
+                px += pvx * 3;
+                py += pvy * 3;
+                
+                ctx.lineTo(px, py);
+            }
+            
+            ctx.stroke();
+            ctx.restore();
+        }
+        
+        // 物理更新
+        function updatePhysics() {
+            if (!ship.launched || game.won) return;
+            
+            // 保存轨迹点
+            ship.trail.push({ x: ship.x, y: ship.y });
+            if (ship.trail.length > TRAIL_LENGTH) {
+                ship.trail.shift();
+            }
+            
+            // 计算引力
+            currentLevel.planets.forEach(planet => {
+                const dx = planet.x - ship.x;
+                const dy = planet.y - ship.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < planet.gravityRadius && dist > planet.radius) {
+                    const force = G * planet.mass / (dist * dist);
+                    ship.vx += (dx / dist) * force * 0.016;
+                    ship.vy += (dy / dist) * force * 0.016;
+                    
+                    // 引力场内的粒子效果
+                    if (Math.random() < 0.1) {
+                        addParticles(ship.x, ship.y, 1, planet.color, 1);
+                    }
+                }
+                
+                // 碰撞检测
+                if (dist < planet.radius + ship.radius) {
+                    // 撞毁，重置
+                    addParticles(ship.x, ship.y, 20, '#ff0000', 5);
+                    resetShip();
+                    return;
+                }
+            });
+            
+            // 更新位置
+            ship.x += ship.vx;
+            ship.y += ship.vy;
+            
+            // 更新角度
+            ship.angle = Math.atan2(ship.vy, ship.vx);
+            
+            // 边界检测
+            if (ship.x < 0 || ship.x > canvas.width || ship.y < 0 || ship.y > canvas.height) {
+                addParticles(ship.x, ship.y, 15, '#ff0000', 4);
+                resetShip();
+                return;
+            }
+            
+            // 检测星星收集
+            currentLevel.stars.forEach((star, index) => {
+                if (!game.starsCollected[index]) {
+                    const dx = star.x - ship.x;
+                    const dy = star.y - ship.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < star.radius + ship.radius + 5) {
+                        game.starsCollected[index] = true;
+                        game.stars++;
+                        addParticles(star.x, star.y, 15, '#ffd700', 3);
+                        updateUI();
+                    }
+                }
+            });
+            
+            // 检测目标
+            const dx = currentLevel.target.x - ship.x;
+            const dy = currentLevel.target.y - ship.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < currentLevel.target.radius) {
+                levelComplete();
+            }
+            
+            // 速度粒子
+            if (Math.random() < 0.3 && Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy) > 5) {
+                addParticles(ship.x - ship.vx * 2, ship.y - ship.vy * 2, 1, '#00ffff', 2);
+            }
+        }
+        
+        // 重置飞船
+        function resetShip() {
+            ship.x = currentLevel.shipStart.x;
+            ship.y = currentLevel.shipStart.y;
+            ship.vx = 0;
+            ship.vy = 0;
+            ship.angle = 0;
+            ship.launched = false;
+            ship.trail = [];
+        }
+        
+        // 关卡完成
+        function levelComplete() {
+            game.won = true;
+            addParticles(ship.x, ship.y, 30, '#00ff00', 5);
+            document.getElementById('victory').style.display = 'block';
+        }
+        
+        // 渲染
+        function render() {
+            // 清空画布
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制星空背景
+            ctx.save();
+            for (let i = 0; i < 100; i++) {
+                const x = (i * 37.3) % canvas.width;
+                const y = (i * 23.7) % canvas.height;
+                const size = (i % 3) + 1;
+                const alpha = 0.3 + (Math.sin(Date.now() / 1000 + i) + 1) / 4;
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            
+            // 绘制星球
+            currentLevel.planets.forEach(planet => drawPlanet(planet));
+            
+            // 绘制目标
+            drawTarget(currentLevel.target);
+            
+            // 绘制星星
+            currentLevel.stars.forEach((star, index) => drawStar(star, index));
+            
+            // 绘制飞船
+            drawShip();
+            
+            // 绘制拖拽线
+            drawDragLine();
+            
+            // 绘制粒子
+            game.particles = game.particles.filter(p => p.life > 0);
+            game.particles.forEach(p => {
+                p.update();
+                p.draw(ctx);
+            });
+            
+            updateUI();
+        }
+        
+        // 游戏循环
+        function gameLoop() {
+            updatePhysics();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 鼠标事件
+        canvas.addEventListener('mousedown', (e) => {
+            if (ship.launched || game.won) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const dx = x - ship.x;
+            const dy = y - ship.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < 50) {
+                ship.dragging = true;
+                ship.dragStartX = ship.x;
+                ship.dragStartY = ship.y;
+                ship.dragCurrentX = x;
+                ship.dragCurrentY = y;
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!ship.dragging) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            ship.dragCurrentX = e.clientX - rect.left;
+            ship.dragCurrentY = e.clientY - rect.top;
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            if (!ship.dragging) return;
+            
+            const dx = ship.dragStartX - ship.dragCurrentX;
+            const dy = ship.dragStartY - ship.dragCurrentY;
+            
+            ship.vx = Math.min(Math.max(dx / 20, -MAX_POWER), MAX_POWER);
+            ship.vy = Math.min(Math.max(dy / 20, -MAX_POWER), MAX_POWER);
+            
+            ship.launched = true;
+            ship.dragging = false;
+        });
+        
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'r') {
+                if (game.won && game.level < game.maxLevels) {
+                    initLevel(game.level + 1);
+                } else {
+                    initLevel(game.level);
+                }
+            }
+        });
+        
+        // 初始化
+        initLevel(1);
+        gameLoop();
+    </script>
+</body>
+</html>
