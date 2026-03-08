@@ -442,6 +442,14 @@
     </style>
 </head>
 <body>
+    <!-- 音频启用提示覆盖层 -->
+    <div id="audioOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; cursor: pointer;">
+        <div style="font-size: 4rem; margin-bottom: 20px;">🔊</div>
+        <div style="font-size: 1.5rem; color: #fff; margin-bottom: 10px;">点击任意位置启用音频</div>
+        <div style="font-size: 1rem; color: #888;">Web Audio 需要用户交互后才能播放</div>
+        <div style="margin-top: 30px; padding: 15px 40px; background: linear-gradient(135deg, #e94560, #ff6b6b); border-radius: 30px; color: #fff; font-size: 1.2rem;">点击开始</div>
+    </div>
+
     <div class="container">
         <!-- 标题 -->
         <header class="header">
@@ -650,7 +658,36 @@
             if (!gameState.audioContext) {
                 gameState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
+            // 如果音频上下文被挂起，尝试恢复
+            if (gameState.audioContext.state === 'suspended') {
+                gameState.audioContext.resume();
+            }
         }
+
+        // 启用音频（用户点击后调用）
+        async function enableAudio() {
+            const overlay = document.getElementById('audioOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+            
+            initAudioContext();
+            
+            // 等待音频上下文恢复
+            if (gameState.audioContext.state === 'suspended') {
+                await gameState.audioContext.resume();
+            }
+            
+            console.log('Audio enabled, state:', gameState.audioContext.state);
+        }
+
+        // 点击覆盖层启用音频
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = document.getElementById('audioOverlay');
+            if (overlay) {
+                overlay.addEventListener('click', enableAudio);
+            }
+        });
 
         // 播放单个音符
         function playTone(frequency, duration, startTime, volume = 0.3, type = 'sine') {
