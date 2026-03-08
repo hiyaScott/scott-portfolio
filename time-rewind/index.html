@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间回溯 - Time Rewind</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
+        }
+        canvas {
+            display: block;
+            border: 2px solid #00ffff;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ffff;
+            font-size: 14px;
+            text-shadow: 0 0 10px #00ffff;
+            pointer-events: none;
+        }
+        #ui.right {
+            left: auto;
+            right: 10px;
+            text-align: right;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ffff;
+            font-size: 12px;
+            text-align: center;
+            text-shadow: 0 0 10px #00ffff;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        #gameOver, #victory {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: none;
+        }
+        #gameOver h1 {
+            color: #ff0040;
+            font-size: 48px;
+            text-shadow: 0 0 20px #ff0040;
+            margin-bottom: 20px;
+        }
+        #victory h1 {
+            color: #00ff80;
+            font-size: 48px;
+            text-shadow: 0 0 20px #00ff80;
+            margin-bottom: 20px;
+        }
+        .restart-btn {
+            background: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 10px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 10px #00ffff;
+            transition: all 0.3s;
+        }
+        .restart-btn:hover {
+            background: #00ffff;
+            color: #000;
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ffff;
+        }
+        #startScreen h1 {
+            font-size: 48px;
+            text-shadow: 0 0 20px #00ffff;
+            margin-bottom: 20px;
+        }
+        #startScreen p {
+            font-size: 16px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        #startScreen .start-btn {
+            margin-top: 30px;
+            background: transparent;
+            border: 2px solid #00ff80;
+            color: #00ff80;
+            padding: 15px 40px;
+            font-size: 20px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 10px #00ff80;
+            transition: all 0.3s;
+        }
+        #startScreen .start-btn:hover {
+            background: #00ff80;
+            color: #000;
+        }
+        #timeBar {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #00ffff;
+        }
+        #timeFill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #0080ff);
+            box-shadow: 0 0 10px #00ffff;
+            transition: width 0.1s;
+        }
+        #timeBar.rewind {
+            border-color: #ff00ff;
+        }
+        #timeBar.rewind #timeFill {
+            background: linear-gradient(90deg, #ff00ff, #ff0080);
+            box-shadow: 0 0 10px #ff00ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="900" height="500"></canvas>
+        
+        <div id="ui">
+            <div>关卡: <span id="level">1</span>/3</div>
+            <div>收集: <span id="collected">0</span>/<span id="totalItems">3</span></div>
+        </div>
+        
+        <div id="ui" class="right">
+            <div>状态: <span id="status">正常</span></div>
+            <div id="rewindIndicator" style="display:none; color:#ff00ff;">⏪ 时间倒流中</div>
+        </div>
+        
+        <div id="timeBar">
+            <div id="timeFill" style="width: 0%;"></div>
+        </div>
+        
+        <div id="instructions">
+            按住空格键/屏幕 = 时间倒流 | 松开 = 恢复正常 | R = 重置关卡
+        </div>
+        
+        <div id="startScreen">
+            <h1>⏪ 时间回溯 ⏪</h1>
+            <p>按住空格键或屏幕来倒流时间</p>
+            <p>利用时间倒流规避红色尖刺</p>
+            <p>收集所有金色物品后到达绿色传送门</p>
+            <button class="start-btn" onclick="startGame()">开始游戏</button>
+        </div>
+        
+        <div id="gameOver">
+            <h1>GAME OVER</h1>
+            <button class="restart-btn" onclick="restartLevel()">重试本关</button>
+        </div>
+        
+        <div id="victory">
+            <h1>关卡完成!</h1>
+            <p style="color:#00ff80; margin-bottom:20px;" id="victoryText">准备进入下一关...</p>
+            <button class="restart-btn" id="nextLevelBtn" onclick="nextLevel()">下一关</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 游戏状态
+        let gameState = 'menu'; // menu, playing, gameover, victory
+        let currentLevel = 1;
+        let isRewinding = false;
+        let gameStarted = false;
+        
+        // 时间记录系统
+        const MAX_HISTORY = 600; // 10秒历史记录 (60fps)
+        let history = [];
+        let rewindIndex = 0;
+        
+        // 玩家
+        const player = {
+            x: 100,
+            y: 350,
+            width: 30,
+            height: 30,
+            speed: 3,
+            color: '#00ffff',
+            trail: []
+        };
+        
+        // 游戏对象
+        let obstacles = [];
+        let collectibles = [];
+        let particles = [];
+        let goal = null;
+        let collected = 0;
+        let totalItems = 3;
+        let camera = { x: 0 };
+        
+        // 输入状态
+        const keys = {};
+        let isTouching = false;
+        
+        // 关卡配置
+        const levels = {
+            1: {
+                totalItems: 3,
+                obstacles: [
+                    { x: 400, y: 380, width: 40, height: 40, type: 'spike' }
+                ],
+                collectibles: [
+                    { x: 200, y: 300, collected: false },
+                    { x: 350, y: 250, collected: false },
+                    { x: 500, y: 320, collected: false }
+                ],
+                goal: { x: 700, y: 320, width: 60, height: 80 }
+            },
+            2: {
+                totalItems: 5,
+                obstacles: [
+                    { x: 300, y: 380, width: 40, height: 40, type: 'spike' },
+                    { x: 450, y: 340, width: 40, height: 40, type: 'spike' },
+                    { x: 600, y: 380, width: 40, height: 40, type: 'spike' },
+                    { x: 500, y: 200, width: 30, height: 100, type: 'laser' }
+                ],
+                collectibles: [
+                    { x: 180, y: 280, collected: false },
+                    { x: 350, y: 220, collected: false },
+                    { x: 480, y: 280, collected: false },
+                    { x: 620, y: 250, collected: false },
+                    { x: 550, y: 150, collected: false }
+                ],
+                goal: { x: 800, y: 320, width: 60, height: 80 }
+            },
+            3: {
+                totalItems: 7,
+                obstacles: [
+                    { x: 250, y: 380, width: 40, height: 40, type: 'spike' },
+                    { x: 350, y: 340, width: 40, height: 40, type: 'spike' },
+                    { x: 450, y: 300, width: 40, height: 40, type: 'spike' },
+                    { x: 550, y: 380, width: 40, height: 40, type: 'spike' },
+                    { x: 650, y: 340, width: 40, height: 40, type: 'spike' },
+                    { x: 400, y: 150, width: 30, height: 100, type: 'laser' },
+                    { x: 600, y: 150, width: 30, height: 100, type: 'laser' },
+                    { x: 300, y: 250, width: 100, height: 20, type: 'platform' }
+                ],
+                collectibles: [
+                    { x: 150, y: 260, collected: false },
+                    { x: 300, y: 180, collected: false },
+                    { x: 420, y: 260, collected: false },
+                    { x: 500, y: 120, collected: false },
+                    { x: 580, y: 260, collected: false },
+                    { x: 700, y: 200, collected: false },
+                    { x: 750, y: 280, collected: false }
+                ],
+                goal: { x: 900, y: 320, width: 60, height: 80 }
+            }
+        };
+        
+        // 粒子效果
+        function createParticle(x, y, color, type = 'normal') {
+            return {
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                life: 1,
+                color: color,
+                type: type
+            };
+        }
+        
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+        
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x - camera.x, p.y, 4, 4);
+                ctx.globalAlpha = 1;
+            });
+        }
+        
+        // 初始化关卡
+        function initLevel(level) {
+            const levelData = levels[level];
+            
+            player.x = 100;
+            player.y = 350;
+            player.trail = [];
+            
+            obstacles = JSON.parse(JSON.stringify(levelData.obstacles));
+            collectibles = JSON.parse(JSON.stringify(levelData.collectibles));
+            goal = { ...levelData.goal };
+            
+            collected = 0;
+            totalItems = levelData.totalItems;
+            history = [];
+            rewindIndex = 0;
+            camera = { x: 0 };
+            particles = [];
+            
+            updateUI();
+        }
+        
+        // 更新UI
+        function updateUI() {
+            document.getElementById('level').textContent = currentLevel;
+            document.getElementById('collected').textContent = collected;
+            document.getElementById('totalItems').textContent = totalItems;
+        }
+        
+        // 开始游戏
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameStarted = true;
+            gameState = 'playing';
+            initLevel(currentLevel);
+            gameLoop();
+        }
+        
+        // 重新开始关卡
+        function restartLevel() {
+            document.getElementById('gameOver').style.display = 'none';
+            gameState = 'playing';
+            initLevel(currentLevel);
+        }
+        
+        // 下一关
+        function nextLevel() {
+            document.getElementById('victory').style.display = 'none';
+            currentLevel++;
+            
+            if (currentLevel > 3) {
+                currentLevel = 1;
+            }
+            
+            gameState = 'playing';
+            initLevel(currentLevel);
+        }
+        
+        // 碰撞检测
+        function checkCollision(a, b) {
+            return a.x < b.x + b.width &&
+                   a.x + a.width > b.x &&
+                   a.y < b.y + b.height &&
+                   a.y + a.height > b.y;
+        }
+        
+        // 记录状态
+        function recordState() {
+            const state = {
+                player: { x: player.x, y: player.y },
+                collectibles: JSON.parse(JSON.stringify(collectibles)),
+                camera: { ...camera },
+                particles: particles.length
+            };
+            
+            history.push(state);
+            
+            if (history.length > MAX_HISTORY) {
+                history.shift();
+            }
+        }
+        
+        // 回溯状态
+        function rewindState() {
+            if (history.length > 0 && rewindIndex < history.length) {
+                const state = history[history.length - 1 - rewindIndex];
+                
+                player.x = state.player.x;
+                player.y = state.player.y;
+                collectibles = JSON.parse(JSON.stringify(state.collectibles));
+                camera = { ...state.camera };
+                
+                rewindIndex++;
+                
+                // 创建残影效果
+                if (rewindIndex % 3 === 0) {
+                    createGhostTrail();
+                }
+                
+                // 更新收集数量
+                collected = collectibles.filter(c => c.collected).length;
+                updateUI();
+            }
+        }
+        
+        // 创建残影
+        let ghostTrails = [];
+        function createGhostTrail() {
+            ghostTrails.push({
+                x: player.x,
+                y: player.y,
+                alpha: 0.5,
+                frame: 0
+            });
+        }
+        
+        function updateGhosts() {
+            for (let i = ghostTrails.length - 1; i >= 0; i--) {
+                let g = ghostTrails[i];
+                g.alpha -= 0.05;
+                g.frame++;
+                
+                if (g.alpha <= 0) {
+                    ghostTrails.splice(i, 1);
+                }
+            }
+        }
+        
+        function drawGhosts() {
+            ghostTrails.forEach(g => {
+                ctx.globalAlpha = g.alpha;
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(g.x - camera.x, g.y, player.width, player.height);
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        // 更新游戏
+        function update() {
+            if (gameState !== 'playing') return;
+            
+            if (isRewinding || isTouching) {
+                // 时间倒流模式
+                rewindState();
+                document.getElementById('status').textContent = '时间倒流';
+                document.getElementById('status').style.color = '#ff00ff';
+                document.getElementById('rewindIndicator').style.display = 'block';
+                document.getElementById('timeBar').classList.add('rewind');
+                
+                // 时间倒流粒子效果
+                if (Math.random() < 0.3) {
+                    particles.push(createParticle(
+                        player.x + Math.random() * player.width,
+                        player.y + Math.random() * player.height,
+                        '#ff00ff',
+                        'rewind'
+                    ));
+                }
+            } else {
+                // 正常模式
+                recordState();
+                rewindIndex = 0;
+                ghostTrails = [];
+                
+                document.getElementById('status').textContent = '正常';
+                document.getElementById('status').style.color = '#00ffff';
+                document.getElementById('rewindIndicator').style.display = 'none';
+                document.getElementById('timeBar').classList.remove('rewind');
+                
+                // 自动向右移动
+                player.x += player.speed;
+                
+                // 重力
+                if (player.y < 350) {
+                    player.y += 2;
+                }
+                
+                // 跳跃检测 (简单版，如果需要)
+                if (keys['ArrowUp'] && player.y >= 350) {
+                    player.y -= 60;
+                    // 跳跃粒子
+                    for (let i = 0; i < 5; i++) {
+                        particles.push(createParticle(
+                            player.x + player.width / 2,
+                            player.y + player.height,
+                            '#00ffff'
+                        ));
+                    }
+                }
+                
+                // 相机跟随
+                if (player.x > camera.x + 400) {
+                    camera.x = player.x - 400;
+                }
+                
+                // 检测收集品
+                collectibles.forEach(c => {
+                    if (!c.collected) {
+                        const cRect = { x: c.x, y: c.y, width: 25, height: 25 };
+                        if (checkCollision(player, cRect)) {
+                            c.collected = true;
+                            collected++;
+                            updateUI();
+                            
+                            // 收集粒子效果
+                            for (let i = 0; i < 10; i++) {
+                                particles.push(createParticle(
+                                    c.x + 12,
+                                    c.y + 12,
+                                    '#ffd700'
+                                ));
+                            }
+                        }
+                    }
+                });
+                
+                // 检测障碍物
+                obstacles.forEach(o => {
+                    if (checkCollision(player, o)) {
+                        gameState = 'gameover';
+                        document.getElementById('gameOver').style.display = 'block';
+                        
+                        // 死亡粒子效果
+                        for (let i = 0; i < 20; i++) {
+                            particles.push(createParticle(
+                                player.x + player.width / 2,
+                                player.y + player.height / 2,
+                                '#ff0040'
+                            ));
+                        }
+                    }
+                });
+                
+                // 检测终点
+                if (collected >= totalItems && goal && checkCollision(player, goal)) {
+                    gameState = 'victory';
+                    document.getElementById('victory').style.display = 'block';
+                    
+                    if (currentLevel >= 3) {
+                        document.getElementById('victoryText').textContent = '恭喜通关所有关卡！';
+                        document.getElementById('nextLevelBtn').textContent = '返回第一关';
+                    } else {
+                        document.getElementById('victoryText').textContent = '准备进入下一关...';
+                        document.getElementById('nextLevelBtn').textContent = '下一关';
+                    }
+                    
+                    // 胜利粒子效果
+                    for (let i = 0; i < 30; i++) {
+                        particles.push(createParticle(
+                            goal.x + goal.width / 2,
+                            goal.y + goal.height / 2,
+                            '#00ff80'
+                        ));
+                    }
+                }
+            }
+            
+            // 更新时间条
+            const rewindProgress = Math.min(rewindIndex / history.length * 100, 100);
+            document.getElementById('timeFill').style.width = rewindProgress + '%';
+            
+            updateParticles();
+            updateGhosts();
+        }
+        
+        // 绘制游戏
+        function draw() {
+            // 清除画布
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制网格背景
+            ctx.strokeStyle = isRewinding || isTouching ? 'rgba(255, 0, 255, 0.1)' : 'rgba(0, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            const gridSize = 50;
+            const offsetX = -camera.x % gridSize;
+            
+            for (let x = offsetX; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // 绘制地面
+            ctx.fillStyle = isRewinding || isTouching ? '#1a001a' : '#001a1a';
+            ctx.fillRect(0, 420, canvas.width, 80);
+            ctx.strokeStyle = isRewinding || isTouching ? '#ff00ff' : '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 420);
+            ctx.lineTo(canvas.width, 420);
+            ctx.stroke();
+            
+            // 绘制残影
+            drawGhosts();
+            
+            // 绘制终点
+            if (goal) {
+                const goalX = goal.x - camera.x;
+                if (goalX + goal.width > 0 && goalX < canvas.width) {
+                    // 传送门效果
+                    const time = Date.now() / 200;
+                    ctx.save();
+                    ctx.translate(goalX + goal.width / 2, goal.y + goal.height / 2);
+                    
+                    // 外圈
+                    ctx.strokeStyle = collected >= totalItems ? '#00ff80' : '#444';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 30 + Math.sin(time) * 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    // 内圈
+                    ctx.strokeStyle = collected >= totalItems ? '#80ff00' : '#333';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 20 + Math.cos(time) * 3, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    // 核心
+                    ctx.fillStyle = collected >= totalItems ? '#00ff80' : '#222';
+                    ctx.shadowBlur = collected >= totalItems ? 20 : 0;
+                    ctx.shadowColor = '#00ff80';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    
+                    ctx.restore();
+                    
+                    if (collected < totalItems) {
+                        ctx.fillStyle = '#666';
+                        ctx.font = '12px Courier New';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🔒', goalX + goal.width / 2, goal.y + goal.height / 2);
+                    }
+                }
+            }
+            
+            // 绘制收集品
+            collectibles.forEach(c => {
+                if (!c.collected) {
+                    const cX = c.x - camera.x;
+                    if (cX + 25 > 0 && cX < canvas.width) {
+                        const time = Date.now() / 300;
+                        const glow = 5 + Math.sin(time) * 3;
+                        
+                        ctx.shadowBlur = glow;
+                        ctx.shadowColor = '#ffd700';
+                        ctx.fillStyle = '#ffd700';
+                        
+                        // 菱形
+                        ctx.beginPath();
+                        ctx.moveTo(cX + 12, c.y);
+                        ctx.lineTo(cX + 25, c.y + 12);
+                        ctx.lineTo(cX + 12, c.y + 25);
+                        ctx.lineTo(cX, c.y + 12);
+                        ctx.closePath();
+                        ctx.fill();
+                        
+                        ctx.shadowBlur = 0;
+                    }
+                }
+            });
+            
+            // 绘制障碍物
+            obstacles.forEach(o => {
+                const oX = o.x - camera.x;
+                if (oX + o.width > 0 && oX < canvas.width) {
+                    if (o.type === 'spike') {
+                        // 尖刺
+                        ctx.fillStyle = '#ff0040';
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = '#ff0040';
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(oX, o.y + o.height);
+                        ctx.lineTo(oX + o.width / 2, o.y);
+                        ctx.lineTo(oX + o.width, o.y + o.height);
+                        ctx.closePath();
+                        ctx.fill();
+                        
+                        ctx.shadowBlur = 0;
+                    } else if (o.type === 'laser') {
+                        // 激光柱
+                        const time = Date.now() / 100;
+                        ctx.fillStyle = `rgba(255, 0, 64, ${0.5 + Math.sin(time) * 0.3})`;
+                        ctx.fillRect(oX, o.y, o.width, o.height);
+                        
+                        ctx.strokeStyle = '#ff0040';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(oX, o.y, o.width, o.height);
+                    } else if (o.type === 'platform') {
+                        // 平台
+                        ctx.fillStyle = '#444';
+                        ctx.fillRect(oX, o.y, o.width, o.height);
+                        ctx.strokeStyle = '#00ffff';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(oX, o.y, o.width, o.height);
+                    }
+                }
+            });
+            
+            // 绘制玩家
+            const pX = player.x - camera.x;
+            
+            if (isRewinding || isTouching) {
+                // 时间倒流时的玩家外观
+                ctx.globalAlpha = 0.7;
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(pX, player.y, player.width, player.height);
+                
+                // 内部填充
+                ctx.fillStyle = 'rgba(255, 0, 255, 0.3)';
+                ctx.fillRect(pX, player.y, player.width, player.height);
+                
+                // 时钟符号
+                ctx.fillStyle = '#ff00ff';
+                ctx.font = 'bold 16px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText('⏪', pX + player.width / 2, player.y + player.height / 2 + 5);
+            } else {
+                // 正常玩家
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00ffff';
+                ctx.fillStyle = '#00ffff';
+                ctx.fillRect(pX, player.y, player.width, player.height);
+                
+                // 玩家内部
+                ctx.fillStyle = '#000';
+                ctx.fillRect(pX + 5, player.y + 5, player.width - 10, player.height - 10);
+                
+                ctx.shadowBlur = 0;
+            }
+            
+            ctx.globalAlpha = 1;
+            
+            // 绘制粒子
+            drawParticles();
+            
+            // 时间倒流时的颜色反转效果覆盖层
+            if (isRewinding || isTouching) {
+                ctx.fillStyle = 'rgba(255, 0, 255, 0.1)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+        
+        // 游戏循环
+        function gameLoop() {
+            update();
+            draw();
+            
+            if (gameStarted) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // 事件监听
+        window.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                isRewinding = true;
+            }
+            
+            if (e.key === 'r' || e.key === 'R') {
+                restartLevel();
+            }
+        });
+        
+        window.addEventListener('keyup', e => {
+            keys[e.key] = false;
+            
+            if (e.key === ' ' || e.code === 'Space') {
+                isRewinding = false;
+            }
+        });
+        
+        // 触摸支持
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            isTouching = true;
+        }, { passive: false });
+        
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            isTouching = false;
+        });
+        
+        canvas.addEventListener('touchcancel', e => {
+            e.preventDefault();
+            isTouching = false;
+        });
+        
+        // 鼠标支持
+        canvas.addEventListener('mousedown', e => {
+            isTouching = true;
+        });
+        
+        canvas.addEventListener('mouseup', e => {
+            isTouching = false;
+        });
+        
+        canvas.addEventListener('mouseleave', e => {
+            isTouching = false;
+        });
+        
+        // 初始绘制
+        initLevel(1);
+        draw();
+    </script>
+</body>
+</html>
