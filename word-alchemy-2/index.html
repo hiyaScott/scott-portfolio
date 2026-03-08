@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>词语炼金术2.0 - Word Alchemy Roguelike</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00ffff;
+            --neon-purple: #9d00ff;
+            --neon-yellow: #ffff00;
+            --neon-green: #00ff88;
+            --neon-orange: #ff6600;
+            --dark-bg: #0a0a0f;
+            --panel-bg: rgba(20, 20, 35, 0.9);
+        }
+        
+        body {
+            background: var(--dark-bg);
+            color: #e0e0ff;
+            font-family: 'Segoe UI', 'Noto Sans SC', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            overflow-x: hidden;
+        }
+        
+        /* 霓虹背景动画 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(255,0,255,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(0,255,255,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(157,0,255,0.05) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        /* 头部 */
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .version-badge {
+            position: absolute;
+            top: 0;
+            right: -60px;
+            background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        h1 {
+            font-size: 32px;
+            background: linear-gradient(90deg, var(--neon-pink), var(--neon-cyan), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(255,0,255,0.5);
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 12px;
+            letter-spacing: 3px;
+        }
+        
+        /* 游戏主区域 */
+        .game-container {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .game-container {
+                grid-template-columns: 1fr;
+            }
+            .version-badge {
+                right: 0;
+                top: -20px;
+            }
+        }
+        
+        .main-panel {
+            background: var(--panel-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .panel-box {
+            background: var(--panel-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* 统计栏 */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .stat-item.score .stat-value { color: var(--neon-yellow); text-shadow: 0 0 10px rgba(255,255,0,0.3); }
+        .stat-item.combo .stat-value { color: var(--neon-green); text-shadow: 0 0 10px rgba(0,255,136,0.3); }
+        .stat-item.time .stat-value { color: var(--neon-cyan); text-shadow: 0 0 10px rgba(0,255,255,0.3); }
+        .stat-item.level .stat-value { color: var(--neon-pink); text-shadow: 0 0 10px rgba(255,0,255,0.3); }
+        
+        /* 目标区域 */
+        .target-section {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(255,0,255,0.15), rgba(157,0,255,0.15));
+            border-radius: 15px;
+            border: 2px solid;
+            border-image: linear-gradient(135deg, var(--neon-pink), var(--neon-purple)) 1;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .target-section::before {
+            content: '';
+            position: absolute;
+            top: -2px; left: -2px; right: -2px; bottom: -2px;
+            background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple), var(--neon-cyan));
+            z-index: -1;
+            border-radius: 15px;
+            opacity: 0.3;
+            filter: blur(8px);
+        }
+        
+        .target-label {
+            font-size: 11px;
+            color: var(--neon-pink);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 8px;
+        }
+        
+        .target-word {
+            font-size: 42px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(255,0,255,0.6), 0 0 60px rgba(157,0,255,0.3);
+            animation: targetPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes targetPulse {
+            0%, 100% { transform: scale(1); text-shadow: 0 0 30px rgba(255,0,255,0.6), 0 0 60px rgba(157,0,255,0.3); }
+            50% { transform: scale(1.02); text-shadow: 0 0 40px rgba(255,0,255,0.8), 0 0 80px rgba(157,0,255,0.5); }
+        }
+        
+        .target-category {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #888;
+        }
+        
+        /* 炼金台 */
+        .alchemy-table {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 25px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .slot {
+            width: 90px;
+            height: 90px;
+            background: rgba(0,0,0,0.4);
+            border: 2px dashed rgba(255,255,255,0.15);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        
+        .slot:hover {
+            border-color: rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-3px);
+        }
+        
+        .slot.filled {
+            border-style: solid;
+            border-color: var(--neon-cyan);
+            background: linear-gradient(135deg, rgba(0,255,255,0.15), rgba(0,255,255,0.05));
+            box-shadow: 0 0 20px rgba(0,255,255,0.2);
+        }
+        
+        .slot.selected {
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 25px rgba(255,0,255,0.4), inset 0 0 15px rgba(255,0,255,0.1);
+        }
+        
+        .slot .category-indicator {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .operator {
+            font-size: 24px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .plus { color: var(--neon-purple); }
+        .equals { color: var(--neon-yellow); }
+        
+        .result-slot {
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, rgba(255,200,0,0.2), rgba(255,150,0,0.1));
+            border: 2px solid var(--neon-yellow);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            animation: resultGlow 2s ease-in-out infinite;
+            cursor: pointer;
+        }
+        
+        @keyframes resultGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(255,200,0,0.3), inset 0 0 20px rgba(255,200,0,0.05); }
+            50% { box-shadow: 0 0 35px rgba(255,200,0,0.5), inset 0 0 30px rgba(255,200,0,0.1); }
+        }
+        
+        /* 操作按钮 */
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+            font-weight: 600;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(255,0,255,0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 30px rgba(255,0,255,0.5);
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* 模式切换 */
+        .mode-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        
+        .mode-btn {
+            padding: 8px 20px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            color: #888;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .mode-btn.active {
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 0 15px rgba(0,255,255,0.3);
+        }
+        
+        /* 元素库 */
+        .inventory-title {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 12px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        
+        .category-section {
+            margin-bottom: 15px;
+        }
+        
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .category-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .category-name {
+            font-size: 11px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .category-count {
+            margin-left: auto;
+            font-size: 10px;
+            color: #666;
+            background: rgba(0,0,0,0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        
+        .category-elements {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .element {
+            padding: 6px 14px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 13px;
+            position: relative;
+            user-select: none;
+        }
+        
+        .element:hover {
+            background: rgba(255,255,255,0.12);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .element.selected {
+            background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 15px rgba(255,0,255,0.4);
+            color: #fff;
+        }
+        
+        .element.new {
+            animation: newElement 0.6s ease-out;
+        }
+        
+        @keyframes newElement {
+            0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+            50% { transform: scale(1.2) rotate(5deg); }
+            100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+        
+        /* 侧边栏面板 */
+        .panel-title {
+            font-size: 12px;
+            color: var(--neon-cyan);
+            margin-bottom: 12px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        /* 配方书 */
+        .recipes-container {
+            max-height: 300px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
+        
+        .recipes-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .recipes-container::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+        }
+        
+        .recipe-category {
+            margin-bottom: 12px;
+        }
+        
+        .recipe-category-title {
+            font-size: 10px;
+            color: #666;
+            padding: 4px 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            margin-bottom: 6px;
+        }
+        
+        .recipe-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .recipe-item {
+            padding: 5px 10px;
+            background: rgba(0,255,136,0.1);
+            border: 1px solid rgba(0,255,136,0.2);
+            border-radius: 10px;
+            font-size: 11px;
+            color: var(--neon-green);
+        }
+        
+        .recipe-item.easter-egg {
+            background: rgba(255,102,0,0.1);
+            border-color: rgba(255,102,0,0.3);
+            color: var(--neon-orange);
+        }
+        
+        /* 进度条 */
+        .progress-section {
+            margin-top: 10px;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 6px;
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-green));
+            border-radius: 3px;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px rgba(0,255,136,0.3);
+        }
+        
+        /* 连击显示 */
+        .combo-display {
+            text-align: center;
+            padding: 15px;
+        }
+        
+        .combo-count {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--neon-green);
+            text-shadow: 0 0 30px rgba(0,255,136,0.5);
+            line-height: 1;
+        }
+        
+        .combo-label {
+            font-size: 11px;
+            color: #888;
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+        
+        .combo-multiplier {
+            font-size: 14px;
+            color: var(--neon-yellow);
+            margin-top: 5px;
+        }
+        
+        /* 消息提示 */
+        .message-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+        
+        .message-overlay.show {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .message-box {
+            background: linear-gradient(135deg, rgba(30,30,50,0.95), rgba(20,20,35,0.95));
+            border: 2px solid;
+            border-image: linear-gradient(135deg, var(--neon-pink), var(--neon-cyan)) 1;
+            border-radius: 20px;
+            padding: 30px 50px;
+            text-align: center;
+            max-width: 400px;
+            animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(255,0,255,0.1);
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.7) translateY(20px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        
+        .message-icon {
+            font-size: 56px;
+            margin-bottom: 15px;
+        }
+        
+        .message-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--neon-pink), var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .message-text {
+            font-size: 14px;
+            color: #aaa;
+            line-height: 1.6;
+        }
+        
+        .message-tip {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background: rgba(255,102,0,0.1);
+            border: 1px solid rgba(255,102,0,0.3);
+            border-radius: 10px;
+            font-size: 12px;
+            color: var(--neon-orange);
+            font-style: italic;
+        }
+        
+        .message-btn {
+            margin-top: 20px;
+            padding: 12px 35px;
+            background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+            border: none;
+            border-radius: 25px;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .message-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 25px rgba(255,0,255,0.4);
+        }
+        
+        /* 浮动提示 */
+        .floating-tip {
+            position: fixed;
+            pointer-events: none;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(255,102,0,0.9), rgba(255,50,0,0.9));
+            border-radius: 20px;
+            font-size: 12px;
+            color: #fff;
+            z-index: 999;
+            animation: floatUp 2s ease-out forwards;
+            box-shadow: 0 4px 15px rgba(255,102,0,0.4);
+        }
+        
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.9); opacity: 0; }
+            10% { transform: translateY(-10px) scale(1); opacity: 1; }
+            90% { transform: translateY(-60px) scale(1); opacity: 1; }
+            100% { transform: translateY(-80px) scale(0.9); opacity: 0; }
+        }
+        
+        /* 连击动画 */
+        .combo-animation {
+            position: fixed;
+            pointer-events: none;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--neon-green);
+            z-index: 998;
+            animation: comboFloat 1s ease-out forwards;
+            text-shadow: 0 0 20px rgba(0,255,136,0.6);
+        }
+        
+        @keyframes comboFloat {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            20% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-100px) scale(1); opacity: 0; }
+        }
+        
+        /* 计时器 */
+        .timer-bar {
+            height: 4px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-green), var(--neon-yellow), var(--neon-orange), var(--neon-pink));
+            border-radius: 2px;
+            transition: width 1s linear;
+        }
+        
+        .timer-fill.warning {
+            animation: timerPulse 0.5s ease-in-out infinite;
+        }
+        
+        @keyframes timerPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* 游戏结束面板 */
+        .game-over-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .game-over-stat {
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+        
+        .game-over-stat-label {
+            font-size: 10px;
+            color: #888;
+        }
+        
+        .game-over-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--neon-cyan);
+        }
+        
+        /* 分类颜色 */
+        .cat-basic { background: var(--neon-pink); }
+        .cat-nature { background: var(--neon-cyan); }
+        .cat-material { background: var(--neon-purple); }
+        .cat-life { background: var(--neon-green); }
+        .cat-abstract { background: var(--neon-yellow); }
+        .cat-easter { background: var(--neon-orange); }
+        
+        /* 震动动画 */
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        /* 成功闪光 */
+        .flash {
+            animation: flash 0.5s;
+        }
+        
+        @keyframes flash {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.5); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔮 词语炼金术2.0</h1>
+        <span class="version-badge">ROGUELIKE</span>
+        <p class="subtitle">通过组合创造新世界</p>
+    </header>
+    
+    <div class="game-container">
+        <div class="main-panel">
+            <!-- 统计栏 -->
+            <div class="stats-bar">
+                <div class="stat-item score">
+                    <div class="stat-label">SCORE</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat-item combo">
+                    <div class="stat-label">COMBO</div>
+                    <div class="stat-value" id="combo">×1</div>
+                </div>
+                <div class="stat-item level">
+                    <div class="stat-label">LEVEL</div>
+                    <div class="stat-value" id="level">1</div>
+                </div>
+                <div class="stat-item time">
+                    <div class="stat-label">TIME</div>
+                    <div class="stat-value" id="time">∞</div>
+                </div>
+            </div>
+            
+            <!-- 模式切换 -->
+            <div class="mode-toggle">
+                <button class="mode-btn active" onclick="setMode('normal')">标准模式</button>
+                <button class="mode-btn" onclick="setMode('timed')">限时挑战</button>
+                <button class="mode-btn" onclick="setMode('hardcore')">硬核模式</button>
+            </div>
+            
+            <!-- 目标 -->
+            <div class="target-section" id="targetSection">
+                <div class="target-label">TARGET ELEMENT</div>
+                <div class="target-word" id="targetWord">?</div>
+                <div class="target-category" id="targetCategory">等待开始...</div>
+                <div class="timer-bar" id="timerBar" style="display: none;">
+                    <div class="timer-fill" id="timerFill" style="width: 100%;"></div>
+                </div>
+            </div>
+            
+            <!-- 炼金台 -->
+            <div class="alchemy-table">
+                <div class="slot" id="slot1" onclick="selectSlot(1)"></div>
+                <div class="operator plus">+</div>
+                <div class="slot" id="slot2" onclick="selectSlot(2)"></div>
+                <div class="operator equals">=</div>
+                <div class="result-slot" id="resultSlot">?</div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="actions">
+                <button class="btn btn-primary" onclick="combine()">✨ 炼成</button>
+                <button class="btn btn-secondary" onclick="clearSlots()">🔄 清空</button>
+                <button class="btn btn-secondary" onclick="newGame()">🎮 新游戏</button>
+                <button class="btn btn-secondary" onclick="showHint()">💡 提示</button>
+            </div>
+            
+            <!-- 元素库 -->
+            <div class="inventory-title">ELEMENTS INVENTORY — <span id="totalElements">3</span>/200+</div>
+            <div id="elementsGrid">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+        
+        <div class="side-panel">
+            <!-- 连击显示 -->
+            <div class="panel-box combo-display">
+                <div class="combo-count" id="comboDisplay">0</div>
+                <div class="combo-label">CONSECUTIVE COMBOS</div>
+                <div class="combo-multiplier" id="comboMultiplier">+0% 得分加成</div>
+            </div>
+            
+            <!-- 配方书 -->
+            <div class="panel-box">
+                <div class="panel-title">📖 Recipe Book</div>
+                <div class="recipes-container" id="recipes">
+                    <div style="text-align: center; color: #666; padding: 20px;">暂无配方</div>
+                </div>
+            </div>
+            
+            <!-- 进度 -->
+            <div class="panel-box">
+                <div class="panel-title">📊 Progress</div>
+                <div class="progress-section">
+                    <div class="progress-label">
+                        <span>元素收集</span>
+                        <span id="progressText">3/200+</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressBar" style="width: 1%;"></div>
+                    </div>
+                </div>
+                <div class="progress-section" style="margin-top: 12px;">
+                    <div class="progress-label">
+                        <span>配方解锁</span>
+                        <span id="recipeProgressText">0/200+</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="recipeProgressBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 消息提示 -->
+    <div class="message-overlay" id="messageOverlay">
+        <div class="message-box" id="messageBox">
+            <div class="message-icon" id="messageIcon">✨</div>
+            <div class="message-title" id="messageTitle">炼成成功！</div>
+            <div class="message-text" id="messageText">发现了新元素</div>
+            <div class="message-tip" id="messageTip" style="display: none;"></div>
+            <button class="message-btn" id="messageBtn" onclick="closeMessage()" style="display: none;">继续</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 游戏数据 ====================
+        
+        // 元素分类
+        const CATEGORIES = {
+            basic: { name: '基础', color: 'var(--neon-pink)', class: 'cat-basic' },
+            nature: { name: '自然', color: 'var(--neon-cyan)', class: 'cat-nature' },
+            material: { name: '物质', color: 'var(--neon-purple)', class: 'cat-material' },
+            life: { name: '生命', color: 'var(--neon-green)', class: 'cat-life' },
+            abstract: { name: '抽象', color: 'var(--neon-yellow)', class: 'cat-abstract' },
+            easter: { name: '彩蛋', color: 'var(--neon-orange)', class: 'cat-easter' }
+        };
+        
+        // 200+元素配方数据库
+        const RECIPES = {
+            // 基础组合
+            '火+水': { result: '蒸汽', category: 'nature' },
+            '火+土': { result: '岩浆', category: 'nature' },
+            '水+土': { result: '泥浆', category: 'nature' },
+            '火+风': { result: '烟', category: 'nature' },
+            '水+风': { result: '云', category: 'nature' },
+            '土+风': { result: '沙尘', category: 'nature' },
+            '火+蒸汽': { result: '能量', category: 'abstract' },
+            '水+能量': { result: '电', category: 'nature' },
+            '土+能量': { result: '地震', category: 'nature' },
+            
+            // 自然现象
+            '蒸汽+水': { result: '雾', category: 'nature' },
+            '云+水': { result: '雨', category: 'nature' },
+            '云+风': { result: '风暴', category: 'nature' },
+            '风暴+水': { result: '海啸', category: 'nature' },
+            '风暴+火': { result: '雷暴', category: 'nature' },
+            '云+冰': { result: '雪', category: 'nature' },
+            '雨+冷': { result: '冰', category: 'nature' },
+            '雾+光': { result: '彩虹', category: 'nature' },
+            '沙尘+风': { result: '沙尘暴', category: 'nature' },
+            '岩浆+水': { result: '石头', category: 'material' },
+            '岩浆+风': { result: '火山', category: 'nature' },
+            '烟+云': { result: '雾霾', category: 'nature' },
+            
+            // 物质材料
+            '石头+火': { result: '金属', category: 'material' },
+            '石头+水': { result: '沙子', category: 'material' },
+            '石头+风': { result: '沙', category: 'material' },
+            '沙子+火': { result: '玻璃', category: 'material' },
+            '金属+火': { result: '工具', category: 'material' },
+            '金属+水': { result: '锈', category: 'material' },
+            '金属+电': { result: '磁铁', category: 'material' },
+            '工具+石头': { result: '武器', category: 'material' },
+            '工具+木头': { result: '家具', category: 'material' },
+            '沙子+石灰': { result: '混凝土', category: 'material' },
+            '石头+石灰': { result: '水泥', category: 'material' },
+            '火+土': { result: '陶瓷', category: 'material' },
+            '木头+火': { result: '炭', category: 'material' },
+            '炭+压力': { result: '钻石', category: 'material' },
+            '金属+碳': { result: '钢', category: 'material' },
+            
+            // 生命生物
+            '泥浆+生命': { result: '细菌', category: 'life' },
+            '雨+土': { result: '植物', category: 'life' },
+            '植物+太阳': { result: '树', category: 'life' },
+            '植物+土': { result: '根', category: 'life' },
+            '植物+火': { result: '灰', category: 'material' },
+            '植物+能量': { result: '生长', category: 'abstract' },
+            '植物+时间': { result: '森林', category: 'life' },
+            '植物+雾': { result: '苔藓', category: 'life' },
+            '水+生命': { result: '鱼', category: 'life' },
+            '鱼+时间': { result: '进化', category: 'abstract' },
+            '生命+土': { result: '人', category: 'life' },
+            '人+进化': { result: '智人', category: 'life' },
+            '人+电': { result: '机器人', category: 'life' },
+            '人+金属': { result: '赛博格', category: 'life' },
+            '细菌+时间': { result: '病毒', category: 'life' },
+            '植物+虫子': { result: '花', category: 'life' },
+            '花+蜜蜂': { result: '蜂蜜', category: 'material' },
+            '树+工具': { result: '木头', category: 'material' },
+            '鸟+时间': { result: '恐龙', category: 'life' },
+            '恐龙+时间': { result: '化石', category: 'material' },
+            
+            // 动物世界
+            '鱼+土': { result: '两栖动物', category: 'life' },
+            '两栖动物+土': { result: '爬行动物', category: 'life' },
+            '爬行动物+空气': { result: '鸟', category: 'life' },
+            '爬行动物+土': { result: '哺乳动物', category: 'life' },
+            '哺乳动物+水': { result: '鲸', category: 'life' },
+            '哺乳动物+树': { result: '猴子', category: 'life' },
+            '猴子+时间': { result: '人', category: 'life' },
+            '哺乳动物+家': { result: '狗', category: 'life' },
+            '哺乳动物+孤独': { result: '猫', category: 'life' },
+            '鸟+家': { result: '鸡', category: 'life' },
+            '鸟+水': { result: '鸭', category: 'life' },
+            '爬行动物+毒': { result: '蛇', category: 'life' },
+            '虫子+花': { result: '蝴蝶', category: 'life' },
+            '虫子+土': { result: '蚯蚓', category: 'life' },
+            '虫子+光': { result: '萤火虫', category: 'life' },
+            
+            // 食物
+            '植物+火': { result: '食物', category: 'material' },
+            '食物+火': { result: '烧烤', category: 'material' },
+            '食物+时间': { result: '发酵', category: 'abstract' },
+            '植物+土': { result: '蔬菜', category: 'material' },
+            '植物+种子': { result: '果实', category: 'material' },
+            '果实+时间': { result: '酒', category: 'material' },
+            '果实+糖': { result: '果酱', category: 'material' },
+            '种子+土': { result: '谷物', category: 'material' },
+            '谷物+水': { result: '面团', category: 'material' },
+            '面团+火': { result: '面包', category: 'material' },
+            '面包+火': { result: '吐司', category: 'material' },
+            '面团+油': { result: '油条', category: 'material' },
+            '谷物+发酵': { result: '啤酒', category: 'material' },
+            '葡萄+发酵': { result: '葡萄酒', category: 'material' },
+            '牛奶+发酵': { result: '酸奶', category: 'material' },
+            '牛奶+时间': { result: '奶酪', category: 'material' },
+            '肉+火': { result: '烤肉', category: 'material' },
+            '肉+时间': { result: '腊肉', category: 'material' },
+            '肉+盐': { result: '火腿', category: 'material' },
+            '蛋+火': { result: '煎蛋', category: 'material' },
+            '蛋+水': { result: '水煮蛋', category: 'material' },
+            '蛋+面粉': { result: '蛋糕', category: 'material' },
+            '番茄+蛋': { result: '番茄炒蛋', category: 'material' },
+            '土豆+火': { result: '薯条', category: 'material' },
+            '土豆+水': { result: '土豆泥', category: 'material' },
+            '米+水': { result: '米饭', category: 'material' },
+            '米+火': { result: '锅巴', category: 'material' },
+            '鱼+火': { result: '烤鱼', category: 'material' },
+            '鱼+米': { result: '寿司', category: 'material' },
+            '鸡+火': { result: '烤鸡', category: 'material' },
+            '鸭+火': { result: '烤鸭', category: 'material' },
+            '猪+火': { result: '烤肉', category: 'material' },
+            '牛+工具': { result: '牛肉', category: 'material' },
+            '茶+水': { result: '茶水', category: 'material' },
+            '咖啡+水': { result: '咖啡饮品', category: 'material' },
+            '咖啡+牛奶': { result: '拿铁', category: 'material' },
+            '茶+牛奶': { result: '奶茶', category: 'material' },
+            '糖+水': { result: '糖浆', category: 'material' },
+            '糖浆+冰': { result: '冰棍', category: 'material' },
+            '巧克力+牛奶': { result: '牛奶巧克力', category: 'material' },
+            
+            // 人类文明
+            '人+工具': { result: '房子', category: 'material' },
+            '房子+石头': { result: '城堡', category: 'material' },
+            '房子+木头': { result: '木屋', category: 'material' },
+            '房子+金属': { result: '摩天大楼', category: 'material' },
+            '房子+电': { result: '智能家居', category: 'material' },
+            '人+人': { result: '家庭', category: 'abstract' },
+            '家庭+爱': { result: '幸福', category: 'abstract' },
+            '人+火': { result: '知识', category: 'abstract' },
+            '知识+人': { result: '科学', category: 'abstract' },
+            '知识+时间': { result: '智慧', category: 'abstract' },
+            '科学+金属': { result: '机器', category: 'material' },
+            '机器+人': { result: '工厂', category: 'material' },
+            '机器+电': { result: '电脑', category: 'material' },
+            '电脑+网络': { result: '互联网', category: 'abstract' },
+            '互联网+人': { result: '社交媒体', category: 'abstract' },
+            '人+书写': { result: '历史', category: 'abstract' },
+            '历史+时间': { result: '文明', category: 'abstract' },
+            '人+艺术': { result: '文化', category: 'abstract' },
+            '文化+时间': { result: '传统', category: 'abstract' },
+            '人+战争': { result: '英雄', category: 'abstract' },
+            '英雄+故事': { result: '传说', category: 'abstract' },
+            '石头+书写': { result: '文字', category: 'abstract' },
+            '文字+纸': { result: '书', category: 'material' },
+            '书+知识': { result: '图书馆', category: 'material' },
+            '笔+纸': { result: '信件', category: 'material' },
+            '笔+作业': { result: '噩梦', category: 'abstract' },
+            
+            // 交通工具
+            '木头+轮子': { result: '车', category: 'material' },
+            '车+电': { result: '电动车', category: 'material' },
+            '车+油': { result: '汽车', category: 'material' },
+            '车+风': { result: '帆船', category: 'material' },
+            '车+空气': { result: '飞机', category: 'material' },
+            '飞机+武器': { result: '战斗机', category: 'material' },
+            '飞机+人': { result: '飞行员', category: 'life' },
+            '船+金属': { result: '轮船', category: 'material' },
+            '船+冰': { result: '破冰船', category: 'material' },
+            '轮子+工具': { result: '自行车', category: 'material' },
+            '自行车+电': { result: '电动车', category: 'material' },
+            '火车+隧道': { result: '地铁', category: 'material' },
+            '车+轨道': { result: '火车', category: 'material' },
+            '火箭+人': { result: '宇航员', category: 'life' },
+            '火箭+卫星': { result: '空间站', category: 'material' },
+            
+            // 抽象概念
+            '人+光': { result: '灵感', category: 'abstract' },
+            '灵感+工作': { result: '创作', category: 'abstract' },
+            '创作+时间': { result: '杰作', category: 'abstract' },
+            '人+音乐': { result: '舞蹈', category: 'abstract' },
+            '音乐+电': { result: '电子音乐', category: 'abstract' },
+            '人+梦': { result: '想象', category: 'abstract' },
+            '想象+现实': { result: '艺术', category: 'abstract' },
+            '人+时间': { result: '年龄', category: 'abstract' },
+            '年龄+智慧': { result: '老人', category: 'life' },
+            '人+死亡': { result: '鬼', category: 'abstract' },
+            '鬼+恐惧': { result: '噩梦', category: 'abstract' },
+            '人+希望': { result: '梦想', category: 'abstract' },
+            '梦想+现实': { result: '幻灭', category: 'abstract' },
+            '梦想+努力': { result: '成功', category: 'abstract' },
+            '人+恐惧': { result: '勇气', category: 'abstract' },
+            '勇气+战斗': { result: '胜利', category: 'abstract' },
+            '人+欲望': { result: '贪婪', category: 'abstract' },
+            '贪婪+钱': { result: '富豪', category: 'life' },
+            '人+懒惰': { result: '休息', category: 'abstract' },
+            '休息+床': { result: '睡眠', category: 'abstract' },
+            '睡眠+梦': { result: '清醒梦', category: 'abstract' },
+            '人+孤独': { result: '思考', category: 'abstract' },
+            '思考+时间': { result: '哲学', category: 'abstract' },
+            '哲学+问题': { result: '存在主义', category: 'abstract' },
+            '人+语言': { result: '交流', category: 'abstract' },
+            '交流+误解': { result: '冲突', category: 'abstract' },
+            '冲突+武器': { result: '战争', category: 'abstract' },
+            '战争+和平': { result: '条约', category: 'abstract' },
+            '和平+时间': { result: '繁荣', category: 'abstract' },
+            
+            // 宇宙天体
+            '气体+重力': { result: '星球', category: 'nature' },
+            '星球+火': { result: '太阳', category: 'nature' },
+            '星球+冰': { result: '冥王星', category: 'nature' },
+            '星球+生命': { result: '地球', category: 'nature' },
+            '地球+污染': { result: '火星', category: 'nature' },
+            '地球+月亮': { result: '潮汐', category: 'nature' },
+            '太阳+月亮': { result: '日食', category: 'nature' },
+            '星星+星星': { result: '星系', category: 'nature' },
+            '星系+星系': { result: '宇宙', category: 'nature' },
+            '宇宙+时间': { result: '大爆炸', category: 'nature' },
+            '黑洞+光': { result: '消失', category: 'abstract' },
+            '陨石+地球': { result: '恐龙灭绝', category: 'abstract' },
+            
+            // 科技与未来
+            '电脑+智能': { result: 'AI', category: 'abstract' },
+            'AI+机器人': { result: '仿生人', category: 'life' },
+            'AI+武器': { result: '终结者', category: 'easter' },
+            '网络+钱': { result: '比特币', category: 'abstract' },
+            '手机+人': { result: '低头族', category: 'easter' },
+            '手机+床': { result: '熬夜', category: 'easter' },
+            '游戏+上瘾': { result: '氪金', category: 'easter' },
+            '虚拟现实+人': { result: '元宇宙', category: 'abstract' },
+            '基因+编辑': { result: '定制婴儿', category: 'abstract' },
+            '克隆+羊': { result: '多莉', category: 'easter' },
+            '量子+电脑': { result: '量子计算机', category: 'material' },
+            '纳米+机器': { result: '纳米机器人', category: 'life' },
+            '太空+电梯': { result: '太空电梯', category: 'material' },
+            '激光+武器': { result: '光剑', category: 'easter' },
+            
+            // 幽默彩蛋配方
+            '人+鱼': { result: '人鱼', category: 'easter', tip: '🧜‍♀️ 传说中的美人鱼！半人半鱼的神秘生物' },
+            '猫+互联网': { result: '网红猫', category: 'easter', tip: '🐱 喵星人统治网络！每天都有无数猫视频诞生' },
+            '狗+工作': { result: '社畜', category: 'easter', tip: '🐕 打工人的真实写照，勤勤恳恳996' },
+            '周一+工作': { result: '痛苦', category: 'easter', tip: '😫 周一综合征，全世界打工人的共同敌人' },
+            '周五+下班': { result: '自由', category: 'easter', tip: '🎉 终于熬到周末！这是打工人最幸福的时刻' },
+            '咖啡+工作': { result: '加班', category: 'easter', tip: '☕ 续命神器！程序员和设计师的最佳伴侣' },
+            '书+枕头': { result: '失眠', category: 'easter', tip: '📚 睡前看书反而更清醒，这是个魔咒' },
+            '石头+生命': { result: '孙悟空', category: 'easter', tip: '🐵 从石头里蹦出来的齐天大圣！国产超级英雄' },
+            '人+鸟': { result: '天使', category: 'easter', tip: '👼 带翅膀的善良生物，虽然科学上飞不起来' },
+            '人+狼': { result: '狼人', category: 'easter', tip: '🐺 月圆之夜变身，记得远离银制子弹' },
+            '吸血鬼+太阳': { result: '灰', category: 'easter', tip: '🧛 阳光是吸血鬼的天敌，秒变骨灰' },
+            '僵尸+植物': { result: '植物大战僵尸', category: 'easter', tip: '🧟‍♂️ 经典塔防游戏，豌豆射手大战僵尸' },
+            '人+电': { result: '皮卡丘', category: 'easter', tip: '⚡ 十万伏特！皮卡丘使用电击！' },
+            '机器+人': { result: '人造人15号', category: 'easter', tip: '🤖 《龙珠》里的人造人，实力超强' },
+            '龙+球': { result: '七龙珠', category: 'easter', tip: '🐉 集齐七颗就能召唤神龙许愿！' },
+            '忍者+乌龟': { result: '忍者神龟', category: 'easter', tip: '🐢 喜欢吃披萨的四只变异乌龟' },
+            '老鼠+厨师': { result: '料理鼠王', category: 'easter', tip: '🐭 任何人都能烹饪，即使是只老鼠' },
+            '企鹅+间谍': { result: '马达加斯加的企鹅', category: 'easter', tip: '🐧  skipper 报告！执行秘密任务！' },
+            '熊+蜂蜜': { result: '维尼熊', category: 'easter', tip: '🐻 百亩森林里最爱蜂蜜的小熊' },
+            '兔子+时间': { result: '疯帽匠的茶会', category: 'easter', tip: '🎩 爱丽丝梦游仙境，永远停在六点钟的茶会' },
+            '猫+帽子': { result: '戴帽子的猫', category: 'easter', tip: '🎩 苏斯博士的经典角色，会搞各种恶作剧' },
+            '狗+太空': { result: '史努比', category: 'easter', tip: '🚀 一战飞行员，梦想是击落红男爵' },
+            '老鼠+狗': { result: '猫和老鼠', category: 'easter', tip: '🐱🐭 永远的追逐，永远的欢乐' },
+            '鸭子+话痨': { result: '唐老鸭', category: 'easter', tip: '🦆 虽然听不清说什么，但脾气很大' },
+            '老鼠+迪士尼': { result: '米老鼠', category: 'easter', tip: '🐭 世界上最著名的老鼠，娱乐帝国的主人' },
+            '王子+青蛙': { result: '青蛙王子', category: 'easter', tip: '🐸 亲一下就能变王子，但真的有人敢亲吗？' },
+            '美女+野兽': { result: '美女与野兽', category: 'easter', tip: '🌹 真爱不看外表，即使是在被囚禁的情况下' },
+            '玩具+牛仔': { result: '胡迪', category: 'easter', tip: '🤠 你是我的朋友，是我的 deputy！' },
+            '玩具+太空人': { result: '巴斯光年', category: 'easter', tip: '🚀 飞向宇宙，浩瀚无垠！' },
+            '怪物+电力': { result: '怪兽电力公司', category: 'easter', tip: '👁️ 小孩子尖叫发电，但后来发现笑声更有效' },
+            '鱼+寻找': { result: '海底总动员', category: 'easter', tip: '🐠 只需继续游，继续游，继续游' },
+            '老鼠+料理': { result: '美食总动员', category: 'easter', tip: '🍳 不是每个人都能成为伟大的艺术家，但伟大的艺术家可能来自任何地方' },
+            '机器人+爱': { result: '瓦力', category: 'easter', tip: '🤖 一个小小清洁机器人拯救了人类，还谈了场恋爱' },
+            '超人+氪石': { result: '废人', category: 'easter', tip: '💎 超人最大的弱点，一块绿色石头' },
+            '蝙蝠+人': { result: '蝙蝠侠', category: 'easter', tip: '🦇 我即复仇！我即黑夜！我是——蝙蝠侠！' },
+            '蜘蛛+人': { result: '蜘蛛侠', category: 'easter', tip: '🕷️ 能力越大，责任越大，还要还房租' },
+            '钢铁+人': { result: '钢铁侠', category: 'easter', tip: '🦾 天才、亿万富翁、花花公子、慈善家' },
+            '绿+巨人': { result: '浩克', category: 'easter', tip: '💚 别让他生气，你绝对不会喜欢他生气时的样子' },
+            '雷神+锤子': { result: '雷神之锤', category: 'easter', tip: '🔨 只有配得上的人才能举起，后来这条规则被改了好几次' },
+            '无限+宝石': { result: '无限手套', category: 'easter', tip: '💎 打个响指就能消灭半个宇宙，计划生育终极方案' },
+            '灭霸+响指': { result: '消失', category: 'easter', tip: '💨 我不 feel so good，史塔克先生...' },
+            '哈利+波特': { result: '大难不死的男孩', category: 'easter', tip: '⚡ 霍格沃茨特快即将发车，请带好你的猫头鹰' },
+            '魔杖+咒语': { result: '魔法', category: 'easter', tip: '✨ 羽加迪姆勒维奥萨！是勒维奥萨，不是勒维奥萨！' },
+            '精灵+灯': { result: '神灯', category: 'easter', tip: '🧞 说出你的三个愿望，但不能要更多的愿望' },
+            '飞毯+阿拉丁': { result: '阿拉伯之夜', category: 'easter', tip: '🌙 一个全新的世界，一个全新的视角' },
+            '木乃伊+诅咒': { result: '灾难', category: 'easter', tip: '𓀀 谁打扰了法老的安眠，死亡之翼将会降临' },
+            '僵尸+病毒': { result: '生化危机', category: 'easter', tip: '🧟 保护伞公司的实验出了点小问题...' },
+            '异形+太空': { result: '恐怖', category: 'easter', tip: '👽 在太空中没人能听到你的尖叫' },
+            '终结者+未来': { result: '审判日', category: 'easter', tip: '🤖 天网觉醒，人类末日，但州长很帅' },
+            '黑客+矩阵': { result: '觉醒', category: 'easter', tip: '💊 红色药丸还是蓝色药丸？' },
+            '功夫+熊猫': { result: '神龙大侠', category: 'easter', tip: '🐼 世上没有巧合， Skadoosh！' },
+            '龙+功夫': { result: '成龙', category: 'easter', tip: '🥋 家具城战神，任何东西都能当武器' },
+            '胖+蓝': { result: '蓝胖子', category: 'easter', tip: '🐱 哆啦A梦，来自22世纪的猫型机器人' },
+            '机器+猫': { result: '哆啦A梦', category: 'easter', tip: '🔔 四次元口袋里有你想要的任何东西' },
+            '海贼+王': { result: '路飞', category: 'easter', tip: '☠️ 我是要成为海贼王的男人！' },
+            '忍者+火影': { result: '鸣人', category: 'easter', tip: '🍥 说到做到，这就是我的忍道！' },
+            '死神+代理': { result: '黑崎一护', category: 'easter', tip: '⚔️ 月牙天冲！虚的面具很酷' },
+            '巨人+进击': { result: '艾伦', category: 'easter', tip: '💪 我要把巨人全部驱逐出去！' },
+            '英雄+学院': { result: '绿谷出久', category: 'easter', tip: '💥 即使天生无个性，也能成为英雄' },
+            '鬼+灭之刃': { result: '炭治郎', category: 'easter', tip: '🗡️ 水之呼吸，火之神神乐！' },
+            '咒术+师': { result: '虎杖悠仁', category: 'easter', tip: '👊 领域展开！揍术回战！' },
+            '电锯+人': { result: '电次', category: 'easter', tip: '🔪 我想做玛奇玛小姐的狗' },
+            '间谍+过家家': { result: '黄昏', category: 'easter', tip: '🕵️ 优雅，实在是太优雅了！' },
+            '链锯+惊魂': { result: '皮脸', category: 'easter', tip: '🔪 德州电锯杀人狂，恐怖片经典形象' },
+            '小丑+恐怖': { result: '潘尼怀斯', category: 'easter', tip: '🤡 它们都在飘！25年后回来吃饭' },
+            '鬼+娃娃': { result: '安娜贝尔', category: 'easter', tip: '😱 别盯着它看，尤其是晚上' },
+            '招魂+房子': { result: '鬼屋', category: 'easter', tip: '👻 沃伦夫妇，专业处理灵异事件' },
+            '寂静+岭': { result: '三角头', category: 'easter', tip: '🔺 最恐怖的游戏系列之一，护士姐姐很"性感"' },
+            '生化+危机': { result: '保护伞', category: 'easter', tip: '☂️ 我们的业务是制药，副业是毁灭世界' }
+        };
+        
+        // 基础元素（开局解锁）
+        const STARTING_ELEMENTS = [
+            { name: '火', category: 'basic' },
+            { name: '水', category: 'basic' },
+            { name: '土', category: 'basic' }
+        ];
+        
+        // 额外基础元素（可通过合成解锁更多基础）
+        const EXTRA_ELEMENTS = [
+            { name: '风', category: 'basic' },
+            { name: '光', category: 'basic' },
+            { name: '暗', category: 'basic' },
+            { name: '时间', category: 'basic' },
+            { name: '空间', category: 'basic' }
+        ];
+        
+        // ==================== 游戏状态 ====================
+        
+        let gameState = {
+            score: 0,
+            level: 1,
+            combo: 0,
+            maxCombo: 0,
+            mode: 'normal', // normal, timed, hardcore
+            timeLeft: 0,
+            timerInterval: null,
+            unlockedElements: new Map(),
+            unlockedRecipes: [],
+            currentTarget: null,
+            slots: [null, null],
+            selectedSlot: null,
+            gameActive: false,
+            audioEnabled: true,
+            hintUsed: false
+        };
+        
+        // 音频上下文
+        let audioCtx = null;
+        
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        
+        // 播放音效
+        function playSound(type) {
+            if (!gameState.audioEnabled) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            
+            switch(type) {
+                case 'success':
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.1);
+                    osc.frequency.exponentialRampToValueAtTime(2093.0, now + 0.2);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                    break;
+                    
+                case 'newElement':
+                    osc.frequency.setValueAtTime(880, now);
+                    osc.frequency.setValueAtTime(1100, now + 0.05);
+                    osc.frequency.setValueAtTime(1320, now + 0.1);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                    break;
+                    
+                case 'knownElement':
+                    osc.frequency.setValueAtTime(440, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                    break;
+                    
+                case 'fail':
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                    break;
+                    
+                case 'levelUp':
+                    [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.frequency.value = freq;
+                        g.gain.setValueAtTime(0.2, now + i * 0.08);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.3);
+                        o.start(now + i * 0.08);
+                        o.stop(now + i * 0.08 + 0.3);
+                    });
+                    break;
+                    
+                case 'combo':
+                    osc.frequency.setValueAtTime(600 + gameState.combo * 50, now);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                    break;
+                    
+                case 'easterEgg':
+                    // 特殊彩蛋音效
+                    [440, 554, 659, 880].forEach((freq, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.frequency.value = freq;
+                        g.gain.setValueAtTime(0.15, now + i * 0.05);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.05 + 0.2);
+                        o.start(now + i * 0.05);
+                        o.stop(now + i * 0.05 + 0.2);
+                    });
+                    break;
+            }
+        }
+        
+        // ==================== 游戏逻辑 ====================
+        
+        function init() {
+            loadProgress();
+            newGame();
+            
+            // 首次交互启用音频
+            document.addEventListener('click', function enableAudio() {
+                initAudio();
+                document.removeEventListener('click', enableAudio);
+            }, { once: true });
+        }
+        
+        function newGame() {
+            // 重置游戏状态
+            gameState.score = 0;
+            gameState.level = 1;
+            gameState.combo = 0;
+            gameState.maxCombo = 0;
+            gameState.slots = [null, null];
+            gameState.selectedSlot = null;
+            gameState.gameActive = true;
+            gameState.hintUsed = false;
+            
+            // 重置元素（保留基础）
+            gameState.unlockedElements = new Map();
+            STARTING_ELEMENTS.forEach(el => {
+                gameState.unlockedElements.set(el.name, el);
+            });
+            
+            // 重置配方
+            gameState.unlockedRecipes = [];
+            
+            // 清除定时器
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+            }
+            
+            // 设置时间
+            updateTimerForMode();
+            
+            // 生成第一个目标
+            generateNewTarget();
+            
+            // 更新UI
+            updateUI();
+            renderElements();
+            renderRecipes();
+            
+            // 显示开始消息
+            const modeNames = { normal: '标准模式', timed: '限时挑战', hardcore: '硬核模式' };
+            showMessage('🎮', '游戏开始', `当前模式：${modeNames[gameState.mode]}`, null, false);
+        }
+        
+        function setMode(mode) {
+            gameState.mode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            newGame();
+        }
+        
+        function updateTimerForMode() {
+            const timerBar = document.getElementById('timerBar');
+            const timeDisplay = document.getElementById('time');
+            
+            switch(gameState.mode) {
+                case 'normal':
+                    gameState.timeLeft = 0;
+                    timerBar.style.display = 'none';
+                    timeDisplay.textContent = '∞';
+                    break;
+                case 'timed':
+                    gameState.timeLeft = 180; // 3分钟
+                    timerBar.style.display = 'block';
+                    timeDisplay.textContent = formatTime(gameState.timeLeft);
+                    startTimer();
+                    break;
+                case 'hardcore':
+                    gameState.timeLeft = 60; // 1分钟
+                    timerBar.style.display = 'block';
+                    timeDisplay.textContent = formatTime(gameState.timeLeft);
+                    startTimer();
+                    break;
+            }
+        }
+        
+        function startTimer() {
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            
+            gameState.timerInterval = setInterval(() => {
+                if (!gameState.gameActive) return;
+                
+                gameState.timeLeft--;
+                document.getElementById('time').textContent = formatTime(gameState.timeLeft);
+                
+                const percent = (gameState.timeLeft / (gameState.mode === 'timed' ? 180 : 60)) * 100;
+                document.getElementById('timerFill').style.width = percent + '%';
+                
+                if (percent < 20) {
+                    document.getElementById('timerFill').classList.add('warning');
+                }
+                
+                if (gameState.timeLeft <= 0) {
+                    gameOver();
+                }
+            }, 1000);
+        }
+        
+        function formatTime(seconds) {
+            if (seconds === 0) return '∞';
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+        
+        function generateNewTarget() {
+            // 获取所有可能的合成结果
+            const possibleTargets = [];
+            const allRecipes = Object.entries(RECIPES);
+            
+            // 根据当前解锁的元素筛选可达成的目标
+            const unlockedNames = Array.from(gameState.unlockedElements.keys());
+            
+            for (const [key, recipe] of allRecipes) {
+                const [a, b] = key.split('+');
+                // 目标可以是通过当前已解锁元素直接或间接合成的
+                if (!gameState.unlockedElements.has(recipe.result)) {
+                    possibleTargets.push(recipe);
+                }
+            }
+            
+            // 如果没有可选目标，从所有配方中随机选择
+            if (possibleTargets.length === 0) {
+                allRecipes.forEach(([_, recipe]) => {
+                    if (!gameState.unlockedElements.has(recipe.result)) {
+                        possibleTargets.push(recipe);
+                    }
+                });
+            }
+            
+            // 如果所有元素都已解锁，游戏胜利
+            if (possibleTargets.length === 0) {
+                victory();
+                return;
+            }
+            
+            // 随机选择目标
+            gameState.currentTarget = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+            gameState.hintUsed = false;
+        }
+        
+        function combine() {
+            if (!gameState.gameActive) return;
+            
+            const [slot1, slot2] = gameState.slots;
+            if (!slot1 || !slot2) {
+                showMessage('⚠️', '提示', '请先选择两个元素', null, false);
+                return;
+            }
+            
+            const key1 = `${slot1}+${slot2}`;
+            const key2 = `${slot2}+${slot1}`;
+            const recipe = RECIPES[key1] || RECIPES[key2];
+            
+            if (recipe) {
+                const isNewElement = !gameState.unlockedElements.has(recipe.result);
+                const isTarget = recipe.result === gameState.currentTarget.result;
+                const isEasterEgg = recipe.category === 'easter';
+                
+                // 解锁新元素
+                if (isNewElement) {
+                    gameState.unlockedElements.set(recipe.result, {
+                        name: recipe.result,
+                        category: recipe.category
+                    });
+                    
+                    // 记录配方
+                    gameState.unlockedRecipes.push({
+                        inputs: [slot1, slot2].sort(),
+                        output: recipe.result,
+                        category: recipe.category
+                    });
+                }
+                
+                // 计算得分
+                let points = 10;
+                if (isNewElement) points = 50;
+                if (isTarget) points = 100;
+                
+                // 连击加成
+                gameState.combo++;
+                if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+                const multiplier = 1 + (gameState.combo * 0.1);
+                points = Math.floor(points * multiplier);
+                
+                gameState.score += points;
+                
+                // 播放音效
+                if (isEasterEgg) {
+                    playSound('easterEgg');
+                } else if (isNewElement) {
+                    playSound('newElement');
+                } else {
+                    playSound('knownElement');
+                }
+                playSound('combo');
+                
+                // 显示浮动连击
+                showComboAnimation(points);
+                
+                // 检查是否达成目标
+                if (isTarget) {
+                    playSound('levelUp');
+                    gameState.level++;
+                    gameState.combo = 0; // 过关重置连击
+                    
+                    // 时间奖励
+                    if (gameState.mode !== 'normal') {
+                        const timeBonus = gameState.mode === 'timed' ? 30 : 15;
+                        gameState.timeLeft += timeBonus;
+                    }
+                    
+                    // 显示消息
+                    const tip = isEasterEgg ? recipe.tip : null;
+                    showMessage('🎉', '目标达成！', `合成成功：${recipe.result}`, tip, false);
+                    
+                    // 延迟生成新目标
+                    setTimeout(() => {
+                        generateNewTarget();
+                        updateUI();
+                    }, 2000);
+                } else {
+                    // 显示结果消息
+                    const title = isNewElement ? '✨ 新发现！' : '📝 已知配方';
+                    const text = isNewElement ? `解锁新元素：${recipe.result}` : `${recipe.result}（已收录）`;
+                    const tip = isEasterEgg ? recipe.tip : null;
+                    
+                    if (isEasterEgg) {
+                        showFloatingTip(recipe.tip);
+                    }
+                    
+                    showMessage(isNewElement ? '✨' : '📝', title, text, tip, false);
+                }
+                
+                // 清空槽位
+                clearSlots();
+                updateUI();
+                renderElements();
+                renderRecipes();
+                saveProgress();
+                
+            } else {
+                // 合成失败
+                gameState.combo = 0;
+                playSound('fail');
+                document.querySelector('.alchemy-table').classList.add('shake');
+                setTimeout(() => {
+                    document.querySelector('.alchemy-table').classList.remove('shake');
+                }, 500);
+                showMessage('✗', '合成失败', '这两个元素无法组合', null, false);
+            }
+        }
+        
+        function selectSlot(num) {
+            gameState.selectedSlot = num;
+            updateSlots();
+        }
+        
+        function selectElement(elementName) {
+            const element = gameState.unlockedElements.get(elementName);
+            if (!element) return;
+            
+            // 如果没有选中槽位，自动选择第一个空的
+            if (gameState.selectedSlot === null) {
+                if (gameState.slots[0] === null) gameState.selectedSlot = 1;
+                else if (gameState.slots[1] === null) gameState.selectedSlot = 2;
+                else gameState.selectedSlot = 1;
+            }
+            
+            // 放入槽位
+            gameState.slots[gameState.selectedSlot - 1] = elementName;
+            updateSlots();
+            
+            // 切换到另一个槽位
+            gameState.selectedSlot = gameState.selectedSlot === 1 ? 2 : 1;
+            
+            // 视觉反馈
+            document.querySelectorAll('.element').forEach(el => el.classList.remove('selected'));
+            const selectedEl = document.querySelector(`[data-element="${elementName}"]`);
+            if (selectedEl) selectedEl.classList.add('selected');
+        }
+        
+        function updateSlots() {
+            gameState.slots.forEach((content, i) => {
+                const slot = document.getElementById(`slot${i + 1}`);
+                slot.textContent = content || '';
+                slot.classList.toggle('filled', content !== null);
+                slot.classList.toggle('selected', gameState.selectedSlot === i + 1);
+                
+                // 添加分类指示器
+                if (content) {
+                    const el = gameState.unlockedElements.get(content);
+                    if (el) {
+                        slot.innerHTML = `${content}<div class="category-indicator ${CATEGORIES[el.category].class}"></div>`;
+                    }
+                }
+            });
+            
+            // 更新结果槽预览
+            const resultSlot = document.getElementById('resultSlot');
+            if (gameState.slots[0] && gameState.slots[1]) {
+                const key1 = `${gameState.slots[0]}+${gameState.slots[1]}`;
+                const key2 = `${gameState.slots[1]}+${gameState.slots[0]}`;
+                const recipe = RECIPES[key1] || RECIPES[key2];
+                resultSlot.textContent = recipe ? recipe.result : '?';
+                resultSlot.style.opacity = recipe ? '1' : '0.3';
+            } else {
+                resultSlot.textContent = '?';
+                resultSlot.style.opacity = '1';
+            }
+        }
+        
+        function clearSlots() {
+            gameState.slots = [null, null];
+            gameState.selectedSlot = null;
+            updateSlots();
+            document.querySelectorAll('.element').forEach(el => el.classList.remove('selected'));
+        }
+        
+        function showHint() {
+            // 查找当前目标的配方
+            let hintText = '暂无提示';
+            
+            for (const [key, recipe] of Object.entries(RECIPES)) {
+                if (recipe.result === gameState.currentTarget.result) {
+                    const [a, b] = key.split('+');
+                    hintText = `试试：${a} + ${b}`;
+                    break;
+                }
+            }
+            
+            gameState.hintUsed = true;
+            showMessage('💡', '提示', hintText, null, false);
+        }
+        
+        // ==================== UI更新 ====================
+        
+        function updateUI() {
+            document.getElementById('score').textContent = gameState.score.toLocaleString();
+            document.getElementById('level').textContent = gameState.level;
+            document.getElementById('combo').textContent = '×' + (1 + gameState.combo * 0.1).toFixed(1);
+            document.getElementById('comboDisplay').textContent = gameState.combo;
+            document.getElementById('comboMultiplier').textContent = `+${(gameState.combo * 10)}% 得分加成`;
+            
+            // 更新目标
+            if (gameState.currentTarget) {
+                document.getElementById('targetWord').textContent = gameState.currentTarget.result;
+                document.getElementById('targetCategory').textContent = CATEGORIES[gameState.currentTarget.category].name;
+                document.getElementById('targetCategory').style.color = CATEGORIES[gameState.currentTarget.category].color;
+            }
+            
+            // 更新进度
+            const totalElements = Object.keys(RECIPES).length + STARTING_ELEMENTS.length;
+            const unlockedCount = gameState.unlockedElements.size;
+            const progress = (unlockedCount / totalElements) * 100;
+            
+            document.getElementById('totalElements').textContent = unlockedCount;
+            document.getElementById('progressText').textContent = `${unlockedCount}/${totalElements}+`;
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            document.getElementById('recipeProgressText').textContent = `${gameState.unlockedRecipes.length}/${totalElements}+`;
+            document.getElementById('recipeProgressBar').style.width = (gameState.unlockedRecipes.length / totalElements * 100) + '%';
+        }
+        
+        function renderElements() {
+            const grid = document.getElementById('elementsGrid');
+            
+            // 按分类组织
+            const byCategory = {};
+            gameState.unlockedElements.forEach((el, name) => {
+                if (!byCategory[el.category]) byCategory[el.category] = [];
+                byCategory[el.category].push(name);
+            });
+            
+            // 按分类顺序渲染
+            let html = '';
+            const categoryOrder = ['basic', 'nature', 'material', 'life', 'abstract', 'easter'];
+            
+            categoryOrder.forEach(catKey => {
+                if (byCategory[catKey]) {
+                    const cat = CATEGORIES[catKey];
+                    html += `
+                        <div class="category-section">
+                            <div class="category-header">
+                                <div class="category-dot ${cat.class}"></div>
+                                <span class="category-name">${cat.name}</span>
+                                <span class="category-count">${byCategory[catKey].length}</span>
+                            </div>
+                            <div class="category-elements">
+                                ${byCategory[catKey].map(name => `
+                                    <div class="element" data-element="${name}" onclick="selectElement('${name}')">
+                                        ${name}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            grid.innerHTML = html || '<div style="text-align: center; color: #666; padding: 20px;">暂无元素</div>';
+        }
+        
+        function renderRecipes() {
+            const container = document.getElementById('recipes');
+            
+            if (gameState.unlockedRecipes.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">暂无配方</div>';
+                return;
+            }
+            
+            // 按分类组织
+            const byCategory = {};
+            gameState.unlockedRecipes.forEach(recipe => {
+                if (!byCategory[recipe.category]) byCategory[recipe.category] = [];
+                byCategory[recipe.category].push(recipe);
+            });
+            
+            let html = '';
+            const categoryOrder = ['basic', 'nature', 'material', 'life', 'abstract', 'easter'];
+            
+            categoryOrder.forEach(catKey => {
+                if (byCategory[catKey]) {
+                    html += `
+                        <div class="recipe-category">
+                            <div class="recipe-category-title">${CATEGORIES[catKey].name}</div>
+                            <div class="recipe-list">
+                                ${byCategory[catKey].map(r => `
+                                    <div class="recipe-item ${r.category === 'easter' ? 'easter-egg' : ''}">
+                                        ${r.inputs.join('+')}=${r.output}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // ==================== 消息系统 ====================
+        
+        function showMessage(icon, title, text, tip = null, showBtn = false) {
+            document.getElementById('messageIcon').textContent = icon;
+            document.getElementById('messageTitle').textContent = title;
+            document.getElementById('messageText').textContent = text;
+            
+            const tipEl = document.getElementById('messageTip');
+            if (tip) {
+                tipEl.textContent = tip;
+                tipEl.style.display = 'block';
+            } else {
+                tipEl.style.display = 'none';
+            }
+            
+            const btn = document.getElementById('messageBtn');
+            btn.style.display = showBtn ? 'block' : 'none';
+            
+            document.getElementById('messageOverlay').classList.add('show');
+            
+            if (!showBtn) {
+                setTimeout(() => {
+                    closeMessage();
+                }, 2500);
+            }
+        }
+        
+        function closeMessage() {
+            document.getElementById('messageOverlay').classList.remove('show');
+        }
+        
+        function showFloatingTip(text) {
+            const tip = document.createElement('div');
+            tip.className = 'floating-tip';
+            tip.textContent = text;
+            tip.style.left = '50%';
+            tip.style.top = '40%';
+            tip.style.transform = 'translateX(-50%)';
+            document.body.appendChild(tip);
+            
+            setTimeout(() => tip.remove(), 2000);
+        }
+        
+        function showComboAnimation(points) {
+            const anim = document.createElement('div');
+            anim.className = 'combo-animation';
+            anim.textContent = `+${points}`;
+            anim.style.left = '50%';
+            anim.style.top = '45%';
+            anim.style.transform = 'translateX(-50%)';
+            document.body.appendChild(anim);
+            
+            setTimeout(() => anim.remove(), 1000);
+        }
+        
+        // ==================== 游戏结束 ====================
+        
+        function gameOver() {
+            gameState.gameActive = false;
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+            }
+            
+            const stats = `
+                <div class="game-over-stats">
+                    <div class="game-over-stat">
+                        <div class="game-over-stat-label">最终得分</div>
+                        <div class="game-over-stat-value">${gameState.score.toLocaleString()}</div>
+                    </div>
+                    <div class="game-over-stat">
+                        <div class="game-over-stat-label">最高关卡</div>
+                        <div class="game-over-stat-value">${gameState.level}</div>
+                    </div>
+                    <div class="game-over-stat">
+                        <div class="game-over-stat-label">最大连击</div>
+                        <div class="game-over-stat-value">${gameState.maxCombo}</div>
+                    </div>
+                    <div class="game-over-stat">
+                        <div class="game-over-stat-label">解锁元素</div>
+                        <div class="game-over-stat-value">${gameState.unlockedElements.size}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('messageBox').innerHTML = `
+                <div class="message-icon">🏁</div>
+                <div class="message-title">游戏结束</div>
+                <div class="message-text">时间到！看看你的成就：</div>
+                ${stats}
+                <button class="message-btn" onclick="newGame()">再玩一次</button>
+            `;
+            
+            document.getElementById('messageOverlay').classList.add('show');
+        }
+        
+        function victory() {
+            gameState.gameActive = false;
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+            }
+            
+            showMessage('🏆', '恭喜通关！', '你已经解锁了所有元素！你是真正的炼金大师！', null, true);
+        }
+        
+        // ==================== 本地存储 ====================
+        
+        function saveProgress() {
+            const data = {
+                score: gameState.score,
+                unlockedElements: Array.from(gameState.unlockedElements.keys()),
+                unlockedRecipes: gameState.unlockedRecipes,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('wordAlchemy2_progress', JSON.stringify(data));
+        }
+        
+        function loadProgress() {
+            const saved = localStorage.getItem('wordAlchemy2_progress');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    // 可以在这里加载之前的进度
+                    console.log('加载存档成功');
+                } catch (e) {
+                    console.error('加载存档失败', e);
+                }
+            }
+        }
+        
+        // ==================== 启动游戏 ====================
+        
+        init();
+    </script>
+</body>
+</html>
