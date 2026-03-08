@@ -1006,49 +1006,87 @@
             }
         }
 
-        // 播放片段
+        // ==================== 节拍对齐系统（类似Blog）====================
+        const BPM = 120;
+        const beatInterval = 60 / BPM; // 0.5秒一拍
+        let globalBeatTime = 0; // 全局节拍时间基准
+        let beatSchedulerId = null;
+
+        // 初始化全局节拍调度器
+        function initBeatScheduler() {
+            if (beatSchedulerId) return;
+            
+            const ctx = gameState.audioContext;
+            globalBeatTime = ctx.currentTime;
+            
+            // 每拍更新全局时间
+            beatSchedulerId = setInterval(() => {
+                globalBeatTime += beatInterval;
+            }, beatInterval * 1000);
+        }
+
+        // 获取下一个节拍点时间
+        function getNextBeatTime() {
+            const ctx = gameState.audioContext;
+            const currentTime = ctx.currentTime;
+            const beatsElapsed = Math.floor((currentTime - globalBeatTime) / beatInterval);
+            return globalBeatTime + (beatsElapsed + 1) * beatInterval;
+        }
+
+        // 播放片段（节拍对齐版本）
         function playPart(part, variant, loop = true, duration = 4000) {
             initAudioContext();
+            initBeatScheduler();
+            
             const ctx = gameState.audioContext;
-            const beatDuration = 0.5;
+            const beatDur = 0.5;
 
-            function playBeat(time) {
+            function playBeat(startTime) {
                 if (part === 'drums') {
                     const pattern = generateDrumsPattern(variant);
                     pattern.forEach((drum, i) => {
-                        if (drum) playDrumSound(drum, time + i * beatDuration);
+                        if (drum) playDrumSound(drum, startTime + i * beatDur);
                     });
                 } else if (part === 'bass') {
                     const pattern = generateBassPattern(variant);
                     pattern.forEach((note, i) => {
-                        if (note) playTone(noteFrequencies[note], beatDuration * 0.9, time + i * beatDuration, 0.4, 'triangle');
+                        if (note) playTone(noteFrequencies[note], beatDur * 0.9, startTime + i * beatDur, 0.4, 'triangle');
                     });
                 } else if (part === 'melody') {
                     const pattern = generateMelodyPattern(variant);
                     pattern.forEach((note, i) => {
-                        if (note) playTone(noteFrequencies[note], beatDuration * 0.8, time + i * beatDuration, 0.25, 'sine');
+                        if (note) playTone(noteFrequencies[note], beatDur * 0.8, startTime + i * beatDur, 0.25, 'sine');
                     });
                 } else if (part === 'harmony') {
                     const pattern = generateHarmonyPattern(variant);
                     pattern.forEach((chord, i) => {
                         if (chord) {
                             chord.forEach(note => {
-                                playTone(noteFrequencies[note], beatDuration * 1.2, time + i * beatDuration, 0.15, 'sine');
+                                playTone(noteFrequencies[note], beatDur * 1.2, startTime + i * beatDur, 0.15, 'sine');
                             });
                         }
                     });
                 }
             }
 
-            playBeat(ctx.currentTime);
-
-            if (loop) {
-                const loopInterval = setInterval(() => {
-                    playBeat(ctx.currentTime);
-                }, duration);
-                gameState.loopIntervals.push(loopInterval);
-                return loopInterval;
-            }
+            // 等待下一个节拍点再开始播放
+            const nextBeat = getNextBeatTime();
+            const waitTime = (nextBeat - ctx.currentTime) * 1000;
+            
+            // 显示等待提示（可选）
+            console.log(`Waiting ${waitTime.toFixed(0)}ms for next beat...`);
+            
+            setTimeout(() => {
+                playBeat(ctx.currentTime);
+                
+                if (loop) {
+                    const loopInterval = setInterval(() => {
+                        playBeat(ctx.currentTime);
+                    }, duration);
+                    gameState.loopIntervals.push(loopInterval);
+                    return loopInterval;
+                }
+            }, Math.max(0, waitTime));
         }
 
         // 播放目标组合（循环）
@@ -1147,6 +1185,7 @@
         // 选择片段
         function selectOption(part, option) {
             initAudioContext();
+            initBeatScheduler(); // 初始化节拍调度器
             
             // 停止当前所有播放
             clearAllLoops();
@@ -1159,21 +1198,38 @@
             optionsContainer.querySelectorAll('.part-option').forEach(opt => {
                 opt.classList.remove('selected');
             });
-            optionsContainer.querySelector(`[data-option="${option}"]`).classList.add('selected');
             
-            // 更新声部状态
-            document.getElementById(part + 'Status').classList.add('playing');
-            document.getElementById(part + 'Section').classList.add('active');
+            const selectedOption = optionsContainer.querySelector(`[data-option="${option}"]`);
+            selectedOption.classList.add('selected');
             
-            // 更新摘要
-            document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).textContent = 
-                option + ' ✓';
-            document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).classList.add('selected');
+            // 显示"等待节拍点"提示
+            selectedOption.style.opacity = '0.6';
+            selectedOption.textContent = option + ' (等待...)';
             
-            // 更新混音器显示
-            updateMixerDisplay();
+            // 计算等待时间
+            const ctx = gameState.audioContext;
+            const nextBeat = getNextBeatTime();
+            const waitTime = (nextBeat - ctx.currentTime) * 1000;
             
-            // 播放当前所有已选声部（实时混音）
+            // 等待下一个节拍点后再更新UI和播放
+            setTimeout(() => {
+                selectedOption.style.opacity = '1';
+                selectedOption.textContent = option;
+                
+                // 更新声部状态
+                document.getElementById(part + 'Status').classList.add('playing');
+                document.getElementById(part + 'Section').classList.add('active');
+                
+                // 更新摘要
+                document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).textContent = 
+                    option + ' ✓';
+                document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).classList.add('selected');
+                
+                // 更新混音器显示
+                updateMixerDisplay();
+            }, waitTime);
+            
+            // 播放当前所有已选声部（实时混音，节拍对齐）
             parts.forEach(p => {
                 if (gameState.userSelection[p]) {
                     playPart(p, gameState.userSelection[p], true);
