@@ -236,11 +236,41 @@
             border-color: transparent;
         }
         
+        .level-btn.playing {
+            animation: pulse 0.5s infinite;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+            border-color: #00ff00;
+        }
+        
+        .level-btn.playing::after {
+            content: '▶';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            color: #00ff00;
+        }
+        
         .level-btn.locked {
             opacity: 0.3;
             cursor: not-allowed;
             border-color: #666;
             color: #666;
+        }
+        
+        /* 片段循环播放样式 */
+        .clip.playing {
+            animation: pulse 0.5s infinite;
+            box-shadow: 0 0 20px currentColor;
+            border-width: 3px;
+        }
+        
+        .clip.playing::after {
+            content: '🔊';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
         }
         
         /* 进度显示 */
@@ -1412,9 +1442,19 @@
         
         // ==================== 用户交互 ====================
         
+        // 正在循环播放的片段
+        let loopingClip = null; // { trackId, clipIndex, interval }
+        
         function selectClip(trackId, clipIndex) {
             ensureAudio();
             
+            // 创作模式：点击片段循环播放/停止
+            if (gameMode === 'create') {
+                toggleClipLoop(trackId, clipIndex);
+                return;
+            }
+            
+            // 过关模式：选择片段
             const clips = document.querySelectorAll(`#clips-${trackId} .clip`);
             clips.forEach(clip => clip.classList.remove('selected', 'correct', 'wrong'));
             
@@ -1425,7 +1465,7 @@
                 currentSelection[trackId] = clipIndex;
                 document.getElementById(`clip-${trackId}-${clipIndex}`).classList.add('selected');
                 
-                // 预览片段
+                // 预览片段（只播放一次）
                 previewClip(trackId, clipIndex);
             }
             
@@ -1434,6 +1474,81 @@
                 gameStep = 2;
                 updateTutorial();
                 updateFeedback('selection');
+            }
+        }
+        
+        // 创作模式：切换片段循环播放
+        function toggleClipLoop(trackId, clipIndex) {
+            const clipElement = document.getElementById(`clip-${trackId}-${clipIndex}`);
+            
+            // 如果正在循环这个片段，停止它
+            if (loopingClip && loopingClip.trackId === trackId && loopingClip.clipIndex === clipIndex) {
+                clearInterval(loopingClip.interval);
+                loopingClip = null;
+                clipElement.classList.remove('playing');
+                return;
+            }
+            
+            // 停止其他正在循环的片段
+            if (loopingClip) {
+                clearInterval(loopingClip.interval);
+                document.querySelectorAll('.clip.playing').forEach(el => el.classList.remove('playing'));
+            }
+            
+            // 开始循环播放
+            loopingClip = { trackId, clipIndex };
+            clipElement.classList.add('playing');
+            
+            // 立即播放一次
+            playFullClip(trackId, clipIndex);
+            
+            // 设置循环（每2秒播放一次）
+            const loopInterval = setInterval(() => {
+                if (loopingClip && loopingClip.trackId === trackId && loopingClip.clipIndex === clipIndex) {
+                    playFullClip(trackId, clipIndex);
+                } else {
+                    clearInterval(loopInterval);
+                }
+            }, 2000);
+            
+            loopingClip.interval = loopInterval;
+        }
+        
+        // 播放完整片段（2小节）
+        function playFullClip(trackId, clipIndex) {
+            const clip = ALL_CLIPS[trackId][clipIndex];
+            const now = audioCtx.currentTime;
+            const beatDuration = getBeatDuration();
+            
+            // 播放2小节（8拍）
+            for (let bar = 0; bar < 2; bar++) {
+                const barOffset = bar * 4 * beatDuration;
+                
+                if (trackId === 'drums') {
+                    clip.pattern.forEach((sounds, i) => {
+                        sounds.forEach(sound => {
+                            playDrum(sound, now + barOffset + i * beatDuration);
+                        });
+                    });
+                } else if (trackId === 'bass') {
+                    clip.pattern.forEach((notes, i) => {
+                        notes.forEach(note => {
+                            playBass(note, now + barOffset + i * beatDuration, beatDuration);
+                        });
+                    });
+                } else if (trackId === 'melody') {
+                    clip.pattern.forEach((notes, i) => {
+                        notes.forEach(note => {
+                            playMelody(note, now + barOffset + i * beatDuration, beatDuration * 0.8);
+                        });
+                    });
+                } else if (trackId === 'harmony') {
+                    clip.chords.forEach((chord, i) => {
+                        if (chord.length > 0) {
+                            playHarmony(chord, now + barOffset + i * beatDuration, beatDuration * 2);
+                        }
+                    });
+                }
             }
         }
         
@@ -1510,6 +1625,15 @@
                 targetBtn.textContent = '⏹ 停止播放';
                 targetBtn.classList.add('playing');
                 
+                // 添加当前关卡按钮的视觉反馈
+                document.querySelectorAll('.level-btn').forEach(btn => {
+                    btn.classList.remove('playing');
+                });
+                const currentBtn = document.querySelector(`.level-btn[data-level="${currentLevel}"]`);
+                if (currentBtn) {
+                    currentBtn.classList.add('playing');
+                }
+                
                 hasListenedToTarget = true;
                 gameStep = 2;
                 updateTutorial();
@@ -1535,6 +1659,11 @@
             const targetBtn = document.getElementById('targetBtn');
             targetBtn.textContent = '🎵 播放目标旋律';
             targetBtn.classList.remove('playing');
+            
+            // 清除关卡按钮的播放状态
+            document.querySelectorAll('.level-btn').forEach(btn => {
+                btn.classList.remove('playing');
+            });
             
             document.querySelectorAll('.clip').forEach(clip => {
                 clip.classList.remove('playing');
@@ -1573,15 +1702,38 @@
             }
         }
         
-        // 关卡选择事件委托
+        // 关卡选择事件委托 - 点击当前关卡播放/暂停目标旋律
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('level-btn') && !e.target.classList.contains('locked')) {
                 const level = parseInt(e.target.dataset.level);
-                if (level !== currentLevel) {
+                if (level === currentLevel) {
+                    // 点击当前关卡 - 播放/暂停目标旋律
+                    toggleTargetPlay();
+                } else {
+                    // 点击其他关卡 - 切换关卡
                     loadLevel(level);
                 }
             }
         });
+        
+        // 播放/暂停目标旋律切换
+        function toggleTargetPlay() {
+            ensureAudio();
+            if (isTargetPlaying) {
+                stopTarget();
+            } else {
+                playTarget();
+            }
+        }
+        
+        // 停止目标旋律
+        function stopTarget() {
+            isTargetPlaying = false;
+            clearTimeout(targetTimeout);
+            document.querySelectorAll('.level-btn').forEach(btn => {
+                btn.classList.remove('playing');
+            });
+        }
         
         function loadLevel(level) {
             stop();
