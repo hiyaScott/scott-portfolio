@@ -3,2104 +3,1104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 | Six-Finger MIDI</title>
+    <title>六指迷笛 - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0f0a1a 100%);
-            color: #fff;
-            font-family: 'Courier New', monospace;
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
+            color: #fff;
             overflow-x: hidden;
         }
-        
-        /* 赛博朋克网格背景 */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 0, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            pointer-events: none;
-            z-index: 0;
-        }
-        
-        #gameContainer {
-            position: relative;
-            z-index: 1;
-            padding: 20px;
-            max-width: 1400px;
+
+        .container {
+            max-width: 900px;
             margin: 0 auto;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 30px;
             padding: 20px;
-            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
-        
-        h1 {
-            font-size: 3em;
-            background: linear-gradient(45deg, #00ffff, #ff00ff, #00ffff);
-            background-size: 200% 200%;
+
+        /* 标题 */
+        .header {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #e94560, #ff6b6b, #feca57);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            animation: glow 3s ease-in-out infinite, gradient 5s ease infinite;
-            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
-            letter-spacing: 5px;
+            margin-bottom: 10px;
         }
-        
-        @keyframes glow {
-            0%, 100% { filter: brightness(1); }
-            50% { filter: brightness(1.2); }
+
+        .level-info {
+            color: #a0a0a0;
+            font-size: 1rem;
         }
-        
-        @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+
+        /* 阶段指示器 */
+        .stage-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
         }
-        
-        .subtitle {
-            color: #888;
-            font-size: 0.9em;
-            margin-top: 10px;
-            letter-spacing: 3px;
-        }
-        
-        /* 音频启用提示覆盖层 */
-        #audioOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+
+        .stage-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 2000;
-            cursor: pointer;
-            backdrop-filter: blur(5px);
+            font-size: 1.2rem;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
         }
-        
-        #audioOverlay.hidden {
-            display: none;
+
+        .stage-dot.active {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border-color: #e94560;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            animation: pulse 1.5s infinite;
         }
-        
-        .audio-prompt {
-            text-align: center;
-            padding: 50px;
-            border: 2px solid #00ffff;
+
+        .stage-dot.completed {
+            background: #48dbfb;
+            border-color: #48dbfb;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        /* 系统对话框 */
+        .dialog-box {
+            background: rgba(255,255,255,0.05);
             border-radius: 20px;
-            background: rgba(0, 0, 0, 0.9);
-            box-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
-            animation: pulse-border 2s ease-in-out infinite;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            max-width: 600px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
         }
-        
-        @keyframes pulse-border {
-            0%, 100% { box-shadow: 0 0 30px rgba(0, 255, 255, 0.3); }
-            50% { box-shadow: 0 0 60px rgba(0, 255, 255, 0.8); }
+
+        .dialog-box::before {
+            content: '💬';
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            font-size: 2rem;
         }
-        
-        .audio-prompt h2 {
-            font-size: 2em;
-            color: #00ffff;
-            margin-bottom: 20px;
+
+        .dialog-text {
+            font-size: 1.3rem;
+            line-height: 1.8;
+            color: #fff;
+            margin-top: 10px;
         }
-        
-        .audio-prompt p {
+
+        .dialog-hint {
             color: #888;
-            font-size: 1.1em;
+            font-size: 0.9rem;
+            margin-top: 15px;
         }
-        
-        .audio-prompt .click-hint {
-            margin-top: 30px;
-            font-size: 0.9em;
-            color: #ff00ff;
-            animation: blink 1.5s ease-in-out infinite;
+
+        /* 音频可视化 */
+        .audio-visualizer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 4px;
+            height: 80px;
+            margin: 20px 0;
+            padding: 10px;
         }
-        
+
+        .visualizer-bar {
+            width: 6px;
+            background: linear-gradient(to top, #e94560, #ff6b6b, #feca57);
+            border-radius: 3px;
+            transition: height 0.1s ease;
+            opacity: 0.3;
+        }
+
+        .visualizer-bar.active {
+            opacity: 1;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(233, 69, 96, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00d2d3, #48dbfb);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 210, 211, 0.4);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 210, 211, 0.6);
+        }
+
+        .btn-large {
+            padding: 18px 50px;
+            font-size: 1.2rem;
+        }
+
+        /* 声部选择网格 */
+        .parts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 700px;
+            margin: 20px 0;
+        }
+
+        .part-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 20px;
+            border: 2px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .part-section.active {
+            border-color: #e94560;
+            background: rgba(233, 69, 96, 0.1);
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.2);
+        }
+
+        .part-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .part-icon {
+            font-size: 1.8rem;
+        }
+
+        .part-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .part-status {
+            margin-left: auto;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #444;
+        }
+
+        .part-status.playing {
+            background: #00d2d3;
+            animation: blink 1s infinite;
+        }
+
         @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        
-        /* 模式选择 */
-        .mode-selector {
+
+        .part-options {
             display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .mode-btn {
-            padding: 15px 40px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 2px solid #00ffff;
-            color: #00ffff;
-            font-size: 1.1em;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .mode-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.3), transparent);
-            transition: left 0.5s;
-        }
-        
-        .mode-btn:hover::before {
-            left: 100%;
-        }
-        
-        .mode-btn:hover {
-            background: rgba(0, 255, 255, 0.1);
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-        }
-        
-        .mode-btn.active {
-            background: linear-gradient(45deg, #00ffff, #ff00ff);
-            border-color: transparent;
-            color: #000;
-            font-weight: bold;
-        }
-        
-        /* 游戏主区域 */
-        #gameArea {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            border-radius: 10px;
-            padding: 30px;
-            margin-bottom: 20px;
-        }
-        
-        /* 过关模式关卡选择 */
-        .level-selector {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 20px;
             flex-wrap: wrap;
-        }
-        
-        .level-btn {
-            width: 60px;
-            height: 60px;
-            border: 2px solid #ff00ff;
-            background: rgba(0, 0, 0, 0.5);
-            color: #ff00ff;
-            font-size: 1.3em;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-        
-        .level-btn.completed {
-            border-color: #00ff00;
-            color: #00ff00;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
-        }
-        
-        .level-btn:hover {
-            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
-        }
-        
-        .level-btn.active {
-            background: linear-gradient(45deg, #ff00ff, #00ffff);
-            color: #000;
-            border-color: transparent;
-        }
-        
-        .level-btn.playing {
-            animation: pulse 0.5s infinite;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
-            border-color: #00ff00;
-        }
-        
-        .level-btn.playing::after {
-            content: '▶';
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            font-size: 10px;
-            color: #00ff00;
-        }
-        
-        .level-btn.locked {
-            opacity: 0.3;
-            cursor: not-allowed;
-            border-color: #666;
-            color: #666;
-        }
-        
-        /* 片段循环播放样式 */
-        .clip.playing {
-            animation: pulse 0.5s infinite;
-            box-shadow: 0 0 20px currentColor;
-            border-width: 3px;
-        }
-        
-        .clip.playing::after {
-            content: '🔊';
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            font-size: 10px;
-        }
-        
-        /* 进度显示 */
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #00ff88, #00ccff);
-            width: 20%;
-            transition: width 0.3s;
-            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
-        }
-        
-        /* 教程区域 */
-        .tutorial-section {
-            background: rgba(0, 255, 255, 0.05);
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .tutorial-title {
-            color: #00ffff;
-            font-size: 1.1em;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
             gap: 10px;
         }
-        
-        .tutorial-steps {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .tutorial-step {
-            flex: 1;
-            min-width: 150px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            text-align: center;
-            transition: all 0.3s;
-        }
-        
-        .tutorial-step.active {
-            border-color: #ffaa00;
-            background: rgba(255, 170, 0, 0.1);
-        }
-        
-        .tutorial-step.completed {
-            border-color: #00ff00;
-            background: rgba(0, 255, 0, 0.1);
-        }
-        
-        .tutorial-step-number {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #888;
-            margin-bottom: 5px;
-        }
-        
-        .tutorial-step.active .tutorial-step-number {
-            color: #ffaa00;
-        }
-        
-        .tutorial-step.completed .tutorial-step-number {
-            color: #00ff00;
-        }
-        
-        .tutorial-step-text {
-            font-size: 0.85em;
-            color: #aaa;
-        }
-        
-        /* 声部轨道容器 */
-        .tracks-container {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-        
-        .track {
-            background: linear-gradient(90deg, rgba(0, 255, 255, 0.05), rgba(255, 0, 255, 0.05));
-            border-left: 4px solid;
-            padding: 15px;
-            border-radius: 5px;
-            position: relative;
-        }
-        
-        .track.drums { border-left-color: #ff0055; }
-        .track.bass { border-left-color: #00ff88; }
-        .track.melody { border-left-color: #00ccff; }
-        .track.harmony { border-left-color: #ffaa00; }
-        
-        .track-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .track-label {
-            font-size: 0.9em;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            padding: 5px 15px;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 3px;
-            margin-right: 15px;
-            min-width: 100px;
-            text-align: center;
-        }
-        
-        .track.drums .track-label { color: #ff0055; border: 1px solid #ff0055; }
-        .track.bass .track-label { color: #00ff88; border: 1px solid #00ff88; }
-        .track.melody .track-label { color: #00ccff; border: 1px solid #00ccff; }
-        .track.harmony .track-label { color: #ffaa00; border: 1px solid #ffaa00; }
-        
-        .track-visualizer {
-            flex: 1;
-            height: 30px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 3px;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .visualizer-bar {
-            position: absolute;
-            bottom: 0;
-            width: 4px;
-            background: currentColor;
-            transition: height 0.1s;
-        }
-        
-        /* 片段选择区 */
-        .clips-container {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 5px;
-        }
-        
-        .clip {
-            width: 70px;
-            height: 70px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            background: rgba(0, 0, 0, 0.5);
+
+        .part-option {
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid transparent;
             cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 5px;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
         }
-        
-        .clip:hover {
-            border-color: rgba(255, 255, 255, 0.5);
+
+        .part-option:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .part-option.selected {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border-color: #ff6b6b;
             transform: scale(1.05);
         }
-        
-        .clip.selected {
-            border-color: currentColor;
-            box-shadow: 0 0 20px currentColor, inset 0 0 20px rgba(255, 255, 255, 0.1);
-        }
-        
-        .clip.correct {
-            border-color: #00ff00 !important;
-            box-shadow: 0 0 20px #00ff00, inset 0 0 20px rgba(0, 255, 0, 0.2);
-            animation: correct-pulse 0.5s ease;
-        }
-        
-        .clip.wrong {
-            border-color: #ff0055 !important;
-            box-shadow: 0 0 20px #ff0055, inset 0 0 20px rgba(255, 0, 85, 0.2);
-            animation: shake 0.5s ease;
-        }
-        
-        @keyframes correct-pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-5px); }
-            40% { transform: translateX(5px); }
-            60% { transform: translateX(-5px); }
-            80% { transform: translateX(5px); }
-        }
-        
-        .track.drums .clip { color: #ff0055; }
-        .track.bass .clip { color: #00ff88; }
-        .track.melody .clip { color: #00ccff; }
-        .track.harmony .clip { color: #ffaa00; }
-        
-        .clip-waveform {
-            width: 80%;
-            height: 30%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-        }
-        
-        .wave-bar {
-            width: 3px;
-            background: currentColor;
-            opacity: 0.6;
-        }
-        
-        .clip-number {
-            font-size: 0.7em;
-            margin-top: 5px;
-            opacity: 0.7;
-        }
-        
-        .clip-name {
-            font-size: 0.6em;
-            opacity: 0.8;
+
+        /* 确认区域 */
+        .confirm-area {
+            margin-top: 30px;
             text-align: center;
-            padding: 0 4px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            max-width: 100%;
         }
-        
-        /* 播放指示器 */
-        .clip.playing {
-            animation: pulse 0.5s ease-in-out infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 20px currentColor; }
-            50% { box-shadow: 0 0 40px currentColor, 0 0 60px currentColor; }
-        }
-        
-        /* 控制按钮区 */
-        .controls {
+
+        .selection-summary {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 30px;
             flex-wrap: wrap;
-            margin-top: 20px;
         }
-        
-        .control-btn {
-            padding: 15px 40px;
-            font-size: 1.1em;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            font-family: inherit;
-            border-radius: 5px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .control-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .play-btn {
-            background: linear-gradient(45deg, #00ff88, #00ccff);
-            color: #000;
-            font-weight: bold;
-        }
-        
-        .play-btn:hover:not(:disabled) {
-            box-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
-            transform: translateY(-2px);
-        }
-        
-        .play-btn.playing {
-            background: linear-gradient(45deg, #ff0055, #ff5500);
-            color: #fff;
-        }
-        
-        .submit-btn {
-            background: linear-gradient(45deg, #ff00ff, #aa00ff);
-            color: #fff;
-        }
-        
-        .submit-btn:hover:not(:disabled) {
-            box-shadow: 0 0 30px rgba(255, 0, 255, 0.6);
-        }
-        
-        .target-btn {
-            background: linear-gradient(45deg, #ffaa00, #ff5500);
-            color: #000;
-        }
-        
-        .target-btn:hover:not(:disabled) {
-            box-shadow: 0 0 30px rgba(255, 170, 0, 0.6);
-        }
-        
-        .share-btn {
-            background: linear-gradient(45deg, #00ccff, #0088ff);
-            color: #000;
-        }
-        
-        .share-btn:hover:not(:disabled) {
-            box-shadow: 0 0 30px rgba(0, 204, 255, 0.6);
-        }
-        
-        .clear-btn {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-        
-        .clear-btn:hover:not(:disabled) {
-            background: rgba(255, 0, 0, 0.3);
-            border-color: #ff0055;
-        }
-        
-        /* BPM 显示 */
-        .bpm-display {
+
+        .summary-item {
             text-align: center;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 5px;
         }
-        
-        .bpm-label {
+
+        .summary-item .label {
             color: #888;
-            font-size: 0.9em;
-        }
-        
-        .bpm-value {
-            font-size: 1.5em;
-            color: #00ffff;
-            font-weight: bold;
-        }
-        
-        /* 关卡信息显示 */
-        .level-info {
-            text-align: center;
-            padding: 15px;
-            margin-bottom: 20px;
-            background: rgba(255, 170, 0, 0.1);
-            border: 1px solid rgba(255, 170, 0, 0.3);
-            border-radius: 5px;
-        }
-        
-        .level-info-title {
-            color: #ffaa00;
-            font-size: 1.1em;
+            font-size: 0.85rem;
             margin-bottom: 5px;
         }
-        
-        .level-info-desc {
-            color: #aaa;
-            font-size: 0.9em;
+
+        .summary-item .value {
+            font-size: 1.1rem;
+            color: #fff;
         }
-        
-        /* 反馈区域 */
-        .feedback-area {
-            text-align: center;
-            padding: 20px;
-            margin-top: 20px;
-            border-radius: 10px;
-            min-height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1em;
-            transition: all 0.3s;
+
+        .summary-item .value.selected {
+            color: #00d2d3;
         }
-        
-        .feedback-area.waiting {
-            background: rgba(255, 170, 0, 0.1);
-            border: 1px dashed rgba(255, 170, 0, 0.5);
-            color: #ffaa00;
-        }
-        
-        .feedback-area.correct {
-            background: rgba(0, 255, 0, 0.1);
-            border: 1px solid #00ff00;
-            color: #00ff00;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
-        }
-        
-        .feedback-area.wrong {
-            background: rgba(255, 0, 85, 0.1);
-            border: 1px solid #ff0055;
-            color: #ff0055;
-            box-shadow: 0 0 20px rgba(255, 0, 85, 0.3);
-        }
-        
-        .feedback-area.info {
-            background: rgba(0, 204, 255, 0.1);
-            border: 1px solid #00ccff;
-            color: #00ccff;
-        }
-        
-        /* 消息提示 */
-        .message {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 30px 50px;
-            background: rgba(0, 0, 0, 0.95);
-            border: 2px solid;
-            border-radius: 10px;
-            font-size: 1.3em;
-            text-align: center;
-            z-index: 1000;
-            display: none;
-            animation: messageIn 0.3s ease;
-        }
-        
-        .message.success {
-            border-color: #00ff00;
-            color: #00ff00;
-            box-shadow: 0 0 50px rgba(0, 255, 0, 0.5);
-        }
-        
-        .message.error {
-            border-color: #ff0055;
-            color: #ff0055;
-            box-shadow: 0 0 50px rgba(255, 0, 85, 0.5);
-        }
-        
-        .message.info {
-            border-color: #00ccff;
-            color: #00ccff;
-            box-shadow: 0 0 50px rgba(0, 204, 255, 0.5);
-        }
-        
-        @keyframes messageIn {
-            from {
-                opacity: 0;
-                transform: translate(-50%, -50%) scale(0.8);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
-            }
-        }
-        
-        /* 分享链接对话框 */
-        .share-dialog {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(10, 10, 15, 0.98);
-            border: 2px solid #00ccff;
-            border-radius: 10px;
-            padding: 30px;
-            z-index: 1001;
-            display: none;
-            min-width: 400px;
-            box-shadow: 0 0 50px rgba(0, 204, 255, 0.3);
-        }
-        
-        .share-dialog h3 {
-            color: #00ccff;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        
-        .share-url {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(0, 204, 255, 0.3);
-            padding: 15px;
-            border-radius: 5px;
-            word-break: break-all;
-            font-size: 0.85em;
-            color: #888;
-            margin-bottom: 20px;
-            user-select: all;
-        }
-        
-        .share-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-        
-        .share-actions button {
-            padding: 10px 25px;
-            border: 1px solid #00ccff;
-            background: transparent;
-            color: #00ccff;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .share-actions button:hover {
-            background: rgba(0, 204, 255, 0.2);
-        }
-        
-        /* 背景动画粒子 */
-        .particles {
+
+        /* 结果展示 */
+        .result-overlay {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-            overflow: hidden;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
         }
-        
-        .particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: rgba(0, 255, 255, 0.5);
-            border-radius: 50%;
-            animation: float 10s infinite;
+
+        .result-overlay.show {
+            display: flex;
+            animation: fadeIn 0.5s ease;
         }
-        
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(100vh) rotate(0deg);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-100vh) rotate(720deg);
-                opacity: 0;
-            }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
-        
+
+        .result-icon {
+            font-size: 6rem;
+            margin-bottom: 20px;
+            animation: bounce 0.6s ease;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .result-text {
+            font-size: 2rem;
+            margin-bottom: 30px;
+        }
+
+        .result-text.success {
+            color: #00d2d3;
+        }
+
+        .result-text.fail {
+            color: #ff6b6b;
+        }
+
+        /* 混音控制器 */
+        .mixer-info {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .mixer-info .playing-parts {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .mixer-info .part-badge {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
         /* 响应式 */
-        @media (max-width: 768px) {
-            h1 { font-size: 1.8em; }
-            .clip { width: 55px; height: 55px; }
-            .clip-name { font-size: 0.5em; }
-            .control-btn { padding: 12px 25px; font-size: 0.9em; }
-            .track-label { min-width: 70px; font-size: 0.75em; }
-            .tutorial-step { min-width: 100px; }
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .parts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                padding: 12px 25px;
+                font-size: 1rem;
+            }
         }
-        
-        .hidden { display: none !important; }
+
+        /* 加载动画 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 提示信息 */
+        .tips {
+            background: rgba(254, 202, 87, 0.1);
+            border-left: 4px solid #feca57;
+            padding: 15px 20px;
+            border-radius: 0 10px 10px 0;
+            margin: 20px 0;
+            color: #feca57;
+            font-size: 0.95rem;
+        }
     </style>
 </head>
 <body>
-    <!-- 音频启用覆盖层 -->
-    <div id="audioOverlay" onclick="enableAudio()">
-        <div class="audio-prompt">
-            <h2>🎵 点击启用音频</h2>
-            <p>由于浏览器安全限制，需要用户交互后才能播放声音</p>
-            <p class="click-hint">点击任意位置开始游戏</p>
-        </div>
-    </div>
-    
-    <div class="particles" id="particles"></div>
-    
-    <div id="gameContainer">
-        <header>
-            <h1>六指迷笛</h1>
-            <div class="subtitle">SIX-FINGER MIDI // 多声部音乐记忆游戏</div>
+    <div class="container">
+        <!-- 标题 -->
+        <header class="header">
+            <h1>🎵 六指迷笛</h1>
+            <div class="level-info">第 <span id="currentLevel">1</span> 关</div>
         </header>
-        
-        <div class="mode-selector">
-            <button class="mode-btn active" id="modeChallenge" onclick="setMode('challenge')">过关模式</button>
-            <button class="mode-btn" id="modeCreate" onclick="setMode('create')">创作模式</button>
+
+        <!-- 阶段指示器 -->
+        <div class="stage-indicator">
+            <div class="stage-dot active" id="stage1" title="聆听">👂</div>
+            <div class="stage-dot" id="stage2" title="选择">🎹</div>
+            <div class="stage-dot" id="stage3" title="验证">✅</div>
         </div>
-        
-        <div id="gameArea">
-            <!-- 过关模式关卡选择 -->
-            <div class="level-selector" id="levelSelector">
-                <button class="level-btn active" data-level="1">1</button>
-                <button class="level-btn locked" data-level="2">2</button>
-                <button class="level-btn locked" data-level="3">3</button>
-                <button class="level-btn locked" data-level="4">4</button>
-                <button class="level-btn locked" data-level="5">5</button>
-            </div>
-            
-            <!-- 关卡信息 -->
-            <div class="level-info" id="levelInfo">
-                <div class="level-info-title">第 1 关 - 简单旋律</div>
-                <div class="level-info-desc">大调音阶 | 主和弦进行 | 基础节奏</div>
-            </div>
-            
-            <!-- 进度条 -->
-            <div class="progress-bar" id="progressBar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            
-            <!-- 教程区域 -->
-            <div class="tutorial-section" id="tutorialSection">
-                <div class="tutorial-title">
-                    <span>📖</span>
-                    <span>游戏指南</span>
+
+        <!-- 主内容 -->
+        <main class="main-content">
+            <!-- 阶段1：聆听 -->
+            <div id="phase1" class="phase-content">
+                <div class="dialog-box">
+                    <div class="dialog-text">请仔细听听这段曲子 👂</div>
+                    <div class="dialog-hint">仔细听每个声部的组合，记住它们的特点</div>
                 </div>
-                <div class="tutorial-steps">
-                    <div class="tutorial-step" id="step1">
-                        <div class="tutorial-step-number">1</div>
-                        <div class="tutorial-step-text">聆听目标旋律</div>
-                    </div>
-                    <div class="tutorial-step" id="step2">
-                        <div class="tutorial-step-number">2</div>
-                        <div class="tutorial-step-text">选择匹配片段</div>
-                    </div>
-                    <div class="tutorial-step" id="step3">
-                        <div class="tutorial-step-number">3</div>
-                        <div class="tutorial-step-text">提交验证答案</div>
-                    </div>
+
+                <div class="audio-visualizer" id="targetVisualizer">
+                    <!-- 动态生成 -->
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-secondary" onclick="replayTarget()">
+                        🔁 再听一遍
+                    </button>
+                    <button class="btn btn-primary btn-large" onclick="startSelection()">
+                        🎹 可以开始选择了
+                    </button>
                 </div>
             </div>
-            
-            <!-- BPM 显示 -->
-            <div class="bpm-display">
-                <span class="bpm-label">TEMPO</span>
-                <span class="bpm-value" id="bpmValue">100</span>
-                <span class="bpm-label">BPM</span>
+
+            <!-- 阶段2：选择 -->
+            <div id="phase2" class="phase-content" style="display: none;">
+                <div class="tips">
+                    💡 点击片段即可听到它，四个声部会同时播放。边听边调整，直到你觉得对了再确认！
+                </div>
+
+                <div class="mixer-info">
+                    <div>🎧 当前播放组合</div>
+                    <div class="playing-parts" id="playingParts">
+                        <span style="color: #888;">请选择声部...</span>
+                    </div>
+                </div>
+
+                <div class="parts-grid">
+                    <!-- 鼓组 -->
+                    <div class="part-section" id="drumsSection">
+                        <div class="part-header">
+                            <span class="part-icon">🥁</span>
+                            <span class="part-name">鼓组</span>
+                            <span class="part-status" id="drumsStatus"></span>
+                        </div>
+                        <div class="part-options" id="drumsOptions">
+                            <div class="part-option" data-part="drums" data-option="A" onclick="selectOption('drums', 'A')">节奏 A</div>
+                            <div class="part-option" data-part="drums" data-option="B" onclick="selectOption('drums', 'B')">节奏 B</div>
+                            <div class="part-option" data-part="drums" data-option="C" onclick="selectOption('drums', 'C')">节奏 C</div>
+                        </div>
+                    </div>
+
+                    <!-- 贝斯 -->
+                    <div class="part-section" id="bassSection">
+                        <div class="part-header">
+                            <span class="part-icon">🎸</span>
+                            <span class="part-name">贝斯</span>
+                            <span class="part-status" id="bassStatus"></span>
+                        </div>
+                        <div class="part-options" id="bassOptions">
+                            <div class="part-option" data-part="bass" data-option="A" onclick="selectOption('bass', 'A')">低音 A</div>
+                            <div class="part-option" data-part="bass" data-option="B" onclick="selectOption('bass', 'B')">低音 B</div>
+                            <div class="part-option" data-part="bass" data-option="C" onclick="selectOption('bass', 'C')">低音 C</div>
+                        </div>
+                    </div>
+
+                    <!-- 旋律 -->
+                    <div class="part-section" id="melodySection">
+                        <div class="part-header">
+                            <span class="part-icon">🎺</span>
+                            <span class="part-name">旋律</span>
+                            <span class="part-status" id="melodyStatus"></span>
+                        </div>
+                        <div class="part-options" id="melodyOptions">
+                            <div class="part-option" data-part="melody" data-option="A" onclick="selectOption('melody', 'A')">旋律 A</div>
+                            <div class="part-option" data-part="melody" data-option="B" onclick="selectOption('melody', 'B')">旋律 B</div>
+                            <div class="part-option" data-part="melody" data-option="C" onclick="selectOption('melody', 'C')">旋律 C</div>
+                        </div>
+                    </div>
+
+                    <!-- 和声 -->
+                    <div class="part-section" id="harmonySection">
+                        <div class="part-header">
+                            <span class="part-icon">🎹</span>
+                            <span class="part-name">和声</span>
+                            <span class="part-status" id="harmonyStatus"></span>
+                        </div>
+                        <div class="part-options" id="harmonyOptions">
+                            <div class="part-option" data-part="harmony" data-option="A" onclick="selectOption('harmony', 'A')">和声 A</div>
+                            <div class="part-option" data-part="harmony" data-option="B" onclick="selectOption('harmony', 'B')">和声 B</div>
+                            <div class="part-option" data-part="harmony" data-option="C" onclick="selectOption('harmony', 'C')">和声 C</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="confirm-area">
+                    <div class="selection-summary">
+                        <div class="summary-item">
+                            <div class="label">🥁 鼓组</div>
+                            <div class="value" id="summaryDrums">未选择</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="label">🎸 贝斯</div>
+                            <div class="value" id="summaryBass">未选择</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="label">🎺 旋律</div>
+                            <div class="value" id="summaryMelody">未选择</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="label">🎹 和声</div>
+                            <div class="value" id="summaryHarmony">未选择</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-success btn-large" onclick="confirmSelection()">
+                        ✅ 确定
+                    </button>
+                </div>
             </div>
-            
-            <!-- 声部轨道 -->
-            <div class="tracks-container" id="tracksContainer">
-                <!-- 轨道将通过JS动态生成 -->
+
+            <!-- 阶段3：验证 -->
+            <div id="phase3" class="phase-content" style="display: none;">
+                <div class="dialog-box">
+                    <div class="dialog-text">我开始验证啦 🔍</div>
+                    <div class="dialog-hint">请听一下你选择的组合</div>
+                </div>
+
+                <div class="audio-visualizer" id="verifyVisualizer">
+                    <!-- 动态生成 -->
+                </div>
+
+                <div class="selection-summary" style="margin: 30px 0;">
+                    <div class="summary-item">
+                        <div class="label">🥁 鼓组</div>
+                        <div class="value selected" id="verifyDrums">-</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="label">🎸 贝斯</div>
+                        <div class="value selected" id="verifyBass">-</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="label">🎺 旋律</div>
+                        <div class="value selected" id="verifyMelody">-</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="label">🎹 和声</div>
+                        <div class="value selected" id="verifyHarmony">-</div>
+                    </div>
+                </div>
             </div>
-            
-            <!-- 控制按钮 -->
-            <div class="controls" id="controls">
-                <button class="control-btn play-btn" id="playBtn" onclick="togglePlay()">▶ 播放我的选择</button>
-                <button class="control-btn target-btn" id="targetBtn" onclick="playTarget()">🎵 播放目标旋律</button>
-                <button class="control-btn submit-btn" id="submitBtn" onclick="submitAnswer()">✓ 提交答案</button>
-                <button class="control-btn share-btn hidden" id="shareBtn" onclick="showShareDialog()">🔗 保存/分享</button>
-                <button class="control-btn clear-btn" onclick="clearSelection()">✕ 清空</button>
-            </div>
-            
-            <!-- 反馈区域 -->
-            <div class="feedback-area waiting" id="feedbackArea">
-                点击"播放目标旋律"聆听音乐，然后从每个轨道选择匹配的旋律片段
-            </div>
-        </div>
+        </main>
     </div>
-    
-    <!-- 消息提示 -->
-    <div class="message" id="message"></div>
-    
-    <!-- 分享对话框 -->
-    <div class="share-dialog" id="shareDialog">
-        <h3>分享你的创作</h3>
-        <div class="share-url" id="shareUrl"></div>
-        <div class="share-actions">
-            <button onclick="copyShareUrl()">复制链接</button>
-            <button onclick="closeShareDialog()">关闭</button>
-        </div>
+
+    <!-- 结果弹窗 -->
+    <div class="result-overlay" id="resultOverlay">
+        <div class="result-icon" id="resultIcon">🎉</div>
+        <div class="result-text" id="resultText">恭喜过关！</div>
+        <button class="btn btn-primary btn-large" id="resultBtn" onclick="nextLevel()">
+            下一关 ➡️
+        </button>
     </div>
 
     <script>
-        // ==================== 音频合成系统 ====================
-        
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
-        let masterGain = null;
-        let isPlaying = false;
-        let isTargetPlaying = false;
-        let audioEnabled = false;
-        
-        // 使用 100 BPM (适中速度，便于记忆)
-        let bpm = 100;
-        const BEATS_PER_BAR = 4;
-        const BARS = 2;
-        const TOTAL_BEATS = BEATS_PER_BAR * BARS; // 8 beats for 2 bars
-        
-        // 调度器参数
-        let nextNoteTime = 0.0;
-        let currentBeat = 0;
-        let timerID = null;
-        const LOOKAHEAD = 25.0;
-        const SCHEDULE_AHEAD_TIME = 0.1;
-        
-        // 音符频率映射 (C2-C5)
-        const NOTE_FREQUENCIES = {
-            'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31,
-            'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'B2': 123.47,
-            'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81, 'F3': 174.61,
-            'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
-            'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23,
-            'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
-            'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46,
-            'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.00, 'A#5': 932.33, 'B5': 987.77,
+        // ==================== 游戏状态 ====================
+        const gameState = {
+            currentLevel: 1,
+            currentPhase: 1,
+            targetCombination: {},
+            userSelection: {
+                drums: null,
+                bass: null,
+                melody: null,
+                harmony: null
+            },
+            isPlaying: false,
+            audioContext: null,
+            activeSources: {}
         };
+
+        const parts = ['drums', 'bass', 'melody', 'harmony'];
+        const options = ['A', 'B', 'C'];
+
+        // ==================== 音频合成器 ====================
+        // 使用 Web Audio API 生成音乐片段
         
-        // ==================== 音频初始化 ====================
-        
-        function enableAudio() {
-            if (!audioCtx) {
-                audioCtx = new AudioContext();
-                masterGain = audioCtx.createGain();
-                masterGain.gain.value = 0.5;
-                masterGain.connect(audioCtx.destination);
-            }
-            
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            
-            audioEnabled = true;
-            document.getElementById('audioOverlay').classList.add('hidden');
-        }
-        
-        function ensureAudio() {
-            if (!audioEnabled) {
-                enableAudio();
-            }
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
+        const noteFrequencies = {
+            'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
+            'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+            'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00
+        };
+
+        function initAudioContext() {
+            if (!gameState.audioContext) {
+                gameState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
         }
-        
-        // ==================== 乐器合成器 ====================
-        
-        // 鼓声合成器
-        function playDrum(type, time) {
-            const t = time || audioCtx.currentTime;
+
+        // 播放单个音符
+        function playTone(frequency, duration, startTime, volume = 0.3, type = 'sine') {
+            const ctx = gameState.audioContext;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.type = type;
+            osc.frequency.value = frequency;
+
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(volume, startTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration - 0.05);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+
+            return { osc, gain };
+        }
+
+        // 鼓声合成
+        function playDrumSound(type, startTime) {
+            const ctx = gameState.audioContext;
             
             if (type === 'kick') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.frequency.setValueAtTime(150, t);
-                osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
-                gain.gain.setValueAtTime(0.8, t);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.frequency.setValueAtTime(150, startTime);
+                osc.frequency.exponentialRampToValueAtTime(0.01, startTime + 0.5);
+                gain.gain.setValueAtTime(0.8, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.5);
                 osc.connect(gain);
-                gain.connect(masterGain);
-                osc.start(t);
-                osc.stop(t + 0.5);
+                gain.connect(ctx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + 0.5);
             } else if (type === 'snare') {
-                const noise = audioCtx.createBufferSource();
-                const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.2, audioCtx.sampleRate);
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
                 const data = buffer.getChannelData(0);
                 for (let i = 0; i < data.length; i++) {
                     data[i] = Math.random() * 2 - 1;
                 }
                 noise.buffer = buffer;
-                const gain = audioCtx.createGain();
-                gain.gain.setValueAtTime(0.5, t);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.5, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
                 noise.connect(gain);
-                gain.connect(masterGain);
-                noise.start(t);
+                gain.connect(ctx.destination);
+                noise.start(startTime);
             } else if (type === 'hihat') {
-                const noise = audioCtx.createBufferSource();
-                const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
                 const data = buffer.getChannelData(0);
                 for (let i = 0; i < data.length; i++) {
                     data[i] = Math.random() * 2 - 1;
                 }
                 noise.buffer = buffer;
-                const filter = audioCtx.createBiquadFilter();
+                const filter = ctx.createBiquadFilter();
                 filter.type = 'highpass';
-                filter.frequency.value = 5000;
-                const gain = audioCtx.createGain();
-                gain.gain.setValueAtTime(0.3, t);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+                filter.frequency.value = 8000;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.3, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.05);
                 noise.connect(filter);
                 filter.connect(gain);
-                gain.connect(masterGain);
-                noise.start(t);
-            } else if (type === 'clap') {
-                const noise = audioCtx.createBufferSource();
-                const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.3, audioCtx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < data.length; i++) {
-                    data[i] = Math.random() * 2 - 1;
-                }
-                noise.buffer = buffer;
-                const gain = audioCtx.createGain();
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.4, t + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
-                gain.gain.setValueAtTime(0.3, t + 0.03);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
-                noise.connect(gain);
-                gain.connect(masterGain);
-                noise.start(t);
+                gain.connect(ctx.destination);
+                noise.start(startTime);
             }
         }
-        
-        // 贝斯合成器
-        function playBass(note, time, duration = 0.4) {
-            const t = time || audioCtx.currentTime;
-            const freq = NOTE_FREQUENCIES[note] || 65.41;
-            
-            const osc = audioCtx.createOscillator();
-            const filter = audioCtx.createBiquadFilter();
-            const gain = audioCtx.createGain();
-            
-            osc.type = 'sawtooth';
-            osc.frequency.value = freq;
-            
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(800, t);
-            filter.frequency.exponentialRampToValueAtTime(400, t + duration);
-            
-            gain.gain.setValueAtTime(0.4, t);
-            gain.gain.setValueAtTime(0.4, t + duration * 0.8);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
-            
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(masterGain);
-            
-            osc.start(t);
-            osc.stop(t + duration);
+
+        // 生成鼓组片段
+        function generateDrumsPattern(variant) {
+            const patterns = {
+                'A': ['kick', null, 'snare', null, 'kick', 'kick', 'snare', null],
+                'B': ['kick', 'hihat', 'kick', 'snare', 'kick', 'hihat', 'snare', 'hihat'],
+                'C': ['kick', 'kick', 'snare', 'kick', 'hihat', 'snare', 'kick', 'hihat']
+            };
+            return patterns[variant] || patterns['A'];
         }
-        
-        // 旋律合成器
-        function playMelody(note, time, duration = 0.35) {
-            const t = time || audioCtx.currentTime;
-            const freq = NOTE_FREQUENCIES[note] || 440;
-            
-            const osc = audioCtx.createOscillator();
-            const filter = audioCtx.createBiquadFilter();
-            const gain = audioCtx.createGain();
-            
-            osc.type = 'square';
-            osc.frequency.value = freq;
-            
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(2000, t);
-            filter.frequency.exponentialRampToValueAtTime(1000, t + duration);
-            filter.Q.value = 5;
-            
-            gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.25, t + 0.01);
-            gain.gain.setValueAtTime(0.25, t + duration * 0.7);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
-            
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(masterGain);
-            
-            osc.start(t);
-            osc.stop(t + duration);
+
+        // 生成贝斯片段
+        function generateBassPattern(variant) {
+            const patterns = {
+                'A': ['C3', null, 'C3', null, 'G3', null, 'C3', null],
+                'B': ['C3', 'E3', 'G3', null, 'F3', 'A3', 'G3', null],
+                'C': ['C3', 'G3', 'C3', 'E3', 'F3', 'C3', 'G3', 'B3']
+            };
+            return patterns[variant] || patterns['A'];
         }
-        
-        // 和声合成器 (Pad)
-        function playHarmony(notes, time, duration = 0.8) {
-            const t = time || audioCtx.currentTime;
-            
-            notes.forEach((note, i) => {
-                const freq = NOTE_FREQUENCIES[note] || 261.63;
-                const osc = audioCtx.createOscillator();
-                const filter = audioCtx.createBiquadFilter();
-                const gain = audioCtx.createGain();
-                
-                osc.type = 'triangle';
-                osc.frequency.value = freq;
-                
-                filter.type = 'lowpass';
-                filter.frequency.value = 1500;
-                
-                gain.gain.setValueAtTime(0, t);
-                gain.gain.linearRampToValueAtTime(0.15 / notes.length, t + 0.1);
-                gain.gain.setValueAtTime(0.15 / notes.length, t + duration - 0.2);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
-                
-                osc.connect(filter);
-                filter.connect(gain);
-                gain.connect(masterGain);
-                
-                osc.start(t);
-                osc.stop(t + duration);
-            });
+
+        // 生成旋律片段
+        function generateMelodyPattern(variant) {
+            const patterns = {
+                'A': ['C5', 'D5', 'E5', 'C5', null, 'G4', 'A4', 'C5'],
+                'B': ['E5', 'D5', 'C5', 'B4', 'C5', 'D5', 'E5', 'G5'],
+                'C': ['G4', 'A4', 'C5', 'E5', 'D5', 'C5', 'B4', 'G4']
+            };
+            return patterns[variant] || patterns['A'];
         }
-        
-        // ==================== 声部定义 ====================
-        
-        const TRACKS = [
-            { id: 'drums', name: '鼓组', color: '#ff0055' },
-            { id: 'bass', name: '贝斯', color: '#00ff88' },
-            { id: 'melody', name: '旋律', color: '#00ccff' },
-            { id: 'harmony', name: '和声', color: '#ffaa00' }
-        ];
-        
-        // ==================== 重新设计的旋律片段系统 ====================
-        // 每个片段是一段2小节的旋律（8个音符/和弦）
-        // 设计原则：有明确的音乐性，降低记忆负担
-        
-        // 鼓组片段 - 8种不同风格的节奏型
-        const DRUM_CLIPS = [
-            { 
-                id: 0, name: '四拍子', 
-                pattern: [['kick'], ['kick'], ['kick'], ['kick'], ['kick'], ['kick'], ['kick'], ['kick']] 
-            },
-            { 
-                id: 1, name: '标准摇滚', 
-                pattern: [['kick'], ['hihat'], ['snare', 'hihat'], ['hihat'], ['kick'], ['hihat'], ['snare', 'hihat'], ['hihat']] 
-            },
-            { 
-                id: 2, name: '动次打次', 
-                pattern: [['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat']] 
-            },
-            { 
-                id: 3, name: '反拍重音', 
-                pattern: [['kick'], ['snare'], ['kick'], ['snare'], ['kick'], ['snare'], ['kick'], ['snare']] 
-            },
-            { 
-                id: 4, name: '拉丁感', 
-                pattern: [['kick', 'hihat'], ['hihat'], ['kick', 'hihat'], ['snare'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat']] 
-            },
-            { 
-                id: 5, name: '碎拍', 
-                pattern: [['kick'], [], ['snare'], ['kick'], [], ['snare'], ['kick'], []] 
-            },
-            { 
-                id: 6, name: '舞曲', 
-                pattern: [['kick', 'hihat'], ['hihat'], ['kick', 'snare', 'hihat'], ['hihat'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat']] 
-            },
-            { 
-                id: 7, name: '氛围', 
-                pattern: [['kick'], [], [], ['kick'], ['snare'], [], ['kick'], []] 
-            }
-        ];
-        
-        // 贝斯片段 - 8种低音旋律线
-        const BASS_CLIPS = [
-            { 
-                id: 0, name: '主音持续', 
-                pattern: [['C3'], ['C3'], ['C3'], ['C3'], ['C3'], ['C3'], ['C3'], ['C3']] 
-            },
-            { 
-                id: 1, name: '根五进行', 
-                pattern: [['C3'], ['G2'], ['C3'], ['G2'], ['C3'], ['G2'], ['C3'], ['G2']] 
-            },
-            { 
-                id: 2, name: '上行音阶', 
-                pattern: [['C3'], ['D3'], ['E3'], ['F3'], ['G3'], ['F3'], ['E3'], ['D3']] 
-            },
-            { 
-                id: 3, name: '下行音阶', 
-                pattern: [['G3'], ['F3'], ['E3'], ['D3'], ['C3'], ['D3'], ['E3'], ['F3']] 
-            },
-            { 
-                id: 4, name: '五度跳跃', 
-                pattern: [['C3'], ['G3'], ['C3'], ['G3'], ['F3'], ['C3'], ['F3'], ['C3']] 
-            },
-            { 
-                id: 5, name: '琶音式', 
-                pattern: [['C3'], ['E3'], ['G3'], ['E3'], ['F3'], ['A3'], ['C4'], ['A3']] 
-            },
-            { 
-                id: 6, name: '摇摆感', 
-                pattern: [['C3'], ['C3'], ['E3'], ['E3'], ['G3'], ['G3'], ['F3'], ['F3']] 
-            },
-            { 
-                id: 7, name: '经过音', 
-                pattern: [['C3'], ['D3'], ['C3'], ['B2'], ['C3'], ['D3'], ['E3'], ['C3']] 
+
+        // 生成和声片段
+        function generateHarmonyPattern(variant) {
+            const patterns = {
+                'A': [['C4', 'E4', 'G4'], null, ['C4', 'E4', 'G4'], null, ['F4', 'A4', 'C5'], null, ['C4', 'E4', 'G4'], null],
+                'B': [['C4', 'E4', 'G4'], ['E4', 'G4', 'B4'], null, ['F4', 'A4', 'C5'], ['G4', 'B4', 'D5'], null, ['C4', 'E4', 'G4'], null],
+                'C': [['A3', 'C4', 'E4'], null, ['G3', 'B3', 'D4'], ['C4', 'E4', 'G4'], ['F3', 'A3', 'C4'], null, ['G3', 'B3', 'D4'], null]
+            };
+            return patterns[variant] || patterns['A'];
         }
-        ];
-        
-        // 旋律片段 - 8种主题旋律
-        const MELODY_CLIPS = [
-            { 
-                id: 0, name: '小星星', 
-                pattern: [['C4'], ['C4'], ['G4'], ['G4'], ['A4'], ['A4'], ['G4'], []] 
-            },
-            { 
-                id: 1, name: '上行分解', 
-                pattern: [['C4'], ['E4'], ['G4'], ['C5'], ['G4'], ['E4'], ['C4'], []] 
-            },
-            { 
-                id: 2, name: '波浪形', 
-                pattern: [['E4'], ['G4'], ['E4'], ['C4'], ['D4'], ['F4'], ['D4'], ['B3']] 
-            },
-            { 
-                id: 3, name: '问答式', 
-                pattern: [['G4'], ['E4'], ['C4'], [], ['E4'], ['G4'], ['C5'], []] 
-            },
-            { 
-                id: 4, name: '环绕音', 
-                pattern: [['C4'], ['D4'], ['C4'], ['B3'], ['C4'], ['E4'], ['G4'], ['E4']] 
-            },
-            { 
-                id: 5, name: '三连音感', 
-                pattern: [['C4'], ['E4'], ['G4'], ['E4'], ['F4'], ['A4'], ['C5'], ['A4']] 
-            },
-            { 
-                id: 6, name: '下行叹息', 
-                pattern: [['G4'], ['F4'], ['E4'], ['D4'], ['C4'], ['D4'], ['E4'], ['C4']] 
-            },
-            { 
-                id: 7, name: '跳跃式', 
-                pattern: [['C4'], ['G4'], ['C4'], ['G4'], ['E4'], ['C5'], ['E4'], ['C5']] 
+
+        // 播放片段
+        function playPart(part, variant, loop = true, duration = 4000) {
+            initAudioContext();
+            const ctx = gameState.audioContext;
+            const startTime = ctx.currentTime;
+            const beatDuration = 0.5; // 每个节拍0.5秒
+
+            // 停止之前同类型的音频
+            if (gameState.activeSources[part]) {
+                // 这里简化处理，实际应该妥善管理音频源
             }
-        ];
-        
-        // 和声片段 - 8种和弦进行
-        const HARMONY_CLIPS = [
-            { 
-                id: 0, name: '主和弦', 
-                chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] 
-            },
-            { 
-                id: 1, name: '一四五', 
-                chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] 
-            },
-            { 
-                id: 2, name: '一六四五', 
-                chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['A2', 'C3', 'E3'], ['A2', 'C3', 'E3'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4']] 
-            },
-            { 
-                id: 3, name: '二五一', 
-                chords: [['D3', 'F3', 'A3'], ['D3', 'F3', 'A3'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] 
-            },
-            { 
-                id: 4, name: '六度色彩', 
-                chords: [['A2', 'C3', 'E3'], ['A2', 'C3', 'E3'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4']] 
-            },
-            { 
-                id: 5, name: '降七色彩', 
-                chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['B2', 'D3', 'F3'], ['B2', 'D3', 'F3'], ['A2', 'C3', 'E3'], ['A2', 'C3', 'E3'], ['G2', 'B2', 'D3'], ['G2', 'B2', 'D3']] 
-            },
-            { 
-                id: 6, name: '上行 bass', 
-                chords: [['C3', 'E3', 'G3'], ['D3', 'F3', 'A3'], ['E3', 'G3', 'B3'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['F3', 'A3', 'C4'], ['E3', 'G3', 'B3'], ['D3', 'F3', 'A3']] 
-            },
-            { 
-                id: 7, name: '五度圈', 
-                chords: [['C3', 'E3', 'G3'], ['G3', 'B3', 'D4'], ['D3', 'F3', 'A3'], ['A2', 'C3', 'E3'], ['E3', 'G3', 'B3'], ['B2', 'D3', 'F3'], ['F3', 'A3', 'C4'], ['C3', 'E3', 'G3']] 
-            }
-        ];
-        
-        const ALL_CLIPS = {
-            drums: DRUM_CLIPS,
-            bass: BASS_CLIPS,
-            melody: MELODY_CLIPS,
-            harmony: HARMONY_CLIPS
-        };
-        
-        // ==================== 关卡设计（5关，难度递进） ====================
-        
-        const LEVELS = [
-            {
-                id: 1,
-                title: '简单旋律',
-                description: '大调音阶 | 主和弦 | 基础节奏',
-                difficulty: '入门',
-                target: { drums: 0, bass: 0, melody: 0, harmony: 0 }
-            },
-            {
-                id: 2,
-                title: '流行风格',
-                description: '经典进行 | 根五 bass | 标准鼓点',
-                difficulty: '简单',
-                target: { drums: 2, bass: 1, melody: 1, harmony: 1 }
-            },
-            {
-                id: 3,
-                title: '巴洛克感',
-                description: '琶音旋律 | 一六四五 | 反拍节奏',
-                difficulty: '中等',
-                target: { drums: 3, bass: 5, melody: 2, harmony: 2 }
-            },
-            {
-                id: 4,
-                title: '爵士色彩',
-                description: '经过音 bass | 二五一 | 碎拍',
-                difficulty: '较难',
-                target: { drums: 5, bass: 7, melody: 4, harmony: 3 }
-            },
-            {
-                id: 5,
-                title: '复杂织体',
-                description: '跳跃旋律 | 五度圈 | 舞曲节奏',
-                difficulty: '挑战',
-                target: { drums: 6, bass: 4, melody: 7, harmony: 7 }
-            }
-        ];
-        
-        // ==================== 游戏状态 ====================
-        
-        let gameMode = 'challenge';
-        let currentLevel = 1;
-        let completedLevels = [];
-        let currentSelection = {
-            drums: null,
-            bass: null,
-            melody: null,
-            harmony: null
-        };
-        
-        let gameStep = 1;
-        let hasListenedToTarget = false;
-        let loopingClip = null;
-        let targetTimeout = null;
-        
-        // ==================== 初始化 ====================
-        
-        function init() {
-            createParticles();
-            renderTracks();
-            updateLevelButtons();
-            updateProgress();
-            updateLevelInfo();
-            updateTutorial();
-            loadFromURL();
-        }
-        
-        function createParticles() {
-            const container = document.getElementById('particles');
-            for (let i = 0; i < 50; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 10 + 's';
-                particle.style.animationDuration = (8 + Math.random() * 6) + 's';
-                
-                const colors = ['rgba(0, 255, 255, 0.5)', 'rgba(255, 0, 255, 0.5)', 'rgba(0, 255, 136, 0.5)'];
-                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-                
-                container.appendChild(particle);
-            }
-        }
-        
-        // ==================== 调度器核心 ====================
-        
-        function getBeatDuration() {
-            return 60.0 / bpm;
-        }
-        
-        function nextNote() {
-            const beatDuration = getBeatDuration();
-            nextNoteTime += beatDuration;
-            currentBeat = (currentBeat + 1) % TOTAL_BEATS;
-        }
-        
-        function scheduleNote(beatNumber, time) {
-            if (beatNumber === 0) {
-                updateVisualizers();
-            }
-        }
-        
-        function scheduler() {
-            while (nextNoteTime < audioCtx.currentTime + SCHEDULE_AHEAD_TIME) {
-                scheduleNote(currentBeat, nextNoteTime);
-                scheduleBeat(currentBeat, nextNoteTime);
-                nextNote();
-            }
-            timerID = setTimeout(scheduler, LOOKAHEAD);
-        }
-        
-        function scheduleBeat(beat, time) {
-            const beatInPattern = beat % 8;
-            
-            if (isPlaying) {
-                playSelectionBeat(beatInPattern, time);
-            }
-            
-            if (isTargetPlaying) {
-                playTargetBeat(beatInPattern, time);
-            }
-        }
-        
-        function playSelectionBeat(beatInPattern, time) {
-            const beatDuration = getBeatDuration();
-            
-            if (currentSelection.drums !== null) {
-                const clip = DRUM_CLIPS[currentSelection.drums];
-                const sounds = clip.pattern[beatInPattern];
-                sounds.forEach(sound => {
-                    playDrum(sound, time);
-                });
-            }
-            
-            if (currentSelection.bass !== null) {
-                const clip = BASS_CLIPS[currentSelection.bass];
-                const notes = clip.pattern[beatInPattern];
-                notes.forEach(note => {
-                    playBass(note, time, beatDuration);
-                });
-            }
-            
-            if (currentSelection.melody !== null) {
-                const clip = MELODY_CLIPS[currentSelection.melody];
-                const notes = clip.pattern[beatInPattern];
-                notes.forEach(note => {
-                    playMelody(note, time, beatDuration * 0.8);
-                });
-            }
-            
-            if (currentSelection.harmony !== null) {
-                const clip = HARMONY_CLIPS[currentSelection.harmony];
-                const chord = clip.chords[beatInPattern];
-                if (chord.length > 0) {
-                    playHarmony(chord, time, beatDuration * 2);
-                }
-            }
-        }
-        
-        function playTargetBeat(beatInPattern, time) {
-            const level = LEVELS[currentLevel - 1];
-            const target = level.target;
-            const beatDuration = getBeatDuration();
-            
-            const drumClip = DRUM_CLIPS[target.drums];
-            drumClip.pattern[beatInPattern].forEach(sound => {
-                playDrum(sound, time);
-            });
-            
-            const bassClip = BASS_CLIPS[target.bass];
-            bassClip.pattern[beatInPattern].forEach(note => {
-                playBass(note, time, beatDuration);
-            });
-            
-            const melodyClip = MELODY_CLIPS[target.melody];
-            melodyClip.pattern[beatInPattern].forEach(note => {
-                playMelody(note, time, beatDuration * 0.8);
-            });
-            
-            const harmonyClip = HARMONY_CLIPS[target.harmony];
-            const chord = harmonyClip.chords[beatInPattern];
-            if (chord.length > 0) {
-                playHarmony(chord, time, beatDuration * 2);
-            }
-        }
-        
-        // ==================== 渲染轨道 ====================
-        
-        function renderTracks() {
-            const container = document.getElementById('tracksContainer');
-            container.innerHTML = '';
-            
-            TRACKS.forEach(track => {
-                const trackDiv = document.createElement('div');
-                trackDiv.className = `track ${track.id}`;
-                trackDiv.innerHTML = `
-                    <div class="track-header">
-                        <div class="track-label">${track.name}</div>
-                        <div class="track-visualizer" id="visualizer-${track.id}"></div>
-                    </div>
-                    <div class="clips-container" id="clips-${track.id}">
-                        ${generateClips(track.id)}
-                    </div>
-                `;
-                container.appendChild(trackDiv);
-            });
-        }
-        
-        function generateClips(trackId) {
-            const clips = ALL_CLIPS[trackId];
-            let html = '';
-            
-            clips.forEach((clip, index) => {
-                const waveBars = Array(6).fill(0).map(() => 
-                    `<div class="wave-bar" style="height: ${20 + Math.random() * 60}%"></div>`
-                ).join('');
-                
-                html += `
-                    <div class="clip" id="clip-${trackId}-${index}" onclick="selectClip('${trackId}', ${index})" title="${clip.name}">
-                        <div class="clip-waveform">${waveBars}</div>
-                        <div class="clip-number">${String.fromCharCode(65 + index)}</div>
-                        <div class="clip-name">${clip.name}</div>
-                    </div>
-                `;
-            });
-            
-            return html;
-        }
-        
-        // ==================== 用户交互 ====================
-        
-        function selectClip(trackId, clipIndex) {
-            ensureAudio();
-            
-            if (gameMode === 'create') {
-                toggleClipLoop(trackId, clipIndex);
-                return;
-            }
-            
-            const clips = document.querySelectorAll(`#clips-${trackId} .clip`);
-            clips.forEach(clip => clip.classList.remove('selected', 'correct', 'wrong'));
-            
-            if (currentSelection[trackId] === clipIndex) {
-                currentSelection[trackId] = null;
-            } else {
-                currentSelection[trackId] = clipIndex;
-                document.getElementById(`clip-${trackId}-${clipIndex}`).classList.add('selected');
-                previewClip(trackId, clipIndex);
-            }
-            
-            if (hasListenedToTarget && Object.values(currentSelection).some(v => v !== null)) {
-                gameStep = 2;
-                updateTutorial();
-                updateFeedback('selection');
-            }
-        }
-        
-        function toggleClipLoop(trackId, clipIndex) {
-            const clipElement = document.getElementById(`clip-${trackId}-${clipIndex}`);
-            
-            if (loopingClip && loopingClip.trackId === trackId && loopingClip.clipIndex === clipIndex) {
-                clearInterval(loopingClip.interval);
-                loopingClip = null;
-                clipElement.classList.remove('playing');
-                return;
-            }
-            
-            if (loopingClip) {
-                clearInterval(loopingClip.interval);
-                document.querySelectorAll('.clip.playing').forEach(el => el.classList.remove('playing'));
-            }
-            
-            loopingClip = { trackId, clipIndex };
-            clipElement.classList.add('playing');
-            
-            playFullClip(trackId, clipIndex);
-            
-            const loopInterval = setInterval(() => {
-                if (loopingClip && loopingClip.trackId === trackId && loopingClip.clipIndex === clipIndex) {
-                    playFullClip(trackId, clipIndex);
-                } else {
-                    clearInterval(loopInterval);
-                }
-            }, 2000);
-            
-            loopingClip.interval = loopInterval;
-        }
-        
-        function playFullClip(trackId, clipIndex) {
-            const clip = ALL_CLIPS[trackId][clipIndex];
-            const now = audioCtx.currentTime;
-            const beatDuration = getBeatDuration();
-            
-            for (let bar = 0; bar < 2; bar++) {
-                const barOffset = bar * 4 * beatDuration;
-                
-                if (trackId === 'drums') {
-                    clip.pattern.forEach((sounds, i) => {
-                        sounds.forEach(sound => {
-                            playDrum(sound, now + barOffset + i * beatDuration);
-                        });
+
+            function playBeat(time) {
+                if (part === 'drums') {
+                    const pattern = generateDrumsPattern(variant);
+                    pattern.forEach((drum, i) => {
+                        if (drum) playDrumSound(drum, time + i * beatDuration);
                     });
-                } else if (trackId === 'bass') {
-                    clip.pattern.forEach((notes, i) => {
-                        notes.forEach(note => {
-                            playBass(note, now + barOffset + i * beatDuration, beatDuration);
-                        });
+                } else if (part === 'bass') {
+                    const pattern = generateBassPattern(variant);
+                    pattern.forEach((note, i) => {
+                        if (note) playTone(noteFrequencies[note], beatDuration * 0.9, time + i * beatDuration, 0.4, 'triangle');
                     });
-                } else if (trackId === 'melody') {
-                    clip.pattern.forEach((notes, i) => {
-                        notes.forEach(note => {
-                            playMelody(note, now + barOffset + i * beatDuration, beatDuration * 0.8);
-                        });
+                } else if (part === 'melody') {
+                    const pattern = generateMelodyPattern(variant);
+                    pattern.forEach((note, i) => {
+                        if (note) playTone(noteFrequencies[note], beatDuration * 0.8, time + i * beatDuration, 0.25, 'sine');
                     });
-                } else if (trackId === 'harmony') {
-                    clip.chords.forEach((chord, i) => {
-                        if (chord.length > 0) {
-                            playHarmony(chord, now + barOffset + i * beatDuration, beatDuration * 2);
+                } else if (part === 'harmony') {
+                    const pattern = generateHarmonyPattern(variant);
+                    pattern.forEach((chord, i) => {
+                        if (chord) {
+                            chord.forEach(note => {
+                                playTone(noteFrequencies[note], beatDuration * 1.2, time + i * beatDuration, 0.15, 'sine');
+                            });
                         }
                     });
                 }
             }
-        }
-        
-        function previewClip(trackId, clipIndex) {
-            const clip = ALL_CLIPS[trackId][clipIndex];
-            const now = audioCtx.currentTime;
-            const beatDuration = getBeatDuration();
-            
-            // 播放前3个音符作为预览
-            const previewLength = 3;
-            
-            if (trackId === 'drums') {
-                for (let i = 0; i < previewLength && i < clip.pattern.length; i++) {
-                    clip.pattern[i].forEach(sound => {
-                        playDrum(sound, now + i * beatDuration * 0.5);
-                    });
-                }
-            } else if (trackId === 'bass') {
-                for (let i = 0; i < previewLength && i < clip.pattern.length; i++) {
-                    clip.pattern[i].forEach(note => {
-                        playBass(note, now + i * beatDuration * 0.5, beatDuration * 0.5);
-                    });
-                }
-            } else if (trackId === 'melody') {
-                for (let i = 0; i < previewLength && i < clip.pattern.length; i++) {
-                    clip.pattern[i].forEach(note => {
-                        playMelody(note, now + i * beatDuration * 0.5, beatDuration * 0.4);
-                    });
-                }
-            } else if (trackId === 'harmony') {
-                for (let i = 0; i < previewLength && i < clip.chords.length; i++) {
-                    const chord = clip.chords[i];
-                    if (chord.length > 0) {
-                        playHarmony(chord, now + i * beatDuration * 0.5, beatDuration);
+
+            // 播放一次
+            playBeat(startTime);
+
+            // 如果需要循环
+            if (loop) {
+                const loopInterval = setInterval(() => {
+                    if (gameState.userSelection[part] !== variant) {
+                        clearInterval(loopInterval);
+                        return;
                     }
-                }
+                    playBeat(ctx.currentTime);
+                }, duration);
+
+                return loopInterval;
             }
         }
-        
-        // ==================== 播放控制 ====================
-        
-        function togglePlay() {
-            ensureAudio();
-            
-            if (isPlaying) {
-                stop();
-            } else {
-                play();
-            }
-        }
-        
-        function play() {
-            if (Object.values(currentSelection).every(v => v === null)) {
-                showMessage('请先选择至少一个片段', 'error');
-                return;
-            }
-            
-            isPlaying = true;
-            currentBeat = 0;
-            nextNoteTime = audioCtx.currentTime + 0.1;
-            
-            const playBtn = document.getElementById('playBtn');
-            playBtn.textContent = '⏹ 停止播放';
-            playBtn.classList.add('playing');
-            
-            document.querySelectorAll('.clip.selected').forEach(clip => {
-                clip.classList.add('playing');
-            });
-            
-            scheduler();
-        }
-        
-        function playTarget() {
-            ensureAudio();
-            
-            if (isTargetPlaying) {
-                stop();
-            } else {
-                isTargetPlaying = true;
-                currentBeat = 0;
-                nextNoteTime = audioCtx.currentTime + 0.1;
-                
-                const targetBtn = document.getElementById('targetBtn');
-                targetBtn.textContent = '⏹ 停止播放';
-                targetBtn.classList.add('playing');
-                
-                document.querySelectorAll('.level-btn').forEach(btn => {
-                    btn.classList.remove('playing');
-                });
-                const currentBtn = document.querySelector(`.level-btn[data-level="${currentLevel}"]`);
-                if (currentBtn) {
-                    currentBtn.classList.add('playing');
-                }
-                
-                hasListenedToTarget = true;
-                gameStep = 2;
-                updateTutorial();
-                updateFeedback('listened');
-                
-                scheduler();
-            }
-        }
-        
-        function stop() {
-            isPlaying = false;
-            isTargetPlaying = false;
-            
-            if (timerID) {
-                clearTimeout(timerID);
-                timerID = null;
-            }
-            
-            const playBtn = document.getElementById('playBtn');
-            playBtn.textContent = '▶ 播放我的选择';
-            playBtn.classList.remove('playing');
-            
-            const targetBtn = document.getElementById('targetBtn');
-            targetBtn.textContent = '🎵 播放目标旋律';
-            targetBtn.classList.remove('playing');
-            
-            document.querySelectorAll('.level-btn').forEach(btn => {
-                btn.classList.remove('playing');
-            });
-            
-            document.querySelectorAll('.clip').forEach(clip => {
-                clip.classList.remove('playing');
-            });
-            
-            TRACKS.forEach(track => {
-                const visualizer = document.getElementById(`visualizer-${track.id}`);
-                if (visualizer) visualizer.innerHTML = '';
+
+        // 播放目标组合
+        function playTargetCombination(loop = true) {
+            initAudioContext();
+            parts.forEach(part => {
+                playPart(part, gameState.targetCombination[part], loop);
             });
         }
-        
-        // ==================== 游戏模式与关卡 ====================
-        
-        function setMode(mode) {
-            stop();
-            gameMode = mode;
-            
-            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(mode === 'challenge' ? 'modeChallenge' : 'modeCreate').classList.add('active');
-            
-            document.getElementById('levelSelector').style.display = mode === 'challenge' ? 'flex' : 'none';
-            document.getElementById('levelInfo').style.display = mode === 'challenge' ? 'block' : 'none';
-            document.getElementById('progressBar').style.display = mode === 'challenge' ? 'block' : 'none';
-            document.getElementById('tutorialSection').style.display = mode === 'challenge' ? 'block' : 'none';
-            document.getElementById('targetBtn').style.display = mode === 'challenge' ? 'inline-block' : 'none';
-            document.getElementById('submitBtn').style.display = mode === 'challenge' ? 'inline-block' : 'none';
-            document.getElementById('shareBtn').classList.toggle('hidden', mode === 'challenge');
-            document.getElementById('feedbackArea').style.display = mode === 'challenge' ? 'flex' : 'none';
-            
-            clearSelection();
-            renderTracks();
-            
-            if (mode === 'challenge') {
-                loadLevel(1);
-            }
-        }
-        
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('level-btn') && !e.target.classList.contains('locked')) {
-                const level = parseInt(e.target.dataset.level);
-                if (level === currentLevel) {
-                    toggleTargetPlay();
-                } else {
-                    loadLevel(level);
-                }
-            }
-        });
-        
-        function toggleTargetPlay() {
-            ensureAudio();
-            if (isTargetPlaying) {
-                stop();
-            } else {
-                playTarget();
-            }
-        }
-        
-        function loadLevel(level) {
-            stop();
-            currentLevel = level;
-            gameStep = 1;
-            hasListenedToTarget = false;
-            
-            updateLevelButtons();
-            updateProgress();
-            updateLevelInfo();
-            updateTutorial();
-            clearSelection();
-            clearFeedback();
-            
-            document.querySelectorAll('.level-btn').forEach(btn => {
-                btn.classList.toggle('active', parseInt(btn.dataset.level) === level);
-            });
-            
-            showMessage(`第 ${level} 关 - ${LEVELS[level-1].title}`, 'info');
-        }
-        
-        function updateLevelInfo() {
-            const level = LEVELS[currentLevel - 1];
-            const infoDiv = document.getElementById('levelInfo');
-            infoDiv.innerHTML = `
-                <div class="level-info-title">第 ${level.id} 关 - ${level.title} (${level.difficulty})</div>
-                <div class="level-info-desc">${level.description}</div>
-            `;
-        }
-        
-        function updateLevelButtons() {
-            document.querySelectorAll('.level-btn').forEach(btn => {
-                const level = parseInt(btn.dataset.level);
-                btn.classList.toggle('completed', completedLevels.includes(level));
-                btn.classList.toggle('locked', level > 1 && !completedLevels.includes(level - 1) && !completedLevels.includes(level));
-            });
-        }
-        
-        function updateProgress() {
-            const progress = (completedLevels.length / LEVELS.length) * 100;
-            document.getElementById('progressFill').style.width = progress + '%';
-        }
-        
-        // ==================== 教程与反馈 ====================
-        
-        function updateTutorial() {
-            document.querySelectorAll('.tutorial-step').forEach((step, index) => {
-                step.classList.remove('active', 'completed');
-                if (index + 1 < gameStep) {
-                    step.classList.add('completed');
-                } else if (index + 1 === gameStep) {
-                    step.classList.add('active');
+
+        // 播放用户选择
+        function playUserSelection(loop = true) {
+            initAudioContext();
+            parts.forEach(part => {
+                if (gameState.userSelection[part]) {
+                    playPart(part, gameState.userSelection[part], loop);
                 }
             });
         }
-        
-        function updateFeedback(type) {
-            const feedback = document.getElementById('feedbackArea');
-            feedback.className = 'feedback-area';
+
+        // ==================== 游戏逻辑 ====================
+
+        // 初始化游戏
+        function initGame() {
+            generateTargetCombination();
+            createVisualizer('targetVisualizer');
+            createVisualizer('verifyVisualizer');
             
-            switch(type) {
-                case 'listened':
-                    feedback.classList.add('info');
-                    feedback.textContent = '已聆听目标旋律。现在从每个轨道选择匹配的片段';
-                    break;
-                case 'selection':
-                    feedback.classList.add('waiting');
-                    feedback.textContent = '已选择片段。点击"播放我的选择"预览，或点击"提交答案"验证';
-                    break;
-                case 'correct':
-                    feedback.classList.add('correct');
-                    feedback.textContent = '🎉 答案正确！';
-                    break;
-                case 'wrong':
-                    feedback.classList.add('wrong');
-                    feedback.textContent = '❌ 答案不正确，请再聆听目标旋律并重试';
-                    break;
-                default:
-                    feedback.classList.add('waiting');
-                    feedback.textContent = '点击"播放目标旋律"聆听音乐，然后从每个轨道选择匹配的旋律片段';
-            }
-        }
-        
-        function clearFeedback() {
-            updateFeedback('default');
-        }
-        
-        // ==================== 提交答案 ====================
-        
-        function submitAnswer() {
-            if (gameMode !== 'challenge') return;
-            
-            ensureAudio();
-            
-            const missing = [];
-            TRACKS.forEach(track => {
-                if (currentSelection[track.id] === null) {
-                    missing.push(track.name);
-                }
-            });
-            
-            if (missing.length > 0) {
-                showMessage(`请先选择: ${missing.join(', ')}`, 'error');
-                return;
-            }
-            
-            const level = LEVELS[currentLevel - 1];
-            const target = level.target;
-            
-            const results = {
-                drums: currentSelection.drums === target.drums,
-                bass: currentSelection.bass === target.bass,
-                melody: currentSelection.melody === target.melody,
-                harmony: currentSelection.harmony === target.harmony
-            };
-            
-            const allCorrect = Object.values(results).every(r => r);
-            
-            TRACKS.forEach(track => {
-                const clipElement = document.getElementById(`clip-${track.id}-${currentSelection[track.id]}`);
-                if (clipElement) {
-                    clipElement.classList.remove('correct', 'wrong');
-                    clipElement.classList.add(results[track.id] ? 'correct' : 'wrong');
-                }
-            });
-            
-            gameStep = 3;
-            updateTutorial();
-            
-            if (allCorrect) {
-                if (!completedLevels.includes(currentLevel)) {
-                    completedLevels.push(currentLevel);
-                }
-                
-                updateFeedback('correct');
-                updateProgress();
-                updateLevelButtons();
-                
-                showMessage(`🎉 第 ${currentLevel} 关通过！`, 'success');
-                
-                if (currentLevel < LEVELS.length) {
-                    setTimeout(() => {
-                        loadLevel(currentLevel + 1);
-                    }, 3000);
-                } else {
-                    setTimeout(() => {
-                        showMessage('🏆 恭喜通关所有关卡！', 'success');
-                    }, 3000);
-                }
-            } else {
-                updateFeedback('wrong');
-                showMessage('❌ 答案不正确，红色标记的片段有误', 'error');
-                
-                setTimeout(() => {
-                    document.querySelectorAll('.clip').forEach(clip => {
-                        clip.classList.remove('correct', 'wrong');
-                    });
-                }, 3000);
-            }
-        }
-        
-        // ==================== 可视化 ====================
-        
-        function updateVisualizers() {
-            TRACKS.forEach(track => {
-                const visualizer = document.getElementById(`visualizer-${track.id}`);
-                if (!visualizer) return;
-                
-                if ((currentSelection[track.id] !== null && isPlaying) || isTargetPlaying) {
-                    const bars = 20;
-                    let html = '';
-                    for (let i = 0; i < bars; i++) {
-                        const height = Math.random() * 100;
-                        const left = (i / bars) * 100;
-                        html += `<div class="visualizer-bar" style="left: ${left}%; height: ${height}%; opacity: 0.8;"></div>`;
-                    }
-                    visualizer.innerHTML = html;
-                    visualizer.style.color = track.color;
-                }
-            });
-        }
-        
-        // ==================== 选择与清空 ====================
-        
-        function clearSelection() {
-            currentSelection = { drums: null, bass: null, melody: null, harmony: null };
-            document.querySelectorAll('.clip').forEach(clip => {
-                clip.classList.remove('selected', 'correct', 'wrong');
-            });
-            if (hasListenedToTarget) {
-                updateFeedback('listened');
-            } else {
-                updateFeedback('default');
-            }
-        }
-        
-        // ==================== 分享功能 ====================
-        
-        function showShareDialog() {
-            const url = generateShareURL();
-            document.getElementById('shareUrl').textContent = url;
-            document.getElementById('shareDialog').style.display = 'block';
-        }
-        
-        function closeShareDialog() {
-            document.getElementById('shareDialog').style.display = 'none';
-        }
-        
-        function copyShareUrl() {
-            const url = document.getElementById('shareUrl').textContent;
-            navigator.clipboard.writeText(url).then(() => {
-                showMessage('链接已复制到剪贴板！', 'success');
-            });
-        }
-        
-        function generateShareURL() {
-            const params = new URLSearchParams();
-            params.set('mode', 'create');
-            params.set('drums', currentSelection.drums !== null ? currentSelection.drums : '');
-            params.set('bass', currentSelection.bass !== null ? currentSelection.bass : '');
-            params.set('melody', currentSelection.melody !== null ? currentSelection.melody : '');
-            params.set('harmony', currentSelection.harmony !== null ? currentSelection.harmony : '');
-            
-            return window.location.origin + window.location.pathname + '?' + params.toString();
-        }
-        
-        function loadFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            
-            if (params.has('mode') && params.get('mode') === 'create') {
-                setMode('create');
-                
-                setTimeout(() => {
-                    if (params.has('drums') && params.get('drums') !== '') {
-                        selectClip('drums', parseInt(params.get('drums')));
-                    }
-                    if (params.has('bass') && params.get('bass') !== '') {
-                        selectClip('bass', parseInt(params.get('bass')));
-                    }
-                    if (params.has('melody') && params.get('melody') !== '') {
-                        selectClip('melody', parseInt(params.get('melody')));
-                    }
-                    if (params.has('harmony') && params.get('harmony') !== '') {
-                        selectClip('harmony', parseInt(params.get('harmony')));
-                    }
-                }, 100);
-            }
-        }
-        
-        // ==================== 消息提示 ====================
-        
-        function showMessage(text, type) {
-            const message = document.getElementById('message');
-            message.textContent = text;
-            message.className = `message ${type}`;
-            message.style.display = 'block';
-            
+            // 自动开始播放目标音乐
             setTimeout(() => {
-                message.style.display = 'none';
-            }, 2500);
+                playTargetCombination(true);
+                animateVisualizer('targetVisualizer', true);
+            }, 500);
         }
-        
-        // 点击空白处关闭分享对话框
-        document.addEventListener('click', (e) => {
-            const dialog = document.getElementById('shareDialog');
-            if (dialog.style.display === 'block' && !dialog.contains(e.target) && !e.target.closest('.share-btn')) {
-                closeShareDialog();
+
+        // 生成目标组合
+        function generateTargetCombination() {
+            parts.forEach(part => {
+                gameState.targetCombination[part] = options[Math.floor(Math.random() * options.length)];
+            });
+            console.log('目标组合:', gameState.targetCombination);
+        }
+
+        // 创建可视化条
+        function createVisualizer(containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'visualizer-bar';
+                bar.style.height = '10px';
+                bar.style.animationDelay = `${i * 0.05}s`;
+                container.appendChild(bar);
             }
-        });
-        
+        }
+
+        // 动画可视化
+        function animateVisualizer(containerId, active) {
+            const container = document.getElementById(containerId);
+            const bars = container.querySelectorAll('.visualizer-bar');
+            
+            if (active) {
+                bars.forEach((bar, i) => {
+                    bar.classList.add('active');
+                    setInterval(() => {
+                        if (bar.classList.contains('active')) {
+                            bar.style.height = `${Math.random() * 60 + 10}px`;
+                        }
+                    }, 100 + i * 20);
+                });
+            } else {
+                bars.forEach(bar => {
+                    bar.classList.remove('active');
+                    bar.style.height = '10px';
+                });
+            }
+        }
+
+        // 再听一遍
+        function replayTarget() {
+            playTargetCombination(true);
+            animateVisualizer('targetVisualizer', true);
+        }
+
+        // 开始选择
+        function startSelection() {
+            gameState.currentPhase = 2;
+            updateStageIndicator();
+            
+            document.getElementById('phase1').style.display = 'none';
+            document.getElementById('phase2').style.display = 'block';
+            
+            // 停止目标音乐
+            animateVisualizer('targetVisualizer', false);
+            
+            // 初始化音频上下文（需要用户交互）
+            initAudioContext();
+        }
+
+        // 选择片段
+        function selectOption(part, option) {
+            initAudioContext();
+            
+            // 更新状态
+            gameState.userSelection[part] = option;
+            
+            // 更新UI
+            const optionsContainer = document.getElementById(part + 'Options');
+            optionsContainer.querySelectorAll('.part-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            optionsContainer.querySelector(`[data-option="${option}"]`).classList.add('selected');
+            
+            // 更新声部状态
+            document.getElementById(part + 'Status').classList.add('playing');
+            document.getElementById(part + 'Section').classList.add('active');
+            
+            // 更新摘要
+            document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).textContent = 
+                option + ' ✓';
+            document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).classList.add('selected');
+            
+            // 更新混音器显示
+            updateMixerDisplay();
+            
+            // 播放该声部（循环）
+            playPart(part, option, true);
+        }
+
+        // 更新混音器显示
+        function updateMixerDisplay() {
+            const container = document.getElementById('playingParts');
+            const activeParts = [];
+            
+            const partNames = { drums: '🥁 鼓组', bass: '🎸 贝斯', melody: '🎺 旋律', harmony: '🎹 和声' };
+            
+            parts.forEach(part => {
+                if (gameState.userSelection[part]) {
+                    activeParts.push(`${partNames[part]} ${gameState.userSelection[part]}`);
+                }
+            });
+            
+            if (activeParts.length === 0) {
+                container.innerHTML = '<span style="color: #888;">请选择声部...</span>';
+            } else {
+                container.innerHTML = activeParts.map(p => `<span class="part-badge">${p}</span>`).join('');
+            }
+        }
+
+        // 确认选择
+        function confirmSelection() {
+            // 检查是否所有声部都已选择
+            const missing = parts.filter(p => !gameState.userSelection[p]);
+            if (missing.length > 0) {
+                const partNames = { drums: '鼓组', bass: '贝斯', melody: '旋律', harmony: '和声' };
+                alert('请先选择：' + missing.map(p => partNames[p]).join('、'));
+                return;
+            }
+            
+            gameState.currentPhase = 3;
+            updateStageIndicator();
+            
+            document.getElementById('phase2').style.display = 'none';
+            document.getElementById('phase3').style.display = 'block';
+            
+            // 更新验证页面显示
+            document.getElementById('verifyDrums').textContent = gameState.userSelection.drums;
+            document.getElementById('verifyBass').textContent = gameState.userSelection.bass;
+            document.getElementById('verifyMelody').textContent = gameState.userSelection.melody;
+            document.getElementById('verifyHarmony').textContent = gameState.userSelection.harmony;
+            
+            // 播放用户选择的组合
+            setTimeout(() => {
+                playUserSelection(true);
+                animateVisualizer('verifyVisualizer', true);
+            }, 500);
+            
+            // 2.5秒后显示结果
+            setTimeout(() => {
+                showResult();
+            }, 3500);
+        }
+
+        // 显示结果
+        function showResult() {
+            animateVisualizer('verifyVisualizer', false);
+            
+            const isCorrect = parts.every(part => 
+                gameState.userSelection[part] === gameState.targetCombination[part]
+            );
+            
+            const overlay = document.getElementById('resultOverlay');
+            const icon = document.getElementById('resultIcon');
+            const text = document.getElementById('resultText');
+            const btn = document.getElementById('resultBtn');
+            
+            if (isCorrect) {
+                icon.textContent = '🎉';
+                text.textContent = '恭喜过关！';
+                text.className = 'result-text success';
+                btn.textContent = '下一关 ➡️';
+                btn.onclick = nextLevel;
+            } else {
+                icon.textContent = '❌';
+                text.textContent = '不对哦，再听一遍吧';
+                text.className = 'result-text fail';
+                btn.textContent = '🔁 返回聆听';
+                btn.onclick = restartLevel;
+            }
+            
+            overlay.classList.add('show');
+        }
+
+        // 下一关
+        function nextLevel() {
+            document.getElementById('resultOverlay').classList.remove('show');
+            
+            gameState.currentLevel++;
+            document.getElementById('currentLevel').textContent = gameState.currentLevel;
+            
+            resetLevel();
+        }
+
+        // 重新开始当前关
+        function restartLevel() {
+            document.getElementById('resultOverlay').classList.remove('show');
+            resetLevel();
+        }
+
+        // 重置关卡
+        function resetLevel() {
+            // 重置选择
+            gameState.userSelection = { drums: null, bass: null, melody: null, harmony: null };
+            
+            // 重置UI
+            parts.forEach(part => {
+                document.getElementById(part + 'Status').classList.remove('playing');
+                document.getElementById(part + 'Section').classList.remove('active');
+                document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).textContent = '未选择';
+                document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).classList.remove('selected');
+                
+                const optionsContainer = document.getElementById(part + 'Options');
+                optionsContainer.querySelectorAll('.part-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+            });
+            
+            updateMixerDisplay();
+            
+            // 返回第一阶段
+            gameState.currentPhase = 1;
+            updateStageIndicator();
+            
+            document.getElementById('phase3').style.display = 'none';
+            document.getElementById('phase1').style.display = 'block';
+            
+            // 生成新目标
+            generateTargetCombination();
+            
+            // 自动播放
+            setTimeout(() => {
+                playTargetCombination(true);
+                animateVisualizer('targetVisualizer', true);
+            }, 300);
+        }
+
+        // 更新阶段指示器
+        function updateStageIndicator() {
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById('stage' + i);
+                dot.classList.remove('active', 'completed');
+                
+                if (i < gameState.currentPhase) {
+                    dot.classList.add('completed');
+                } else if (i === gameState.currentPhase) {
+                    dot.classList.add('active');
+                }
+            }
+        }
+
         // 启动游戏
-        window.onload = init;
+        window.onload = initGame;
     </script>
 </body>
 </html>
