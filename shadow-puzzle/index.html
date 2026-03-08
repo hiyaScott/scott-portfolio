@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光影谜题 Shadow Puzzle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
+        }
+        
+        canvas {
+            display: block;
+            border: 2px solid #00ffff;
+            background: #0a0a0f;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ffff;
+            font-size: 14px;
+            text-shadow: 0 0 10px #00ffff;
+            pointer-events: none;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ffff;
+            font-size: 12px;
+            text-align: center;
+            text-shadow: 0 0 10px #00ffff;
+            pointer-events: none;
+        }
+        
+        #levelComplete {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            padding: 30px;
+            text-align: center;
+            display: none;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+        }
+        
+        #levelComplete h2 {
+            color: #00ff00;
+            text-shadow: 0 0 20px #00ff00;
+            margin-bottom: 20px;
+        }
+        
+        #levelComplete button {
+            background: #00ffff;
+            color: #000;
+            border: none;
+            padding: 10px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            transition: all 0.3s;
+        }
+        
+        #levelComplete button:hover {
+            background: #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="900" height="700"></canvas>
+        <div id="ui">
+            <div>关卡: <span id="levelNum">1</span>/3</div>
+            <div style="margin-top:5px;">状态: <span id="gameStatus">移动光源创造路径</span></div>
+        </div>
+        <div id="instructions">
+            WASD/方向键移动 | 拖动光源改变阴影 | 利用阴影搭桥和触发开关 | 到达绿色出口
+        </div>
+        <div id="levelComplete">
+            <h2>关卡完成!</h2>
+            <button onclick="nextLevel()">下一关</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelCompleteDiv = document.getElementById('levelComplete');
+        const levelNumSpan = document.getElementById('levelNum');
+        const gameStatusSpan = document.getElementById('gameStatus');
+
+        // 游戏常量
+        const TILE_SIZE = 50;
+        const PLAYER_SIZE = 20;
+        const LIGHT_RADIUS = 30;
+        const PLAYER_SPEED = 3;
+        
+        // 颜色配置 - 赛博朋克霓虹风格
+        const COLORS = {
+            wall: '#00ffff',
+            wallGlow: 'rgba(0, 255, 255, 0.3)',
+            shadow: 'rgba(10, 10, 15, 0.85)',
+            shadowEdge: 'rgba(0, 150, 200, 0.3)',
+            light: '#ff00ff',
+            lightGlow: 'rgba(255, 0, 255, 0.5)',
+            player: '#ffffff',
+            exit: '#00ff00',
+            exitGlow: 'rgba(0, 255, 0, 0.4)',
+            switch: '#ffff00',
+            switchActive: '#00ff00',
+            door: '#ff6600',
+            doorOpen: 'rgba(255, 102, 0, 0.3)',
+            platform: '#1a1a2e',
+            grid: 'rgba(0, 255, 255, 0.05)'
+        };
+
+        // 游戏状态
+        let currentLevel = 0;
+        let gameState = 'playing'; // playing, won
+        let keys = {};
+        let mousePos = { x: 0, y: 0 };
+        let isDragging = false;
+        let draggedLight = null;
+
+        // 关卡数据
+        const levels = [
+            // 第1关：简单L形阴影搭桥
+            {
+                playerStart: { x: 80, y: 80 },
+                exit: { x: 820, y: 620 },
+                lights: [
+                    { x: 200, y: 200, orbitCenter: { x: 200, y: 200 }, orbitRadius: 80, angle: 0 }
+                ],
+                walls: [
+                    { x: 150, y: 250, w: 200, h: 20 },
+                    { x: 350, y: 250, w: 20, h: 200 }
+                ],
+                platforms: [
+                    { x: 50, y: 150, w: 150, h: 20 },
+                    { x: 370, y: 430, w: 150, h: 20 }
+                ],
+                switches: [
+                    { x: 400, y: 400, w: 30, h: 30, triggered: false, id: 'switch1' }
+                ],
+                doors: [
+                    { x: 600, y: 300, w: 20, h: 150, open: false, switchId: 'switch1' }
+                ],
+                gaps: [
+                    { x: 200, y: 150, w: 170, h: 80 } // 间隙区域需要阴影搭桥
+                ]
+            },
+            // 第2关：两个光源配合
+            {
+                playerStart: { x: 80, y: 350 },
+                exit: { x: 820, y: 350 },
+                lights: [
+                    { x: 300, y: 200, orbitCenter: { x: 300, y: 200 }, orbitRadius: 100, angle: 0 },
+                    { x: 600, y: 500, orbitCenter: { x: 600, y: 500 }, orbitRadius: 100, angle: Math.PI }
+                ],
+                walls: [
+                    { x: 250, y: 300, w: 150, h: 20 },
+                    { x: 500, y: 250, w: 20, h: 200 },
+                    { x: 550, y: 400, w: 150, h: 20 }
+                ],
+                platforms: [
+                    { x: 50, y: 300, w: 200, h: 20 },
+                    { x: 400, y: 350, w: 100, h: 20 },
+                    { x: 650, y: 300, w: 200, h: 20 }
+                ],
+                switches: [
+                    { x: 350, y: 420, w: 30, h: 30, triggered: false, id: 'switch1' },
+                    { x: 550, y: 280, w: 30, h: 30, triggered: false, id: 'switch2' }
+                ],
+                doors: [
+                    { x: 450, y: 200, w: 20, h: 100, open: false, switchId: 'switch1' },
+                    { x: 700, y: 400, w: 20, h: 100, open: false, switchId: 'switch2' }
+                ],
+                gaps: [
+                    { x: 250, y: 280, w: 150, h: 60 },
+                    { x: 550, y: 380, w: 150, h: 60 }
+                ]
+            },
+            // 第3关：复杂布局
+            {
+                playerStart: { x: 80, y: 600 },
+                exit: { x: 820, y: 80 },
+                lights: [
+                    { x: 250, y: 350, orbitCenter: { x: 250, y: 350 }, orbitRadius: 120, angle: 0 },
+                    { x: 450, y: 200, orbitCenter: { x: 450, y: 200 }, orbitRadius: 100, angle: Math.PI/2 },
+                    { x: 650, y: 450, orbitCenter: { x: 650, y: 450 }, orbitRadius: 120, angle: Math.PI }
+                ],
+                walls: [
+                    { x: 200, y: 200, w: 20, h: 150 },
+                    { x: 200, y: 350, w: 150, h: 20 },
+                    { x: 400, y: 150, w: 20, h: 150 },
+                    { x: 500, y: 300, w: 150, h: 20 },
+                    { x: 650, y: 150, w: 20, h: 150 },
+                    { x: 300, y: 500, w: 20, h: 150 }
+                ],
+                platforms: [
+                    { x: 50, y: 550, w: 150, h: 20 },
+                    { x: 220, y: 450, w: 100, h: 20 },
+                    { x: 420, y: 300, w: 100, h: 20 },
+                    { x: 670, y: 300, w: 150, h: 20 },
+                    { x: 350, y: 150, w: 100, h: 20 },
+                    { x: 700, y: 100, w: 150, h: 20 }
+                ],
+                switches: [
+                    { x: 350, y: 480, w: 30, h: 30, triggered: false, id: 'switch1' },
+                    { x: 450, y: 130, w: 30, h: 30, triggered: false, id: 'switch2' },
+                    { x: 600, y: 420, w: 30, h: 30, triggered: false, id: 'switch3' }
+                ],
+                doors: [
+                    { x: 350, y: 250, w: 20, h: 100, open: false, switchId: 'switch1' },
+                    { x: 600, y: 200, w: 20, h: 100, open: false, switchId: 'switch2' },
+                    { x: 500, y: 450, w: 100, h: 20, open: false, switchId: 'switch3' }
+                ],
+                gaps: [
+                    { x: 200, y: 450, w: 100, h: 60 },
+                    { x: 400, y: 150, w: 100, h: 60 },
+                    { x: 500, y: 300, w: 150, h: 60 },
+                    { x: 320, y: 550, w: 150, h: 60 }
+                ]
+            }
+        ];
+
+        // 当前关卡数据
+        let levelData = null;
+        let player = { x: 0, y: 0, vx: 0, vy: 0 };
+        let shadows = []; // 阴影多边形
+        let shadowPoints = []; // 阴影覆盖的点
+
+        // 初始化游戏
+        function initGame() {
+            loadLevel(currentLevel);
+            setupEventListeners();
+            gameLoop();
+        }
+
+        // 加载关卡
+        function loadLevel(levelIndex) {
+            if (levelIndex >= levels.length) {
+                levelIndex = 0;
+                currentLevel = 0;
+            }
+            
+            currentLevel = levelIndex;
+            levelNumSpan.textContent = currentLevel + 1;
+            levelCompleteDiv.style.display = 'none';
+            gameState = 'playing';
+            
+            // 深拷贝关卡数据
+            levelData = JSON.parse(JSON.stringify(levels[levelIndex]));
+            player.x = levelData.playerStart.x;
+            player.y = levelData.playerStart.y;
+            
+            updateStatus('移动光源创造路径');
+        }
+
+        // 设置事件监听
+        function setupEventListeners() {
+            window.addEventListener('keydown', (e) => {
+                keys[e.key] = true;
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                keys[e.key] = false;
+            });
+            
+            canvas.addEventListener('mousedown', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                mousePos.x = e.clientX - rect.left;
+                mousePos.y = e.clientY - rect.top;
+                
+                // 检查是否点击了光源
+                for (let light of levelData.lights) {
+                    const dx = mousePos.x - light.x;
+                    const dy = mousePos.y - light.y;
+                    if (Math.sqrt(dx*dx + dy*dy) < LIGHT_RADIUS) {
+                        isDragging = true;
+                        draggedLight = light;
+                        break;
+                    }
+                }
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                mousePos.x = e.clientX - rect.left;
+                mousePos.y = e.clientY - rect.top;
+                
+                if (isDragging && draggedLight) {
+                    // 在圆形轨道上移动光源
+                    const dx = mousePos.x - draggedLight.orbitCenter.x;
+                    const dy = mousePos.y - draggedLight.orbitCenter.y;
+                    const angle = Math.atan2(dy, dx);
+                    draggedLight.angle = angle;
+                    draggedLight.x = draggedLight.orbitCenter.x + Math.cos(angle) * draggedLight.orbitRadius;
+                    draggedLight.y = draggedLight.orbitCenter.y + Math.sin(angle) * draggedLight.orbitRadius;
+                }
+            });
+            
+            canvas.addEventListener('mouseup', () => {
+                isDragging = false;
+                draggedLight = null;
+            });
+        }
+
+        // 计算阴影
+        function calculateShadows() {
+            shadows = [];
+            shadowPoints = [];
+            
+            for (let light of levelData.lights) {
+                const lightShadows = [];
+                
+                for (let wall of levelData.walls) {
+                    // 计算墙壁相对于光源的四个角
+                    const corners = [
+                        { x: wall.x, y: wall.y },
+                        { x: wall.x + wall.w, y: wall.y },
+                        { x: wall.x + wall.w, y: wall.y + wall.h },
+                        { x: wall.x, y: wall.y + wall.h }
+                    ];
+                    
+                    // 找出背向光源的边
+                    const shadowVertices = [];
+                    
+                    for (let corner of corners) {
+                        // 从光源到角落的向量
+                        const dx = corner.x - light.x;
+                        const dy = corner.y - light.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        
+                        // 沿这个方向延伸很远的点
+                        const extendFactor = 1000 / dist;
+                        const farX = light.x + dx * extendFactor;
+                        const farY = light.y + dy * extendFactor;
+                        
+                        shadowVertices.push({
+                            near: corner,
+                            far: { x: farX, y: farY }
+                        });
+                    }
+                    
+                    // 构建阴影多边形
+                    if (shadowVertices.length >= 4) {
+                        const shadowPoly = [
+                            shadowVertices[0].near,
+                            shadowVertices[1].near,
+                            shadowVertices[2].near,
+                            shadowVertices[3].near,
+                            shadowVertices[3].far,
+                            shadowVertices[2].far,
+                            shadowVertices[1].far,
+                            shadowVertices[0].far
+                        ];
+                        lightShadows.push(shadowPoly);
+                    }
+                }
+                
+                shadows.push({ light: light, polygons: lightShadows });
+            }
+            
+            // 计算阴影覆盖的点（用于碰撞检测）
+            calculateShadowPoints();
+        }
+
+        // 计算阴影覆盖的网格点
+        function calculateShadowPoints() {
+            shadowPoints = [];
+            const step = 10;
+            
+            for (let x = 0; x < canvas.width; x += step) {
+                for (let y = 0; y < canvas.height; y += step) {
+                    if (isPointInShadow(x, y)) {
+                        shadowPoints.push({ x, y });
+                    }
+                }
+            }
+        }
+
+        // 检查点是否在阴影中
+        function isPointInShadow(x, y) {
+            // 检查点是否被任何墙壁阴影覆盖
+            for (let shadowSet of shadows) {
+                for (let poly of shadowSet.polygons) {
+                    if (pointInPolygon(x, y, poly)) {
+                        // 确认点在光源后面（被墙壁遮挡）
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // 点在多边形内检测
+        function pointInPolygon(x, y, poly) {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                
+                const intersect = ((yi > y) !== (yj > y))
+                    && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // 检查点是否在间隙中（需要阴影搭桥）
+        function isPointInGap(x, y) {
+            for (let gap of levelData.gaps) {
+                if (x >= gap.x && x <= gap.x + gap.w &&
+                    y >= gap.y && y <= gap.y + gap.h) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // 检查点是否在平台（安全区域）上
+        function isPointOnPlatform(x, y) {
+            // 检查是否在平台上
+            for (let platform of levelData.platforms) {
+                if (x >= platform.x && x <= platform.x + platform.w &&
+                    y >= platform.y && y <= platform.y + platform.h) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 检查点是否在墙壁内
+        function isPointInWall(x, y) {
+            for (let wall of levelData.walls) {
+                if (x >= wall.x && x <= wall.x + wall.w &&
+                    y >= wall.y && y <= wall.y + wall.h) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 检查点是否在门内（门关闭时）
+        function isPointInDoor(x, y) {
+            for (let door of levelData.doors) {
+                if (!door.open &&
+                    x >= door.x && x <= door.x + door.w &&
+                    y >= door.y && y <= door.y + door.h) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 检查点是否可以站立（平台或阴影搭桥在间隙上）
+        function canStand(x, y) {
+            // 检查是否在墙壁上
+            if (isPointInWall(x, y)) return false;
+            
+            // 检查是否在关闭的门上
+            if (isPointInDoor(x, y)) return false;
+            
+            // 检查是否在平台上
+            if (isPointOnPlatform(x, y)) return true;
+            
+            // 检查是否在间隙中但有阴影搭桥
+            if (isPointInGap(x, y)) {
+                // 在阴影中可以行走（阴影搭桥）
+                return isPointInShadow(x, y);
+            }
+            
+            // 其他区域（地面）可以行走
+            return true;
+        }
+
+        // 更新游戏逻辑
+        function update() {
+            if (gameState !== 'playing') return;
+            
+            // 计算阴影
+            calculateShadows();
+            
+            // 玩家移动
+            let dx = 0;
+            let dy = 0;
+            
+            if (keys['ArrowUp'] || keys['w'] || keys['W']) dy -= PLAYER_SPEED;
+            if (keys['ArrowDown'] || keys['s'] || keys['S']) dy += PLAYER_SPEED;
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx -= PLAYER_SPEED;
+            if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += PLAYER_SPEED;
+            
+            // 尝试移动
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+            
+            // 检查碰撞
+            const playerCorners = [
+                { x: newX - PLAYER_SIZE/2, y: newY - PLAYER_SIZE/2 },
+                { x: newX + PLAYER_SIZE/2, y: newY - PLAYER_SIZE/2 },
+                { x: newX + PLAYER_SIZE/2, y: newY + PLAYER_SIZE/2 },
+                { x: newX - PLAYER_SIZE/2, y: newY + PLAYER_SIZE/2 }
+            ];
+            
+            let canMove = true;
+            for (let corner of playerCorners) {
+                if (!canStand(corner.x, corner.y)) {
+                    canMove = false;
+                    break;
+                }
+            }
+            
+            if (canMove) {
+                player.x = newX;
+                player.y = newY;
+            } else {
+                // 尝试单独移动X或Y
+                const newXOnly = player.x + dx;
+                let canMoveX = true;
+                for (let corner of playerCorners) {
+                    corner.x = newXOnly - PLAYER_SIZE/2 + (corner.x - newX + PLAYER_SIZE/2);
+                    if (!canStand(corner.x, corner.y)) {
+                        canMoveX = false;
+                        break;
+                    }
+                }
+                if (canMoveX) player.x = newXOnly;
+                
+                const newYOnly = player.y + dy;
+                let canMoveY = true;
+                for (let corner of playerCorners) {
+                    corner.y = newYOnly - PLAYER_SIZE/2 + (corner.y - newY + PLAYER_SIZE/2);
+                    if (!canStand(corner.x, corner.y)) {
+                        canMoveY = false;
+                        break;
+                    }
+                }
+                if (canMoveY) player.y = newYOnly;
+            }
+            
+            // 检查开关触发
+            checkSwitches();
+            
+            // 检查是否到达出口
+            checkExit();
+        }
+
+        // 检查开关
+        function checkSwitches() {
+            for (let sw of levelData.switches) {
+                const wasTriggered = sw.triggered;
+                sw.triggered = false;
+                
+                // 检查是否有阴影覆盖开关
+                if (isPointInShadow(sw.x + sw.w/2, sw.y + sw.h/2)) {
+                    sw.triggered = true;
+                }
+                
+                // 更新对应的门
+                for (let door of levelData.doors) {
+                    if (door.switchId === sw.id) {
+                        door.open = sw.triggered;
+                    }
+                }
+                
+                if (sw.triggered && !wasTriggered) {
+                    updateStatus('开关已触发！');
+                }
+            }
+        }
+
+        // 检查是否到达出口
+        function checkExit() {
+            const exit = levelData.exit;
+            const dist = Math.sqrt(
+                Math.pow(player.x - exit.x, 2) + 
+                Math.pow(player.y - exit.y, 2)
+            );
+            
+            if (dist < 40) {
+                levelComplete();
+            }
+        }
+
+        // 关卡完成
+        function levelComplete() {
+            gameState = 'won';
+            levelCompleteDiv.style.display = 'block';
+            updateStatus('关卡完成！');
+        }
+
+        // 下一关
+        function nextLevel() {
+            loadLevel(currentLevel + 1);
+        }
+
+        // 更新状态文本
+        function updateStatus(text) {
+            gameStatusSpan.textContent = text;
+        }
+
+        // 渲染游戏
+        function render() {
+            // 清空画布
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制网格背景
+            drawGrid();
+            
+            // 绘制间隙区域（深渊）
+            drawGaps();
+            
+            // 绘制阴影
+            drawShadows();
+            
+            // 绘制平台
+            drawPlatforms();
+            
+            // 绘制墙壁
+            drawWalls();
+            
+            // 绘制门
+            drawDoors();
+            
+            // 绘制开关
+            drawSwitches();
+            
+            // 绘制出口
+            drawExit();
+            
+            // 绘制光源
+            drawLights();
+            
+            // 绘制玩家
+            drawPlayer();
+        }
+
+        // 绘制网格背景
+        function drawGrid() {
+            ctx.strokeStyle = COLORS.grid;
+            ctx.lineWidth = 1;
+            
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        // 绘制间隙（深渊）
+        function drawGaps() {
+            for (let gap of levelData.gaps) {
+                // 绘制渐变深渊效果
+                const gradient = ctx.createRadialGradient(
+                    gap.x + gap.w/2, gap.y + gap.h/2, 0,
+                    gap.x + gap.w/2, gap.y + gap.h/2, Math.max(gap.w, gap.h)
+                );
+                gradient.addColorStop(0, '#000000');
+                gradient.addColorStop(1, '#1a0a0a');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(gap.x, gap.y, gap.w, gap.h);
+                
+                // 边框
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(gap.x, gap.y, gap.w, gap.h);
+            }
+        }
+
+        // 绘制阴影
+        function drawShadows() {
+            // 先绘制所有阴影区域
+            ctx.fillStyle = COLORS.shadow;
+            
+            for (let shadowSet of shadows) {
+                for (let poly of shadowSet.polygons) {
+                    ctx.beginPath();
+                    ctx.moveTo(poly[0].x, poly[0].y);
+                    for (let i = 1; i < poly.length; i++) {
+                        ctx.lineTo(poly[i].x, poly[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 阴影边缘发光效果
+                    ctx.strokeStyle = COLORS.shadowEdge;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // 绘制平台
+        function drawPlatforms() {
+            for (let platform of levelData.platforms) {
+                // 平台主体
+                ctx.fillStyle = COLORS.platform;
+                ctx.fillRect(platform.x, platform.y, platform.w, platform.h);
+                
+                // 霓虹边框
+                ctx.shadowColor = COLORS.wall;
+                ctx.shadowBlur = 10;
+                ctx.strokeStyle = COLORS.wall;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(platform.x, platform.y, platform.w, platform.h);
+                ctx.shadowBlur = 0;
+                
+                // 内部网格纹理
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                for (let i = platform.x + 10; i < platform.x + platform.w; i += 10) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, platform.y);
+                    ctx.lineTo(i, platform.y + platform.h);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // 绘制墙壁
+        function drawWalls() {
+            for (let wall of levelData.walls) {
+                // 墙壁发光效果
+                ctx.shadowColor = COLORS.wall;
+                ctx.shadowBlur = 15;
+                
+                // 墙壁填充
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.1)';
+                ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+                
+                // 墙壁边框
+                ctx.strokeStyle = COLORS.wall;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
+                
+                ctx.shadowBlur = 0;
+                
+                // 角落装饰
+                const cornerSize = 8;
+                ctx.fillStyle = COLORS.wall;
+                
+                // 左上
+                ctx.fillRect(wall.x - 2, wall.y - 2, cornerSize, 3);
+                ctx.fillRect(wall.x - 2, wall.y - 2, 3, cornerSize);
+                
+                // 右上
+                ctx.fillRect(wall.x + wall.w - cornerSize + 2, wall.y - 2, cornerSize, 3);
+                ctx.fillRect(wall.x + wall.w - 3, wall.y - 2, 3, cornerSize);
+                
+                // 左下
+                ctx.fillRect(wall.x - 2, wall.y + wall.h - 3, cornerSize, 3);
+                ctx.fillRect(wall.x - 2, wall.y + wall.h - cornerSize + 2, 3, cornerSize);
+                
+                // 右下
+                ctx.fillRect(wall.x + wall.w - cornerSize + 2, wall.y + wall.h - 3, cornerSize, 3);
+                ctx.fillRect(wall.x + wall.w - 3, wall.y + wall.h - cornerSize + 2, 3, cornerSize);
+            }
+        }
+
+        // 绘制门
+        function drawDoors() {
+            for (let door of levelData.doors) {
+                if (door.open) {
+                    // 打开的门（半透明）
+                    ctx.fillStyle = COLORS.doorOpen;
+                    ctx.fillRect(door.x, door.y, door.w, door.h);
+                    
+                    ctx.strokeStyle = COLORS.door;
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([5, 5]);
+                    ctx.strokeRect(door.x, door.y, door.w, door.h);
+                    ctx.setLineDash([]);
+                } else {
+                    // 关闭的门
+                    ctx.shadowColor = COLORS.door;
+                    ctx.shadowBlur = 10;
+                    
+                    ctx.fillStyle = 'rgba(255, 102, 0, 0.3)';
+                    ctx.fillRect(door.x, door.y, door.w, door.h);
+                    
+                    ctx.strokeStyle = COLORS.door;
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(door.x, door.y, door.w, door.h);
+                    
+                    ctx.shadowBlur = 0;
+                    
+                    // 门上的条纹
+                    ctx.strokeStyle = COLORS.door;
+                    ctx.lineWidth = 2;
+                    if (door.w > door.h) {
+                        // 水平门
+                        for (let i = door.x + 10; i < door.x + door.w; i += 15) {
+                            ctx.beginPath();
+                            ctx.moveTo(i, door.y);
+                            ctx.lineTo(i, door.y + door.h);
+                            ctx.stroke();
+                        }
+                    } else {
+                        // 垂直门
+                        for (let i = door.y + 10; i < door.y + door.h; i += 15) {
+                            ctx.beginPath();
+                            ctx.moveTo(door.x, i);
+                            ctx.lineTo(door.x + door.w, i);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+
+        // 绘制开关
+        function drawSwitches() {
+            for (let sw of levelData.switches) {
+                const color = sw.triggered ? COLORS.switchActive : COLORS.switch;
+                
+                ctx.shadowColor = color;
+                ctx.shadowBlur = sw.triggered ? 20 : 10;
+                
+                // 开关背景
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(sw.x, sw.y, sw.w, sw.h);
+                
+                // 开关发光边框
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(sw.x, sw.y, sw.w, sw.h);
+                
+                // 内部发光
+                ctx.fillStyle = color;
+                const padding = 5;
+                ctx.fillRect(sw.x + padding, sw.y + padding, sw.w - padding*2, sw.h - padding*2);
+                
+                ctx.shadowBlur = 0;
+                
+                // 状态指示器
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(sw.triggered ? 'ON' : 'OFF', sw.x + sw.w/2, sw.y + sw.h/2 + 4);
+            }
+        }
+
+        // 绘制出口
+        function drawExit() {
+            const exit = levelData.exit;
+            
+            // 出口发光效果
+            ctx.shadowColor = COLORS.exit;
+            ctx.shadowBlur = 30;
+            
+            // 出口圆圈
+            ctx.fillStyle = COLORS.exitGlow;
+            ctx.beginPath();
+            ctx.arc(exit.x, exit.y, 35, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = COLORS.exit;
+            ctx.beginPath();
+            ctx.arc(exit.x, exit.y, 20, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+            
+            // 出口文字
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('EXIT', exit.x, exit.y);
+        }
+
+        // 绘制光源
+        function drawLights() {
+            for (let light of levelData.lights) {
+                // 轨道
+                ctx.strokeStyle = 'rgba(255, 0, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(light.orbitCenter.x, light.orbitCenter.y, light.orbitRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // 光源发光效果
+                ctx.shadowColor = COLORS.light;
+                ctx.shadowBlur = 30;
+                
+                // 外圈光晕
+                const gradient = ctx.createRadialGradient(
+                    light.x, light.y, 0,
+                    light.x, light.y, LIGHT_RADIUS * 1.5
+                );
+                gradient.addColorStop(0, 'rgba(255, 0, 255, 0.8)');
+                gradient.addColorStop(1, 'rgba(255, 0, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(light.x, light.y, LIGHT_RADIUS * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 光源核心
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(light.x, light.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.shadowBlur = 0;
+                
+                // 光源图标
+                ctx.strokeStyle = COLORS.light;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(light.x, light.y, 15, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // 拖动提示
+                ctx.fillStyle = COLORS.light;
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('●', light.x, light.y - LIGHT_RADIUS - 10);
+            }
+        }
+
+        // 绘制玩家
+        function drawPlayer() {
+            ctx.shadowColor = COLORS.player;
+            ctx.shadowBlur = 15;
+            
+            // 玩家身体（剪影风格）
+            ctx.fillStyle = COLORS.player;
+            
+            // 头部
+            ctx.beginPath();
+            ctx.arc(player.x, player.y - 5, 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 身体
+            ctx.fillRect(player.x - 5, player.y + 2, 10, 12);
+            
+            // 腿
+            ctx.fillRect(player.x - 5, player.y + 14, 3, 8);
+            ctx.fillRect(player.x + 2, player.y + 14, 3, 8);
+            
+            // 手臂
+            ctx.fillRect(player.x - 8, player.y + 4, 3, 8);
+            ctx.fillRect(player.x + 5, player.y + 4, 3, 8);
+            
+            ctx.shadowBlur = 0;
+            
+            // 玩家轮廓
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y - 5, 6, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // 游戏主循环
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 启动游戏
+        initGame();
+    </script>
+</body>
+</html>
