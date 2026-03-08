@@ -748,17 +748,44 @@
             requestAnimationFrame(scheduler);
         }
         
+        // 音频解锁 - 解决浏览器自动播放策略
+        async function unlockAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+            
+            // 播放一个静音的短音来"唤醒"音频系统
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            gain.gain.value = 0.001;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.01);
+            
+            return audioCtx.state === 'running';
+        }
+        
         // 总开关
-        function toggleMaster() {
+        async function toggleMaster() {
             const btn = document.getElementById('masterBtn');
             
             if (!isPlaying) {
-                // 启动
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                
-                audioCtx.resume().then(() => {
+                // 启动 - 先解锁音频
+                try {
+                    const unlocked = await unlockAudio();
+                    if (!unlocked) {
+                        console.warn('Audio context not running, retrying...');
+                        // 再次尝试
+                        setTimeout(async () => {
+                            await unlockAudio();
+                        }, 100);
+                    }
+                    
                     isPlaying = true;
                     nextBeatTime = audioCtx.currentTime + 0.1;
                     currentBeat = 0;
@@ -771,7 +798,10 @@
                     
                     btn.textContent = '⏸ STOP';
                     btn.classList.add('playing');
-                });
+                } catch (err) {
+                    console.error('Audio start failed:', err);
+                    alert('请点击页面任意位置后再播放音乐');
+                }
             } else {
                 // 停止
                 isPlaying = false;
@@ -785,6 +815,20 @@
                 btn.classList.remove('playing');
             }
         }
+        
+        // 页面首次点击时预解锁音频（解决浏览器自动播放限制）
+        let audioUnlocked = false;
+        document.addEventListener('click', async function unlockOnFirstClick(e) {
+            if (!audioUnlocked && !audioCtx) {
+                try {
+                    await unlockAudio();
+                    audioUnlocked = true;
+                    console.log('Audio pre-unlocked');
+                } catch (err) {
+                    console.log('Pre-unlock failed, will retry on PLAY');
+                }
+            }
+        }, { once: true });
         
         // 切换声部
         function toggleVoice(idx) {
