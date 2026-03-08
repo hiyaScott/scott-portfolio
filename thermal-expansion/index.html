@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>热胀冷缩 - Thermal Expansion</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            border: 2px solid #1a1a2e;
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.2);
+        }
+        
+        canvas {
+            display: block;
+            border-radius: 6px;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            pointer-events: none;
+        }
+        
+        #ui .tool {
+            margin: 5px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #333;
+        }
+        
+        #ui .tool.active {
+            border-color: #fff;
+            box-shadow: 0 0 15px currentColor;
+        }
+        
+        #ui .tool.heat {
+            color: #ff3366;
+        }
+        
+        #ui .tool.cold {
+            color: #33ccff;
+        }
+        
+        #ui .level {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px 16px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+        
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 24px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px 40px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            display: none;
+            pointer-events: none;
+        }
+        
+        #message.show {
+            display: block;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="960" height="640"></canvas>
+        <div id="ui">
+            <div class="tool heat active" id="heatTool">🔥 热源 (Heat) - 空格切换</div>
+            <div class="tool cold" id="coldTool">❄️ 冷源 (Cold) - 空格切换</div>
+            <div class="level">关卡: <span id="levelNum">1</span>/3</div>
+        </div>
+        <div id="controls">
+            WASD/方向键移动 | 鼠标点击放置 | 空格切换工具 | R重置关卡
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const heatToolEl = document.getElementById('heatTool');
+        const coldToolEl = document.getElementById('coldTool');
+        const levelNumEl = document.getElementById('levelNum');
+        const messageEl = document.getElementById('message');
+
+        // 游戏常量
+        const GRAVITY = 0.5;
+        const PLAYER_SPEED = 5;
+        const JUMP_FORCE = -12;
+        const TEMP_CHANGE_RATE = 0.02;
+        const MAX_TEMP = 2.0;
+        const MIN_TEMP = 0.3;
+        const NORMAL_TEMP = 1.0;
+
+        // 工具类型
+        const TOOL_HEAT = 0;
+        const TOOL_COLD = 1;
+
+        // 游戏状态
+        let currentLevel = 0;
+        let currentTool = TOOL_HEAT;
+        let keys = {};
+        let mouse = { x: 0, y: 0 };
+        let particles = [];
+        let gameRunning = true;
+        let levelComplete = false;
+        let levelCompleteTimer = 0;
+
+        // 玩家对象
+        let player = {
+            x: 100,
+            y: 300,
+            width: 30,
+            height: 40,
+            vx: 0,
+            vy: 0,
+            onGround: false,
+            color: '#00ff88'
+        };
+
+        // 金属物体类
+        class MetalObject {
+            constructor(x, y, width, height, type = 'bridge') {
+                this.x = x;
+                this.y = y;
+                this.baseWidth = width;
+                this.baseHeight = height;
+                this.width = width;
+                this.height = height;
+                this.temperature = NORMAL_TEMP;
+                this.type = type; // 'bridge', 'platform', 'switch'
+                this.targetTemp = NORMAL_TEMP;
+            }
+
+            update() {
+                // 温度逐渐趋向目标温度
+                this.temperature += (this.targetTemp - this.temperature) * 0.05;
+                
+                // 根据温度改变尺寸
+                const expansionFactor = this.temperature;
+                if (this.type === 'bridge' || this.type === 'platform') {
+                    this.width = this.baseWidth * expansionFactor;
+                    if (this.type === 'bridge') {
+                        // 桥从中心向两边膨胀
+                        const centerX = this.x + this.baseWidth / 2;
+                        this.x = centerX - this.width / 2;
+                    }
+                }
+            }
+
+            applyHeat(amount) {
+                this.targetTemp = Math.min(MAX_TEMP, this.targetTemp + amount);
+            }
+
+            applyCold(amount) {
+                this.targetTemp = Math.max(MIN_TEMP, this.targetTemp - amount);
+            }
+
+            getColor() {
+                // 根据温度返回颜色：蓝色(冷) -> 银色(正常) -> 红色(热)
+                if (this.temperature < 0.8) {
+                    // 冷：蓝色
+                    const intensity = 1 - (this.temperature - MIN_TEMP) / (0.8 - MIN_TEMP);
+                    return {
+                        r: Math.floor(100 * intensity),
+                        g: Math.floor(200 * intensity),
+                        b: Math.floor(255),
+                        glow: `0 0 ${20 + 30 * intensity}px #33ccff`
+                    };
+                } else if (this.temperature > 1.2) {
+                    // 热：红色
+                    const intensity = (this.temperature - 1.2) / (MAX_TEMP - 1.2);
+                    return {
+                        r: Math.floor(255),
+                        g: Math.floor(100 * (1 - intensity)),
+                        b: Math.floor(100 * (1 - intensity)),
+                        glow: `0 0 ${20 + 30 * intensity}px #ff3366`
+                    };
+                } else {
+                    // 正常：银色
+                    const t = (this.temperature - 0.8) / 0.4;
+                    return {
+                        r: Math.floor(180 + 75 * t),
+                        g: Math.floor(180 + 75 * t),
+                        b: Math.floor(180 + 75 * t),
+                        glow: '0 0 10px #888'
+                    };
+                }
+            }
+
+            draw() {
+                const color = this.getColor();
+                
+                ctx.save();
+                ctx.shadowColor = this.temperature > 1.2 ? '#ff3366' : (this.temperature < 0.8 ? '#33ccff' : '#888');
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                
+                // 绘制金属质感
+                const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+                gradient.addColorStop(0, `rgb(${color.r + 30}, ${color.g + 30}, ${color.b + 30})`);
+                gradient.addColorStop(0.5, `rgb(${color.r}, ${color.g}, ${color.b})`);
+                gradient.addColorStop(1, `rgb(${color.r - 30}, ${color.g - 30}, ${color.b - 30})`);
+                ctx.fillStyle = gradient;
+                
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // 绘制边框
+                ctx.strokeStyle = `rgb(${color.r + 50}, ${color.g + 50}, ${color.b + 50})`;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                
+                // 绘制温度指示器
+                const tempBarWidth = this.width - 10;
+                const tempPercent = (this.temperature - MIN_TEMP) / (MAX_TEMP - MIN_TEMP);
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(this.x + 5, this.y - 8, tempBarWidth, 4);
+                
+                if (this.temperature > 1.0) {
+                    ctx.fillStyle = '#ff3366';
+                } else if (this.temperature < 1.0) {
+                    ctx.fillStyle = '#33ccff';
+                } else {
+                    ctx.fillStyle = '#888';
+                }
+                ctx.fillRect(this.x + 5, this.y - 8, tempBarWidth * tempPercent, 4);
+                
+                ctx.restore();
+            }
+        }
+
+        // 源工具放置类
+        class SourceTool {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.radius = 30;
+                this.life = 300; // 5秒生命
+                this.pulsePhase = 0;
+            }
+
+            update() {
+                this.life--;
+                this.pulsePhase += 0.1;
+            }
+
+            isDead() {
+                return this.life <= 0;
+            }
+
+            draw() {
+                const alpha = Math.min(1, this.life / 60);
+                const pulse = Math.sin(this.pulsePhase) * 5;
+                
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                
+                if (this.type === TOOL_HEAT) {
+                    // 热源：红色发光球体
+                    ctx.shadowColor = '#ff3366';
+                    ctx.shadowBlur = 30 + pulse;
+                    
+                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                    gradient.addColorStop(0, '#ff6699');
+                    gradient.addColorStop(0.5, '#ff3366');
+                    gradient.addColorStop(1, 'rgba(255, 51, 102, 0)');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 核心
+                    ctx.fillStyle = '#ffccdd';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // 冷源：蓝色发光球体
+                    ctx.shadowColor = '#33ccff';
+                    ctx.shadowBlur = 30 + pulse;
+                    
+                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                    gradient.addColorStop(0, '#66ddff');
+                    gradient.addColorStop(0.5, '#33ccff');
+                    gradient.addColorStop(1, 'rgba(51, 204, 255, 0)');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 核心
+                    ctx.fillStyle = '#ccffff';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+
+            affects(obj) {
+                const dx = this.x - (obj.x + obj.width / 2);
+                const dy = this.y - (obj.y + obj.height / 2);
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                return dist < this.radius + Math.max(obj.width, obj.height) / 2 + 50;
+            }
+        }
+
+        // 粒子类
+        class Particle {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.life = 60;
+                this.size = Math.random() * 4 + 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+                this.size *= 0.98;
+            }
+
+            draw() {
+                const alpha = this.life / 60;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                
+                if (this.type === TOOL_HEAT) {
+                    ctx.fillStyle = '#ff3366';
+                    ctx.shadowColor = '#ff3366';
+                } else {
+                    ctx.fillStyle = '#33ccff';
+                    ctx.shadowColor = '#33ccff';
+                }
+                
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+
+        // 关卡数据
+        let walls = [];
+        let metals = [];
+        let tools = [];
+        let goal = { x: 0, y: 0, width: 40, height: 60 };
+
+        function initLevel(level) {
+            walls = [];
+            metals = [];
+            tools = [];
+            particles = [];
+            levelComplete = false;
+            levelCompleteTimer = 0;
+            
+            // 边界墙
+            walls.push({ x: 0, y: 0, width: 20, height: 640 }); // 左墙
+            walls.push({ x: 940, y: 0, width: 20, height: 640 }); // 右墙
+            walls.push({ x: 0, y: 620, width: 960, height: 20 }); // 地板
+            
+            if (level === 0) {
+                // 第1关：基础热胀冷缩，金属桥伸长
+                player.x = 80;
+                player.y = 500;
+                
+                // 左侧平台
+                walls.push({ x: 0, y: 400, width: 200, height: 20 });
+                
+                // 右侧目标平台
+                walls.push({ x: 760, y: 400, width: 200, height: 20 });
+                
+                // 金属桥（需要加热伸长）
+                metals.push(new MetalObject(200, 390, 100, 20, 'bridge'));
+                
+                // 目标
+                goal.x = 860;
+                goal.y = 340;
+                
+            } else if (level === 1) {
+                // 第2关：温度平衡，需要精确控制
+                player.x = 50;
+                player.y = 500;
+                
+                // 起始平台
+                walls.push({ x: 0, y: 450, width: 150, height: 20 });
+                
+                // 中间低平台
+                walls.push({ x: 300, y: 550, width: 200, height: 20 });
+                
+                // 高位平台
+                walls.push({ x: 600, y: 350, width: 150, height: 20 });
+                
+                // 目标平台
+                walls.push({ x: 850, y: 250, width: 110, height: 20 });
+                
+                // 金属桥1：需要冷却收缩以通过下方（初始长，挡路）
+                const bridge1 = new MetalObject(150, 440, 200, 20, 'bridge');
+                bridge1.temperature = 1.8;
+                bridge1.targetTemp = 1.8;
+                metals.push(bridge1);
+                
+                // 金属桥2：需要加热伸长以跳到高位
+                metals.push(new MetalObject(500, 540, 100, 20, 'bridge'));
+                
+                // 金属桥3：连接高位到目标
+                const bridge3 = new MetalObject(750, 340, 100, 20, 'bridge');
+                metals.push(bridge3);
+                
+                goal.x = 900;
+                goal.y = 190;
+                
+            } else if (level === 2) {
+                // 第3关：多个物体配合
+                player.x = 50;
+                player.y = 500;
+                
+                // 起始平台
+                walls.push({ x: 0, y: 450, width: 120, height: 20 });
+                
+                // 第一个间隙
+                // 金属平台1：需要加热
+                metals.push(new MetalObject(120, 440, 80, 20, 'platform'));
+                
+                // 中间固定平台
+                walls.push({ x: 250, y: 450, width: 100, height: 20 });
+                
+                // 垂直金属柱：受热变高
+                const pillar = new MetalObject(400, 350, 30, 100, 'platform');
+                pillar.baseHeight = 100;
+                metals.push(pillar);
+                
+                // 上方平台
+                walls.push({ x: 480, y: 300, width: 150, height: 20 });
+                
+                // 水平金属桥：受热变长到达目标
+                metals.push(new MetalObject(630, 290, 80, 20, 'bridge'));
+                
+                // 下方危险区域（只是视觉）
+                walls.push({ x: 200, y: 600, width: 560, height: 20 });
+                
+                // 目标
+                goal.x = 870;
+                goal.y = 240;
+                
+                // 目标下方平台
+                walls.push({ x: 850, y: 300, width: 110, height: 20 });
+            }
+        }
+
+        // 碰撞检测
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // 更新玩家
+        function updatePlayer() {
+            // 水平移动
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+                player.vx = -PLAYER_SPEED;
+            } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+                player.vx = PLAYER_SPEED;
+            } else {
+                player.vx *= 0.8;
+            }
+
+            // 跳跃
+            if ((keys['ArrowUp'] || keys['w'] || keys['W'] || keys[' ']) && player.onGround) {
+                player.vy = JUMP_FORCE;
+                player.onGround = false;
+            }
+
+            // 重力
+            player.vy += GRAVITY;
+
+            // 应用速度
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // 与墙壁碰撞
+            player.onGround = false;
+            
+            for (const wall of walls) {
+                if (checkCollision(player, wall)) {
+                    // 垂直碰撞
+                    if (player.vy > 0 && player.y < wall.y) {
+                        player.y = wall.y - player.height;
+                        player.vy = 0;
+                        player.onGround = true;
+                    } else if (player.vy < 0 && player.y > wall.y) {
+                        player.y = wall.y + wall.height;
+                        player.vy = 0;
+                    }
+                    
+                    // 水平碰撞
+                    if (player.vx > 0 && player.x < wall.x) {
+                        player.x = wall.x - player.width;
+                        player.vx = 0;
+                    } else if (player.vx < 0 && player.x > wall.x) {
+                        player.x = wall.x + wall.width;
+                        player.vx = 0;
+                    }
+                }
+            }
+
+            // 与金属物体碰撞
+            for (const metal of metals) {
+                if (checkCollision(player, metal)) {
+                    // 垂直碰撞
+                    if (player.vy > 0 && player.y < metal.y) {
+                        player.y = metal.y - player.height;
+                        player.vy = 0;
+                        player.onGround = true;
+                    } else if (player.vy < 0 && player.y > metal.y) {
+                        player.y = metal.y + metal.height;
+                        player.vy = 0;
+                    }
+                    
+                    // 水平碰撞
+                    if (player.vx > 0 && player.x < metal.x) {
+                        player.x = metal.x - player.width;
+                        player.vx = 0;
+                    } else if (player.vx < 0 && player.x > metal.x) {
+                        player.x = metal.x + metal.width;
+                        player.vx = 0;
+                    }
+                }
+            }
+
+            // 边界检查
+            player.x = Math.max(20, Math.min(940 - player.width, player.x));
+            
+            // 掉落检测
+            if (player.y > 700) {
+                resetLevel();
+            }
+
+            // 检查是否到达目标
+            if (checkCollision(player, goal)) {
+                if (!levelComplete) {
+                    levelComplete = true;
+                    showMessage('关卡完成！');
+                }
+            }
+        }
+
+        // 更新游戏
+        function update() {
+            if (!gameRunning) return;
+
+            updatePlayer();
+
+            // 更新金属物体
+            for (const metal of metals) {
+                metal.update();
+                
+                // 检查源工具影响
+                for (const tool of tools) {
+                    if (tool.affects(metal)) {
+                        if (tool.type === TOOL_HEAT) {
+                            metal.applyHeat(TEMP_CHANGE_RATE);
+                        } else {
+                            metal.applyCold(TEMP_CHANGE_RATE);
+                        }
+                    }
+                }
+            }
+
+            // 更新工具
+            for (let i = tools.length - 1; i >= 0; i--) {
+                tools[i].update();
+                if (tools[i].isDead()) {
+                    tools.splice(i, 1);
+                }
+            }
+
+            // 更新粒子
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].isDead()) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // 关卡完成处理
+            if (levelComplete) {
+                levelCompleteTimer++;
+                if (levelCompleteTimer > 120) {
+                    if (currentLevel < 2) {
+                        currentLevel++;
+                        initLevel(currentLevel);
+                        levelNumEl.textContent = currentLevel + 1;
+                        hideMessage();
+                    } else {
+                        showMessage('恭喜通关！游戏结束');
+                        gameRunning = false;
+                    }
+                }
+            }
+        }
+
+        // 绘制游戏
+        function draw() {
+            // 清空画布（赛博朋克深色背景）
+            const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGradient.addColorStop(0, '#0a0a0f');
+            bgGradient.addColorStop(1, '#1a1a2e');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制网格背景
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // 绘制墙壁
+            ctx.fillStyle = '#2a2a3e';
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            for (const wall of walls) {
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
+                
+                // 科技感装饰
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.1)';
+                ctx.fillRect(wall.x + 5, wall.y + 5, wall.width - 10, 3);
+                ctx.fillStyle = '#2a2a3e';
+            }
+
+            // 绘制金属物体
+            for (const metal of metals) {
+                metal.draw();
+            }
+
+            // 绘制目标
+            ctx.save();
+            ctx.shadowColor = '#00ff88';
+            ctx.shadowBlur = 20;
+            const goalGradient = ctx.createLinearGradient(goal.x, goal.y, goal.x, goal.y + goal.height);
+            goalGradient.addColorStop(0, '#00ff88');
+            goalGradient.addColorStop(1, '#00cc66');
+            ctx.fillStyle = goalGradient;
+            ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+            
+            // 目标发光效果
+            ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
+            ctx.fillRect(goal.x - 10, goal.y - 10, goal.width + 20, goal.height + 20);
+            ctx.restore();
+
+            // 绘制工具
+            for (const tool of tools) {
+                tool.draw();
+            }
+
+            // 绘制粒子
+            for (const particle of particles) {
+                particle.draw();
+            }
+
+            // 绘制玩家
+            ctx.save();
+            ctx.shadowColor = player.color;
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // 玩家眼睛
+            ctx.fillStyle = '#fff';
+            if (player.vx >= 0) {
+                ctx.fillRect(player.x + 18, player.y + 8, 6, 6);
+            } else {
+                ctx.fillRect(player.x + 6, player.y + 8, 6, 6);
+            }
+            ctx.restore();
+
+            // 绘制工具预览（鼠标位置）
+            if (!levelComplete) {
+                ctx.save();
+                ctx.globalAlpha = 0.5;
+                if (currentTool === TOOL_HEAT) {
+                    ctx.strokeStyle = '#ff3366';
+                    ctx.fillStyle = 'rgba(255, 51, 102, 0.2)';
+                } else {
+                    ctx.strokeStyle = '#33ccff';
+                    ctx.fillStyle = 'rgba(51, 204, 255, 0.2)';
+                }
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(mouse.x, mouse.y, 30, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 显示消息
+        function showMessage(text) {
+            messageEl.textContent = text;
+            messageEl.classList.add('show');
+        }
+
+        function hideMessage() {
+            messageEl.classList.remove('show');
+        }
+
+        // 重置关卡
+        function resetLevel() {
+            initLevel(currentLevel);
+            hideMessage();
+        }
+
+        // 事件监听
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            // 空格切换工具
+            if (e.key === ' ' && !e.repeat) {
+                e.preventDefault();
+                currentTool = currentTool === TOOL_HEAT ? TOOL_COLD : TOOL_HEAT;
+                if (currentTool === TOOL_HEAT) {
+                    heatToolEl.classList.add('active');
+                    coldToolEl.classList.remove('active');
+                } else {
+                    heatToolEl.classList.remove('active');
+                    coldToolEl.classList.add('active');
+                }
+            }
+            
+            // R键重置
+            if (e.key === 'r' || e.key === 'R') {
+                resetLevel();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (!gameRunning || levelComplete) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 放置工具
+            tools.push(new SourceTool(x, y, currentTool));
+            
+            // 生成粒子效果
+            for (let i = 0; i < 10; i++) {
+                particles.push(new Particle(x, y, currentTool));
+            }
+        });
+
+        // 初始化游戏
+        initLevel(currentLevel);
+        gameLoop();
+    </script>
+</body>
+</html>
