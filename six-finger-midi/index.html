@@ -428,8 +428,8 @@
         }
         
         .clip {
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
             border: 2px solid rgba(255, 255, 255, 0.2);
             background: rgba(0, 0, 0, 0.5);
             cursor: pointer;
@@ -502,6 +502,17 @@
             font-size: 0.7em;
             margin-top: 5px;
             opacity: 0.7;
+        }
+        
+        .clip-name {
+            font-size: 0.6em;
+            opacity: 0.8;
+            text-align: center;
+            padding: 0 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
         }
         
         /* 播放指示器 */
@@ -614,6 +625,27 @@
             font-size: 1.5em;
             color: #00ffff;
             font-weight: bold;
+        }
+        
+        /* 关卡信息显示 */
+        .level-info {
+            text-align: center;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(255, 170, 0, 0.1);
+            border: 1px solid rgba(255, 170, 0, 0.3);
+            border-radius: 5px;
+        }
+        
+        .level-info-title {
+            color: #ffaa00;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        
+        .level-info-desc {
+            color: #aaa;
+            font-size: 0.9em;
         }
         
         /* 反馈区域 */
@@ -796,11 +828,14 @@
         /* 响应式 */
         @media (max-width: 768px) {
             h1 { font-size: 1.8em; }
-            .clip { width: 45px; height: 45px; }
+            .clip { width: 55px; height: 55px; }
+            .clip-name { font-size: 0.5em; }
             .control-btn { padding: 12px 25px; font-size: 0.9em; }
             .track-label { min-width: 70px; font-size: 0.75em; }
             .tutorial-step { min-width: 100px; }
         }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -818,7 +853,7 @@
     <div id="gameContainer">
         <header>
             <h1>六指迷笛</h1>
-            <div class="subtitle">SIX-FINGER MIDI // 多声部音乐合成器</div>
+            <div class="subtitle">SIX-FINGER MIDI // 多声部音乐记忆游戏</div>
         </header>
         
         <div class="mode-selector">
@@ -834,6 +869,12 @@
                 <button class="level-btn locked" data-level="3">3</button>
                 <button class="level-btn locked" data-level="4">4</button>
                 <button class="level-btn locked" data-level="5">5</button>
+            </div>
+            
+            <!-- 关卡信息 -->
+            <div class="level-info" id="levelInfo">
+                <div class="level-info-title">第 1 关 - 简单旋律</div>
+                <div class="level-info-desc">大调音阶 | 主和弦进行 | 基础节奏</div>
             </div>
             
             <!-- 进度条 -->
@@ -854,11 +895,11 @@
                     </div>
                     <div class="tutorial-step" id="step2">
                         <div class="tutorial-step-number">2</div>
-                        <div class="tutorial-step-text">选择你的答案</div>
+                        <div class="tutorial-step-text">选择匹配片段</div>
                     </div>
                     <div class="tutorial-step" id="step3">
                         <div class="tutorial-step-number">3</div>
-                        <div class="tutorial-step-text">点击提交验证</div>
+                        <div class="tutorial-step-text">提交验证答案</div>
                     </div>
                 </div>
             </div>
@@ -866,7 +907,7 @@
             <!-- BPM 显示 -->
             <div class="bpm-display">
                 <span class="bpm-label">TEMPO</span>
-                <span class="bpm-value" id="bpmValue">128</span>
+                <span class="bpm-value" id="bpmValue">100</span>
                 <span class="bpm-label">BPM</span>
             </div>
             
@@ -886,7 +927,7 @@
             
             <!-- 反馈区域 -->
             <div class="feedback-area waiting" id="feedbackArea">
-                请先聆听目标旋律，然后从每个轨道中选择一个片段
+                点击"播放目标旋律"聆听音乐，然后从每个轨道选择匹配的旋律片段
             </div>
         </div>
     </div>
@@ -914,8 +955,8 @@
         let isTargetPlaying = false;
         let audioEnabled = false;
         
-        // 使用 128 BPM (与Blog一致)
-        let bpm = 128;
+        // 使用 100 BPM (适中速度，便于记忆)
+        let bpm = 100;
         const BEATS_PER_BAR = 4;
         const BARS = 2;
         const TOTAL_BEATS = BEATS_PER_BAR * BARS; // 8 beats for 2 bars
@@ -924,10 +965,10 @@
         let nextNoteTime = 0.0;
         let currentBeat = 0;
         let timerID = null;
-        const LOOKAHEAD = 25.0; // 调度器提前时间 (ms)
-        const SCHEDULE_AHEAD_TIME = 0.1; // 音频调度提前时间 (秒)
+        const LOOKAHEAD = 25.0;
+        const SCHEDULE_AHEAD_TIME = 0.1;
         
-        // 音符频率映射
+        // 音符频率映射 (C2-C5)
         const NOTE_FREQUENCIES = {
             'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31,
             'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'B2': 123.47,
@@ -1032,22 +1073,11 @@
                 noise.connect(gain);
                 gain.connect(masterGain);
                 noise.start(t);
-            } else if (type === 'tom') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.frequency.setValueAtTime(100, t);
-                osc.frequency.exponentialRampToValueAtTime(50, t + 0.3);
-                gain.gain.setValueAtTime(0.6, t);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-                osc.connect(gain);
-                gain.connect(masterGain);
-                osc.start(t);
-                osc.stop(t + 0.3);
             }
         }
         
         // 贝斯合成器
-        function playBass(note, time, duration = 0.25) {
+        function playBass(note, time, duration = 0.4) {
             const t = time || audioCtx.currentTime;
             const freq = NOTE_FREQUENCIES[note] || 65.41;
             
@@ -1075,7 +1105,7 @@
         }
         
         // 旋律合成器
-        function playMelody(note, time, duration = 0.2) {
+        function playMelody(note, time, duration = 0.35) {
             const t = time || audioCtx.currentTime;
             const freq = NOTE_FREQUENCIES[note] || 440;
             
@@ -1105,7 +1135,7 @@
         }
         
         // 和声合成器 (Pad)
-        function playHarmony(notes, time, duration = 1) {
+        function playHarmony(notes, time, duration = 0.8) {
             const t = time || audioCtx.currentTime;
             
             notes.forEach((note, i) => {
@@ -1134,7 +1164,7 @@
             });
         }
         
-        // ==================== 音乐片段定义 ====================
+        // ==================== 声部定义 ====================
         
         const TRACKS = [
             { id: 'drums', name: '鼓组', color: '#ff0055' },
@@ -1143,84 +1173,152 @@
             { id: 'harmony', name: '和声', color: '#ffaa00' }
         ];
         
-        // 16个鼓组片段
+        // ==================== 重新设计的旋律片段系统 ====================
+        // 每个片段是一段2小节的旋律（8个音符/和弦）
+        // 设计原则：有明确的音乐性，降低记忆负担
+        
+        // 鼓组片段 - 8种不同风格的节奏型
         const DRUM_CLIPS = [
-            { id: 0, pattern: [['kick'], [], ['hihat'], [], ['kick', 'snare'], [], ['hihat'], []] },
-            { id: 1, pattern: [['kick'], ['hihat'], ['snare'], ['hihat'], ['kick'], ['hihat'], ['snare'], ['hihat']] },
-            { id: 2, pattern: [['kick', 'hihat'], [], ['hihat'], [], ['kick', 'snare', 'hihat'], [], ['hihat'], []] },
-            { id: 3, pattern: [['kick'], [], ['kick'], [], ['kick', 'snare'], ['kick'], ['snare'], []] },
-            { id: 4, pattern: [['hihat'], ['hihat'], ['hihat'], ['hihat'], ['hihat'], ['hihat'], ['hihat'], ['hihat']] },
-            { id: 5, pattern: [['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat']] },
-            { id: 6, pattern: [['kick'], [], ['snare'], ['kick'], [], ['snare'], ['kick'], []] },
-            { id: 7, pattern: [['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['kick', 'hihat'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat']] },
-            { id: 8, pattern: [['tom'], [], ['tom'], [], ['tom'], [], ['tom'], []] },
-            { id: 9, pattern: [['kick'], [], [], [], ['kick', 'snare'], [], [], []] },
-            { id: 10, pattern: [['kick'], ['kick'], ['snare'], ['kick'], ['kick'], ['kick'], ['snare'], ['kick']] },
-            { id: 11, pattern: [['kick'], ['clap'], ['kick'], ['clap'], ['kick'], ['clap'], ['kick'], ['clap']] },
-            { id: 12, pattern: [['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['kick', 'hihat'], ['hihat'], ['kick', 'hihat'], ['snare', 'hihat'], ['hihat']] },
-            { id: 13, pattern: [['kick'], ['snare'], ['kick'], ['snare'], ['kick'], ['snare'], ['kick'], ['snare']] },
-            { id: 14, pattern: [[], ['kick'], [], ['snare'], [], ['kick'], [], ['snare']] },
-            { id: 15, pattern: [['kick', 'snare', 'hihat'], ['hihat'], ['snare', 'hihat'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['kick', 'hihat'], ['hihat']] }
+            { 
+                id: 0, name: '四拍子', 
+                pattern: [['kick'], ['kick'], ['kick'], ['kick'], ['kick'], ['kick'], ['kick'], ['kick']] 
+            },
+            { 
+                id: 1, name: '标准摇滚', 
+                pattern: [['kick'], ['hihat'], ['snare', 'hihat'], ['hihat'], ['kick'], ['hihat'], ['snare', 'hihat'], ['hihat']] 
+            },
+            { 
+                id: 2, name: '动次打次', 
+                pattern: [['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat']] 
+            },
+            { 
+                id: 3, name: '反拍重音', 
+                pattern: [['kick'], ['snare'], ['kick'], ['snare'], ['kick'], ['snare'], ['kick'], ['snare']] 
+            },
+            { 
+                id: 4, name: '拉丁感', 
+                pattern: [['kick', 'hihat'], ['hihat'], ['kick', 'hihat'], ['snare'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat']] 
+            },
+            { 
+                id: 5, name: '碎拍', 
+                pattern: [['kick'], [], ['snare'], ['kick'], [], ['snare'], ['kick'], []] 
+            },
+            { 
+                id: 6, name: '舞曲', 
+                pattern: [['kick', 'hihat'], ['hihat'], ['kick', 'snare', 'hihat'], ['hihat'], ['kick', 'hihat'], ['hihat'], ['snare', 'hihat'], ['hihat']] 
+            },
+            { 
+                id: 7, name: '氛围', 
+                pattern: [['kick'], [], [], ['kick'], ['snare'], [], ['kick'], []] 
+            }
         ];
         
-        // 16个贝斯片段
+        // 贝斯片段 - 8种低音旋律线
         const BASS_CLIPS = [
-            { id: 0, pattern: [['C2'], ['C2'], ['C2'], ['C2'], ['G2'], ['G2'], ['C2'], ['C2']] },
-            { id: 1, pattern: [['C2'], [], ['E2'], [], ['G2'], [], ['F2'], ['G2']] },
-            { id: 2, pattern: [['C2'], ['C2'], ['D2'], ['D2'], ['E2'], ['E2'], ['F2'], ['F2']] },
-            { id: 3, pattern: [['C2'], [], ['C2'], [], ['G2'], [], ['G2'], []] },
-            { id: 4, pattern: [['A2'], [], ['G2'], [], ['F2'], [], ['G2'], []] },
-            { id: 5, pattern: [['C3'], ['C3'], ['B2'], ['B2'], ['A2'], ['A2'], ['G2'], ['G2']] },
-            { id: 6, pattern: [['C2'], ['E2'], ['G2'], ['E2'], ['C2'], ['E2'], ['G2'], ['E2']] },
-            { id: 7, pattern: [['F2'], ['F2'], ['G2'], ['G2'], ['A2'], ['A2'], ['G2'], ['G2']] },
-            { id: 8, pattern: [['D2'], [], ['D2'], [], ['A2'], [], ['D2'], []] },
-            { id: 9, pattern: [['E2'], ['E2'], [], ['E2'], ['G2'], ['G2'], [], ['G2']] },
-            { id: 10, pattern: [['C2'], [], [], ['C2'], ['G2'], [], [], ['G2']] },
-            { id: 11, pattern: [['A2'], ['A2'], ['A2'], ['A2'], ['E2'], ['E2'], ['A2'], ['A2']] },
-            { id: 12, pattern: [['G2'], ['F2'], ['E2'], ['D2'], ['C2'], [], [], []] },
-            { id: 13, pattern: [['C2'], ['D2'], ['E2'], ['F2'], ['G2'], ['A2'], ['B2'], ['C3']] },
-            { id: 14, pattern: [['C2'], ['G2'], ['C3'], ['G2'], ['C2'], ['G2'], ['C3'], ['G2']] },
-            { id: 15, pattern: [['F2'], [], ['G2'], [], ['A2'], [], ['B2'], []] }
+            { 
+                id: 0, name: '主音持续', 
+                pattern: [['C3'], ['C3'], ['C3'], ['C3'], ['C3'], ['C3'], ['C3'], ['C3']] 
+            },
+            { 
+                id: 1, name: '根五进行', 
+                pattern: [['C3'], ['G2'], ['C3'], ['G2'], ['C3'], ['G2'], ['C3'], ['G2']] 
+            },
+            { 
+                id: 2, name: '上行音阶', 
+                pattern: [['C3'], ['D3'], ['E3'], ['F3'], ['G3'], ['F3'], ['E3'], ['D3']] 
+            },
+            { 
+                id: 3, name: '下行音阶', 
+                pattern: [['G3'], ['F3'], ['E3'], ['D3'], ['C3'], ['D3'], ['E3'], ['F3']] 
+            },
+            { 
+                id: 4, name: '五度跳跃', 
+                pattern: [['C3'], ['G3'], ['C3'], ['G3'], ['F3'], ['C3'], ['F3'], ['C3']] 
+            },
+            { 
+                id: 5, name: '琶音式', 
+                pattern: [['C3'], ['E3'], ['G3'], ['E3'], ['F3'], ['A3'], ['C4'], ['A3']] 
+            },
+            { 
+                id: 6, name: '摇摆感', 
+                pattern: [['C3'], ['C3'], ['E3'], ['E3'], ['G3'], ['G3'], ['F3'], ['F3']] 
+            },
+            { 
+                id: 7, name: '经过音', 
+                pattern: [['C3'], ['D3'], ['C3'], ['B2'], ['C3'], ['D3'], ['E3'], ['C3']] 
+        }
         ];
         
-        // 16个旋律片段
+        // 旋律片段 - 8种主题旋律
         const MELODY_CLIPS = [
-            { id: 0, pattern: [['E4'], ['G4'], ['E4'], ['C4'], ['D4'], ['E4'], ['D4'], ['C4']] },
-            { id: 1, pattern: [['C4'], ['E4'], ['G4'], ['E4'], ['C5'], ['G4'], ['E4'], ['C4']] },
-            { id: 2, pattern: [['G4'], ['G4'], ['A4'], ['G4'], ['E4'], ['G4'], ['D4'], ['E4']] },
-            { id: 3, pattern: [['E4'], [], ['G4'], [], ['A4'], [], ['G4'], []] },
-            { id: 4, pattern: [['C5'], ['B4'], ['A4'], ['G4'], ['F4'], ['E4'], ['D4'], ['C4']] },
-            { id: 5, pattern: [['G4'], ['E4'], ['C4'], ['E4'], ['G4'], ['E4'], ['C4'], ['E4']] },
-            { id: 6, pattern: [['A4'], ['A4'], ['G4'], ['F4'], ['E4'], ['E4'], ['D4'], ['C4']] },
-            { id: 7, pattern: [['C4'], ['D4'], ['E4'], ['F4'], ['G4'], ['A4'], ['B4'], ['C5']] },
-            { id: 8, pattern: [['E4'], ['G4'], ['B4'], ['G4'], ['E4'], ['G4'], ['B4'], ['G4']] },
-            { id: 9, pattern: [['D4'], ['F4'], ['A4'], ['F4'], ['D4'], ['F4'], ['A4'], ['F4']] },
-            { id: 10, pattern: [['C5'], [], ['G4'], [], ['E4'], [], ['C4'], []] },
-            { id: 11, pattern: [['G4'], ['A4'], ['G4'], ['F4'], ['E4'], ['D4'], ['E4'], ['C4']] },
-            { id: 12, pattern: [['F4'], ['F4'], ['E4'], ['E4'], ['D4'], ['D4'], ['C4'], ['C4']] },
-            { id: 13, pattern: [['A4'], ['G4'], ['F4'], ['E4'], ['D4'], ['C4'], ['D4'], ['E4']] },
-            { id: 14, pattern: [['E4'], ['C4'], ['E4'], ['G4'], ['E4'], ['C4'], ['E4'], ['G4']] },
-            { id: 15, pattern: [['C5'], ['B4'], ['C5'], ['G4'], ['A4'], ['G4'], ['F4'], ['E4']] }
+            { 
+                id: 0, name: '小星星', 
+                pattern: [['C4'], ['C4'], ['G4'], ['G4'], ['A4'], ['A4'], ['G4'], []] 
+            },
+            { 
+                id: 1, name: '上行分解', 
+                pattern: [['C4'], ['E4'], ['G4'], ['C5'], ['G4'], ['E4'], ['C4'], []] 
+            },
+            { 
+                id: 2, name: '波浪形', 
+                pattern: [['E4'], ['G4'], ['E4'], ['C4'], ['D4'], ['F4'], ['D4'], ['B3']] 
+            },
+            { 
+                id: 3, name: '问答式', 
+                pattern: [['G4'], ['E4'], ['C4'], [], ['E4'], ['G4'], ['C5'], []] 
+            },
+            { 
+                id: 4, name: '环绕音', 
+                pattern: [['C4'], ['D4'], ['C4'], ['B3'], ['C4'], ['E4'], ['G4'], ['E4']] 
+            },
+            { 
+                id: 5, name: '三连音感', 
+                pattern: [['C4'], ['E4'], ['G4'], ['E4'], ['F4'], ['A4'], ['C5'], ['A4']] 
+            },
+            { 
+                id: 6, name: '下行叹息', 
+                pattern: [['G4'], ['F4'], ['E4'], ['D4'], ['C4'], ['D4'], ['E4'], ['C4']] 
+            },
+            { 
+                id: 7, name: '跳跃式', 
+                pattern: [['C4'], ['G4'], ['C4'], ['G4'], ['E4'], ['C5'], ['E4'], ['C5']] 
+            }
         ];
         
-        // 16个和声片段
+        // 和声片段 - 8种和弦进行
         const HARMONY_CLIPS = [
-            { id: 0, chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] },
-            { id: 1, chords: [['C3', 'E3', 'G3'], ['E3', 'G3', 'B3'], ['A3', 'C4', 'E4'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4']] },
-            { id: 2, chords: [['A3', 'C4', 'E4'], ['A3', 'C4', 'E4'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] },
-            { id: 3, chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] },
-            { id: 4, chords: [['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4']] },
-            { id: 5, chords: [['C3', 'E3', 'G3'], ['G3', 'B3', 'D4'], ['A3', 'C4', 'E4'], ['F3', 'A3', 'C4'], ['C3', 'E3', 'G3'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] },
-            { id: 6, chords: [['D3', 'F3', 'A3'], ['D3', 'F3', 'A3'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['A3', 'C4', 'E4'], ['F3', 'A3', 'C4']] },
-            { id: 7, chords: [['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['C3', 'E3', 'G3'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3']] },
-            { id: 8, chords: [['E3', 'G3', 'B3'], ['E3', 'G3', 'B3'], ['A3', 'C4', 'E4'], ['A3', 'C4', 'E4'], ['E3', 'G3', 'B3'], ['E3', 'G3', 'B3'], ['B3', 'D4', 'F4'], ['B3', 'D4', 'F4']] },
-            { id: 9, chords: [['A3', 'C4', 'E4'], ['F3', 'A3', 'C4'], ['D3', 'F3', 'A3'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3']] },
-            { id: 10, chords: [['C3', 'E3', 'G3'], [], ['C3', 'E3', 'G3'], [], ['G3', 'B3', 'D4'], [], ['C3', 'E3', 'G3'], []] },
-            { id: 11, chords: [['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4']] },
-            { id: 12, chords: [['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['E3', 'G3', 'B3'], ['E3', 'G3', 'B3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] },
-            { id: 13, chords: [['C3', 'E3', 'G3'], ['D3', 'F3', 'A3'], ['E3', 'G3', 'B3'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['A3', 'C4', 'E4'], ['B3', 'D4', 'F4'], ['C4', 'E4', 'G4']] },
-            { id: 14, chords: [['C3', 'G3'], ['E3', 'G3'], ['C3', 'G3'], ['E3', 'G3'], ['C3', 'G3'], ['E3', 'G3'], ['C3', 'G3'], ['E3', 'G3']] },
-            { id: 15, chords: [['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['A3', 'C4', 'E4'], ['B3', 'D4', 'F4'], ['C4', 'E4', 'G4'], ['B3', 'D4', 'F4'], ['A3', 'C4', 'E4'], ['G3', 'B3', 'D4']] }
+            { 
+                id: 0, name: '主和弦', 
+                chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] 
+            },
+            { 
+                id: 1, name: '一四五', 
+                chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] 
+            },
+            { 
+                id: 2, name: '一六四五', 
+                chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['A2', 'C3', 'E3'], ['A2', 'C3', 'E3'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4']] 
+            },
+            { 
+                id: 3, name: '二五一', 
+                chords: [['D3', 'F3', 'A3'], ['D3', 'F3', 'A3'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3']] 
+            },
+            { 
+                id: 4, name: '六度色彩', 
+                chords: [['A2', 'C3', 'E3'], ['A2', 'C3', 'E3'], ['F3', 'A3', 'C4'], ['F3', 'A3', 'C4'], ['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['G3', 'B3', 'D4'], ['G3', 'B3', 'D4']] 
+            },
+            { 
+                id: 5, name: '降七色彩', 
+                chords: [['C3', 'E3', 'G3'], ['C3', 'E3', 'G3'], ['B2', 'D3', 'F3'], ['B2', 'D3', 'F3'], ['A2', 'C3', 'E3'], ['A2', 'C3', 'E3'], ['G2', 'B2', 'D3'], ['G2', 'B2', 'D3']] 
+            },
+            { 
+                id: 6, name: '上行 bass', 
+                chords: [['C3', 'E3', 'G3'], ['D3', 'F3', 'A3'], ['E3', 'G3', 'B3'], ['F3', 'A3', 'C4'], ['G3', 'B3', 'D4'], ['F3', 'A3', 'C4'], ['E3', 'G3', 'B3'], ['D3', 'F3', 'A3']] 
+            },
+            { 
+                id: 7, name: '五度圈', 
+                chords: [['C3', 'E3', 'G3'], ['G3', 'B3', 'D4'], ['D3', 'F3', 'A3'], ['A2', 'C3', 'E3'], ['E3', 'G3', 'B3'], ['B2', 'D3', 'F3'], ['F3', 'A3', 'C4'], ['C3', 'E3', 'G3']] 
+            }
         ];
         
         const ALL_CLIPS = {
@@ -1229,6 +1327,46 @@
             melody: MELODY_CLIPS,
             harmony: HARMONY_CLIPS
         };
+        
+        // ==================== 关卡设计（5关，难度递进） ====================
+        
+        const LEVELS = [
+            {
+                id: 1,
+                title: '简单旋律',
+                description: '大调音阶 | 主和弦 | 基础节奏',
+                difficulty: '入门',
+                target: { drums: 0, bass: 0, melody: 0, harmony: 0 }
+            },
+            {
+                id: 2,
+                title: '流行风格',
+                description: '经典进行 | 根五 bass | 标准鼓点',
+                difficulty: '简单',
+                target: { drums: 2, bass: 1, melody: 1, harmony: 1 }
+            },
+            {
+                id: 3,
+                title: '巴洛克感',
+                description: '琶音旋律 | 一六四五 | 反拍节奏',
+                difficulty: '中等',
+                target: { drums: 3, bass: 5, melody: 2, harmony: 2 }
+            },
+            {
+                id: 4,
+                title: '爵士色彩',
+                description: '经过音 bass | 二五一 | 碎拍',
+                difficulty: '较难',
+                target: { drums: 5, bass: 7, melody: 4, harmony: 3 }
+            },
+            {
+                id: 5,
+                title: '复杂织体',
+                description: '跳跃旋律 | 五度圈 | 舞曲节奏',
+                difficulty: '挑战',
+                target: { drums: 6, bass: 4, melody: 7, harmony: 7 }
+            }
+        ];
         
         // ==================== 游戏状态 ====================
         
@@ -1242,18 +1380,10 @@
             harmony: null
         };
         
-        // 5个关卡的目标配置
-        const LEVEL_TARGETS = [
-            { drums: 0, bass: 0, melody: 0, harmony: 0 },
-            { drums: 1, bass: 1, melody: 1, harmony: 1 },
-            { drums: 5, bass: 5, melody: 5, harmony: 5 },
-            { drums: 7, bass: 7, melody: 7, harmony: 7 },
-            { drums: 12, bass: 12, melody: 12, harmony: 12 }
-        ];
-        
-        // 游戏步骤状态
-        let gameStep = 1; // 1: listen, 2: select, 3: submit
+        let gameStep = 1;
         let hasListenedToTarget = false;
+        let loopingClip = null;
+        let targetTimeout = null;
         
         // ==================== 初始化 ====================
         
@@ -1262,6 +1392,7 @@
             renderTracks();
             updateLevelButtons();
             updateProgress();
+            updateLevelInfo();
             updateTutorial();
             loadFromURL();
         }
@@ -1282,7 +1413,7 @@
             }
         }
         
-        // ==================== 调度器核心 (基于Blog实现) ====================
+        // ==================== 调度器核心 ====================
         
         function getBeatDuration() {
             return 60.0 / bpm;
@@ -1295,14 +1426,12 @@
         }
         
         function scheduleNote(beatNumber, time) {
-            // 更新UI指示器
             if (beatNumber === 0) {
                 updateVisualizers();
             }
         }
         
         function scheduler() {
-            // 调度未来SCHEDULE_AHEAD_TIME秒内的所有音符
             while (nextNoteTime < audioCtx.currentTime + SCHEDULE_AHEAD_TIME) {
                 scheduleNote(currentBeat, nextNoteTime);
                 scheduleBeat(currentBeat, nextNoteTime);
@@ -1314,12 +1443,10 @@
         function scheduleBeat(beat, time) {
             const beatInPattern = beat % 8;
             
-            // 播放选中的片段
             if (isPlaying) {
                 playSelectionBeat(beatInPattern, time);
             }
             
-            // 播放目标旋律
             if (isTargetPlaying) {
                 playTargetBeat(beatInPattern, time);
             }
@@ -1328,7 +1455,6 @@
         function playSelectionBeat(beatInPattern, time) {
             const beatDuration = getBeatDuration();
             
-            // 鼓组
             if (currentSelection.drums !== null) {
                 const clip = DRUM_CLIPS[currentSelection.drums];
                 const sounds = clip.pattern[beatInPattern];
@@ -1337,7 +1463,6 @@
                 });
             }
             
-            // 贝斯
             if (currentSelection.bass !== null) {
                 const clip = BASS_CLIPS[currentSelection.bass];
                 const notes = clip.pattern[beatInPattern];
@@ -1346,7 +1471,6 @@
                 });
             }
             
-            // 旋律
             if (currentSelection.melody !== null) {
                 const clip = MELODY_CLIPS[currentSelection.melody];
                 const notes = clip.pattern[beatInPattern];
@@ -1355,7 +1479,6 @@
                 });
             }
             
-            // 和声
             if (currentSelection.harmony !== null) {
                 const clip = HARMONY_CLIPS[currentSelection.harmony];
                 const chord = clip.chords[beatInPattern];
@@ -1366,28 +1489,25 @@
         }
         
         function playTargetBeat(beatInPattern, time) {
-            const target = LEVEL_TARGETS[currentLevel - 1];
+            const level = LEVELS[currentLevel - 1];
+            const target = level.target;
             const beatDuration = getBeatDuration();
             
-            // 鼓组
             const drumClip = DRUM_CLIPS[target.drums];
             drumClip.pattern[beatInPattern].forEach(sound => {
                 playDrum(sound, time);
             });
             
-            // 贝斯
             const bassClip = BASS_CLIPS[target.bass];
             bassClip.pattern[beatInPattern].forEach(note => {
                 playBass(note, time, beatDuration);
             });
             
-            // 旋律
             const melodyClip = MELODY_CLIPS[target.melody];
             melodyClip.pattern[beatInPattern].forEach(note => {
                 playMelody(note, time, beatDuration * 0.8);
             });
             
-            // 和声
             const harmonyClip = HARMONY_CLIPS[target.harmony];
             const chord = harmonyClip.chords[beatInPattern];
             if (chord.length > 0) {
@@ -1422,17 +1542,15 @@
             let html = '';
             
             clips.forEach((clip, index) => {
-                // 过关模式只显示前8个，创作模式显示全部
-                if (gameMode === 'challenge' && index >= 8) return;
-                
                 const waveBars = Array(6).fill(0).map(() => 
                     `<div class="wave-bar" style="height: ${20 + Math.random() * 60}%"></div>`
                 ).join('');
                 
                 html += `
-                    <div class="clip" id="clip-${trackId}-${index}" onclick="selectClip('${trackId}', ${index})">
+                    <div class="clip" id="clip-${trackId}-${index}" onclick="selectClip('${trackId}', ${index})" title="${clip.name}">
                         <div class="clip-waveform">${waveBars}</div>
                         <div class="clip-number">${String.fromCharCode(65 + index)}</div>
+                        <div class="clip-name">${clip.name}</div>
                     </div>
                 `;
             });
@@ -1442,34 +1560,25 @@
         
         // ==================== 用户交互 ====================
         
-        // 正在循环播放的片段
-        let loopingClip = null; // { trackId, clipIndex, interval }
-        
         function selectClip(trackId, clipIndex) {
             ensureAudio();
             
-            // 创作模式：点击片段循环播放/停止
             if (gameMode === 'create') {
                 toggleClipLoop(trackId, clipIndex);
                 return;
             }
             
-            // 过关模式：选择片段
             const clips = document.querySelectorAll(`#clips-${trackId} .clip`);
             clips.forEach(clip => clip.classList.remove('selected', 'correct', 'wrong'));
             
-            // 如果点击已选中的，则取消选择
             if (currentSelection[trackId] === clipIndex) {
                 currentSelection[trackId] = null;
             } else {
                 currentSelection[trackId] = clipIndex;
                 document.getElementById(`clip-${trackId}-${clipIndex}`).classList.add('selected');
-                
-                // 预览片段（只播放一次）
                 previewClip(trackId, clipIndex);
             }
             
-            // 更新游戏步骤
             if (hasListenedToTarget && Object.values(currentSelection).some(v => v !== null)) {
                 gameStep = 2;
                 updateTutorial();
@@ -1477,11 +1586,9 @@
             }
         }
         
-        // 创作模式：切换片段循环播放
         function toggleClipLoop(trackId, clipIndex) {
             const clipElement = document.getElementById(`clip-${trackId}-${clipIndex}`);
             
-            // 如果正在循环这个片段，停止它
             if (loopingClip && loopingClip.trackId === trackId && loopingClip.clipIndex === clipIndex) {
                 clearInterval(loopingClip.interval);
                 loopingClip = null;
@@ -1489,20 +1596,16 @@
                 return;
             }
             
-            // 停止其他正在循环的片段
             if (loopingClip) {
                 clearInterval(loopingClip.interval);
                 document.querySelectorAll('.clip.playing').forEach(el => el.classList.remove('playing'));
             }
             
-            // 开始循环播放
             loopingClip = { trackId, clipIndex };
             clipElement.classList.add('playing');
             
-            // 立即播放一次
             playFullClip(trackId, clipIndex);
             
-            // 设置循环（每2秒播放一次）
             const loopInterval = setInterval(() => {
                 if (loopingClip && loopingClip.trackId === trackId && loopingClip.clipIndex === clipIndex) {
                     playFullClip(trackId, clipIndex);
@@ -1514,13 +1617,11 @@
             loopingClip.interval = loopInterval;
         }
         
-        // 播放完整片段（2小节）
         function playFullClip(trackId, clipIndex) {
             const clip = ALL_CLIPS[trackId][clipIndex];
             const now = audioCtx.currentTime;
             const beatDuration = getBeatDuration();
             
-            // 播放2小节（8拍）
             for (let bar = 0; bar < 2; bar++) {
                 const barOffset = bar * 4 * beatDuration;
                 
@@ -1557,23 +1658,33 @@
             const now = audioCtx.currentTime;
             const beatDuration = getBeatDuration();
             
-            // 只播放一个节拍用于预览
+            // 播放前3个音符作为预览
+            const previewLength = 3;
+            
             if (trackId === 'drums') {
-                clip.pattern[0].forEach(sound => {
-                    playDrum(sound, now);
-                });
+                for (let i = 0; i < previewLength && i < clip.pattern.length; i++) {
+                    clip.pattern[i].forEach(sound => {
+                        playDrum(sound, now + i * beatDuration * 0.5);
+                    });
+                }
             } else if (trackId === 'bass') {
-                clip.pattern[0].forEach(note => {
-                    playBass(note, now, beatDuration);
-                });
+                for (let i = 0; i < previewLength && i < clip.pattern.length; i++) {
+                    clip.pattern[i].forEach(note => {
+                        playBass(note, now + i * beatDuration * 0.5, beatDuration * 0.5);
+                    });
+                }
             } else if (trackId === 'melody') {
-                clip.pattern[0].forEach(note => {
-                    playMelody(note, now, beatDuration * 0.8);
-                });
+                for (let i = 0; i < previewLength && i < clip.pattern.length; i++) {
+                    clip.pattern[i].forEach(note => {
+                        playMelody(note, now + i * beatDuration * 0.5, beatDuration * 0.4);
+                    });
+                }
             } else if (trackId === 'harmony') {
-                const chord = clip.chords[0];
-                if (chord.length > 0) {
-                    playHarmony(chord, now, beatDuration * 2);
+                for (let i = 0; i < previewLength && i < clip.chords.length; i++) {
+                    const chord = clip.chords[i];
+                    if (chord.length > 0) {
+                        playHarmony(chord, now + i * beatDuration * 0.5, beatDuration);
+                    }
                 }
             }
         }
@@ -1598,7 +1709,7 @@
             
             isPlaying = true;
             currentBeat = 0;
-            nextNoteTime = audioCtx.currentTime + 0.1; // 延迟100ms开始，等待下一个节拍对齐
+            nextNoteTime = audioCtx.currentTime + 0.1;
             
             const playBtn = document.getElementById('playBtn');
             playBtn.textContent = '⏹ 停止播放';
@@ -1625,7 +1736,6 @@
                 targetBtn.textContent = '⏹ 停止播放';
                 targetBtn.classList.add('playing');
                 
-                // 添加当前关卡按钮的视觉反馈
                 document.querySelectorAll('.level-btn').forEach(btn => {
                     btn.classList.remove('playing');
                 });
@@ -1660,7 +1770,6 @@
             targetBtn.textContent = '🎵 播放目标旋律';
             targetBtn.classList.remove('playing');
             
-            // 清除关卡按钮的播放状态
             document.querySelectorAll('.level-btn').forEach(btn => {
                 btn.classList.remove('playing');
             });
@@ -1669,7 +1778,6 @@
                 clip.classList.remove('playing');
             });
             
-            // 清除可视化
             TRACKS.forEach(track => {
                 const visualizer = document.getElementById(`visualizer-${track.id}`);
                 if (visualizer) visualizer.innerHTML = '';
@@ -1685,8 +1793,8 @@
             document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById(mode === 'challenge' ? 'modeChallenge' : 'modeCreate').classList.add('active');
             
-            // 显示/隐藏模式相关元素
             document.getElementById('levelSelector').style.display = mode === 'challenge' ? 'flex' : 'none';
+            document.getElementById('levelInfo').style.display = mode === 'challenge' ? 'block' : 'none';
             document.getElementById('progressBar').style.display = mode === 'challenge' ? 'block' : 'none';
             document.getElementById('tutorialSection').style.display = mode === 'challenge' ? 'block' : 'none';
             document.getElementById('targetBtn').style.display = mode === 'challenge' ? 'inline-block' : 'none';
@@ -1702,37 +1810,24 @@
             }
         }
         
-        // 关卡选择事件委托 - 点击当前关卡播放/暂停目标旋律
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('level-btn') && !e.target.classList.contains('locked')) {
                 const level = parseInt(e.target.dataset.level);
                 if (level === currentLevel) {
-                    // 点击当前关卡 - 播放/暂停目标旋律
                     toggleTargetPlay();
                 } else {
-                    // 点击其他关卡 - 切换关卡
                     loadLevel(level);
                 }
             }
         });
         
-        // 播放/暂停目标旋律切换
         function toggleTargetPlay() {
             ensureAudio();
             if (isTargetPlaying) {
-                stopTarget();
+                stop();
             } else {
                 playTarget();
             }
-        }
-        
-        // 停止目标旋律
-        function stopTarget() {
-            isTargetPlaying = false;
-            clearTimeout(targetTimeout);
-            document.querySelectorAll('.level-btn').forEach(btn => {
-                btn.classList.remove('playing');
-            });
         }
         
         function loadLevel(level) {
@@ -1743,6 +1838,7 @@
             
             updateLevelButtons();
             updateProgress();
+            updateLevelInfo();
             updateTutorial();
             clearSelection();
             clearFeedback();
@@ -1751,7 +1847,16 @@
                 btn.classList.toggle('active', parseInt(btn.dataset.level) === level);
             });
             
-            showMessage(`第 ${level} 关`, 'info');
+            showMessage(`第 ${level} 关 - ${LEVELS[level-1].title}`, 'info');
+        }
+        
+        function updateLevelInfo() {
+            const level = LEVELS[currentLevel - 1];
+            const infoDiv = document.getElementById('levelInfo');
+            infoDiv.innerHTML = `
+                <div class="level-info-title">第 ${level.id} 关 - ${level.title} (${level.difficulty})</div>
+                <div class="level-info-desc">${level.description}</div>
+            `;
         }
         
         function updateLevelButtons() {
@@ -1763,7 +1868,7 @@
         }
         
         function updateProgress() {
-            const progress = (completedLevels.length / 5) * 100;
+            const progress = (completedLevels.length / LEVELS.length) * 100;
             document.getElementById('progressFill').style.width = progress + '%';
         }
         
@@ -1787,7 +1892,7 @@
             switch(type) {
                 case 'listened':
                     feedback.classList.add('info');
-                    feedback.textContent = '很好！现在从每个轨道中选择一个片段来匹配目标旋律';
+                    feedback.textContent = '已聆听目标旋律。现在从每个轨道选择匹配的片段';
                     break;
                 case 'selection':
                     feedback.classList.add('waiting');
@@ -1803,7 +1908,7 @@
                     break;
                 default:
                     feedback.classList.add('waiting');
-                    feedback.textContent = '请先聆听目标旋律，然后从每个轨道中选择一个片段';
+                    feedback.textContent = '点击"播放目标旋律"聆听音乐，然后从每个轨道选择匹配的旋律片段';
             }
         }
         
@@ -1818,7 +1923,6 @@
             
             ensureAudio();
             
-            // 检查是否所有轨道都已选择
             const missing = [];
             TRACKS.forEach(track => {
                 if (currentSelection[track.id] === null) {
@@ -1831,7 +1935,9 @@
                 return;
             }
             
-            const target = LEVEL_TARGETS[currentLevel - 1];
+            const level = LEVELS[currentLevel - 1];
+            const target = level.target;
+            
             const results = {
                 drums: currentSelection.drums === target.drums,
                 bass: currentSelection.bass === target.bass,
@@ -1841,7 +1947,6 @@
             
             const allCorrect = Object.values(results).every(r => r);
             
-            // 高亮显示正确/错误
             TRACKS.forEach(track => {
                 const clipElement = document.getElementById(`clip-${track.id}-${currentSelection[track.id]}`);
                 if (clipElement) {
@@ -1864,7 +1969,7 @@
                 
                 showMessage(`🎉 第 ${currentLevel} 关通过！`, 'success');
                 
-                if (currentLevel < 5) {
+                if (currentLevel < LEVELS.length) {
                     setTimeout(() => {
                         loadLevel(currentLevel + 1);
                     }, 3000);
@@ -1877,7 +1982,6 @@
                 updateFeedback('wrong');
                 showMessage('❌ 答案不正确，红色标记的片段有误', 'error');
                 
-                // 3秒后清除高亮
                 setTimeout(() => {
                     document.querySelectorAll('.clip').forEach(clip => {
                         clip.classList.remove('correct', 'wrong');
@@ -1914,7 +2018,11 @@
             document.querySelectorAll('.clip').forEach(clip => {
                 clip.classList.remove('selected', 'correct', 'wrong');
             });
-            updateFeedback('listened');
+            if (hasListenedToTarget) {
+                updateFeedback('listened');
+            } else {
+                updateFeedback('default');
+            }
         }
         
         // ==================== 分享功能 ====================
