@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Painter - 霓虹像素画</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Orbitron', monospace;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        
+        /* 背景动画网格 */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .bg-grid::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 0%, #0a0a0f 70%);
+        }
+        
+        /* 标题 */
+        .title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin: 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #00ffff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 3s linear infinite;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+        
+        @keyframes shimmer {
+            to { background-position: 200% center; }
+        }
+        
+        /* 游戏信息栏 */
+        .game-info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .info-box {
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+        
+        .info-label {
+            font-size: 0.7rem;
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .info-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        /* 关卡选择 */
+        .level-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .level-btn {
+            padding: 12px 25px;
+            background: transparent;
+            border: 2px solid #ff00ff;
+            color: #ff00ff;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .level-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 0, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+        
+        .level-btn:hover::before {
+            left: 100%;
+        }
+        
+        .level-btn:hover, .level-btn.active {
+            background: #ff00ff;
+            color: #000;
+            box-shadow: 0 0 30px #ff00ff, inset 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+        
+        /* 主游戏区域 */
+        .game-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 0 20px;
+        }
+        
+        /* 画布容器 */
+        .canvas-wrapper {
+            position: relative;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.1);
+        }
+        
+        .canvas-wrapper::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #00ffff, #ff00ff);
+            background-size: 400% 400%;
+            border-radius: 12px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s;
+            animation: border-glow 3s ease infinite;
+        }
+        
+        .canvas-wrapper:hover::before {
+            opacity: 0.5;
+        }
+        
+        @keyframes border-glow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        #gameCanvas {
+            display: block;
+            cursor: crosshair;
+            image-rendering: pixelated;
+        }
+        
+        /* 参考图案 */
+        .reference-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .reference-title {
+            font-size: 0.9rem;
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        
+        #referenceCanvas {
+            border: 2px solid rgba(255, 0, 255, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.1);
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .control-btn {
+            padding: 12px 30px;
+            background: rgba(0, 255, 255, 0.1);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 30px #00ffff;
+        }
+        
+        .control-btn.undo {
+            border-color: #ff6600;
+            color: #ff6600;
+        }
+        
+        .control-btn.undo:hover {
+            background: #ff6600;
+            color: #000;
+            box-shadow: 0 0 30px #ff6600;
+        }
+        
+        .control-btn.clear {
+            border-color: #ff3333;
+            color: #ff3333;
+        }
+        
+        .control-btn.clear:hover {
+            background: #ff3333;
+            color: #000;
+            box-shadow: 0 0 30px #ff3333;
+        }
+        
+        /* 调色板 */
+        .palette-container {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 0, 255, 0.2);
+            border-radius: 10px;
+        }
+        
+        .palette-title {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #ff00ff;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+        }
+        
+        .palette {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 600px;
+        }
+        
+        .color-cell {
+            width: 50px;
+            height: 50px;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .color-cell:hover {
+            transform: scale(1.15) translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+        
+        .color-cell.selected {
+            border-color: #fff;
+            box-shadow: 0 0 25px currentColor, inset 0 0 10px rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        
+        .color-cell .color-code {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 0.6rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+            font-weight: 700;
+        }
+        
+        /* 规则说明 */
+        .rules-panel {
+            margin-top: 20px;
+            padding: 15px 25px;
+            background: rgba(0, 255, 255, 0.05);
+            border-left: 4px solid #00ffff;
+            border-radius: 5px;
+            max-width: 600px;
+        }
+        
+        .rules-title {
+            font-size: 0.8rem;
+            color: #00ffff;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .rules-text {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+        }
+        
+        /* 完成动画 */
+        .completion-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .completion-overlay.show {
+            display: flex;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .completion-text {
+            font-size: 4rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 15px;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00, #00ffff);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient-shift 2s ease infinite, pulse 1s ease infinite alternate;
+            margin-bottom: 30px;
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes pulse {
+            from { filter: brightness(1); }
+            to { filter: brightness(1.3); }
+        }
+        
+        .completion-stats {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 30px;
+        }
+        
+        .next-level-btn {
+            padding: 15px 40px;
+            background: linear-gradient(90deg, #ff00ff, #00ffff);
+            border: none;
+            color: #000;
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+        }
+        
+        .next-level-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(255, 0, 255, 0.8);
+        }
+        
+        /* 提示信息 */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            padding: 15px 30px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ffff;
+            border-radius: 8px;
+            color: #00ffff;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .title { font-size: 1.5rem; letter-spacing: 4px; }
+            .game-container { flex-direction: column; align-items: center; }
+            .color-cell { width: 40px; height: 40px; }
+            .level-btn { padding: 10px 15px; font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    
+    <h1 class="title">Pixel Painter</h1>
+    
+    <!-- 游戏信息 -->
+    <div class="game-info">
+        <div class="info-box">
+            <div class="info-label">关卡</div>
+            <div class="info-value" id="levelDisplay">1</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">进度</div>
+            <div class="info-value" id="progressDisplay">0%</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">得分</div>
+            <div class="info-value" id="scoreDisplay">0</div>
+        </div>
+    </div>
+    
+    <!-- 关卡选择 -->
+    <div class="level-selector">
+        <button class="level-btn active" data-level="1">Level 1: 8×8</button>
+        <button class="level-btn" data-level="2">Level 2: 16×16</button>
+        <button class="level-btn" data-level="3">创作模式</button>
+    </div>
+    
+    <!-- 主游戏区域 -->
+    <div class="game-container">
+        <div class="canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        
+        <div class="reference-panel">
+            <div class="reference-title">目标图案</div>
+            <canvas id="referenceCanvas"></canvas>
+        </div>
+    </div>
+    
+    <!-- 控制按钮 -->
+    <div class="controls">
+        <button class="control-btn undo" id="undoBtn">↩ 撤销</button>
+        <button class="control-btn clear" id="clearBtn">✕ 清空</button>
+        <button class="control-btn" id="hintBtn">? 提示</button>
+    </div>
+    
+    <!-- 调色板 -->
+    <div class="palette-container">
+        <div class="palette-title">选择颜色</div>
+        <div class="palette" id="palette"></div>
+    </div>
+    
+    <!-- 规则说明 -->
+    <div class="rules-panel">
+        <div class="rules-title">颜色混合规则</div>
+        <div class="rules-text" id="rulesText">
+            点击数字格子填入对应颜色。数字代表目标颜色的混合配方，例如 "1+2" 表示需要混合颜色1和颜色2。
+            正确的颜色会产生霓虹发光效果，错误的颜色会有提示。
+        </div>
+    </div>
+    
+    <!-- 完成动画 -->
+    <div class="completion-overlay" id="completionOverlay">
+        <div class="completion-text">Perfect!</div>
+        <div class="completion-stats" id="completionStats"></div>
+        <button class="next-level-btn" id="nextLevelBtn">下一关</button>
+    </div>
+    
+    <!-- 提示信息 -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ==================== 游戏配置 ====================
+        const COLORS = {
+            0: { name: '透明', value: null, glow: false },
+            1: { name: '霓虹红', value: '#ff0040', glow: true },
+            2: { name: '霓虹蓝', value: '#00ffff', glow: true },
+            3: { name: '霓虹紫', value: '#bf00ff', glow: true },
+            4: { name: '霓虹绿', value: '#00ff80', glow: true },
+            5: { name: '霓虹黄', value: '#ffff00', glow: true },
+            6: { name: '霓虹橙', value: '#ff6600', glow: true },
+            7: { name: '霓虹粉', value: '#ff00aa', glow: true },
+            8: { name: '霓虹青', value: '#00ffcc', glow: true },
+            9: { name: '白', value: '#ffffff', glow: true }
+        };
+        
+        // 混合规则: 结果 = 颜色A + 颜色B
+        const MIX_RULES = {
+            '1+2': { result: 3, name: '红+蓝=紫' },
+            '2+1': { result: 3, name: '蓝+红=紫' },
+            '1+4': { result: 6, name: '红+绿=橙' },
+            '4+1': { result: 6, name: '绿+红=橙' },
+            '2+5': { result: 8, name: '蓝+黄=青' },
+            '5+2': { result: 8, name: '黄+蓝=青' },
+            '1+7': { result: 5, name: '红+粉=黄' },
+            '3+4': { result: 2, name: '紫+绿=蓝' },
+            '5+6': { result: 1, name: '黄+橙=红' },
+            '2+8': { result: 4, name: '蓝+青=绿' }
+        };
+        
+        // ==================== 关卡数据 ====================
+        const LEVELS = {
+            1: {
+                size: 8,
+                pattern: [
+                    [0,0,1,1,1,1,0,0],
+                    [0,1,1,2,2,1,1,0],
+                    [1,1,2,3,3,2,1,1],
+                    [1,2,3,4,4,3,2,1],
+                    [1,2,3,4,4,3,2,1],
+                    [1,1,2,3,3,2,1,1],
+                    [0,1,1,2,2,1,1,0],
+                    [0,0,1,1,1,1,0,0]
+                ],
+                hints: [
+                    ['','','1','1','1','1','',''],
+                    ['','1','1','2','2','1','1',''],
+                    ['1','1','2','3','3','2','1','1'],
+                    ['1','2','3','4','4','3','2','1'],
+                    ['1','2','3','4','4','3','2','1'],
+                    ['1','1','2','3','3','2','1','1'],
+                    ['','1','1','2','2','1','1',''],
+                    ['','','1','1','1','1','','']
+                ],
+                availableColors: [1, 2, 3, 4]
+            },
+            2: {
+                size: 16,
+                pattern: [
+                    [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
+                    [0,0,0,1,1,2,2,2,2,2,2,1,1,0,0,0],
+                    [0,0,1,1,2,2,3,3,3,3,2,2,1,1,0,0],
+                    [0,1,1,2,3,3,4,4,4,4,3,3,2,1,1,0],
+                    [1,1,2,3,4,4,5,5,5,5,4,4,3,2,1,1],
+                    [1,2,2,3,4,5,6,6,6,6,5,4,3,2,2,1],
+                    [1,2,3,4,5,6,7,7,7,7,6,5,4,3,2,1],
+                    [1,2,3,4,5,6,7,8,8,7,6,5,4,3,2,1],
+                    [1,2,3,4,5,6,7,8,8,7,6,5,4,3,2,1],
+                    [1,2,3,4,5,6,7,7,7,7,6,5,4,3,2,1],
+                    [1,2,2,3,4,5,6,6,6,6,5,4,3,2,2,1],
+                    [1,1,2,3,4,4,5,5,5,5,4,4,3,2,1,1],
+                    [0,1,1,2,3,3,4,4,4,4,3,3,2,1,1,0],
+                    [0,0,1,1,2,2,3,3,3,3,2,2,1,1,0,0],
+                    [0,0,0,1,1,2,2,2,2,2,2,1,1,0,0,0],
+                    [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0]
+                ],
+                hints: [
+                    ['','','','','1+2','1+2','1+2','1+2','1+2','1+2','1+2','1+2','','','',''],
+                    ['','','','1+2','1+2','2','2','2','2','2','2','1+2','1+2','','',''],
+                    ['','','1+2','1+2','2','2','3','3','3','3','2','2','1+2','1+2','',''],
+                    ['','1+2','1+2','2','3','3','4','4','4','4','3','3','2','1+2','1+2',''],
+                    ['1+2','1+2','2','3','4','4','5','5','5','5','4','4','3','2','1+2','1+2'],
+                    ['1+2','2','2','3','4','5','6','6','6','6','5','4','3','2','2','1+2'],
+                    ['1+2','2','3','4','5','6','7','7','7','7','6','5','4','3','2','1+2'],
+                    ['1+2','2','3','4','5','6','7','8','8','7','6','5','4','3','2','1+2'],
+                    ['1+2','2','3','4','5','6','7','8','8','7','6','5','4','3','2','1+2'],
+                    ['1+2','2','3','4','5','6','7','7','7','7','6','5','4','3','2','1+2'],
+                    ['1+2','2','2','3','4','5','6','6','6','6','5','4','3','2','2','1+2'],
+                    ['1+2','1+2','2','3','4','4','5','5','5','5','4','4','3','2','1+2','1+2'],
+                    ['','1+2','1+2','2','3','3','4','4','4','4','3','3','2','1+2','1+2',''],
+                    ['','','1+2','1+2','2','2','3','3','3','3','2','2','1+2','1+2','',''],
+                    ['','','','1+2','1+2','2','2','2','2','2','2','1+2','1+2','','',''],
+                    ['','','','','1+2','1+2','1+2','1+2','1+2','1+2','1+2','1+2','','','','']
+                ],
+                availableColors: [1, 2, 3, 4, 5, 6, 7, 8]
+            },
+            3: {
+                size: 16,
+                pattern: null, // 创作模式，无固定图案
+                hints: null,
+                availableColors: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                isCreative: true
+            }
+        };
+        
+        // ==================== 游戏状态 ====================
+        let gameState = {
+            currentLevel: 1,
+            gridSize: 8,
+            grid: [], // 当前玩家填色的格子状态
+            targetPattern: [], // 目标图案
+            hints: [], // 提示信息
+            selectedColor: 1,
+            history: [], // 操作历史用于撤销
+            score: 0,
+            filledCount: 0,
+            totalFillable: 0,
+            isCompleted: false,
+            cellSize: 40,
+            glowIntensity: 0,
+            glowDirection: 1
+        };
+        
+        // ==================== DOM 元素 ====================
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gameCtx = gameCanvas.getContext('2d');
+        const referenceCanvas = document.getElementById('referenceCanvas');
+        const referenceCtx = referenceCanvas.getContext('2d');
+        const paletteEl = document.getElementById('palette');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const progressDisplay = document.getElementById('progressDisplay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const completionOverlay = document.getElementById('completionOverlay');
+        const toast = document.getElementById('toast');
+        
+        // ==================== 初始化 ====================
+        function init() {
+            setupEventListeners();
+            loadLevel(1);
+            animate();
+        }
+        
+        function setupEventListeners() {
+            // 关卡选择
+            document.querySelectorAll('.level-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    loadLevel(parseInt(btn.dataset.level));
+                });
+            });
+            
+            // 控制按钮
+            document.getElementById('undoBtn').addEventListener('click', undo);
+            document.getElementById('clearBtn').addEventListener('click', clearGrid);
+            document.getElementById('hintBtn').addEventListener('click', showHint);
+            document.getElementById('nextLevelBtn').addEventListener('click', nextLevel);
+            
+            // 画布点击
+            gameCanvas.addEventListener('click', handleCanvasClick);
+            gameCanvas.addEventListener('mousemove', handleCanvasHover);
+            
+            // 键盘快捷键
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+                if (e.key >= '1' && e.key <= '9') {
+                    const colorNum = parseInt(e.key);
+                    selectColor(colorNum);
+                }
+            });
+        }
+        
+        // ==================== 关卡加载 ====================
+        function loadLevel(levelNum) {
+            const level = LEVELS[levelNum];
+            if (!level) return;
+            
+            gameState.currentLevel = levelNum;
+            gameState.gridSize = level.size;
+            gameState.targetPattern = level.pattern ? 
+                level.pattern.map(row => [...row]) : 
+                Array(level.size).fill(null).map(() => Array(level.size).fill(0));
+            gameState.hints = level.hints ? 
+                level.hints.map(row => [...row]) : 
+                Array(level.size).fill(null).map(() => Array(level.size).fill(''));
+            gameState.grid = Array(level.size).fill(null).map(() => Array(level.size).fill(0));
+            gameState.history = [];
+            gameState.score = 0;
+            gameState.filledCount = 0;
+            gameState.isCompleted = false;
+            gameState.totalFillable = level.pattern ? 
+                level.pattern.flat().filter(c => c !== 0).length : 
+                level.size * level.size;
+            
+            // 设置画布大小
+            const canvasSize = Math.min(500, window.innerWidth - 60);
+            gameState.cellSize = Math.floor(canvasSize / level.size);
+            
+            gameCanvas.width = gameState.cellSize * level.size;
+            gameCanvas.height = gameState.cellSize * level.size;
+            
+            const refSize = 150;
+            referenceCanvas.width = refSize;
+            referenceCanvas.height = refSize;
+            
+            // 更新UI
+            levelDisplay.textContent = levelNum;
+            updateProgress();
+            updateScore(0);
+            
+            // 生成调色板
+            generatePalette(level.availableColors);
+            
+            // 绘制参考图案
+            drawReference();
+            
+            // 绘制游戏画布
+            drawGame();
+            
+            // 隐藏完成界面
+            completionOverlay.classList.remove('show');
+            
+            // 更新规则说明
+            updateRules(levelNum);
+        }
+        
+        function updateRules(levelNum) {
+            const rulesText = document.getElementById('rulesText');
+            if (levelNum === 1) {
+                rulesText.textContent = '简单模式：数字直接对应颜色。点击格子填入与目标图案相同的颜色。';
+            } else if (levelNum === 2) {
+                rulesText.textContent = '混合模式："1+2" 表示需要填入颜色1和颜色2混合后的结果颜色。红(1)+蓝(2)=紫(3)';
+            } else {
+                rulesText.textContent = '创作模式：自由创作你的像素画！没有目标限制，尽情发挥创意。';
+            }
+        }
+        
+        // ==================== 调色板 ====================
+        function generatePalette(availableColors) {
+            paletteEl.innerHTML = '';
+            
+            availableColors.forEach(colorNum => {
+                const colorData = COLORS[colorNum];
+                const cell = document.createElement('div');
+                cell.className = 'color-cell' + (colorNum === gameState.selectedColor ? ' selected' : '');
+                cell.style.backgroundColor = colorData.value;
+                cell.style.boxShadow = colorData.glow ? `0 0 15px ${colorData.value}` : 'none';
+                cell.dataset.color = colorNum;
+                
+                const code = document.createElement('span');
+                code.className = 'color-code';
+                code.textContent = colorNum;
+                cell.appendChild(code);
+                
+                cell.addEventListener('click', () => selectColor(colorNum));
+                
+                paletteEl.appendChild(cell);
+            });
+        }
+        
+        function selectColor(colorNum) {
+            gameState.selectedColor = colorNum;
+            document.querySelectorAll('.color-cell').forEach(cell => {
+                cell.classList.toggle('selected', parseInt(cell.dataset.color) === colorNum);
+            });
+        }
+        
+        // ==================== 绘制函数 ====================
+        function drawGame() {
+            const ctx = gameCtx;
+            const { gridSize, cellSize, grid, targetPattern, hints } = gameState;
+            
+            // 清空画布
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+            
+            // 绘制网格
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cellX = x * cellSize;
+                    const cellY = y * cellSize;
+                    const cellValue = grid[y][x];
+                    const targetValue = targetPattern[y]?.[x] || 0;
+                    const hint = hints[y]?.[x] || '';
+                    
+                    // 绘制格子背景
+                    if (cellValue !== 0) {
+                        // 已填色
+                        const color = COLORS[cellValue];
+                        ctx.fillStyle = color.value;
+                        ctx.fillRect(cellX + 1, cellY + 1, cellSize - 2, cellSize - 2);
+                        
+                        // 发光效果
+                        if (color.glow) {
+                            const glowSize = 3 + gameState.glowIntensity;
+                            ctx.shadowColor = color.value;
+                            ctx.shadowBlur = glowSize;
+                            ctx.strokeStyle = color.value;
+                            ctx.lineWidth = 2;
+                            ctx.strokeRect(cellX + 2, cellY + 2, cellSize - 4, cellSize - 4);
+                            ctx.shadowBlur = 0;
+                        }
+                        
+                        // 检查是否正确
+                        if (!LEVELS[gameState.currentLevel].isCreative && cellValue === targetValue && targetValue !== 0) {
+                            // 正确 - 添加对勾效果
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                            ctx.font = `bold ${cellSize * 0.5}px Arial`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText('✓', cellX + cellSize / 2, cellY + cellSize / 2);
+                        }
+                    } else {
+                        // 未填色 - 显示提示
+                        ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
+                        ctx.fillRect(cellX + 1, cellY + 1, cellSize - 2, cellSize - 2);
+                        
+                        // 显示数字提示
+                        if (hint && !LEVELS[gameState.currentLevel].isCreative) {
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                            ctx.font = `bold ${cellSize * 0.35}px Orbitron`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(hint, cellX + cellSize / 2, cellY + cellSize / 2);
+                        } else if (targetValue !== 0 && !LEVELS[gameState.currentLevel].isCreative) {
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                            ctx.font = `bold ${cellSize * 0.4}px Orbitron`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(targetValue.toString(), cellX + cellSize / 2, cellY + cellSize / 2);
+                        }
+                    }
+                    
+                    // 绘制网格线
+                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+                }
+            }
+            
+            // 绘制边框发光
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, 0, gameCanvas.width, gameCanvas.height);
+        }
+        
+        function drawReference() {
+            const ctx = referenceCtx;
+            const { targetPattern } = gameState;
+            const size = targetPattern.length;
+            const cellSize = referenceCanvas.width / size;
+            
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, referenceCanvas.width, referenceCanvas.height);
+            
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const value = targetPattern[y][x];
+                    if (value !== 0) {
+                        const color = COLORS[value];
+                        ctx.fillStyle = color.value;
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+        }
+        
+        // ==================== 游戏逻辑 ====================
+        function handleCanvasClick(e) {
+            if (gameState.isCompleted && !LEVELS[gameState.currentLevel].isCreative) return;
+            
+            const rect = gameCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const cellX = Math.floor(x / gameState.cellSize);
+            const cellY = Math.floor(y / gameState.cellSize);
+            
+            if (cellX >= 0 && cellX < gameState.gridSize && cellY >= 0 && cellY < gameState.gridSize) {
+                fillCell(cellX, cellY, gameState.selectedColor);
+            }
+        }
+        
+        function handleCanvasHover(e) {
+            // 可以添加悬停效果
+        }
+        
+        function fillCell(x, y, color) {
+            const prevValue = gameState.grid[y][x];
+            
+            // 保存历史
+            gameState.history.push({ x, y, prevValue, newValue: color });
+            if (gameState.history.length > 50) gameState.history.shift();
+            
+            // 更新格子
+            gameState.grid[y][x] = color;
+            
+            // 更新进度
+            if (prevValue === 0 && color !== 0) {
+                gameState.filledCount++;
+            } else if (prevValue !== 0 && color === 0) {
+                gameState.filledCount--;
+            }
+            
+            // 计算得分
+            const targetValue = gameState.targetPattern[y]?.[x] || 0;
+            if (!LEVELS[gameState.currentLevel].isCreative) {
+                if (color === targetValue && targetValue !== 0) {
+                    updateScore(10);
+                    showToast('+10 完美!', 'success');
+                } else if (color !== 0 && targetValue !== 0) {
+                    updateScore(-5);
+                    showToast('-5 颜色不匹配', 'error');
+                }
+            }
+            
+            updateProgress();
+            drawGame();
+            
+            // 检查完成
+            if (!LEVELS[gameState.currentLevel].isCreative) {
+                checkCompletion();
+            }
+        }
+        
+        function undo() {
+            if (gameState.history.length === 0) {
+                showToast('没有可撤销的操作', 'info');
+                return;
+            }
+            
+            const lastAction = gameState.history.pop();
+            gameState.grid[lastAction.y][lastAction.x] = lastAction.prevValue;
+            
+            if (lastAction.newValue !== 0 && lastAction.prevValue === 0) {
+                gameState.filledCount--;
+            } else if (lastAction.newValue === 0 && lastAction.prevValue !== 0) {
+                gameState.filledCount++;
+            }
+            
+            updateProgress();
+            drawGame();
+            showToast('已撤销', 'info');
+        }
+        
+        function clearGrid() {
+            gameState.history = [];
+            gameState.grid = Array(gameState.gridSize).fill(null).map(() => Array(gameState.gridSize).fill(0));
+            gameState.filledCount = 0;
+            gameState.score = 0;
+            updateProgress();
+            updateScore(0);
+            drawGame();
+            showToast('画布已清空', 'info');
+        }
+        
+        function showHint() {
+            if (LEVELS[gameState.currentLevel].isCreative) {
+                showToast('创作模式没有提示~', 'info');
+                return;
+            }
+            
+            // 找到一个未正确填充的格子
+            for (let y = 0; y < gameState.gridSize; y++) {
+                for (let x = 0; x < gameState.gridSize; x++) {
+                    const target = gameState.targetPattern[y][x];
+                    const current = gameState.grid[y][x];
+                    if (target !== 0 && current !== target) {
+                        const hint = gameState.hints[y][x] || target.toString();
+                        showToast(`提示: 位置(${x+1},${y+1}) 需要颜色 ${hint}`, 'info');
+                        return;
+                    }
+                }
+            }
+            showToast('所有格子都已完成!', 'success');
+        }
+        
+        function checkCompletion() {
+            let correct = 0;
+            let total = 0;
+            
+            for (let y = 0; y < gameState.gridSize; y++) {
+                for (let x = 0; x < gameState.gridSize; x++) {
+                    const target = gameState.targetPattern[y][x];
+                    const current = gameState.grid[y][x];
+                    if (target !== 0) {
+                        total++;
+                        if (current === target) correct++;
+                    }
+                }
+            }
+            
+            if (correct === total && total > 0) {
+                gameState.isCompleted = true;
+                showCompletion();
+            }
+        }
+        
+        function showCompletion() {
+            const stats = document.getElementById('completionStats');
+            stats.textContent = `得分: ${gameState.score} | 完成度: 100%`;
+            completionOverlay.classList.add('show');
+            
+            // 播放闪烁动画
+            let flashCount = 0;
+            const flashInterval = setInterval(() => {
+                gameCanvas.style.filter = flashCount % 2 === 0 ? 'brightness(1.5)' : 'brightness(1)';
+                flashCount++;
+                if (flashCount > 5) {
+                    clearInterval(flashInterval);
+                    gameCanvas.style.filter = 'brightness(1)';
+                }
+            }, 200);
+        }
+        
+        function nextLevel() {
+            const next = gameState.currentLevel + 1;
+            if (LEVELS[next]) {
+                document.querySelectorAll('.level-btn').forEach(b => {
+                    b.classList.toggle('active', parseInt(b.dataset.level) === next);
+                });
+                loadLevel(next);
+            } else {
+                showToast('恭喜！已通关所有关卡！', 'success');
+                loadLevel(1);
+            }
+        }
+        
+        // ==================== UI 更新 ====================
+        function updateProgress() {
+            const progress = Math.round((gameState.filledCount / gameState.totalFillable) * 100);
+            progressDisplay.textContent = `${Math.min(progress, 100)}%`;
+        }
+        
+        function updateScore(delta) {
+            gameState.score += delta;
+            scoreDisplay.textContent = gameState.score;
+        }
+        
+        function showToast(message, type = 'info') {
+            toast.textContent = message;
+            toast.style.borderColor = type === 'success' ? '#00ff80' : type === 'error' ? '#ff3333' : '#00ffff';
+            toast.style.color = type === 'success' ? '#00ff80' : type === 'error' ? '#ff3333' : '#00ffff';
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+        
+        // ==================== 动画循环 ====================
+        function animate() {
+            // 更新发光强度
+            gameState.glowIntensity += 0.05 * gameState.glowDirection;
+            if (gameState.glowIntensity > 1) gameState.glowDirection = -1;
+            if (gameState.glowIntensity < 0) gameState.glowDirection = 1;
+            
+            drawGame();
+            requestAnimationFrame(animate);
+        }
+        
+        // ==================== 启动游戏 ====================
+        init();
+    </script>
+</body>
+</html>

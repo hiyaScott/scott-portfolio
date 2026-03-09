@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>镜像迷宫 - Mirror Maze</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3),
+                        inset 0 0 30px rgba(0, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        
+        canvas {
+            display: block;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ffff;
+            font-size: 14px;
+            text-shadow: 0 0 10px #00ffff;
+            z-index: 10;
+        }
+        
+        #levelInfo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #ff00ff;
+            font-size: 16px;
+            text-shadow: 0 0 10px #ff00ff;
+            z-index: 10;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: -80px;
+            left: 0;
+            right: 0;
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+            line-height: 1.8;
+        }
+        
+        #instructions span {
+            color: #00ffff;
+            margin: 0 10px;
+        }
+        
+        #winScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            border-radius: 8px;
+        }
+        
+        #winScreen h1 {
+            color: #00ffff;
+            font-size: 36px;
+            text-shadow: 0 0 20px #00ffff;
+            margin-bottom: 20px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        #winScreen p {
+            color: #ff00ff;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        
+        #winScreen button {
+            padding: 12px 30px;
+            background: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+        }
+        
+        #winScreen button:hover {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 20px #00ffff;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        
+        .key {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #1a1a2e;
+            border: 1px solid #00ffff;
+            border-radius: 4px;
+            color: #00ffff;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div>LEVEL: <span id="currentLevel">1</span>/3</div>
+            <div style="margin-top:5px; font-size:12px;">AXIS: <span id="axisType">HORIZONTAL</span></div>
+        </div>
+        <div id="levelInfo">MIRROR MAZE</div>
+        <div id="instructions">
+            <span><span class="key">↑↓←→</span> / <span class="key">WASD</span> 移动</span>
+            <span><span class="key">SPACE</span> 切换镜像轴</span>
+            <span><span class="key">R</span> 重置关卡</span>
+        </div>
+        <div id="winScreen">
+            <h1 id="winTitle">关卡完成!</h1>
+            <p id="winText">你和镜像都到达了终点</p>
+            <button id="nextLevelBtn">下一关</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const CELL_SIZE = 40;
+        const GRID_WIDTH = 20;
+        const GRID_HEIGHT = 15;
+        
+        // 游戏状态
+        let currentLevel = 1;
+        let mirrorAxis = 'horizontal'; // 'horizontal' 或 'vertical'
+        let particles = [];
+        let collectedItems = new Set();
+        let pressedSwitches = new Set();
+        let gameWon = false;
+        
+        // 玩家和镜像
+        let player = { x: 1, y: 1, targetX: 1, targetY: 1, moveProgress: 0 };
+        let mirror = { x: 1, y: 1, targetX: 1, targetY: 1, moveProgress: 0 };
+        
+        // 输入状态
+        const keys = {};
+        let lastMoveTime = 0;
+        const MOVE_DELAY = 150;
+        
+        // 关卡数据
+        const levels = [
+            {
+                // 第1关：水平镜像，简单对称
+                axis: 'horizontal',
+                axisLine: 7.5, // 对称轴在第7.5行（水平镜像）
+                map: [
+                    "####################",
+                    "#P.................#",
+                    "#..................#",
+                    "#..................#",
+                    "#..................#",
+                    "#####...........####",
+                    "#..................#",
+                    "#..................#",
+                    "#..................#",
+                    "#####...........####",
+                    "#..................#",
+                    "#..................#",
+                    "#..................#",
+                    "#..................E",
+                    "####################"
+                ],
+                playerEnd: { x: 18, y: 13 },
+                mirrorEnd: { x: 18, y: 2 },
+                switches: [],
+                items: [
+                    { x: 10, y: 7, id: 'item1' }
+                ]
+            },
+            {
+                // 第2关：垂直镜像，复杂布局
+                axis: 'vertical',
+                axisLine: 9.5, // 对称轴在第9.5列（垂直镜像）
+                map: [
+                    "####################",
+                    "#P.................#",
+                    "###.####...####.####",
+                    "#.....#.....#......#",
+                    "#.###.#.###.#.####.#",
+                    "#.#...#.#...#.#....#",
+                    "#.#.###.#.###.####.#",
+                    "#.#.....#.....#....#",
+                    "#.#######.#######.##",
+                    "#..................#",
+                    "#.####.#######.###.#",
+                    "#.#...........#....#",
+                    "#.#.#########.#.##.#",
+                    "#.................E#",
+                    "####################"
+                ],
+                playerEnd: { x: 18, y: 13 },
+                mirrorEnd: { x: 1, y: 13 },
+                switches: [
+                    { x: 5, y: 5, id: 'switch1', targetX: 10, targetY: 9, removes: true }
+                ],
+                items: [
+                    { x: 15, y: 5, id: 'item2' },
+                    { x: 5, y: 11, id: 'item3' }
+                ]
+            },
+            {
+                // 第3关：多重镜像（切换对称轴）
+                axis: 'horizontal',
+                axisLine: 7.5,
+                map: [
+                    "####################",
+                    "#P........#.......E#",
+                    "#####.###.#.###.####",
+                    "#.....#...#...#....#",
+                    "#.###.#.###.#.####.#",
+                    "#.#...#.....#......#",
+                    "#.#.#########.####.#",
+                    "#.#...........#....#",
+                    "#.###########.#.##.#",
+                    "#.................X#",
+                    "#.####.#######.###.#",
+                    "#.#S..#.......#....#",
+                    "#.#.###.#####.#.##.#",
+                    "#.......#E......M..#",
+                    "####################"
+                ],
+                playerEnd: { x: 18, y: 1 },
+                mirrorEnd: { x: 18, y: 13 },
+                switches: [
+                    { x: 3, y: 12, id: 'switch2', targetX: 18, targetY: 9, removes: true },
+                    { x: 10, y: 13, id: 'switch3', targetX: 10, targetY: 13, removes: false }
+                ],
+                items: [
+                    { x: 10, y: 5, id: 'item4' },
+                    { x: 18, y: 9, id: 'item5' }
+                ]
+            }
+        ];
+        
+        // 初始化关卡
+        function initLevel(levelNum) {
+            const level = levels[levelNum - 1];
+            currentLevel = levelNum;
+            mirrorAxis = level.axis;
+            collectedItems.clear();
+            pressedSwitches.clear();
+            particles = [];
+            gameWon = false;
+            
+            // 重置开关状态
+            for (let s of level.switches) {
+                s.pressed = false;
+            }
+            
+            // 找到玩家起始位置
+            for (let y = 0; y < level.map.length; y++) {
+                for (let x = 0; x < level.map[y].length; x++) {
+                    if (level.map[y][x] === 'P') {
+                        player.x = x;
+                        player.y = y;
+                        player.targetX = x;
+                        player.targetY = y;
+                        player.moveProgress = 0;
+                    }
+                    if (level.map[y][x] === 'M') {
+                        mirror.x = x;
+                        mirror.y = y;
+                        mirror.targetX = x;
+                        mirror.targetY = y;
+                        mirror.moveProgress = 0;
+                    }
+                }
+            }
+            
+            // 计算镜像初始位置
+            updateMirrorFromPlayer();
+            
+            document.getElementById('currentLevel').textContent = levelNum;
+            document.getElementById('axisType').textContent = mirrorAxis.toUpperCase();
+            document.getElementById('winScreen').style.display = 'none';
+        }
+        
+        // 根据玩家位置计算镜像位置
+        function updateMirrorFromPlayer() {
+            const level = levels[currentLevel - 1];
+            
+            if (mirrorAxis === 'horizontal') {
+                // 水平镜像：沿水平轴对称（y轴翻转）
+                const distFromAxis = player.y - level.axisLine;
+                mirror.targetY = Math.round(level.axisLine - distFromAxis);
+                mirror.targetX = player.targetX;
+            } else {
+                // 垂直镜像：沿垂直轴对称（x轴翻转）
+                const distFromAxis = player.x - level.axisLine;
+                mirror.targetX = Math.round(level.axisLine - distFromAxis);
+                mirror.targetY = player.targetY;
+            }
+        }
+        
+        // 检查位置是否有效
+        function isValidPos(x, y) {
+            const level = levels[currentLevel - 1];
+            if (y < 0 || y >= level.map.length || x < 0 || x >= level.map[0].length) {
+                return false;
+            }
+            const cell = level.map[y][x];
+            return cell !== '#' && cell !== 'X';
+        }
+        
+        // 更新开关状态
+        function updateSwitches() {
+            const level = levels[currentLevel - 1];
+            
+            for (let s of level.switches) {
+                const wasPressed = s.pressed;
+                s.pressed = (player.x === s.x && player.y === s.y) || 
+                           (mirror.x === s.x && mirror.y === s.y);
+                
+                if (s.pressed && !wasPressed) {
+                    // 开关刚被按下
+                    createParticles(s.x * CELL_SIZE + CELL_SIZE/2, s.y * CELL_SIZE + CELL_SIZE/2, '#00ff00');
+                    
+                    if (s.removes && !pressedSwitches.has(s.id)) {
+                        pressedSwitches.add(s.id);
+                        // 移除目标墙
+                        if (level.map[s.targetY]) {
+                            let row = level.map[s.targetY];
+                            if (row[s.targetX] === 'X' || row[s.targetX] === '#') {
+                                level.map[s.targetY] = row.substring(0, s.targetX) + '.' + row.substring(s.targetX + 1);
+                                createParticles(s.targetX * CELL_SIZE + CELL_SIZE/2, s.targetY * CELL_SIZE + CELL_SIZE/2, '#ff6600', 20);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 创建粒子效果
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 1.0,
+                    color: color
+                });
+            }
+        }
+        
+        // 更新粒子
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+        
+        // 绘制粒子
+        function drawParticles() {
+            for (let p of particles) {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+        
+        // 移动玩家
+        function movePlayer(dx, dy) {
+            const now = Date.now();
+            if (now - lastMoveTime < MOVE_DELAY) return;
+            
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+            
+            // 检查玩家新位置是否有效
+            if (!isValidPos(newX, newY)) return;
+            
+            // 计算镜像的目标位置
+            let mirrorNewX, mirrorNewY;
+            const level = levels[currentLevel - 1];
+            
+            if (mirrorAxis === 'horizontal') {
+                const distFromAxis = newY - level.axisLine;
+                mirrorNewY = Math.round(level.axisLine - distFromAxis);
+                mirrorNewX = newX;
+            } else {
+                const distFromAxis = newX - level.axisLine;
+                mirrorNewX = Math.round(level.axisLine - distFromAxis);
+                mirrorNewY = newY;
+            }
+            
+            // 检查镜像新位置是否有效
+            if (!isValidPos(mirrorNewX, mirrorNewY)) return;
+            
+            // 执行移动
+            player.targetX = newX;
+            player.targetY = newY;
+            mirror.targetX = mirrorNewX;
+            mirror.targetY = mirrorNewY;
+            player.moveProgress = 0;
+            mirror.moveProgress = 0;
+            
+            lastMoveTime = now;
+            
+            // 创建移动轨迹粒子
+            createParticles(
+                player.x * CELL_SIZE + CELL_SIZE/2, 
+                player.y * CELL_SIZE + CELL_SIZE/2, 
+                '#00ffff', 3
+            );
+        }
+        
+        // 插值更新位置
+        function interpolatePositions() {
+            const speed = 0.2;
+            
+            if (player.moveProgress < 1) {
+                player.moveProgress = Math.min(1, player.moveProgress + speed);
+                
+                if (player.moveProgress >= 1) {
+                    player.x = player.targetX;
+                    player.y = player.targetY;
+                    checkItems();
+                    updateSwitches();
+                    checkWin();
+                }
+            }
+            
+            if (mirror.moveProgress < 1) {
+                mirror.moveProgress = Math.min(1, mirror.moveProgress + speed);
+                
+                if (mirror.moveProgress >= 1) {
+                    mirror.x = mirror.targetX;
+                    mirror.y = mirror.targetY;
+                    checkItems();
+                    updateSwitches();
+                    checkWin();
+                }
+            }
+        }
+        
+        // 检查物品收集
+        function checkItems() {
+            const level = levels[currentLevel - 1];
+            
+            for (let item of level.items) {
+                if (!collectedItems.has(item.id)) {
+                    if ((player.x === item.x && player.y === item.y) ||
+                        (mirror.x === item.x && mirror.y === item.y)) {
+                        collectedItems.add(item.id);
+                        createParticles(
+                            item.x * CELL_SIZE + CELL_SIZE/2,
+                            item.y * CELL_SIZE + CELL_SIZE/2,
+                            '#ffff00', 15
+                        );
+                    }
+                }
+            }
+        }
+        
+        // 检查胜利条件
+        function checkWin() {
+            if (gameWon) return;
+            
+            const level = levels[currentLevel - 1];
+            const playerAtEnd = player.x === level.playerEnd.x && player.y === level.playerEnd.y;
+            const mirrorAtEnd = mirror.x === level.mirrorEnd.x && mirror.y === level.mirrorEnd.y;
+            
+            if (playerAtEnd && mirrorAtEnd) {
+                gameWon = true;
+                showWinScreen();
+            }
+        }
+        
+        // 显示胜利画面
+        function showWinScreen() {
+            const winScreen = document.getElementById('winScreen');
+            const winTitle = document.getElementById('winTitle');
+            const winText = document.getElementById('winText');
+            const nextBtn = document.getElementById('nextLevelBtn');
+            
+            if (currentLevel < 3) {
+                winTitle.textContent = '关卡完成!';
+                winText.textContent = `你和镜像都到达了终点 (${collectedItems.size} 物品收集)`;
+                nextBtn.textContent = '下一关';
+                nextBtn.onclick = () => initLevel(currentLevel + 1);
+            } else {
+                winTitle.textContent = '恭喜通关!';
+                winText.textContent = '你完成了所有镜像迷宫关卡!';
+                nextBtn.textContent = '重新开始';
+                nextBtn.onclick = () => initLevel(1);
+            }
+            
+            winScreen.style.display = 'flex';
+            
+            // 胜利烟花效果
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    createParticles(
+                        Math.random() * canvas.width,
+                        Math.random() * canvas.height,
+                        ['#00ffff', '#ff00ff', '#ffff00'][Math.floor(Math.random() * 3)],
+                        10
+                    );
+                }, i * 50);
+            }
+        }
+        
+        // 切换镜像轴
+        function toggleAxis() {
+            mirrorAxis = mirrorAxis === 'horizontal' ? 'vertical' : 'horizontal';
+            document.getElementById('axisType').textContent = mirrorAxis.toUpperCase();
+            
+            // 重新计算镜像位置
+            const level = levels[currentLevel - 1];
+            if (mirrorAxis === 'horizontal') {
+                const distFromAxis = player.y - level.axisLine;
+                mirror.targetY = Math.round(level.axisLine - distFromAxis);
+                mirror.targetX = player.targetX;
+            } else {
+                const distFromAxis = player.x - level.axisLine;
+                mirror.targetX = Math.round(level.axisLine - distFromAxis);
+                mirror.targetY = player.targetY;
+            }
+            
+            mirror.x = mirror.targetX;
+            mirror.y = mirror.targetY;
+            
+            // 检查位置有效性
+            if (!isValidPos(mirror.x, mirror.y)) {
+                // 如果镜像位置无效，尝试找到最近的合法位置
+                for (let r = 1; r < 5; r++) {
+                    for (let dy = -r; dy <= r; dy++) {
+                        for (let dx = -r; dx <= r; dx++) {
+                            if (Math.abs(dx) + Math.abs(dy) === r) {
+                                if (isValidPos(mirror.x + dx, mirror.y + dy)) {
+                                    mirror.x += dx;
+                                    mirror.y += dy;
+                                    mirror.targetX = mirror.x;
+                                    mirror.targetY = mirror.y;
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 绘制游戏
+        function draw() {
+            // 清空画布
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const level = levels[currentLevel - 1];
+            
+            // 绘制网格背景
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x <= GRID_WIDTH; x++) {
+                ctx.beginPath();
+                ctx.moveTo(x * CELL_SIZE, 0);
+                ctx.lineTo(x * CELL_SIZE, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= GRID_HEIGHT; y++) {
+                ctx.beginPath();
+                ctx.moveTo(0, y * CELL_SIZE);
+                ctx.lineTo(canvas.width, y * CELL_SIZE);
+                ctx.stroke();
+            }
+            
+            // 绘制对称轴
+            ctx.strokeStyle = 'rgba(255, 0, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            if (mirrorAxis === 'horizontal') {
+                const y = level.axisLine * CELL_SIZE + CELL_SIZE/2;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            } else {
+                const x = level.axisLine * CELL_SIZE + CELL_SIZE/2;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+            
+            // 绘制墙壁
+            for (let y = 0; y < level.map.length; y++) {
+                for (let x = 0; x < level.map[y].length; x++) {
+                    const cell = level.map[y][x];
+                    if (cell === '#') {
+                        // 普通墙壁
+                        ctx.fillStyle = '#1a1a3e';
+                        ctx.fillRect(x * CELL_SIZE + 2, y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                        ctx.strokeStyle = '#00ffff';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(x * CELL_SIZE + 4, y * CELL_SIZE + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                    } else if (cell === 'X') {
+                        // 可破坏墙壁
+                        ctx.fillStyle = '#3e1a1a';
+                        ctx.fillRect(x * CELL_SIZE + 2, y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                        ctx.strokeStyle = '#ff6600';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(x * CELL_SIZE + 4, y * CELL_SIZE + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                        // 绘制X标记
+                        ctx.beginPath();
+                        ctx.moveTo(x * CELL_SIZE + 10, y * CELL_SIZE + 10);
+                        ctx.lineTo(x * CELL_SIZE + CELL_SIZE - 10, y * CELL_SIZE + CELL_SIZE - 10);
+                        ctx.moveTo(x * CELL_SIZE + CELL_SIZE - 10, y * CELL_SIZE + 10);
+                        ctx.lineTo(x * CELL_SIZE + 10, y * CELL_SIZE + CELL_SIZE - 10);
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            // 绘制终点
+            const pEnd = level.playerEnd;
+            const mEnd = level.mirrorEnd;
+            
+            // 玩家终点
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+            ctx.fillRect(pEnd.x * CELL_SIZE, pEnd.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(pEnd.x * CELL_SIZE + 2, pEnd.y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+            ctx.fillStyle = '#00ffff';
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('P', pEnd.x * CELL_SIZE + CELL_SIZE/2, pEnd.y * CELL_SIZE + CELL_SIZE/2 + 4);
+            
+            // 镜像终点
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.3)';
+            ctx.fillRect(mEnd.x * CELL_SIZE, mEnd.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            ctx.strokeStyle = '#ff00ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(mEnd.x * CELL_SIZE + 2, mEnd.y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+            ctx.fillStyle = '#ff00ff';
+            ctx.fillText('M', mEnd.x * CELL_SIZE + CELL_SIZE/2, mEnd.y * CELL_SIZE + CELL_SIZE/2 + 4);
+            
+            // 绘制开关
+            for (let s of level.switches) {
+                const x = s.x * CELL_SIZE + CELL_SIZE/2;
+                const y = s.y * CELL_SIZE + CELL_SIZE/2;
+                
+                ctx.fillStyle = s.pressed ? '#00ff00' : '#ff6600';
+                ctx.beginPath();
+                ctx.arc(x, y, CELL_SIZE/3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = s.pressed ? '#00ff00' : '#ff6600';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, CELL_SIZE/3 + 3, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // S标记
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 14px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('S', x, y + 5);
+            }
+            
+            // 绘制物品
+            for (let item of level.items) {
+                if (!collectedItems.has(item.id)) {
+                    const x = item.x * CELL_SIZE + CELL_SIZE/2;
+                    const y = item.y * CELL_SIZE + CELL_SIZE/2;
+                    
+                    // 发光效果
+                    ctx.shadowColor = '#ffff00';
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = '#ffff00';
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - 10);
+                    ctx.lineTo(x + 8, y + 5);
+                    ctx.lineTo(x - 8, y + 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+            
+            // 计算插值位置
+            const getRenderPos = (obj) => {
+                if (obj.moveProgress >= 1 || obj.moveProgress === 0) {
+                    return {
+                        x: obj.x * CELL_SIZE + CELL_SIZE/2,
+                        y: obj.y * CELL_SIZE + CELL_SIZE/2
+                    };
+                }
+                const startX = obj.x * CELL_SIZE + CELL_SIZE/2;
+                const startY = obj.y * CELL_SIZE + CELL_SIZE/2;
+                const endX = obj.targetX * CELL_SIZE + CELL_SIZE/2;
+                const endY = obj.targetY * CELL_SIZE + CELL_SIZE/2;
+                return {
+                    x: startX + (endX - startX) * obj.moveProgress,
+                    y: startY + (endY - startY) * obj.moveProgress
+                };
+            };
+            
+            // 绘制镜像（先画，在底层）
+            const mPos = getRenderPos(mirror);
+            ctx.fillStyle = 'rgba(180, 0, 255, 0.6)';
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(mPos.x, mPos.y, CELL_SIZE/3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ff00ff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // 镜像内部装饰
+            ctx.fillStyle = 'rgba(255, 150, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(mPos.x, mPos.y, CELL_SIZE/5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制玩家
+            const pPos = getRenderPos(player);
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(pPos.x, pPos.y, CELL_SIZE/3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // 玩家内部装饰
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(pPos.x, pPos.y, CELL_SIZE/5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制粒子
+            drawParticles();
+        }
+        
+        // 游戏循环
+        function gameLoop() {
+            interpolatePositions();
+            updateParticles();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (gameWon) return;
+            
+            keys[e.key] = true;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    e.preventDefault();
+                    movePlayer(0, -1);
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    e.preventDefault();
+                    movePlayer(0, 1);
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    e.preventDefault();
+                    movePlayer(-1, 0);
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    e.preventDefault();
+                    movePlayer(1, 0);
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    toggleAxis();
+                    break;
+                case 'r':
+                case 'R':
+                    e.preventDefault();
+                    initLevel(currentLevel);
+                    break;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // 初始化游戏
+        initLevel(1);
+        gameLoop();
+    </script>
+</body>
+</html>

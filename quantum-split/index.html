@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子分裂 Quantum Split</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 60px rgba(0, 255, 255, 0.3), 0 0 120px rgba(255, 0, 100, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background: linear-gradient(135deg, #0a0a15 0%, #1a0a2e 50%, #0a0a1a 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            text-shadow: 0 0 10px currentColor;
+        }
+        
+        .level-info {
+            color: #fff;
+            font-size: 14px;
+            letter-spacing: 2px;
+        }
+        
+        .level-info h1 {
+            font-size: 18px;
+            color: #00ffff;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        
+        .controls {
+            color: #aaa;
+            font-size: 11px;
+            text-align: right;
+        }
+        
+        .controls span {
+            color: #fff;
+            display: block;
+            margin: 2px 0;
+        }
+        
+        .controls span.key {
+            color: #ff00ff;
+            font-weight: bold;
+        }
+        
+        #stateIndicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            pointer-events: none;
+        }
+        
+        .state-dot {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .state-dot.red {
+            background: radial-gradient(circle, rgba(255,0,80,0.8), rgba(255,0,80,0.2));
+            border: 2px solid #ff0050;
+            box-shadow: 0 0 30px rgba(255,0,80,0.6);
+            color: #fff;
+        }
+        
+        .state-dot.blue {
+            background: radial-gradient(circle, rgba(0,200,255,0.8), rgba(0,200,255,0.2));
+            border: 2px solid #00c8ff;
+            box-shadow: 0 0 30px rgba(0,200,255,0.6);
+            color: #fff;
+        }
+        
+        .state-dot.inactive {
+            opacity: 0.3;
+            transform: scale(0.8);
+        }
+        
+        .state-dot::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 0; }
+        }
+        
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #fff;
+            font-size: 24px;
+            text-shadow: 0 0 20px currentColor;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        
+        #message.show {
+            opacity: 1;
+        }
+        
+        #message.victory {
+            color: #ff00ff;
+        }
+        
+        .glow-text {
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 30px #ff00ff; }
+            to { text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="900" height="600"></canvas>
+        <div id="ui">
+            <div class="level-info">
+                <h1>量子分裂</h1>
+                <div>关卡 <span id="levelNum">1</span>/3</div>
+                <div id="levelDesc">学习切换量子态</div>
+            </div>
+            <div class="controls">
+                <span><span class="key">WASD/方向键</span> 移动</span>
+                <span><span class="key">空格</span> 切换量子态</span>
+                <span><span class="key">R</span> 重置关卡</span>
+            </div>
+        </div>
+        <div id="stateIndicator">
+            <div class="state-dot red" id="redIndicator">红态</div>
+            <div class="state-dot blue inactive" id="blueIndicator">蓝态</div>
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelNumEl = document.getElementById('levelNum');
+        const levelDescEl = document.getElementById('levelDesc');
+        const redIndicator = document.getElementById('redIndicator');
+        const blueIndicator = document.getElementById('blueIndicator');
+        const messageEl = document.getElementById('message');
+
+        // 游戏常量
+        const TILE_SIZE = 30;
+        const PLAYER_SIZE = 20;
+        const GRAVITY = 0.5;
+        const JUMP_FORCE = -10;
+        const MOVE_SPEED = 4;
+        const GHOST_COUNT = 8;
+        const GHOST_INTERVAL = 3;
+
+        // 颜色定义
+        const COLORS = {
+            red: '#ff0050',
+            redGlow: 'rgba(255, 0, 80, 0.8)',
+            blue: '#00c8ff',
+            blueGlow: 'rgba(0, 200, 255, 0.8)',
+            purple: '#ff00ff',
+            purpleGlow: 'rgba(255, 0, 255, 0.8)',
+            wall: '#2a2a3a',
+            wallBorder: '#3a3a4a',
+            grid: 'rgba(0, 255, 255, 0.1)'
+        };
+
+        // 游戏状态
+        let currentLevel = 0;
+        let gameState = 'playing'; // playing, transition, victory
+        let frameCount = 0;
+
+        // 输入状态
+        const keys = {
+            left: false,
+            right: false,
+            up: false,
+            space: false
+        };
+
+        // 粒子系统
+        class Particle {
+            constructor(x, y, color, speed = 2, life = 30) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * speed;
+                this.vy = (Math.random() - 0.5) * speed;
+                this.life = life;
+                this.maxLife = life;
+                this.color = color;
+                this.size = Math.random() * 4 + 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+                this.size *= 0.95;
+            }
+
+            draw(ctx) {
+                const alpha = this.life / this.maxLife;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 幽灵残影
+        class Ghost {
+            constructor(x, y, color, isRed) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.isRed = isRed;
+                this.life = 20;
+                this.maxLife = 20;
+            }
+
+            update() {
+                this.life--;
+            }
+
+            draw(ctx) {
+                const alpha = (this.life / this.maxLife) * 0.5;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                
+                // 绘制量子态形状
+                ctx.beginPath();
+                if (this.isRed) {
+                    ctx.moveTo(this.x, this.y - PLAYER_SIZE/2);
+                    ctx.lineTo(this.x + PLAYER_SIZE/2, this.y + PLAYER_SIZE/2);
+                    ctx.lineTo(this.x - PLAYER_SIZE/2, this.y + PLAYER_SIZE/2);
+                } else {
+                    ctx.arc(this.x, this.y, PLAYER_SIZE/2, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 玩家类
+        class Player {
+            constructor(x, y, isRed) {
+                this.startX = x;
+                this.startY = y;
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.isRed = isRed; // true = 红态, false = 蓝态
+                this.grounded = false;
+                this.ghosts = [];
+                this.ghostTimer = 0;
+                this.switchEffect = 0;
+            }
+
+            update() {
+                // 重力
+                if (this.isRed) {
+                    this.vy += GRAVITY; // 红态正常重力
+                } else {
+                    this.vy -= GRAVITY * 0.7; // 蓝态反向重力（较轻）
+                }
+
+                // 移动控制（只对当前激活的态有效）
+                if (this.isRed === (activeState === 'red')) {
+                    if (keys.left) this.vx = -MOVE_SPEED;
+                    else if (keys.right) this.vx = MOVE_SPEED;
+                    else this.vx *= 0.8;
+
+                    if (keys.up && this.grounded) {
+                        this.vy = this.isRed ? JUMP_FORCE : -JUMP_FORCE * 0.7;
+                        this.grounded = false;
+                        createParticles(this.x, this.y + (this.isRed ? PLAYER_SIZE/2 : -PLAYER_SIZE/2), 
+                            this.isRed ? COLORS.red : COLORS.blue, 5);
+                    }
+                } else {
+                    this.vx *= 0.9;
+                }
+
+                // 更新位置
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 边界限制
+                if (this.x < PLAYER_SIZE/2) { this.x = PLAYER_SIZE/2; this.vx = 0; }
+                if (this.x > canvas.width - PLAYER_SIZE/2) { this.x = canvas.width - PLAYER_SIZE/2; this.vx = 0; }
+
+                // 生成幽灵残影
+                this.ghostTimer++;
+                if (this.ghostTimer >= GHOST_INTERVAL && (Math.abs(this.vx) > 0.5 || Math.abs(this.vy) > 0.5)) {
+                    this.ghosts.push(new Ghost(this.x, this.y, 
+                        this.isRed ? COLORS.red : COLORS.blue, this.isRed));
+                    this.ghostTimer = 0;
+                }
+
+                // 更新幽灵
+                this.ghosts = this.ghosts.filter(g => g.life > 0);
+                this.ghosts.forEach(g => g.update());
+
+                // 切换效果
+                if (this.switchEffect > 0) this.switchEffect--;
+            }
+
+            draw(ctx) {
+                // 绘制幽灵残影
+                this.ghosts.forEach(g => g.draw(ctx));
+
+                // 绘制玩家
+                const color = this.isRed ? COLORS.red : COLORS.blue;
+                ctx.save();
+                
+                // 切换效果
+                if (this.switchEffect > 0) {
+                    const pulse = Math.sin(this.switchEffect * 0.5) * 0.5 + 0.5;
+                    ctx.globalAlpha = 0.5 + pulse * 0.5;
+                    ctx.shadowBlur = 30 + pulse * 20;
+                } else {
+                    ctx.shadowBlur = 20;
+                }
+                
+                ctx.shadowColor = color;
+                ctx.fillStyle = color;
+
+                // 量子态形状
+                ctx.beginPath();
+                if (this.isRed) {
+                    // 红态：三角形
+                    ctx.moveTo(this.x, this.y - PLAYER_SIZE/2);
+                    ctx.lineTo(this.x + PLAYER_SIZE/2, this.y + PLAYER_SIZE/2);
+                    ctx.lineTo(this.x - PLAYER_SIZE/2, this.y + PLAYER_SIZE/2);
+                } else {
+                    // 蓝态：圆形
+                    ctx.arc(this.x, this.y, PLAYER_SIZE/2, 0, Math.PI * 2);
+                }
+                ctx.fill();
+
+                // 内部发光
+                ctx.globalAlpha = 0.5;
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, PLAYER_SIZE/4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            getBounds() {
+                return {
+                    left: this.x - PLAYER_SIZE/2,
+                    right: this.x + PLAYER_SIZE/2,
+                    top: this.y - PLAYER_SIZE/2,
+                    bottom: this.y + PLAYER_SIZE/2
+                };
+            }
+
+            reset() {
+                this.x = this.startX;
+                this.y = this.startY;
+                this.vx = 0;
+                this.vy = 0;
+                this.grounded = false;
+                this.ghosts = [];
+            }
+
+            switchState() {
+                this.switchEffect = 20;
+                createParticles(this.x, this.y, COLORS.purple, 8);
+            }
+        }
+
+        // 关卡数据
+        const LEVELS = [
+            {
+                name: "量子入门",
+                desc: "按空格切换量子态，通过对应颜色的障碍",
+                width: 30,
+                height: 20,
+                redStart: { x: 100, y: 500 },
+                blueStart: { x: 100, y: 100 },
+                exit: { x: 800, y: 300, width: 60, height: 60 },
+                walls: [
+                    // 地板和天花板
+                    { x: 0, y: 570, width: 900, height: 30 },
+                    { x: 0, y: 0, width: 900, height: 30 },
+                    // 左墙右墙
+                    { x: 0, y: 0, width: 30, height: 600 },
+                    { x: 870, y: 0, width: 30, height: 600 },
+                    // 红色障碍（只有蓝态能通过下方）
+                    { x: 300, y: 400, width: 30, height: 170, type: 'red' },
+                    { x: 300, y: 400, width: 150, height: 30, type: 'red' },
+                    // 蓝色障碍（只有红态能通过上方）
+                    { x: 300, y: 0, width: 30, height: 200, type: 'blue' },
+                    { x: 300, y: 200, width: 150, height: 30, type: 'blue' },
+                ]
+            },
+            {
+                name: "分头行动",
+                desc: "两个量子态需要走不同的路径",
+                width: 30,
+                height: 20,
+                redStart: { x: 80, y: 500 },
+                blueStart: { x: 80, y: 100 },
+                exit: { x: 820, y: 300, width: 60, height: 60 },
+                walls: [
+                    // 边界
+                    { x: 0, y: 570, width: 900, height: 30 },
+                    { x: 0, y: 0, width: 900, height: 30 },
+                    { x: 0, y: 0, width: 30, height: 600 },
+                    { x: 870, y: 0, width: 30, height: 600 },
+                    // 中间分隔
+                    { x: 450, y: 200, width: 30, height: 200 },
+                    // 红态路径障碍（蓝色）
+                    { x: 200, y: 450, width: 100, height: 30, type: 'blue' },
+                    { x: 350, y: 350, width: 100, height: 30, type: 'blue' },
+                    { x: 150, y: 250, width: 100, height: 30, type: 'blue' },
+                    // 蓝态路径障碍（红色）
+                    { x: 200, y: 150, width: 100, height: 30, type: 'red' },
+                    { x: 350, y: 250, width: 100, height: 30, type: 'red' },
+                    { x: 150, y: 350, width: 100, height: 30, type: 'red' },
+                    // 通往终点的障碍
+                    { x: 600, y: 400, width: 30, height: 170, type: 'red' },
+                    { x: 600, y: 0, width: 30, height: 200, type: 'blue' },
+                    { x: 700, y: 250, width: 30, height: 100, type: 'purple' },
+                ]
+            },
+            {
+                name: "量子协作",
+                desc: "一个态踩开关，另一个态通过",
+                width: 30,
+                height: 20,
+                redStart: { x: 80, y: 500 },
+                blueStart: { x: 80, y: 100 },
+                exit: { x: 820, y: 300, width: 60, height: 60 },
+                walls: [
+                    // 边界
+                    { x: 0, y: 570, width: 900, height: 30 },
+                    { x: 0, y: 0, width: 900, height: 30 },
+                    { x: 0, y: 0, width: 30, height: 600 },
+                    { x: 870, y: 0, width: 30, height: 600 },
+                    // 红色开关区域
+                    { x: 250, y: 450, width: 60, height: 30, type: 'switch', id: 'switch1', color: 'red' },
+                    { x: 400, y: 300, width: 30, height: 150, type: 'door', id: 'door1', trigger: 'switch1' },
+                    // 蓝色开关区域
+                    { x: 250, y: 120, width: 60, height: 30, type: 'switch', id: 'switch2', color: 'blue' },
+                    { x: 400, y: 150, width: 30, height: 150, type: 'door', id: 'door2', trigger: 'switch2' },
+                    // 障碍
+                    { x: 550, y: 200, width: 30, height: 200, type: 'purple' },
+                    { x: 650, y: 100, width: 30, height: 150, type: 'red' },
+                    { x: 650, y: 350, width: 30, height: 150, type: 'blue' },
+                    // 平台
+                    { x: 500, y: 400, width: 100, height: 20 },
+                    { x: 500, y: 180, width: 100, height: 20 },
+                    { x: 750, y: 300, width: 70, height: 20 },
+                ]
+            }
+        ];
+
+        // 游戏变量
+        let players = [];
+        let particles = [];
+        let activeState = 'red';
+        let switches = {};
+        let doors = {};
+
+        // 初始化关卡
+        function initLevel(levelIndex) {
+            const level = LEVELS[levelIndex];
+            players = [
+                new Player(level.redStart.x, level.redStart.y, true),
+                new Player(level.blueStart.x, level.blueStart.y, false)
+            ];
+            
+            switches = {};
+            doors = {};
+            
+            // 初始化开关和门
+            level.walls.forEach(wall => {
+                if (wall.type === 'switch') {
+                    switches[wall.id] = { active: false, x: wall.x, y: wall.y, 
+                        width: wall.width, height: wall.height, color: wall.color };
+                }
+                if (wall.type === 'door') {
+                    doors[wall.id] = { open: false, x: wall.x, y: wall.y, 
+                        width: wall.width, height: wall.height, trigger: wall.trigger };
+                }
+            });
+
+            particles = [];
+            activeState = 'red';
+            updateUI();
+        }
+
+        // 创建粒子
+        function createParticles(x, y, color, count = 5) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        // 碰撞检测
+        function checkCollision(player, walls) {
+            const bounds = player.getBounds();
+            player.grounded = false;
+
+            const level = LEVELS[currentLevel];
+            
+            level.walls.forEach(wall => {
+                // 跳过门（如果开着）
+                if (wall.type === 'door' && doors[wall.id]?.open) return;
+
+                // 检查墙壁碰撞
+                if (bounds.right > wall.x && bounds.left < wall.x + wall.width &&
+                    bounds.bottom > wall.y && bounds.top < wall.y + wall.height) {
+                    
+                    // 颜色障碍检测
+                    if (wall.type === 'red' && player.isRed) {
+                        // 红态不能通过红色障碍
+                        resolveCollision(player, wall);
+                    } else if (wall.type === 'blue' && !player.isRed) {
+                        // 蓝态不能通过蓝色障碍
+                        resolveCollision(player, wall);
+                    } else if (wall.type === 'purple') {
+                        // 紫色障碍两个态都不能通过
+                        resolveCollision(player, wall);
+                    } else if (!wall.type || wall.type === 'switch') {
+                        // 普通墙壁或开关
+                        if (wall.type === 'switch') {
+                            // 检查是否踩到开关
+                            const switchId = wall.id;
+                            const isRedSwitch = wall.color === 'red';
+                            if (player.isRed === isRedSwitch && bounds.bottom > wall.y + 10) {
+                                switches[switchId].active = true;
+                                doors[wall.id] && (doors[wall.id].open = true);
+                            }
+                        } else {
+                            resolveCollision(player, wall);
+                        }
+                    }
+                }
+            });
+
+            // 检查门碰撞
+            Object.values(doors).forEach(door => {
+                if (!door.open &&
+                    bounds.right > door.x && bounds.left < door.x + door.width &&
+                    bounds.bottom > door.y && bounds.top < door.y + door.height) {
+                    resolveCollision(player, door);
+                }
+            });
+
+            // 地面碰撞
+            if (bounds.bottom > canvas.height - 30) {
+                player.y = canvas.height - 30 - PLAYER_SIZE/2;
+                player.vy = 0;
+                player.grounded = true;
+            }
+            if (bounds.top < 30) {
+                player.y = 30 + PLAYER_SIZE/2;
+                player.vy = 0;
+            }
+        }
+
+        function resolveCollision(player, wall) {
+            const bounds = player.getBounds();
+            const overlapLeft = bounds.right - wall.x;
+            const overlapRight = wall.x + wall.width - bounds.left;
+            const overlapTop = bounds.bottom - wall.y;
+            const overlapBottom = wall.y + wall.height - bounds.top;
+
+            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+            if (minOverlap === overlapTop && player.vy > 0) {
+                player.y = wall.y - PLAYER_SIZE/2;
+                player.vy = 0;
+                player.grounded = true;
+            } else if (minOverlap === overlapBottom && player.vy < 0) {
+                player.y = wall.y + wall.height + PLAYER_SIZE/2;
+                player.vy = 0;
+            } else if (minOverlap === overlapLeft && player.vx > 0) {
+                player.x = wall.x - PLAYER_SIZE/2;
+                player.vx = 0;
+            } else if (minOverlap === overlapRight && player.vx < 0) {
+                player.x = wall.x + wall.width + PLAYER_SIZE/2;
+                player.vx = 0;
+            }
+        }
+
+        // 检查胜利条件
+        function checkVictory() {
+            const level = LEVELS[currentLevel];
+            const exit = level.exit;
+            
+            const redPlayer = players[0];
+            const bluePlayer = players[1];
+
+            const redInExit = redPlayer.x > exit.x && redPlayer.x < exit.x + exit.width &&
+                             redPlayer.y > exit.y && redPlayer.y < exit.y + exit.height;
+            const blueInExit = bluePlayer.x > exit.x && bluePlayer.x < exit.x + exit.width &&
+                              bluePlayer.y > exit.y && bluePlayer.y < exit.y + exit.height;
+
+            if (redInExit && blueInExit && gameState === 'playing') {
+                gameState = 'victory';
+                showMessage('关卡完成！', true);
+                createParticles(exit.x + exit.width/2, exit.y + exit.height/2, COLORS.purple, 30);
+                
+                setTimeout(() => {
+                    if (currentLevel < LEVELS.length - 1) {
+                        currentLevel++;
+                        initLevel(currentLevel);
+                        gameState = 'playing';
+                        hideMessage();
+                    } else {
+                        showMessage('恭喜通关！', true);
+                        setTimeout(() => {
+                            currentLevel = 0;
+                            initLevel(currentLevel);
+                            gameState = 'playing';
+                            hideMessage();
+                        }, 3000);
+                    }
+                }, 2000);
+            }
+        }
+
+        // 显示/隐藏消息
+        function showMessage(text, isVictory = false) {
+            messageEl.textContent = text;
+            messageEl.className = 'show' + (isVictory ? ' victory glow-text' : '');
+        }
+
+        function hideMessage() {
+            messageEl.className = '';
+        }
+
+        // 更新UI
+        function updateUI() {
+            levelNumEl.textContent = currentLevel + 1;
+            levelDescEl.textContent = LEVELS[currentLevel].desc;
+            
+            if (activeState === 'red') {
+                redIndicator.classList.remove('inactive');
+                blueIndicator.classList.add('inactive');
+            } else {
+                redIndicator.classList.add('inactive');
+                blueIndicator.classList.remove('inactive');
+            }
+        }
+
+        // 切换量子态
+        function switchQuantumState() {
+            activeState = activeState === 'red' ? 'blue' : 'red';
+            players.forEach(p => p.switchState());
+            updateUI();
+            createParticles(canvas.width/2, canvas.height/2, COLORS.purple, 15);
+        }
+
+        // 重置关卡
+        function resetLevel() {
+            initLevel(currentLevel);
+            showMessage('重置关卡');
+            setTimeout(hideMessage, 1000);
+        }
+
+        // 绘制背景
+        function drawBackground() {
+            // 深色网格背景
+            ctx.strokeStyle = COLORS.grid;
+            ctx.lineWidth = 1;
+            
+            const gridSize = 60;
+            const offset = (frameCount * 0.5) % gridSize;
+            
+            for (let x = 0; x <= canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = offset; y <= canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // 霓虹线条装饰
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 0, 80, 0.1)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height * 0.3);
+            ctx.lineTo(canvas.width, canvas.height * 0.3);
+            ctx.stroke();
+            
+            ctx.strokeStyle = 'rgba(0, 200, 255, 0.1)';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height * 0.7);
+            ctx.lineTo(canvas.width, canvas.height * 0.7);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // 绘制墙壁
+        function drawWalls() {
+            const level = LEVELS[currentLevel];
+            
+            level.walls.forEach(wall => {
+                if (wall.type === 'switch') {
+                    // 绘制开关
+                    const isActive = switches[wall.id]?.active;
+                    ctx.save();
+                    ctx.fillStyle = isActive ? 
+                        (wall.color === 'red' ? COLORS.red : COLORS.blue) : '#444';
+                    ctx.shadowBlur = isActive ? 20 : 0;
+                    ctx.shadowColor = wall.color === 'red' ? COLORS.red : COLORS.blue;
+                    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                    
+                    // 开关标识
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('S', wall.x + wall.width/2, wall.y + wall.height/2 + 4);
+                    ctx.restore();
+                } else if (wall.type === 'door') {
+                    // 绘制门
+                    const isOpen = doors[wall.id]?.open;
+                    if (!isOpen) {
+                        ctx.save();
+                        ctx.fillStyle = 'rgba(100, 100, 100, 0.8)';
+                        ctx.strokeStyle = '#666';
+                        ctx.lineWidth = 2;
+                        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                        ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
+                        
+                        // 网格纹理
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                        ctx.beginPath();
+                        for (let i = 0; i < wall.width; i += 10) {
+                            ctx.moveTo(wall.x + i, wall.y);
+                            ctx.lineTo(wall.x + i, wall.y + wall.height);
+                        }
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                } else {
+                    // 普通墙壁或障碍
+                    ctx.save();
+                    
+                    if (wall.type === 'red') {
+                        ctx.fillStyle = 'rgba(255, 0, 80, 0.3)';
+                        ctx.strokeStyle = COLORS.red;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = COLORS.red;
+                    } else if (wall.type === 'blue') {
+                        ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
+                        ctx.strokeStyle = COLORS.blue;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = COLORS.blue;
+                    } else if (wall.type === 'purple') {
+                        ctx.fillStyle = 'rgba(255, 0, 255, 0.3)';
+                        ctx.strokeStyle = COLORS.purple;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = COLORS.purple;
+                    } else {
+                        ctx.fillStyle = COLORS.wall;
+                        ctx.strokeStyle = COLORS.wallBorder;
+                        ctx.shadowBlur = 0;
+                    }
+                    
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                    ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
+                    
+                    // 内部纹理
+                    if (wall.type === 'red' || wall.type === 'blue' || wall.type === 'purple') {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(wall.x + 5, wall.y + 5);
+                        ctx.lineTo(wall.x + wall.width - 5, wall.y + wall.height - 5);
+                        ctx.stroke();
+                    }
+                    
+                    ctx.restore();
+                }
+            });
+        }
+
+        // 绘制终点
+        function drawExit() {
+            const level = LEVELS[currentLevel];
+            const exit = level.exit;
+            
+            ctx.save();
+            
+            // 脉冲效果
+            const pulse = Math.sin(frameCount * 0.1) * 0.3 + 0.7;
+            
+            // 外发光
+            ctx.shadowBlur = 30 * pulse;
+            ctx.shadowColor = COLORS.purple;
+            
+            // 终点区域
+            ctx.fillStyle = `rgba(255, 0, 255, ${0.2 * pulse})`;
+            ctx.fillRect(exit.x, exit.y, exit.width, exit.height);
+            
+            ctx.strokeStyle = COLORS.purple;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(exit.x, exit.y, exit.width, exit.height);
+            
+            // 内部图案
+            ctx.fillStyle = COLORS.purple;
+            ctx.globalAlpha = pulse;
+            ctx.beginPath();
+            ctx.arc(exit.x + exit.width/2, exit.y + exit.height/2, 
+                Math.min(exit.width, exit.height) * 0.3 * pulse, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 文字
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('EXIT', exit.x + exit.width/2, exit.y - 10);
+            
+            ctx.restore();
+        }
+
+        // 主动画循环
+        function gameLoop() {
+            // 清空画布
+            ctx.fillStyle = '#0a0a15';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制背景
+            drawBackground();
+            
+            // 绘制终点
+            drawExit();
+            
+            // 绘制墙壁
+            drawWalls();
+            
+            // 更新和绘制玩家
+            players.forEach(player => {
+                if (gameState === 'playing') {
+                    player.update();
+                    checkCollision(player, LEVELS[currentLevel].walls);
+                }
+                player.draw(ctx);
+            });
+            
+            // 检查胜利
+            if (gameState === 'playing') {
+                checkVictory();
+            }
+            
+            // 更新和绘制粒子
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => {
+                p.update();
+                p.draw(ctx);
+            });
+            
+            // 绘制连接线（两个态之间）
+            if (gameState === 'playing') {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(players[0].x, players[0].y);
+                ctx.lineTo(players[1].x, players[1].y);
+                ctx.stroke();
+                ctx.restore();
+            }
+            
+            frameCount++;
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 输入处理
+        document.addEventListener('keydown', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'arrowleft':
+                case 'a':
+                    keys.left = true;
+                    break;
+                case 'arrowright':
+                case 'd':
+                    keys.right = true;
+                    break;
+                case 'arrowup':
+                case 'w':
+                    keys.up = true;
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    if (!keys.space) {
+                        keys.space = true;
+                        switchQuantumState();
+                    }
+                    break;
+                case 'r':
+                    resetLevel();
+                    break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'arrowleft':
+                case 'a':
+                    keys.left = false;
+                    break;
+                case 'arrowright':
+                case 'd':
+                    keys.right = false;
+                    break;
+                case 'arrowup':
+                case 'w':
+                    keys.up = false;
+                    break;
+                case ' ':
+                    keys.space = false;
+                    break;
+            }
+        });
+
+        // 初始化游戏
+        initLevel(currentLevel);
+        gameLoop();
+    </script>
+</body>
+</html>
