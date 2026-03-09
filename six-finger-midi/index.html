@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 v2.1.3 - 音乐听辨训练</title>
+    <title>六指迷笛 v2.1.4 - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
@@ -789,7 +789,7 @@
     <div class="container">
         <!-- 标题 -->
         <header class="header">
-            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.1.3</span></h1>
+            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.1.4</span></h1>
             <div style="font-size: 0.7rem; color: #666; margin-top: 5px; font-family: monospace;">
                 🎧 Wwise Style: Switch Container | Vertical Remixing | Voice Limit=1
             </div>
@@ -951,12 +951,20 @@
                     <div class="comparison-sections">
                         <div class="comparison-box target">
                             <h4>🎯 目标音乐</h4>
+                            <div class="progress-bar-container" id="compareTargetProgress" style="display: none; margin-bottom: 10px;">
+                                <div class="progress-bar" id="compareTargetProgressBar"></div>
+                                <span class="progress-label">正在播放</span>
+                            </div>
                             <div class="comparison-parts" id="targetParts">
                                 <!-- 动态填充 -->
                             </div>
                         </div>
                         <div class="comparison-box user">
                             <h4>🎹 你的选择</h4>
+                            <div class="progress-bar-container" id="compareUserProgress" style="display: none; margin-bottom: 10px;">
+                                <div class="progress-bar" id="compareUserProgressBar"></div>
+                                <span class="progress-label">正在播放</span>
+                            </div>
                             <div class="comparison-parts" id="userParts">
                                 <!-- 动态填充 -->
                             </div>
@@ -1017,7 +1025,9 @@
             compareMode: null,
             isPlayingOriginal: false,
             originalProgressInterval: null,
-            userProgressInterval: null
+            userProgressInterval: null,
+            compareTargetProgressInterval: null,
+            compareUserProgressInterval: null
         };
 
         // 声部顺序：旋律、和声、贝斯、鼓组
@@ -1936,6 +1946,59 @@
             container.style.display = 'none';
             bar.style.width = '0%';
         }
+
+        // ===== 对比页面进度条控制 =====
+        function startCompareTargetProgressBar() {
+            const container = document.getElementById('compareTargetProgress');
+            const bar = document.getElementById('compareTargetProgressBar');
+            container.style.display = 'block';
+            
+            const loopDuration = 4000;
+            let startTime = Date.now();
+            
+            gameState.compareTargetProgressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = (elapsed % loopDuration) / loopDuration * 100;
+                bar.style.width = progress + '%';
+            }, 50);
+        }
+
+        function stopCompareTargetProgressBar() {
+            if (gameState.compareTargetProgressInterval) {
+                clearInterval(gameState.compareTargetProgressInterval);
+                gameState.compareTargetProgressInterval = null;
+            }
+            const container = document.getElementById('compareTargetProgress');
+            const bar = document.getElementById('compareTargetProgressBar');
+            container.style.display = 'none';
+            bar.style.width = '0%';
+        }
+
+        function startCompareUserProgressBar() {
+            const container = document.getElementById('compareUserProgress');
+            const bar = document.getElementById('compareUserProgressBar');
+            container.style.display = 'block';
+            
+            const loopDuration = 4000;
+            let startTime = Date.now();
+            
+            gameState.compareUserProgressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = (elapsed % loopDuration) / loopDuration * 100;
+                bar.style.width = progress + '%';
+            }, 50);
+        }
+
+        function stopCompareUserProgressBar() {
+            if (gameState.compareUserProgressInterval) {
+                clearInterval(gameState.compareUserProgressInterval);
+                gameState.compareUserProgressInterval = null;
+            }
+            const container = document.getElementById('compareUserProgress');
+            const bar = document.getElementById('compareUserProgressBar');
+            container.style.display = 'none';
+            bar.style.width = '0%';
+        }
         function selectOption(part, option) {
             initAudioContext();
             initMasterMixer();
@@ -2082,33 +2145,42 @@
             } else if (mode === 'alternate') {
                 // 交替对比
                 resultDiv.className = 'comparison-status';
-                resultDiv.innerHTML = '🔄 正在交替播放...<br><span class="hint">仔细听差异</span>';
+                resultDiv.innerHTML = '🔄 正在交替播放...';
                 animateVisualizer('compareVisualizer', true);
                 
                 let isPlayingTarget = true;
+                const loopDuration = 4000; // 4秒
                 
                 // 先播放目标
                 playTargetCombination(false);
+                
+                // 启动目标进度条
+                startCompareTargetProgressBar();
                 
                 // 设置交替
                 const alternateInterval = setInterval(() => {
                     if (!gameState.isComparing) {
                         clearInterval(alternateInterval);
+                        stopCompareTargetProgressBar();
+                        stopCompareUserProgressBar();
                         return;
                     }
                     
                     clearAllLoops();
+                    isPlayingTarget = !isPlayingTarget;
                     
                     if (isPlayingTarget) {
-                        playUserSelection(false);
-                        resultDiv.innerHTML = '🎹 你的选择<br><span class="hint">这是你的组合</span>';
-                    } else {
                         playTargetCombination(false);
+                        stopCompareUserProgressBar();
+                        startCompareTargetProgressBar();
                         resultDiv.innerHTML = '🎯 目标音乐<br><span class="hint">这是目标组合</span>';
+                    } else {
+                        playUserSelection(false);
+                        stopCompareTargetProgressBar();
+                        startCompareUserProgressBar();
+                        resultDiv.innerHTML = '🎹 你的选择<br><span class="hint">这是你的组合</span>';
                     }
-                    
-                    isPlayingTarget = !isPlayingTarget;
-                }, 4000);
+                }, loopDuration);
                 
                 gameState.loopIntervals.push(alternateInterval);
             }
@@ -2125,6 +2197,10 @@
             
             const resultDiv = document.getElementById('comparisonResult');
             resultDiv.style.display = 'none';
+            
+            // 停止对比进度条
+            stopCompareTargetProgressBar();
+            stopCompareUserProgressBar();
         }
 
         function checkCorrect() {
