@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 - 音乐听辨训练</title>
+    <title>六指迷笛 v2.0 Wwise - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
@@ -627,7 +627,10 @@
     <div class="container">
         <!-- 标题 -->
         <header class="header">
-            <h1>🎵 六指迷笛</h1>
+            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.0 Wwise</span></h1>
+            <div style="font-size: 0.7rem; color: #666; margin-top: 5px; font-family: monospace;">
+                🎧 Wwise Style: Switch Container | Vertical Remixing | Voice Limit=1
+            </div>
             <div class="level-info">第 <span id="currentLevel">1</span> 关</div>
         </header>
 
@@ -884,57 +887,275 @@
             }
         });
 
-        // ==================== Wwise 风格音效系统 ====================
+        // ==================== Wwise 风格交互音乐系统 ====================
         
-        // 混响效果器（模拟 Wwise 混响）
-        function createReverb() {
-            const ctx = gameState.audioContext;
-            const convolver = ctx.createConvolver();
-            
-            // 创建脉冲响应缓冲区
-            const rate = ctx.sampleRate;
-            const length = rate * 2.0; // 2秒混响
-            const decay = 2.0;
-            const impulse = ctx.createBuffer(2, length, rate);
-            
-            for (let channel = 0; channel < 2; channel++) {
-                const channelData = impulse.getChannelData(channel);
-                for (let i = 0; i < length; i++) {
-                    // 指数衰减 + 随机噪声 = 混响效果
-                    channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
-                }
-            }
-            
-            convolver.buffer = impulse;
-            return convolver;
-        }
+        // Wwise Switch 状态定义
+        const SWITCH_STATES = {
+            NONE: 'none',
+            A: 'A',
+            B: 'B', 
+            C: 'C'
+        };
         
-        let reverbNode = null;
-        let masterGain = null;
+        // Music Track 定义 (4个轨道)
+        const MUSIC_TRACKS = {
+            melody: { name: 'Melody', volume: 0.25, currentState: SWITCH_STATES.NONE },
+            harmony: { name: 'Harmony', volume: 0.15, currentState: SWITCH_STATES.NONE },
+            bass: { name: 'Bass', volume: 0.35, currentState: SWITCH_STATES.NONE },
+            drums: { name: 'Drums', volume: 0.40, currentState: SWITCH_STATES.NONE }
+        };
         
-        // 初始化主混音器
+        // 活跃的音乐实例 (Voice Limiting - 每个轨道限制为1)
+        const activeMusicVoices = {
+            melody: null,
+            harmony: null,
+            bass: null,
+            drums: null
+        };
+        
+        // 主混音器 (Master Mixer)
+        let masterGainNode = null;
+        let trackGainNodes = {};
+        
         function initMasterMixer() {
             if (!gameState.audioContext) return;
             
-            if (!reverbNode) {
-                reverbNode = createReverb();
-                reverbNode.connect(gameState.audioContext.destination);
+            if (!masterGainNode) {
+                masterGainNode = gameState.audioContext.createGain();
+                masterGainNode.gain.value = 0.8;
+                masterGainNode.connect(gameState.audioContext.destination);
             }
             
-            if (!masterGain) {
-                masterGain = gameState.audioContext.createGain();
-                masterGain.gain.value = 0.8;
-                masterGain.connect(gameState.audioContext.destination);
+            // 为每个 Music Track 创建 Gain Node (垂直混音控制)
+            parts.forEach(part => {
+                if (!trackGainNodes[part]) {
+                    trackGainNodes[part] = gameState.audioContext.createGain();
+                    trackGainNodes[part].gain.value = MUSIC_TRACKS[part].volume;
+                    trackGainNodes[part].connect(masterGainNode);
+                }
+            });
+        }
+        
+        // Wwise SetSwitch - 切换 Music Track 状态
+        function setSwitch(part, state) {
+            initAudioContext();
+            initMasterMixer();
+            
+            // 更新 Switch 状态
+            MUSIC_TRACKS[part].currentState = state;
+            
+            // 实例限制：立即停止该轨道的旧实例 (Voice Limiting = 1)
+            if (activeMusicVoices[part]) {
+                stopMusicVoice(part);
+            }
+            
+            // 如果状态不是 NONE，开始新实例
+            if (state !== SWITCH_STATES.NONE) {
+                // 等待下一个乐句边界开始 (节拍同步)
+                const nextPhraseTime = getNextPhraseTime();
+                const waitTime = Math.max(0, (nextPhraseTime - gameState.audioContext.currentTime) * 1000);
+                
+                setTimeout(() => {
+                    startMusicVoice(part, state, nextPhraseTime);
+                }, waitTime);
             }
         }
+        
+        // 停止音乐实例 (立即打断)
+        function stopMusicVoice(part) {
+            const voice = activeMusicVoices[part];
+            if (voice) {
+                // 立即停止所有振荡器和增益节点
+                voice.oscillators.forEach(osc => {
+                    try {
+                        osc.stop();
+                        osc.disconnect();
+                    } catch(e) {}
+                });
+                voice.gains.forEach(g => {
+                    try {
+                        g.disconnect();
+                    } catch(e) {}
+                });
+                
+                // 清除循环
+                if (voice.intervalId) {
+                    clearInterval(voice.intervalId);
+                }
+                
+                activeMusicVoices[part] = null;
+            }
+        }
+        
+        // 开始音乐实例
+        function startMusicVoice(part, state, startTime) {
+            const ctx = gameState.audioContext;
+            const beatDur = 0.5; // 120 BPM
+            const trackGain = trackGainNodes[part];
+            
+            const voice = {
+                part: part,
+                state: state,
+                oscillators: [],
+                gains: [],
+                intervalId: null
+            };
+            
+            function playPhrase(phraseStartTime) {
+                if (!activeMusicVoices[part] || activeMusicVoices[part].state !== state) {
+                    return; // 状态已改变，不再播放
+                }
+                
+                if (part === 'drums') {
+                    const pattern = generateDrumsPattern(state);
+                    pattern.forEach((drum, i) => {
+                        if (drum) {
+                            const { osc, gain } = createDrumSource(drum, phraseStartTime + i * beatDur, MUSIC_TRACKS[part].volume);
+                            if (osc) {
+                                voice.oscillators.push(osc);
+                                voice.gains.push(gain);
+                            }
+                        }
+                    });
+                } else if (part === 'bass') {
+                    const pattern = generateBassPattern(state);
+                    pattern.forEach((note, i) => {
+                        if (note) {
+                            const { osc, gain } = createNoteSource(noteFrequencies[note], beatDur * 0.9, phraseStartTime + i * beatDur, MUSIC_TRACKS[part].volume, 'triangle');
+                            voice.oscillators.push(osc);
+                            voice.gains.push(gain);
+                        }
+                    });
+                } else if (part === 'melody') {
+                    const pattern = generateMelodyPattern(state);
+                    pattern.forEach((note, i) => {
+                        if (note) {
+                            const { osc, gain } = createNoteSource(noteFrequencies[note], beatDur * 0.8, phraseStartTime + i * beatDur, MUSIC_TRACKS[part].volume, 'sine');
+                            voice.oscillators.push(osc);
+                            voice.gains.push(gain);
+                        }
+                    });
+                } else if (part === 'harmony') {
+                    const pattern = generateHarmonyPattern(state);
+                    pattern.forEach((chord, i) => {
+                        if (chord) {
+                            chord.forEach(note => {
+                                const { osc, gain } = createNoteSource(noteFrequencies[note], beatDur * 1.2, phraseStartTime + i * beatDur, MUSIC_TRACKS[part].volume * 0.8, 'sine');
+                                voice.oscillators.push(osc);
+                                voice.gains.push(gain);
+                            });
+                        }
+                    });
+                }
+            }
+            
+            // 立即播放第一遍
+            playPhrase(startTime);
+            
+            // 设置循环 (每4秒 = 8拍 = 1个乐句)
+            voice.intervalId = setInterval(() => {
+                const now = ctx.currentTime;
+                const nextPhrase = Math.ceil(now / 4) * 4;
+                playPhrase(nextPhrase);
+            }, 4000);
+            
+            activeMusicVoices[part] = voice;
+        }
+        
+        // 创建音符音频源
+        function createNoteSource(frequency, duration, startTime, volume, type) {
+            const ctx = gameState.audioContext;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.type = type;
+            osc.frequency.value = frequency;
+            
+            // ADSR 包络
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+            gain.gain.setValueAtTime(volume, startTime + duration - 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(masterGainNode);
+            
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+            
+            return { osc, gain };
+        }
+        
+        // 创建鼓声音频源
+        function createDrumSource(type, startTime, volume) {
+            const ctx = gameState.audioContext;
+            
+            if (type === 'kick') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.frequency.setValueAtTime(150, startTime);
+                osc.frequency.exponentialRampToValueAtTime(40, startTime + 0.1);
+                gain.gain.setValueAtTime(volume, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+                osc.connect(gain);
+                gain.connect(masterGainNode);
+                osc.start(startTime);
+                osc.stop(startTime + 0.5);
+                return { osc, gain };
+            } else if (type === 'snare') {
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+                noise.buffer = buffer;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(volume * 0.5, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
+                noise.connect(gain);
+                gain.connect(masterGainNode);
+                noise.start(startTime);
+                return { osc: noise, gain };
+            } else if (type === 'hihat') {
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+                noise.buffer = buffer;
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 10000;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(volume * 0.3, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterGainNode);
+                noise.start(startTime);
+                return { osc: noise, gain };
+            }
+            return { osc: null, gain: null };
+        }
+        
+        // 获取下一个乐句开始时间 (4秒 = 8拍)
+        function getNextPhraseTime() {
+            const ctx = gameState.audioContext;
+            const phraseDuration = 4; // 4秒一个乐句
+            const currentTime = ctx.currentTime;
+            return Math.ceil(currentTime / phraseDuration) * phraseDuration;
+        }
+        
+        // 停止所有音乐
+        function stopAllMusic() {
+            parts.forEach(part => stopMusicVoice(part));
+        }
+        
+        // ==================== Stinger 音效系统 ====================
         
         // Stinger 音效 - 选择声部
         function playSelectStinger() {
             initAudioContext();
             const ctx = gameState.audioContext;
             const now = ctx.currentTime;
-            
-            // 清脆的提示音
             playTone(880, 0.1, now, 0.2, 'sine');
             playTone(1100, 0.08, now + 0.05, 0.15, 'sine');
         }
@@ -944,9 +1165,7 @@
             initAudioContext();
             const ctx = gameState.audioContext;
             const now = ctx.currentTime;
-            
-            // 成功音效 - 上升音阶
-            playTone(523.25, 0.15, now, 0.3, 'sine'); // C5
+            playTone(523.25, 0.15, now, 0.3, 'sine');
             playTone(659.25, 0.15, now + 0.1, 0.3, 'sine'); // E5
             playTone(783.99, 0.2, now + 0.2, 0.35, 'sine'); // G5
             playTone(1046.50, 0.4, now + 0.35, 0.4, 'sine'); // C6
@@ -1319,23 +1538,34 @@
         }
 
         // 播放目标组合（循环）
+        // Wwise 风格：播放目标组合（使用 SetSwitch）
         function playTargetCombination(loop = true) {
             initAudioContext();
+            initMasterMixer();
+            
+            // 清除旧系统循环
             clearAllLoops();
             
+            // 使用 Wwise SetSwitch 启动所有轨道
             parts.forEach(part => {
-                playPart(part, gameState.targetCombination[part], loop);
+                setSwitch(part, gameState.targetCombination[part]);
             });
         }
 
-        // 播放用户选择
+        // Wwise 风格：播放用户选择（使用 SetSwitch）
         function playUserSelection(loop = true) {
             initAudioContext();
+            initMasterMixer();
+            
+            // 清除旧系统循环
             clearAllLoops();
             
+            // 使用 Wwise SetSwitch 启动已选轨道
             parts.forEach(part => {
                 if (gameState.userSelection[part]) {
-                    playPart(part, gameState.userSelection[part], loop);
+                    setSwitch(part, gameState.userSelection[part]);
+                } else {
+                    setSwitch(part, SWITCH_STATES.NONE);
                 }
             });
         }
@@ -1407,25 +1637,25 @@
             document.getElementById('phase1').style.display = 'none';
             document.getElementById('phase2').style.display = 'block';
             
-            // 停止目标音乐循环
+            // 停止目标音乐循环（旧系统）
             clearAllLoops();
+            // 停止所有 Wwise 风格音乐
+            stopAllMusic();
             animateVisualizer('targetVisualizer', false);
             
             initAudioContext();
         }
 
         // 选择片段
+        // Wwise SetSwitch 风格选择 - 垂直叠层 + 实例限制
         function selectOption(part, option) {
             initAudioContext();
-            initBeatScheduler(); // 初始化节拍调度器
+            initMasterMixer();
             
-            // 播放选择音效（Wwise Stinger风格）
+            // 播放选择音效
             playSelectStinger();
             
-            // 停止当前所有播放
-            clearAllLoops();
-            
-            // 更新状态
+            // 更新选择状态
             gameState.userSelection[part] = option;
             
             // 更新UI
@@ -1437,39 +1667,22 @@
             const selectedOption = optionsContainer.querySelector(`[data-option="${option}"]`);
             selectedOption.classList.add('selected');
             
-            // 显示"等待节拍点"提示
-            selectedOption.style.opacity = '0.6';
-            selectedOption.textContent = option + ' (等待...)';
+            // 更新状态标签
+            document.getElementById(part + 'Status').textContent = option + ' ✓';
+            document.getElementById(part + 'Section').classList.add('active');
             
-            // 计算等待时间
-            const ctx = gameState.audioContext;
-            const nextBeat = getNextBeatTime();
-            const waitTime = (nextBeat - ctx.currentTime) * 1000;
+            // 更新摘要
+            document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).textContent = 
+                option + ' ✓';
+            document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).classList.add('selected');
             
-            // 等待下一个节拍点后再更新UI和播放
-            setTimeout(() => {
-                selectedOption.style.opacity = '1';
-                selectedOption.textContent = option;
-                
-                // 更新声部状态
-                document.getElementById(part + 'Status').classList.add('playing');
-                document.getElementById(part + 'Section').classList.add('active');
-                
-                // 更新摘要
-                document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).textContent = 
-                    option + ' ✓';
-                document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).classList.add('selected');
-                
-                // 更新混音器显示
-                updateMixerDisplay();
-            }, waitTime);
+            // 更新混音器显示
+            updateMixerDisplay();
             
-            // 播放当前所有已选声部（实时混音，节拍对齐）
-            parts.forEach(p => {
-                if (gameState.userSelection[p]) {
-                    playPart(p, gameState.userSelection[p], true);
-                }
-            });
+            // === Wwise 风格：SetSwitch 切换 ===
+            // 该轨道实例限制为1，新选择立即打断旧实例
+            // 在乐句边界同步切换（垂直叠层）
+            setSwitch(part, option);
         }
 
         function updateMixerDisplay() {
@@ -1507,8 +1720,9 @@
             document.getElementById('phase2').style.display = 'none';
             document.getElementById('phase3').style.display = 'block';
             
-            // 停止播放
+            // 停止播放（旧系统 + Wwise 系统）
             clearAllLoops();
+            stopAllMusic();
             
             // 填充对比区域
             fillComparisonArea();
@@ -1667,10 +1881,10 @@
             document.getElementById('phase2').style.display = 'block';
             document.getElementById('verifyActions').style.display = 'none';
             
-            // 继续播放用户的选择
+            // 使用 Wwise SetSwitch 继续播放用户的选择
             parts.forEach(p => {
                 if (gameState.userSelection[p]) {
-                    playPart(p, gameState.userSelection[p], true);
+                    setSwitch(p, gameState.userSelection[p]);
                 }
             });
         }
