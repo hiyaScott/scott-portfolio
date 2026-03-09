@@ -959,7 +959,8 @@
             loopIntervals: [],
             targetLoopInterval: null,
             isComparing: false,
-            compareMode: null
+            compareMode: null,
+            isPlayingOriginal: false
         };
 
         // 声部顺序：旋律、和声、贝斯、鼓组
@@ -1772,40 +1773,50 @@
         }
 
         // 选择片段
-        // 在演奏阶段预览原曲
+        // 在演奏阶段预览原曲（Toggle 模式）
         function playTargetPreview(btn) {
             initAudioContext();
-            
-            // 停止当前用户选择
-            stopAllMusic();
-            
-            // 立即播放目标组合（不等待乐句边界）
             initMasterMixer();
-            parts.forEach(part => {
-                setSwitch(part, gameState.targetCombination[part], true);
-            });
             
-            // 显示提示
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '🔊 正在播放原曲...';
-            btn.disabled = true;
-            
-            // 3秒后恢复
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+            if (!gameState.isPlayingOriginal) {
+                // ===== 第一次点击：开始循环播放原曲 =====
+                gameState.isPlayingOriginal = true;
                 
-                // 如果用户已经有选择，切回用户的选择
+                // 停止当前用户选择
+                stopAllMusic();
+                
+                // 立即播放目标组合（不等待乐句边界）
+                parts.forEach(part => {
+                    setSwitch(part, gameState.targetCombination[part], true);
+                });
+                
+                // 更新按钮状态为"关闭"
+                btn.innerHTML = '🔊 关闭原曲';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-warning');
+                
+            } else {
+                // ===== 第二次点击：停止原曲，恢复用户选择 =====
+                gameState.isPlayingOriginal = false;
+                
+                // 停止原曲
+                stopAllMusic();
+                
+                // 恢复用户的选择
                 const hasSelection = parts.some(p => gameState.userSelection[p]);
                 if (hasSelection) {
-                    stopAllMusic();
                     parts.forEach(p => {
                         if (gameState.userSelection[p]) {
                             setSwitch(p, gameState.userSelection[p], true);
                         }
                     });
                 }
-            }, 3000);
+                
+                // 恢复按钮状态
+                btn.innerHTML = '🎯 再听原曲';
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-secondary');
+            }
         }
         function selectOption(part, option) {
             initAudioContext();
@@ -2060,6 +2071,15 @@
         function resetLevel() {
             // 重置选择
             gameState.userSelection = { melody: null, harmony: null, bass: null, drums: null };
+            
+            // 重置"再听原曲"按钮状态
+            gameState.isPlayingOriginal = false;
+            const previewBtn = document.querySelector('button[onclick="playTargetPreview(this)"]');
+            if (previewBtn) {
+                previewBtn.innerHTML = '🎯 再听原曲';
+                previewBtn.classList.remove('btn-warning');
+                previewBtn.classList.add('btn-secondary');
+            }
             
             // 重置UI
             parts.forEach(part => {
