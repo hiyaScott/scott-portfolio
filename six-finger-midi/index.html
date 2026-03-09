@@ -785,7 +785,7 @@
             <!-- 阶段2：选择 -->
             <div id="phase2" class="phase-content" style="display: none;">
                 <div class="action-bar">
-                    <button class="btn btn-secondary btn-small" onclick="playTargetPreview()">
+                    <button class="btn btn-secondary btn-small" onclick="playTargetPreview(this)">
                         🎯 再听原曲
                     </button>
                     <span class="tips-inline">💡 点击片段试听，四个声部会同时播放</span>
@@ -1057,7 +1057,7 @@
         }
         
         // Wwise SetSwitch - 切换 Music Track 状态
-        function setSwitch(part, state) {
+        function setSwitch(part, state, immediate = false) {
             initAudioContext();
             initMasterMixer();
             
@@ -1071,13 +1071,18 @@
             
             // 如果状态不是 NONE，开始新实例
             if (state !== SWITCH_STATES.NONE) {
-                // 等待下一个乐句边界开始 (节拍同步)
-                const nextPhraseTime = getNextPhraseTime();
-                const waitTime = Math.max(0, (nextPhraseTime - gameState.audioContext.currentTime) * 1000);
-                
-                setTimeout(() => {
-                    startMusicVoice(part, state, nextPhraseTime);
-                }, waitTime);
+                if (immediate) {
+                    // 立即播放（用于"再听原曲"等功能）
+                    startMusicVoice(part, state, gameState.audioContext.currentTime);
+                } else {
+                    // 等待下一个乐句边界开始 (节拍同步)
+                    const nextPhraseTime = getNextPhraseTime();
+                    const waitTime = Math.max(0, (nextPhraseTime - gameState.audioContext.currentTime) * 1000);
+                    
+                    setTimeout(() => {
+                        startMusicVoice(part, state, nextPhraseTime);
+                    }, waitTime);
+                }
             }
         }
         
@@ -1768,17 +1773,19 @@
 
         // 选择片段
         // 在演奏阶段预览原曲
-        function playTargetPreview() {
+        function playTargetPreview(btn) {
             initAudioContext();
             
             // 停止当前用户选择
             stopAllMusic();
             
-            // 播放目标组合
-            playTargetCombination(true);
+            // 立即播放目标组合（不等待乐句边界）
+            initMasterMixer();
+            parts.forEach(part => {
+                setSwitch(part, gameState.targetCombination[part], true);
+            });
             
             // 显示提示
-            const btn = event.target;
             const originalText = btn.innerHTML;
             btn.innerHTML = '🔊 正在播放原曲...';
             btn.disabled = true;
@@ -1794,7 +1801,7 @@
                     stopAllMusic();
                     parts.forEach(p => {
                         if (gameState.userSelection[p]) {
-                            setSwitch(p, gameState.userSelection[p]);
+                            setSwitch(p, gameState.userSelection[p], true);
                         }
                     });
                 }
