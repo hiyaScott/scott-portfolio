@@ -630,15 +630,16 @@
             <div class="modal-body">
                 <div class="share-options">
                     <button class="share-btn" onclick="shareToWeChat()">
-                        💬 分享给 Hugo
+                        💬 生成分享卡片
                     </button>
                     <button class="share-btn" onclick="copyLink()">
-                        🔗 复制链接
+                        🔗 复制分享链接
                     </button>
                     <button class="share-btn" onclick="downloadRecording()">
-                        💾 下载音频
+                        💾 导出演奏数据
                     </button>
                 </div>
+                <div id="shareCardContainer"></div>
             </div>
         </div>
     </div>
@@ -979,25 +980,249 @@
 
         function closeShareModal() {
             document.getElementById('shareModal').classList.remove('show');
+            document.getElementById('shareCardContainer').innerHTML = '';
             shareTargetId = null;
         }
 
-        function shareToWeChat() {
-            // 实际应用中可以调用微信SDK
-            showToast('已生成分享卡片，请截图发送给Hugo！');
-            closeShareModal();
+        // 生成分享链接
+        function generateShareLink() {
+            if (!shareTargetId) return;
+            
+            const recording = recordings.find(r => r.id === shareTargetId);
+            if (!recording) return;
+            
+            // 将录制数据编码为Base64
+            const data = JSON.stringify({
+                name: recording.name,
+                notes: recording.notes,
+                duration: recording.duration
+            });
+            const encoded = btoa(encodeURIComponent(data));
+            
+            // 生成链接
+            const link = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+            return link;
         }
 
         function copyLink() {
-            // 实际应用中可以生成分享链接
-            showToast('链接已复制到剪贴板');
+            const link = generateShareLink();
+            if (link) {
+                // 复制到剪贴板
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(link).then(() => {
+                        showToast('链接已复制到剪贴板！');
+                    }).catch(() => {
+                        fallbackCopy(link);
+                    });
+                } else {
+                    fallbackCopy(link);
+                }
+            }
             closeShareModal();
         }
 
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast('链接已复制到剪贴板！');
+            } catch (err) {
+                showToast('复制失败，请手动复制');
+                alert('分享链接：' + text);
+            }
+            
+            document.body.removeChild(textarea);
+        }
+
+        // 生成分享卡片
+        function generateShareCard() {
+            if (!shareTargetId) return;
+            
+            const recording = recordings.find(r => r.id === shareTargetId);
+            if (!recording) return;
+            
+            const container = document.getElementById('shareCardContainer');
+            container.innerHTML = '';
+            
+            // 创建canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;
+            canvas.height = 400;
+            const ctx = canvas.getContext('2d');
+            
+            // 背景渐变
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(0.5, '#16213e');
+            gradient.addColorStop(1, '#0f3460');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 600, 400);
+            
+            // 边框
+            ctx.strokeStyle = '#f5af19';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(10, 10, 580, 380);
+            
+            // 标题
+            ctx.fillStyle = '#f5af19';
+            ctx.font = 'bold 36px "Microsoft YaHei", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('🔔 编钟模拟器', 300, 70);
+            
+            // 分隔线
+            ctx.strokeStyle = 'rgba(245, 175, 25, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(100, 90);
+            ctx.lineTo(500, 90);
+            ctx.stroke();
+            
+            // 演奏信息
+            ctx.fillStyle = '#fff';
+            ctx.font = '24px "Microsoft YaHei", sans-serif';
+            ctx.fillText(recording.name, 300, 140);
+            
+            ctx.font = '18px "Microsoft YaHei", sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fillText(`⏱️ ${recording.duration}秒 · 🎵 ${recording.notes.length}个音符`, 300, 175);
+            ctx.fillText(`📅 ${recording.date}`, 300, 205);
+            
+            // 提示文字
+            ctx.fillStyle = '#00d2d3';
+            ctx.font = '20px "Microsoft YaHei", sans-serif';
+            ctx.fillText('扫码收听我的编钟演奏', 300, 260);
+            
+            // 生成二维码（简化版）
+            drawSimpleQR(ctx, 250, 280, 100);
+            
+            // 底部文字
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.font = '14px "Microsoft YaHei", sans-serif';
+            ctx.fillText('hiyascott.github.io/scott-portfolio', 300, 370);
+            
+            // 显示卡片
+            const img = document.createElement('img');
+            img.src = canvas.toDataURL('image/png');
+            img.style.width = '100%';
+            img.style.borderRadius = '10px';
+            img.style.marginTop = '15px';
+            container.appendChild(img);
+            
+            // 添加保存按钮
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'btn btn-primary';
+            saveBtn.style.width = '100%';
+            saveBtn.style.marginTop = '10px';
+            saveBtn.textContent = '💾 保存图片';
+            saveBtn.onclick = () => {
+                const a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = `编钟演奏-${recording.name}.png`;
+                a.click();
+                showToast('图片已保存！');
+            };
+            container.appendChild(saveBtn);
+            
+            showToast('分享卡片已生成！');
+        }
+
+        // 简化版二维码绘制
+        function drawSimpleQR(ctx, x, y, size) {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x, y, size, size);
+            ctx.fillStyle = '#000';
+            
+            const cellSize = size / 25;
+            for (let i = 0; i < 25; i++) {
+                for (let j = 0; j < 25; j++) {
+                    if (Math.random() > 0.5) {
+                        ctx.fillRect(x + i * cellSize, y + j * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+            
+            // 定位点
+            ctx.fillStyle = '#000';
+            // 左上
+            ctx.fillRect(x + 2 * cellSize, y + 2 * cellSize, 5 * cellSize, 5 * cellSize);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 3 * cellSize, y + 3 * cellSize, 3 * cellSize, 3 * cellSize);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 4 * cellSize, y + 4 * cellSize, cellSize, cellSize);
+            
+            // 右上
+            ctx.fillRect(x + 18 * cellSize, y + 2 * cellSize, 5 * cellSize, 5 * cellSize);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 19 * cellSize, y + 3 * cellSize, 3 * cellSize, 3 * cellSize);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 20 * cellSize, y + 4 * cellSize, cellSize, cellSize);
+            
+            // 左下
+            ctx.fillRect(x + 2 * cellSize, y + 18 * cellSize, 5 * cellSize, 5 * cellSize);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 3 * cellSize, y + 19 * cellSize, 3 * cellSize, 3 * cellSize);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 4 * cellSize, y + 20 * cellSize, cellSize, cellSize);
+        }
+
+        function shareToWeChat() {
+            generateShareCard();
+            showToast('分享卡片已生成，请截图发送给Hugo！');
+        }
+
         function downloadRecording() {
-            // 实际应用中可以导出音频文件
-            showToast('音频导出功能开发中...');
+            const recording = recordings.find(r => r.id === shareTargetId);
+            if (!recording) return;
+            
+            // 导出为JSON
+            const data = JSON.stringify(recording, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `编钟演奏-${recording.name}.json`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            showToast('演奏数据已导出！');
             closeShareModal();
+        }
+
+        // 检查URL参数，加载分享的演奏
+        function checkSharedRecording() {
+            const params = new URLSearchParams(window.location.search);
+            const shareData = params.get('share');
+            
+            if (shareData) {
+                try {
+                    const decoded = decodeURIComponent(atob(shareData));
+                    const recording = JSON.parse(decoded);
+                    
+                    // 添加到录制列表
+                    recording.id = Date.now();
+                    recording.date = '来自分享';
+                    recordings.push(recording);
+                    localStorage.setItem('bianzhong_recordings', JSON.stringify(recordings));
+                    updateRecordingList();
+                    
+                    showToast('已加载分享的演奏！');
+                    
+                    // 播放
+                    setTimeout(() => {
+                        playRecording(recording);
+                    }, 1000);
+                } catch (e) {
+                    console.error('加载分享失败:', e);
+                    showToast('分享链接无效');
+                }
+            }
         }
 
         // ==================== 试听功能 ====================
@@ -1047,6 +1272,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             initBells();
             updateRecordingList();
+            checkSharedRecording();
 
             // 点击空白关闭弹窗
             document.querySelectorAll('.modal').forEach(modal => {
