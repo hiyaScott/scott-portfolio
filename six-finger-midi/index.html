@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 v2.1.8 - 音乐听辨训练</title>
+    <title>六指迷笛 v2.2.0 - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
@@ -802,7 +802,7 @@
     <div class="container">
         <!-- 标题 -->
         <header class="header">
-            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.1.8</span></h1>
+            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.2.0</span></h1>
             <div style="font-size: 0.7rem; color: #666; margin-top: 5px; font-family: monospace;">
                 🎧 Wwise Style: Switch Container | Vertical Remixing | Voice Limit=1
             </div>
@@ -1043,10 +1043,100 @@
             compareUserProgressInterval: null
         };
 
-        // 音频预热缓存
-        const audioWarmupCache = {
-            isWarmedUp: false
+        // AudioBuffer 缓存系统（根治延迟）
+        const audioBufferCache = {
+            buffers: {}, // 格式: { 'melody-A': AudioBuffer }
+            isReady: false
         };
+
+        // ==================== 音频预合成系统（根治延迟）====================
+        
+        // 用 OfflineAudioContext 预合成一个声部变体
+        async function renderPartBuffer(part, option) {
+            const duration = 4; // 4秒 loop
+            const sampleRate = 44100;
+            const ctx = new OfflineAudioContext(1, duration * sampleRate, sampleRate);
+            
+            const beatDur = 0.5;
+            const volume = MUSIC_TRACKS[part].volume;
+            
+            // 获取 pattern
+            let pattern;
+            switch(part) {
+                case 'melody': pattern = generateMelodyPattern(option); break;
+                case 'harmony': pattern = generateHarmonyPattern(option); break;
+                case 'bass': pattern = generateBassPattern(option); break;
+                case 'drums': pattern = generateDrumsPattern(option); break;
+                default: pattern = [];
+            }
+            
+            // 合成到 offline context
+            pattern.forEach((note, i) => {
+                if (!note) return;
+                const startTime = i * beatDur;
+                
+                if (part === 'drums') {
+                    renderDrumToOffline(ctx, note, startTime, volume);
+                } else {
+                    const freq = noteFrequencies[note] || 440;
+                    const type = part === 'melody' ? 'sine' : 'triangle';
+                    const noteDur = beatDur * (part === 'melody' ? 0.8 : 0.9);
+                    
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.value = freq;
+                    
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+                    gain.gain.setValueAtTime(volume, startTime + noteDur - 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + noteDur);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + noteDur);
+                }
+            });
+            
+            return await ctx.startRendering();
+        }
+        
+        // 离线鼓点合成
+        function renderDrumToOffline(ctx, drum, startTime, volume) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            switch(drum) {
+                case 'kick':
+                    osc.frequency.setValueAtTime(150, startTime);
+                    osc.frequency.exponentialRampToValueAtTime(0.01, startTime + 0.5);
+                    gain.gain.setValueAtTime(volume, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.5);
+                    break;
+                case 'snare':
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(200, startTime);
+                    gain.gain.setValueAtTime(volume * 0.8, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.15);
+                    break;
+                case 'hihat':
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, startTime);
+                    gain.gain.setValueAtTime(volume * 0.3, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.05);
+                    break;
+            }
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+        }
 
         // ==================== 关卡预热系统 ====================
         
@@ -1067,107 +1157,41 @@
                 await gameState.audioContext.resume();
             }
             loadingProgress.style.width = '20%';
-            await sleep(100);
+            await sleep(50);
             
-            // 步骤2: 初始化混音器 (40%)
-            loadingStatus.textContent = '初始化混音器...';
-            initMasterMixer();
-            loadingProgress.style.width = '40%';
-            await sleep(100);
+            // 步骤2: 预合成所有 12 种音频 (20% -> 90%)
+            loadingStatus.textContent = '合成音频素材...';
+            audioBufferCache.buffers = {};
             
-            // 步骤3: 预热所有声部的所有变体 (80%)
-            loadingStatus.textContent = '预热乐器音色...';
-            await warmupAllInstruments();
-            loadingProgress.style.width = '80%';
-            
-            // 步骤4: 静默播放一次目标组合完成最终预热 (100%)
-            loadingStatus.textContent = '合成目标音乐...';
-            await warmupTargetCombination();
-            loadingProgress.style.width = '100%';
-            
-            // 隐藏加载界面
-            await sleep(200);
-            loadingOverlay.style.display = 'none';
-            audioWarmupCache.isWarmedUp = true;
-            
-            console.log('关卡音频预热完成');
-        }
-        
-        // 预热所有乐器
-        async function warmupAllInstruments() {
-            const ctx = gameState.audioContext;
-            const now = ctx.currentTime;
-            
+            const combinations = [];
             for (const part of parts) {
                 for (const option of options) {
-                    const oscType = getOscillatorTypeForPart(part);
-                    const freq = getWarmupFrequency(part, option);
-                    
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    
-                    osc.type = oscType;
-                    osc.frequency.value = freq;
-                    gain.gain.value = 0;
-                    
-                    osc.connect(gain);
-                    gain.connect(trackGainNodes[part] || ctx.destination);
-                    
-                    osc.start(now);
-                    osc.stop(now + 0.001);
+                    combinations.push({ part, option });
                 }
             }
             
-            await sleep(50);
-        }
-        
-        // 静默预热目标组合
-        async function warmupTargetCombination() {
-            const ctx = gameState.audioContext;
-            const now = ctx.currentTime;
-            
-            parts.forEach(part => {
-                const state = gameState.targetCombination[part];
-                const pattern = getPatternForPart(part, state);
+            const total = combinations.length;
+            for (let i = 0; i < total; i++) {
+                const { part, option } = combinations[i];
+                const buffer = await renderPartBuffer(part, option);
+                audioBufferCache.buffers[`${part}-${option}`] = buffer;
                 
-                pattern.forEach((note, i) => {
-                    if (note && i < 2) {
-                        const beatDur = 0.5;
-                        if (part === 'drums') {
-                            createDrumSource(note, now + i * 0.01, 0);
-                        } else {
-                            createNoteSource(noteFrequencies[note] || 440, beatDur * 0.1, now + i * 0.01, 0, getOscillatorTypeForPart(part));
-                        }
-                    }
-                });
-            });
-            
-            await sleep(100);
-        }
-        
-        function getOscillatorTypeForPart(part) {
-            const types = { melody: 'sine', harmony: 'triangle', bass: 'triangle', drums: 'sine' };
-            return types[part] || 'sine';
-        }
-        
-        function getWarmupFrequency(part, option) {
-            const freqs = {
-                melody: { A: 440, B: 523.25, C: 659.25 },
-                harmony: { A: 329.63, B: 392, C: 493.88 },
-                bass: { A: 130.81, B: 146.83, C: 164.81 },
-                drums: { A: 60, B: 80, C: 100 }
-            };
-            return freqs[part]?.[option] || 440;
-        }
-        
-        function getPatternForPart(part, state) {
-            switch(part) {
-                case 'melody': return generateMelodyPattern(state);
-                case 'harmony': return generateHarmonyPattern(state);
-                case 'bass': return generateBassPattern(state);
-                case 'drums': return generateDrumsPattern(state);
-                default: return [];
+                const progress = 20 + Math.floor((i + 1) / total * 70);
+                loadingProgress.style.width = progress + '%';
+                loadingStatus.textContent = `合成: ${partNames[part]} ${option} (${i + 1}/${total})`;
             }
+            
+            // 步骤3: 初始化混音器 (90% -> 100%)
+            loadingStatus.textContent = '初始化混音器...';
+            initMasterMixer();
+            loadingProgress.style.width = '100%';
+            await sleep(100);
+            
+            // 隐藏加载界面
+            loadingOverlay.style.display = 'none';
+            audioBufferCache.isReady = true;
+            
+            console.log('音频预合成完成，缓存了', Object.keys(audioBufferCache.buffers).length, '个buffer');
         }
         
         function sleep(ms) {
@@ -1342,182 +1366,52 @@
         function stopMusicVoice(part) {
             const voice = activeMusicVoices[part];
             if (voice) {
-                // 立即停止所有振荡器和增益节点
-                voice.oscillators.forEach(osc => {
+                // 停止 buffer source
+                if (voice.source) {
                     try {
-                        osc.stop();
-                        osc.disconnect();
+                        voice.source.stop();
+                        voice.source.disconnect();
                     } catch(e) {}
-                });
-                voice.gains.forEach(g => {
-                    try {
-                        g.disconnect();
-                    } catch(e) {}
-                });
-                
-                // 清除循环
-                if (voice.intervalId) {
-                    clearInterval(voice.intervalId);
                 }
-                
                 activeMusicVoices[part] = null;
             }
         }
         
-        // 开始音乐实例
+        // 开始音乐实例（使用预合成 buffer，零延迟）
         function startMusicVoice(part, state, startTime) {
             const ctx = gameState.audioContext;
-            const beatDur = 0.5; // 120 BPM
-            const trackGain = trackGainNodes[part];
+            const bufferKey = `${part}-${state}`;
+            const buffer = audioBufferCache.buffers[bufferKey];
             
-            const voice = {
+            if (!buffer) {
+                console.error('Buffer not found:', bufferKey);
+                return;
+            }
+            
+            // 创建 BufferSource
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+            
+            // 连接到轨道增益
+            const trackGain = trackGainNodes[part] || masterGainNode;
+            source.connect(trackGain);
+            
+            // 在指定时间开始
+            source.start(startTime);
+            
+            // 保存引用
+            activeMusicVoices[part] = {
+                source: source,
                 part: part,
-                state: state,
-                oscillators: [],
-                gains: [],
-                intervalId: null
+                state: state
             };
-            
-            function playPhrase(phraseStartTime) {
-                if (!activeMusicVoices[part] || activeMusicVoices[part].state !== state) {
-                    return; // 状态已改变，不再播放
-                }
-                
-                if (part === 'drums') {
-                    const pattern = generateDrumsPattern(state);
-                    pattern.forEach((drum, i) => {
-                        if (drum) {
-                            const { osc, gain } = createDrumSource(drum, phraseStartTime + i * beatDur, MUSIC_TRACKS[part].volume);
-                            if (osc) {
-                                voice.oscillators.push(osc);
-                                voice.gains.push(gain);
-                            }
-                        }
-                    });
-                } else if (part === 'bass') {
-                    const pattern = generateBassPattern(state);
-                    pattern.forEach((note, i) => {
-                        if (note) {
-                            const { osc, gain } = createNoteSource(noteFrequencies[note], beatDur * 0.9, phraseStartTime + i * beatDur, MUSIC_TRACKS[part].volume, 'triangle');
-                            voice.oscillators.push(osc);
-                            voice.gains.push(gain);
-                        }
-                    });
-                } else if (part === 'melody') {
-                    const pattern = generateMelodyPattern(state);
-                    pattern.forEach((note, i) => {
-                        if (note) {
-                            const { osc, gain } = createNoteSource(noteFrequencies[note], beatDur * 0.8, phraseStartTime + i * beatDur, MUSIC_TRACKS[part].volume, 'sine');
-                            voice.oscillators.push(osc);
-                            voice.gains.push(gain);
-                        }
-                    });
-                } else if (part === 'harmony') {
-                    const pattern = generateHarmonyPattern(state);
-                    pattern.forEach((chord, i) => {
-                        if (chord) {
-                            chord.forEach(note => {
-                                const { osc, gain } = createNoteSource(noteFrequencies[note], beatDur * 1.2, phraseStartTime + i * beatDur, MUSIC_TRACKS[part].volume * 0.8, 'sine');
-                                voice.oscillators.push(osc);
-                                voice.gains.push(gain);
-                            });
-                        }
-                    });
-                }
-            }
-            
-            // 立即播放第一遍
-            playPhrase(startTime);
-            
-            // 设置循环 (每4秒 = 8拍 = 1个乐句)
-            voice.intervalId = setInterval(() => {
-                const now = ctx.currentTime;
-                const nextPhrase = Math.ceil(now / 4) * 4;
-                playPhrase(nextPhrase);
-            }, 4000);
-            
-            activeMusicVoices[part] = voice;
         }
         
-        // 创建音符音频源
-        function createNoteSource(frequency, duration, startTime, volume, type) {
-            const ctx = gameState.audioContext;
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            
-            osc.type = type;
-            osc.frequency.value = frequency;
-            
-            // ADSR 包络
-            gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(volume, startTime + 0.02);
-            gain.gain.setValueAtTime(volume, startTime + duration - 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-            
-            osc.connect(gain);
-            gain.connect(masterGainNode);
-            
-            osc.start(startTime);
-            osc.stop(startTime + duration);
-            
-            return { osc, gain };
-        }
-        
-        // 创建鼓声音频源
-        function createDrumSource(type, startTime, volume) {
-            const ctx = gameState.audioContext;
-            
-            if (type === 'kick') {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.frequency.setValueAtTime(150, startTime);
-                osc.frequency.exponentialRampToValueAtTime(40, startTime + 0.1);
-                gain.gain.setValueAtTime(volume, startTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
-                osc.connect(gain);
-                gain.connect(masterGainNode);
-                osc.start(startTime);
-                osc.stop(startTime + 0.5);
-                return { osc, gain };
-            } else if (type === 'snare') {
-                const noise = ctx.createBufferSource();
-                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-                noise.buffer = buffer;
-                const gain = ctx.createGain();
-                gain.gain.setValueAtTime(volume * 0.5, startTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
-                noise.connect(gain);
-                gain.connect(masterGainNode);
-                noise.start(startTime);
-                return { osc: noise, gain };
-            } else if (type === 'hihat') {
-                const noise = ctx.createBufferSource();
-                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-                noise.buffer = buffer;
-                const filter = ctx.createBiquadFilter();
-                filter.type = 'highpass';
-                filter.frequency.value = 10000;
-                const gain = ctx.createGain();
-                gain.gain.setValueAtTime(volume * 0.3, startTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
-                noise.connect(filter);
-                filter.connect(gain);
-                gain.connect(masterGainNode);
-                noise.start(startTime);
-                return { osc: noise, gain };
-            }
-            return { osc: null, gain: null };
-        }
-        
-        // 获取下一个乐句开始时间 (4秒 = 8拍)
+        // 获取下一个乐句边界时间
         function getNextPhraseTime() {
-            const ctx = gameState.audioContext;
-            const phraseDuration = 4; // 4秒一个乐句
-            const currentTime = ctx.currentTime;
+            const currentTime = gameState.audioContext.currentTime;
+            const phraseDuration = 4;
             return Math.ceil(currentTime / phraseDuration) * phraseDuration;
         }
         
