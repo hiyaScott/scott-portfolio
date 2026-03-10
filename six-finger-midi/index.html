@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 v2.1.5 - 音乐听辨训练</title>
+    <title>六指迷笛 v2.1.6 - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
@@ -789,7 +789,7 @@
     <div class="container">
         <!-- 标题 -->
         <header class="header">
-            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.1.5</span></h1>
+            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.1.6</span></h1>
             <div style="font-size: 0.7rem; color: #666; margin-top: 5px; font-family: monospace;">
                 🎧 Wwise Style: Switch Container | Vertical Remixing | Voice Limit=1
             </div>
@@ -1065,7 +1065,47 @@
             if (gameState.audioContext.state === 'suspended') {
                 await gameState.audioContext.resume();
             }
+            
+            // 预热音频系统 - 创建并立即释放一个无声节点
+            warmupAudioSystem();
+            
             console.log('Audio enabled, state:', gameState.audioContext.state);
+        }
+        
+        // 预热音频系统，消除首次播放延迟
+        function warmupAudioSystem() {
+            if (!gameState.audioContext) return;
+            
+            const now = gameState.audioContext.currentTime;
+            
+            // 预热：创建一个极短的无声音符来激活音频管线
+            const osc = gameState.audioContext.createOscillator();
+            const gain = gameState.audioContext.createGain();
+            gain.gain.value = 0.001; // 几乎无声
+            osc.connect(gain);
+            gain.connect(gameState.audioContext.destination);
+            osc.start(now);
+            osc.stop(now + 0.001);
+            
+            // 预热所有轨道增益节点
+            initMasterMixer();
+            
+            // 预生成一个音符来初始化合成器
+            parts.forEach(part => {
+                const state = gameState.targetCombination[part] || 'A';
+                const frequencies = part === 'drums' ? null : getWarmupFrequencies(part, state);
+            });
+        }
+        
+        // 获取预热用的频率
+        function getWarmupFrequencies(part, state) {
+            // 简单的频率映射，用于预热
+            const warmupNotes = {
+                melody: { A: 440, B: 523.25, C: 659.25 },
+                harmony: { A: 329.63, B: 392, C: 493.88 },
+                bass: { A: 130.81, B: 146.83, C: 164.81 }
+            };
+            return warmupNotes[part]?.[state] || 440;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -1782,6 +1822,17 @@
                 gameState.targetCombination[part] = options[Math.floor(Math.random() * options.length)];
             });
             console.log('目标组合:', gameState.targetCombination);
+            
+            // 预加载：提前初始化音频系统（如果已启用）
+            if (gameState.audioContext && gameState.audioContext.state === 'running') {
+                initMasterMixer();
+                // 静默初始化所有轨道的增益节点，消除首次播放延迟
+                parts.forEach(part => {
+                    if (trackGainNodes[part]) {
+                        trackGainNodes[part].gain.value = MUSIC_TRACKS[part].volume;
+                    }
+                });
+            }
         }
 
         function createVisualizer(containerId) {
