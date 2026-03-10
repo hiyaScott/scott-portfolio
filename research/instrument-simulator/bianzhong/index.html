@@ -318,7 +318,55 @@
             border-radius: 50%;
         }
 
-        /* 音名标签 */
+        /* 钟形样式增强 */
+        .bell-body {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 正敲/侧敲区域提示 */
+        .bell-zheng, .bell-ce {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.6rem;
+            color: rgba(0,0,0,0.4);
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .bell-zheng {
+            right: 8px;
+        }
+
+        .bell-ce {
+            left: 8px;
+        }
+
+        .bell:hover .bell-zheng, .bell:hover .bell-ce {
+            opacity: 1;
+        }
+
+        /* 双音标记 */
+        .bell-notes {
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.55rem;
+            color: rgba(0,0,0,0.5);
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .bell-small .bell-notes {
+            font-size: 0.5rem;
+        }
+
+        .bell-large .bell-notes {
+            font-size: 0.65rem;
+        }
         .bell-label {
             position: absolute;
             bottom: 5px;
@@ -665,28 +713,29 @@
         }
 
         // ==================== 编钟音阶配置 ====================
-        // 基于曾侯乙编钟的音阶结构（简化的三排布局）
+        // 基于曾侯乙编钟的音阶结构 - 一钟双音特性
+        // 每口钟有正鼓音（敲击正鼓部）和侧鼓音（敲击侧鼓部），通常相隔三度
         const bellConfig = {
-            row1: [  // 上层 - 小编钟（高音）
-                { note: 'C6', freq: 1046.50, label: 'C' },
-                { note: 'D6', freq: 1174.66, label: 'D' },
-                { note: 'E6', freq: 1318.51, label: 'E' },
-                { note: 'G6', freq: 1567.98, label: 'G' },
-                { note: 'A6', freq: 1760.00, label: 'A' }
+            row1: [  // 上层 - 小编钟（高音区 C5-A5）
+                { note: 'C5',  sideNote: 'E5',  freq: 523.25,  sideFreq: 659.25,  label: 'C' },
+                { note: 'D5',  sideNote: 'F5',  freq: 587.33,  sideFreq: 698.46,  label: 'D' },
+                { note: 'E5',  sideNote: 'G5',  freq: 659.25,  sideFreq: 783.99,  label: 'E' },
+                { note: 'G5',  sideNote: 'B5',  freq: 783.99,  sideFreq: 987.77,  label: 'G' },
+                { note: 'A5',  sideNote: 'C6',  freq: 880.00,  sideFreq: 1046.50, label: 'A' }
             ],
-            row2: [  // 中层 - 中编钟（中音）
-                { note: 'C5', freq: 523.25, label: 'C' },
-                { note: 'D5', freq: 587.33, label: 'D' },
-                { note: 'E5', freq: 659.25, label: 'E' },
-                { note: 'G5', freq: 783.99, label: 'G' },
-                { note: 'A5', freq: 880.00, label: 'A' }
+            row2: [  // 中层 - 中编钟（中音区 C4-A4）
+                { note: 'C4',  sideNote: 'E4',  freq: 261.63,  sideFreq: 329.63,  label: 'C' },
+                { note: 'D4',  sideNote: 'F4',  freq: 293.66,  sideFreq: 349.23,  label: 'D' },
+                { note: 'E4',  sideNote: 'G4',  freq: 329.63,  sideFreq: 392.00,  label: 'E' },
+                { note: 'G4',  sideNote: 'B4',  freq: 392.00,  sideFreq: 493.88,  label: 'G' },
+                { note: 'A4',  sideNote: 'C5',  freq: 440.00,  sideFreq: 523.25,  label: 'A' }
             ],
-            row3: [  // 下层 - 大编钟（低音）
-                { note: 'C4', freq: 261.63, label: 'C' },
-                { note: 'D4', freq: 293.66, label: 'D' },
-                { note: 'E4', freq: 329.63, label: 'E' },
-                { note: 'G4', freq: 392.00, label: 'G' },
-                { note: 'A4', freq: 440.00, label: 'A' }
+            row3: [  // 下层 - 大编钟（低音区 C3-A3）
+                { note: 'C3',  sideNote: 'E3',  freq: 130.81,  sideFreq: 164.81,  label: 'C' },
+                { note: 'D3',  sideNote: 'F3',  freq: 146.83,  sideFreq: 174.61,  label: 'D' },
+                { note: 'E3',  sideNote: 'G3',  freq: 164.81,  sideFreq: 196.00,  label: 'E' },
+                { note: 'G3',  sideNote: 'B3',  freq: 196.00,  sideFreq: 246.94,  label: 'G' },
+                { note: 'A3',  sideNote: 'C4',  freq: 220.00,  sideFreq: 261.63,  label: 'A' }
             ]
         };
 
@@ -768,40 +817,66 @@
             bell.className = `bell bell-${size}`;
             bell.dataset.note = config.note;
             bell.dataset.freq = config.freq;
+            bell.dataset.sideNote = config.sideNote;
+            bell.dataset.sideFreq = config.sideFreq;
+            
             bell.innerHTML = `
                 <div class="bell-body">
+                    <div class="bell-zheng">正</div>
+                    <div class="bell-ce">侧</div>
                     <span class="bell-label">${config.label}</span>
+                    <span class="bell-notes">${config.note}/${config.sideNote}</span>
                 </div>
                 <span class="mallet-hit">🔨</span>
             `;
 
-            bell.addEventListener('click', () => hitBell(bell, config));
+            // 点击事件 - 根据点击位置判断正敲或侧敲
+            bell.addEventListener('click', (e) => {
+                const rect = bell.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const isSide = x < rect.width / 2; // 左半边为侧敲，右半边为正敲
+                hitBell(bell, config, isSide);
+            });
+            
             bell.addEventListener('touchstart', (e) => {
                 e.preventDefault();
-                hitBell(bell, config);
+                const rect = bell.getBoundingClientRect();
+                const touch = e.touches[0];
+                const x = touch.clientX - rect.left;
+                const isSide = x < rect.width / 2;
+                hitBell(bell, config, isSide);
             });
 
             return bell;
         }
 
-        function hitBell(element, config) {
+        function hitBell(element, config, isSide = false) {
             initAudio();
 
+            // 根据敲击位置选择音高
+            const freq = isSide ? config.sideFreq : config.freq;
+            const note = isSide ? config.sideNote : config.note;
+            const hitType = isSide ? '侧敲' : '正敲';
+
             // 播放声音
-            playBellSound(config.freq);
+            playBellSound(freq);
 
             // 视觉反馈
             element.classList.add('bell-swing');
             setTimeout(() => element.classList.remove('bell-swing'), 300);
 
-            // 击槌动画
+            // 击槌动画 - 根据敲击位置显示
             const mallet = element.querySelector('.mallet-hit');
+            mallet.textContent = isSide ? '🔨·' : '·🔨';
             mallet.classList.add('show');
             setTimeout(() => mallet.classList.remove('show'), 200);
 
+            // 显示提示
+            showToast(`${config.label} · ${hitType} · ${note}`);
+
             // 录制
             if (isRecording) {
-                recordNote(config.note, config.freq);
+                recordNote(note, freq, isSide);
             }
         }
 
@@ -879,10 +954,11 @@
             document.getElementById('timeDisplay').textContent = `${minutes}:${seconds}`;
         }
 
-        function recordNote(note, freq) {
+        function recordNote(note, freq, isSide = false) {
             currentRecording.push({
                 note: note,
                 freq: freq,
+                isSide: isSide,
                 time: Date.now() - recordingStartTime
             });
         }
@@ -932,11 +1008,14 @@
                 `;
                 document.getElementById('btnPlayback').disabled = true;
             } else {
-                list.innerHTML = recordings.map(rec => `
+                list.innerHTML = recordings.map(rec => {
+                    const sideCount = rec.notes.filter(n => n.isSide).length;
+                    const zhengCount = rec.notes.length - sideCount;
+                    return `
                     <li class="recording-item">
                         <div class="recording-info">
                             <div class="recording-name">${rec.name}</div>
-                            <div class="recording-time">${rec.date} · ${rec.duration}秒 · ${rec.notes.length}个音符</div>
+                            <div class="recording-time">${rec.date} · ${rec.duration}秒 · ${rec.notes.length}音(正${zhengCount}/侧${sideCount})</div>
                         </div>
                         <div class="recording-actions">
                             <button class="btn-icon play" onclick="playRecordingById(${rec.id})">▶</button>
@@ -944,7 +1023,7 @@
                             <button class="btn-icon delete" onclick="deleteRecording(${rec.id})">🗑</button>
                         </div>
                     </li>
-                `).join('');
+                `}).join('');
                 document.getElementById('btnPlayback').disabled = false;
             }
         }
@@ -1088,9 +1167,12 @@
             ctx.font = '24px "Microsoft YaHei", sans-serif';
             ctx.fillText(recording.name, 300, 140);
             
+            const sideCount = recording.notes.filter(n => n.isSide).length;
+            const zhengCount = recording.notes.length - sideCount;
+            
             ctx.font = '18px "Microsoft YaHei", sans-serif';
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.fillText(`⏱️ ${recording.duration}秒 · 🎵 ${recording.notes.length}个音符`, 300, 175);
+            ctx.fillText(`⏱️ ${recording.duration}秒 · 🎵 ${recording.notes.length}音(正${zhengCount}/侧${sideCount})`, 300, 175);
             ctx.fillText(`📅 ${recording.date}`, 300, 205);
             
             // 提示文字
