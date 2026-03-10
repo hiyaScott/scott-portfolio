@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>编钟模拟器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+
+        /* 竖屏提示 */
+        .orientation-tip {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .orientation-tip .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: rotate 2s ease-in-out infinite;
+        }
+
+        @keyframes rotate {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
+        }
+
+        @media screen and (orientation: portrait) {
+            .orientation-tip {
+                display: flex;
+            }
+            .app-container {
+                display: none !important;
+            }
+        }
+
+        /* 主容器 */
+        .app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 顶部工具栏 */
+        .toolbar {
+            height: 50px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .toolbar-title {
+            font-size: 1.1rem;
+            color: #f5af19;
+            font-weight: bold;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn.recording {
+            background: #ff0000;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* 状态显示 */
+        .status-bar {
+            height: 30px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .recording-indicator {
+            width: 8px;
+            height: 8px;
+            background: #ff0000;
+            border-radius: 50%;
+            display: none;
+        }
+
+        .recording-indicator.active {
+            display: block;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 编钟区域 */
+        .bells-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            position: relative;
+        }
+
+        /* 钟架 */
+        .frame {
+            width: 95%;
+            max-width: 800px;
+            background: linear-gradient(180deg, #8B4513 0%, #654321 100%);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .frame::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 20px;
+            right: 20px;
+            height: 8px;
+            background: linear-gradient(90deg, #DAA520, #FFD700, #DAA520);
+            border-radius: 4px;
+        }
+
+        /* 钟的行 */
+        .bell-row {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        /* 钟的样式 */
+        .bell {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        .bell:active {
+            transform: scale(0.95);
+        }
+
+        .bell-swing {
+            animation: swing 0.3s ease-out;
+        }
+
+        @keyframes swing {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+            75% { transform: rotate(-3deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        /* 钟形 - 小编钟（上层） */
+        .bell-small {
+            width: 45px;
+            height: 55px;
+        }
+
+        .bell-small .bell-body {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #FFD700 0%, #DAA520 50%, #B8860B 100%);
+            border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%;
+            box-shadow: 
+                inset -3px -3px 8px rgba(0,0,0,0.3),
+                inset 3px 3px 8px rgba(255,255,255,0.3),
+                0 3px 6px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .bell-small .bell-body::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            background: #8B4513;
+            border-radius: 50%;
+        }
+
+        /* 钟形 - 中编钟（中层） */
+        .bell-medium {
+            width: 60px;
+            height: 70px;
+        }
+
+        .bell-medium .bell-body {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #FFD700 0%, #DAA520 50%, #B8860B 100%);
+            border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%;
+            box-shadow: 
+                inset -4px -4px 10px rgba(0,0,0,0.3),
+                inset 4px 4px 10px rgba(255,255,255,0.3),
+                0 4px 8px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .bell-medium .bell-body::before {
+            content: '';
+            position: absolute;
+            top: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 10px;
+            background: #8B4513;
+            border-radius: 50%;
+        }
+
+        /* 钟形 - 大编钟（下层） */
+        .bell-large {
+            width: 80px;
+            height: 90px;
+        }
+
+        .bell-large .bell-body {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #FFD700 0%, #DAA520 50%, #B8860B 100%);
+            border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%;
+            box-shadow: 
+                inset -5px -5px 12px rgba(0,0,0,0.3),
+                inset 5px 5px 12px rgba(255,255,255,0.3),
+                0 5px 10px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .bell-large .bell-body::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 12px;
+            height: 12px;
+            background: #8B4513;
+            border-radius: 50%;
+        }
+
+        /* 音名标签 */
+        .bell-label {
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: rgba(0,0,0,0.6);
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .bell-large .bell-label {
+            font-size: 0.8rem;
+            bottom: 8px;
+        }
+
+        /* 击槌效果 */
+        .mallet-hit {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.5rem;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .mallet-hit.show {
+            animation: hit 0.2s ease-out;
+        }
+
+        @keyframes hit {
+            0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            height: 60px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 0 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-large {
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+
+        /* 录制列表弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border-radius: 15px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 80%;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            color: #f5af19;
+            font-size: 1.1rem;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: rgba(255,255,255,0.5);
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .recording-list {
+            list-style: none;
+        }
+
+        .recording-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .recording-info {
+            flex: 1;
+        }
+
+        .recording-name {
+            color: #fff;
+            font-size: 0.9rem;
+            margin-bottom: 3px;
+        }
+
+        .recording-time {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.75rem;
+        }
+
+        .recording-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        .btn-icon:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .btn-icon.play {
+            background: #00d2d3;
+        }
+
+        .btn-icon.delete {
+            background: #e94560;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: rgba(255,255,255,0.5);
+            padding: 40px 20px;
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        /* 分享弹窗 */
+        .share-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .share-btn {
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95rem;
+        }
+
+        .share-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* 提示信息 */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- 竖屏提示 -->
+    <div class="orientation-tip">
+        <div class="icon">📱</div>
+        <p>请横屏使用编钟模拟器</p>
+        <p style="font-size: 0.9rem; margin-top: 10px; opacity: 0.7;">将手机旋转90度以获得最佳体验</p>
+    </div>
+
+    <!-- 主应用 -->
+    <div class="app-container">
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <div class="toolbar-title">🔔 编钟模拟器</div>
+            <div class="toolbar-actions">
+                <button class="btn btn-secondary" id="btnRecordings">
+                    🎵 我的演奏
+                </button>
+                <button class="btn btn-primary" id="btnRecord">
+                    🔴 录制
+                </button>
+            </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="recording-indicator" id="recordingIndicator"></span>
+                <span id="statusText">准备就绪</span>
+            </div>
+            <div class="status-item" id="recordTime" style="display: none;">
+                ⏱️ <span id="timeDisplay">00:00</span>
+            </div>
+        </div>
+
+        <!-- 编钟区域 -->
+        <div class="bells-container">
+            <div class="frame">
+                <!-- 上层：小编钟 -->
+                <div class="bell-row" id="row1">
+                    <!-- 动态生成 -->
+                </div>
+                <!-- 中层：中编钟 -->
+                <div class="bell-row" id="row2">
+                    <!-- 动态生成 -->
+                </div>
+                <!-- 下层：大编钟 -->
+                <div class="bell-row" id="row3">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <button class="btn btn-secondary" id="btnDemo">▶️ 试听</button>
+            <button class="btn btn-secondary" id="btnClear">🗑️ 清空</button>
+            <button class="btn btn-primary btn-large" id="btnPlayback" disabled>▶️ 回放</button>
+        </div>
+    </div>
+
+    <!-- 录制列表弹窗 -->
+    <div class="modal" id="recordingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎵 我的演奏</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <ul class="recording-list" id="recordingList">
+                    <!-- 动态生成 -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分享弹窗 -->
+    <div class="modal" id="shareModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📤 分享演奏</h3>
+                <button class="modal-close" onclick="closeShareModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="share-options">
+                    <button class="share-btn" onclick="shareToWeChat()">
+                        💬 分享给 Hugo
+                    </button>
+                    <button class="share-btn" onclick="copyLink()">
+                        🔗 复制链接
+                    </button>
+                    <button class="share-btn" onclick="downloadRecording()">
+                        💾 下载音频
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示信息 -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ==================== 音频上下文 ====================
+        let audioContext = null;
+        let masterGain = null;
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioContext.createGain();
+                masterGain.gain.value = 0.8;
+                masterGain.connect(audioContext.destination);
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        // ==================== 编钟音阶配置 ====================
+        // 基于曾侯乙编钟的音阶结构（简化的三排布局）
+        const bellConfig = {
+            row1: [  // 上层 - 小编钟（高音）
+                { note: 'C6', freq: 1046.50, label: 'C' },
+                { note: 'D6', freq: 1174.66, label: 'D' },
+                { note: 'E6', freq: 1318.51, label: 'E' },
+                { note: 'G6', freq: 1567.98, label: 'G' },
+                { note: 'A6', freq: 1760.00, label: 'A' }
+            ],
+            row2: [  // 中层 - 中编钟（中音）
+                { note: 'C5', freq: 523.25, label: 'C' },
+                { note: 'D5', freq: 587.33, label: 'D' },
+                { note: 'E5', freq: 659.25, label: 'E' },
+                { note: 'G5', freq: 783.99, label: 'G' },
+                { note: 'A5', freq: 880.00, label: 'A' }
+            ],
+            row3: [  // 下层 - 大编钟（低音）
+                { note: 'C4', freq: 261.63, label: 'C' },
+                { note: 'D4', freq: 293.66, label: 'D' },
+                { note: 'E4', freq: 329.63, label: 'E' },
+                { note: 'G4', freq: 392.00, label: 'G' },
+                { note: 'A4', freq: 440.00, label: 'A' }
+            ]
+        };
+
+        // ==================== 编钟音色合成 ====================
+        function playBellSound(freq, duration = 3) {
+            initAudio();
+            const now = audioContext.currentTime;
+
+            // 创建振荡器 - 基频
+            const osc1 = audioContext.createOscillator();
+            const gain1 = audioContext.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.value = freq;
+
+            // 包络 - 快速起音，长衰减（钟声特性）
+            gain1.gain.setValueAtTime(0, now);
+            gain1.gain.linearRampToValueAtTime(0.6, now + 0.02);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            osc1.connect(gain1);
+            gain1.connect(masterGain);
+
+            // 添加二次谐波
+            const osc2 = audioContext.createOscillator();
+            const gain2 = audioContext.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.value = freq * 2;
+            gain2.gain.setValueAtTime(0, now);
+            gain2.gain.linearRampToValueAtTime(0.3, now + 0.02);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.8);
+
+            osc2.connect(gain2);
+            gain2.connect(masterGain);
+
+            // 添加三次谐波（金属感）
+            const osc3 = audioContext.createOscillator();
+            const gain3 = audioContext.createGain();
+            osc3.type = 'triangle';
+            osc3.frequency.value = freq * 3;
+            gain3.gain.setValueAtTime(0, now);
+            gain3.gain.linearRampToValueAtTime(0.15, now + 0.01);
+            gain3.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.5);
+
+            osc3.connect(gain3);
+            gain3.connect(masterGain);
+
+            // 播放
+            osc1.start(now);
+            osc1.stop(now + duration);
+            osc2.start(now);
+            osc2.stop(now + duration * 0.8);
+            osc3.start(now);
+            osc3.stop(now + duration * 0.5);
+        }
+
+        // ==================== 初始化编钟界面 ====================
+        function initBells() {
+            // 上层
+            const row1 = document.getElementById('row1');
+            bellConfig.row1.forEach((bell, index) => {
+                row1.appendChild(createBellElement(bell, 'small', index));
+            });
+
+            // 中层
+            const row2 = document.getElementById('row2');
+            bellConfig.row2.forEach((bell, index) => {
+                row2.appendChild(createBellElement(bell, 'medium', index));
+            });
+
+            // 下层
+            const row3 = document.getElementById('row3');
+            bellConfig.row3.forEach((bell, index) => {
+                row3.appendChild(createBellElement(bell, 'large', index));
+            });
+        }
+
+        function createBellElement(config, size, index) {
+            const bell = document.createElement('div');
+            bell.className = `bell bell-${size}`;
+            bell.dataset.note = config.note;
+            bell.dataset.freq = config.freq;
+            bell.innerHTML = `
+                <div class="bell-body">
+                    <span class="bell-label">${config.label}</span>
+                </div>
+                <span class="mallet-hit">🔨</span>
+            `;
+
+            bell.addEventListener('click', () => hitBell(bell, config));
+            bell.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                hitBell(bell, config);
+            });
+
+            return bell;
+        }
+
+        function hitBell(element, config) {
+            initAudio();
+
+            // 播放声音
+            playBellSound(config.freq);
+
+            // 视觉反馈
+            element.classList.add('bell-swing');
+            setTimeout(() => element.classList.remove('bell-swing'), 300);
+
+            // 击槌动画
+            const mallet = element.querySelector('.mallet-hit');
+            mallet.classList.add('show');
+            setTimeout(() => mallet.classList.remove('show'), 200);
+
+            // 录制
+            if (isRecording) {
+                recordNote(config.note, config.freq);
+            }
+        }
+
+        // ==================== 录制功能 ====================
+        let isRecording = false;
+        let recordingStartTime = 0;
+        let currentRecording = [];
+        let recordings = JSON.parse(localStorage.getItem('bianzhong_recordings') || '[]');
+        let recordTimer = null;
+
+        document.getElementById('btnRecord').addEventListener('click', toggleRecording);
+
+        function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        function startRecording() {
+            initAudio();
+            isRecording = true;
+            recordingStartTime = Date.now();
+            currentRecording = [];
+
+            const btn = document.getElementById('btnRecord');
+            btn.classList.add('recording');
+            btn.innerHTML = '⏹️ 停止';
+
+            document.getElementById('recordingIndicator').classList.add('active');
+            document.getElementById('statusText').textContent = '正在录制...';
+            document.getElementById('recordTime').style.display = 'block';
+
+            // 开始计时
+            recordTimer = setInterval(updateRecordTime, 1000);
+
+            showToast('开始录制，敲击编钟吧！');
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            clearInterval(recordTimer);
+
+            const btn = document.getElementById('btnRecord');
+            btn.classList.remove('recording');
+            btn.innerHTML = '🔴 录制';
+
+            document.getElementById('recordingIndicator').classList.remove('active');
+            document.getElementById('statusText').textContent = '录制完成';
+            document.getElementById('recordTime').style.display = 'none';
+            document.getElementById('timeDisplay').textContent = '00:00';
+
+            // 保存录制
+            if (currentRecording.length > 0) {
+                const recording = {
+                    id: Date.now(),
+                    name: `演奏 ${recordings.length + 1}`,
+                    date: new Date().toLocaleString(),
+                    duration: ((Date.now() - recordingStartTime) / 1000).toFixed(1),
+                    notes: currentRecording
+                };
+                recordings.push(recording);
+                localStorage.setItem('bianzhong_recordings', JSON.stringify(recordings));
+
+                showToast('录制已保存！');
+                updateRecordingList();
+            }
+        }
+
+        function updateRecordTime() {
+            const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timeDisplay').textContent = `${minutes}:${seconds}`;
+        }
+
+        function recordNote(note, freq) {
+            currentRecording.push({
+                note: note,
+                freq: freq,
+                time: Date.now() - recordingStartTime
+            });
+        }
+
+        // ==================== 回放功能 ====================
+        let isPlaying = false;
+
+        document.getElementById('btnPlayback').addEventListener('click', () => {
+            if (recordings.length > 0) {
+                playRecording(recordings[recordings.length - 1]);
+            }
+        });
+
+        function playRecording(recording) {
+            if (isPlaying || !recording.notes.length) return;
+
+            isPlaying = true;
+            showToast('开始回放...');
+
+            recording.notes.forEach((noteData) => {
+                setTimeout(() => {
+                    playBellSound(noteData.freq);
+                }, noteData.time);
+            });
+
+            setTimeout(() => {
+                isPlaying = false;
+            }, recording.notes[recording.notes.length - 1].time + 1000);
+        }
+
+        // ==================== 录制列表 ====================
+        document.getElementById('btnRecordings').addEventListener('click', () => {
+            updateRecordingList();
+            document.getElementById('recordingsModal').classList.add('show');
+        });
+
+        function updateRecordingList() {
+            const list = document.getElementById('recordingList');
+
+            if (recordings.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🎵</div>
+                        <p>还没有录制任何演奏</p>
+                        <p style="font-size: 0.85rem; margin-top: 5px;">点击录制按钮开始创作吧！</p>
+                    </div>
+                `;
+                document.getElementById('btnPlayback').disabled = true;
+            } else {
+                list.innerHTML = recordings.map(rec => `
+                    <li class="recording-item">
+                        <div class="recording-info">
+                            <div class="recording-name">${rec.name}</div>
+                            <div class="recording-time">${rec.date} · ${rec.duration}秒 · ${rec.notes.length}个音符</div>
+                        </div>
+                        <div class="recording-actions">
+                            <button class="btn-icon play" onclick="playRecordingById(${rec.id})">▶</button>
+                            <button class="btn-icon" onclick="shareRecording(${rec.id})" style="background: #3b82f6;">📤</button>
+                            <button class="btn-icon delete" onclick="deleteRecording(${rec.id})">🗑</button>
+                        </div>
+                    </li>
+                `).join('');
+                document.getElementById('btnPlayback').disabled = false;
+            }
+        }
+
+        function playRecordingById(id) {
+            const recording = recordings.find(r => r.id === id);
+            if (recording) {
+                playRecording(recording);
+                closeModal();
+            }
+        }
+
+        function deleteRecording(id) {
+            if (confirm('确定要删除这个演奏吗？')) {
+                recordings = recordings.filter(r => r.id !== id);
+                localStorage.setItem('bianzhong_recordings', JSON.stringify(recordings));
+                updateRecordingList();
+                showToast('已删除');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('recordingsModal').classList.remove('show');
+        }
+
+        // ==================== 分享功能 ====================
+        let shareTargetId = null;
+
+        function shareRecording(id) {
+            shareTargetId = id;
+            document.getElementById('shareModal').classList.add('show');
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.remove('show');
+            shareTargetId = null;
+        }
+
+        function shareToWeChat() {
+            // 实际应用中可以调用微信SDK
+            showToast('已生成分享卡片，请截图发送给Hugo！');
+            closeShareModal();
+        }
+
+        function copyLink() {
+            // 实际应用中可以生成分享链接
+            showToast('链接已复制到剪贴板');
+            closeShareModal();
+        }
+
+        function downloadRecording() {
+            // 实际应用中可以导出音频文件
+            showToast('音频导出功能开发中...');
+            closeShareModal();
+        }
+
+        // ==================== 试听功能 ====================
+        document.getElementById('btnDemo').addEventListener('click', () => {
+            playDemo();
+        });
+
+        function playDemo() {
+            initAudio();
+            showToast('播放示例曲目...');
+
+            const demoNotes = [
+                { freq: 329.63, time: 0 },    // E4
+                { freq: 392.00, time: 500 },  // G4
+                { freq: 440.00, time: 1000 }, // A4
+                { freq: 523.25, time: 1500 }, // C5
+                { freq: 587.33, time: 2000 }, // D5
+                { freq: 659.25, time: 2500 }, // E5
+            ];
+
+            demoNotes.forEach(note => {
+                setTimeout(() => {
+                    playBellSound(note.freq);
+                }, note.time);
+            });
+        }
+
+        // ==================== 清空功能 ====================
+        document.getElementById('btnClear').addEventListener('click', () => {
+            if (confirm('确定要清空所有录制数据吗？')) {
+                recordings = [];
+                localStorage.removeItem('bianzhong_recordings');
+                updateRecordingList();
+                showToast('已清空所有数据');
+            }
+        });
+
+        // ==================== 工具函数 ====================
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            initBells();
+            updateRecordingList();
+
+            // 点击空白关闭弹窗
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('show');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
