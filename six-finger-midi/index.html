@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 v2.2.4 - 音乐听辨训练</title>
+    <title>六指迷笛 v2.2.5 - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
@@ -840,7 +840,7 @@
     <div class="container">
         <!-- 标题 -->
         <header class="header">
-            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.2.4</span></h1>
+            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.2.5</span></h1>
             <div style="font-size: 0.7rem; color: #666; margin-top: 5px; font-family: monospace;">
                 🎧 Wwise Style: Switch Container | Vertical Remixing | Voice Limit=1
             </div>
@@ -1433,7 +1433,7 @@
             }
         }
         
-        // 开始音乐实例（使用预合成 buffer，零延迟）
+        // 开始音乐实例（使用预合成 buffer，相位锁定）
         function startMusicVoice(part, state, startTime) {
             const ctx = gameState.audioContext;
             const bufferKey = `${part}-${state}`;
@@ -1442,6 +1442,21 @@
             if (!buffer) {
                 console.error('Buffer not found:', bufferKey);
                 return;
+            }
+            
+            // 计算相位锁定偏移：找出当前播放中的声部，获取其播放位置
+            let offset = 0;
+            const loopDuration = 4;
+            
+            // 查找当前正在播放的其他声部
+            for (const p of parts) {
+                if (p !== part && activeMusicVoices[p] && activeMusicVoices[p].startTime) {
+                    // 计算该声部已经播放了多久
+                    const elapsed = ctx.currentTime - activeMusicVoices[p].startTime;
+                    // 对 loop 时长取模，得到当前在 loop 中的位置
+                    offset = elapsed % loopDuration;
+                    break; // 找到一个参考即可
+                }
             }
             
             // 创建 BufferSource
@@ -1453,10 +1468,24 @@
             const trackGain = trackGainNodes[part] || masterGainNode;
             source.connect(trackGain);
             
-            // 在指定时间开始
-            source.start(startTime);
+            // 应用 mute/solo 状态
+            if (gameState.mutedTracks[part] || isSoloExcluding(part)) {
+                trackGain.gain.setValueAtTime(0, startTime);
+            } else {
+                trackGain.gain.setValueAtTime(MUSIC_TRACKS[part].volume, startTime);
+            }
             
-            // 保存引用
+            // 在指定时间开始，从偏移位置播放（相位锁定）
+            source.start(startTime, offset);
+            
+            // 保存引用（记录实际开始时间用于后续相位计算）
+            activeMusicVoices[part] = {
+                source: source,
+                part: part,
+                state: state,
+                startTime: startTime - offset // 虚拟开始时间，用于计算相位
+            };
+        }
             activeMusicVoices[part] = {
                 source: source,
                 part: part,
