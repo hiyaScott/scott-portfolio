@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 v2.2.6 - 音乐听辨训练</title>
+    <title>六指迷笛 v2.2.7 - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
@@ -1991,6 +1991,9 @@
 
         // 开始选择（阶段1 → 阶段2）
         function startSelection() {
+            // 初始化状态
+            initPhase2State();
+            
             // 播放阶段切换音效
             playPhaseTransitionStinger(2);
             
@@ -2000,13 +2003,38 @@
             document.getElementById('phase1').style.display = 'none';
             document.getElementById('phase2').style.display = 'block';
             
-            // 停止目标音乐循环（旧系统）
-            clearAllLoops();
-            // 停止所有 Wwise 风格音乐
+            initAudioContext();
+        }
+        
+        // 初始化阶段2状态
+        function initPhase2State() {
+            // 停止所有音乐
             stopAllMusic();
+            clearAllLoops();
             animateVisualizer('targetVisualizer', false);
             
-            initAudioContext();
+            // 重置原曲状态
+            gameState.isPlayingOriginal = false;
+            const previewBtn = document.getElementById('originalPlayBtn');
+            if (previewBtn) {
+                previewBtn.innerHTML = '🎯 再听原曲';
+                previewBtn.classList.remove('btn-warning');
+                previewBtn.classList.add('btn-secondary');
+            }
+            
+            // 停止所有进度条
+            stopOriginalProgressBar();
+            stopUserProgressBar();
+            
+            // 重置 Mute/Solo 状态
+            gameState.mutedTracks = { melody: false, harmony: false, bass: false, drums: false };
+            gameState.soloTrack = null;
+            parts.forEach(part => {
+                const muteBtn = document.getElementById(part + 'Mute');
+                const soloBtn = document.getElementById(part + 'Solo');
+                if (muteBtn) muteBtn.classList.remove('active');
+                if (soloBtn) soloBtn.classList.remove('solo-active');
+            });
         }
 
         // 选择片段
@@ -2322,6 +2350,9 @@
                 return;
             }
             
+            // 初始化阶段3状态
+            initPhase3State();
+            
             // 播放阶段切换音效
             playPhaseTransitionStinger(3);
             
@@ -2330,14 +2361,6 @@
             
             document.getElementById('phase2').style.display = 'none';
             document.getElementById('phase3').style.display = 'block';
-            
-            // 停止播放（旧系统 + Wwise 系统）
-            clearAllLoops();
-            stopAllMusic();
-            
-            // 停止所有进度条
-            stopOriginalProgressBar();
-            stopUserProgressBar();
             
             // 填充对比区域
             fillComparisonArea();
@@ -2349,6 +2372,23 @@
             setTimeout(() => {
                 playComparison('user');
             }, 300);
+        }
+        
+        // 初始化阶段3状态
+        function initPhase3State() {
+            // 停止所有音乐
+            stopAllMusic();
+            clearAllLoops();
+            
+            // 停止所有进度条
+            stopOriginalProgressBar();
+            stopUserProgressBar();
+            stopCompareTargetProgressBar();
+            stopCompareUserProgressBar();
+            
+            // 重置对比状态
+            gameState.isComparing = false;
+            gameState.compareMode = null;
         }
 
         // 填充对比区域
@@ -2511,7 +2551,8 @@
         }
 
         function backToSelection() {
-            stopComparison();
+            // 初始化阶段2状态
+            initPhase2State();
             
             gameState.currentPhase = 2;
             updateStageIndicator();
@@ -2523,7 +2564,7 @@
             // 使用 Wwise SetSwitch 继续播放用户的选择
             parts.forEach(p => {
                 if (gameState.userSelection[p]) {
-                    setSwitch(p, gameState.userSelection[p]);
+                    setSwitch(p, gameState.userSelection[p], true);
                 }
             });
         }
