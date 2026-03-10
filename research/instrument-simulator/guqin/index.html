@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>古琴模拟器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(180deg, #2c2416 0%, #1a1510 50%, #0d0a08 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+
+        /* 竖屏提示 */
+        .orientation-tip {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1510;
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #d4c4a8;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .orientation-tip .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: rotate 2s ease-in-out infinite;
+        }
+
+        @keyframes rotate {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
+        }
+
+        @media screen and (orientation: portrait) {
+            .orientation-tip {
+                display: flex;
+            }
+            .app-container {
+                display: none !important;
+            }
+        }
+
+        /* 主容器 */
+        .app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 顶部工具栏 */
+        .toolbar {
+            height: 50px;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-bottom: 1px solid rgba(212,196,168,0.2);
+        }
+
+        .toolbar-title {
+            font-size: 1.1rem;
+            color: #d4c4a8;
+            font-weight: bold;
+            font-family: 'STKaiti', 'KaiTi', serif;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8B4513, #A0522D);
+            color: #d4c4a8;
+        }
+
+        .btn-secondary {
+            background: rgba(212,196,168,0.1);
+            color: #d4c4a8;
+            border: 1px solid rgba(212,196,168,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn.recording {
+            background: #c9302c;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* 演奏模式选择 */
+        .mode-bar {
+            height: 45px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 0 15px;
+            border-bottom: 1px solid rgba(212,196,168,0.1);
+        }
+
+        .mode-btn {
+            padding: 6px 16px;
+            border-radius: 15px;
+            border: 1px solid rgba(212,196,168,0.3);
+            background: transparent;
+            color: rgba(212,196,168,0.7);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+
+        .mode-btn.active {
+            background: rgba(212,196,168,0.2);
+            color: #d4c4a8;
+            border-color: #d4c4a8;
+        }
+
+        /* 古琴主体 */
+        .guqin-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            position: relative;
+        }
+
+        .guqin {
+            width: 95%;
+            max-width: 900px;
+            height: 90%;
+            background: linear-gradient(90deg, 
+                #3d2817 0%, 
+                #5c3a1e 20%, 
+                #6b4223 50%, 
+                #5c3a1e 80%, 
+                #3d2817 100%
+            );
+            border-radius: 10px 10px 100px 100px / 10px 10px 40px 40px;
+            position: relative;
+            box-shadow: 
+                0 0 30px rgba(0,0,0,0.8),
+                inset 0 0 50px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        /* 琴面纹理 */
+        .guqin::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0,0,0,0.03) 2px,
+                    rgba(0,0,0,0.03) 4px
+                );
+            pointer-events: none;
+        }
+
+        /* 琴徽 */
+        .hui {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 12px;
+            height: 12px;
+            background: radial-gradient(circle, #d4c4a8 0%, #8B7355 100%);
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .hui.large {
+            width: 16px;
+            height: 16px;
+            background: radial-gradient(circle, #f0e6d2 0%, #a08060 100%);
+        }
+
+        .hui-label {
+            position: absolute;
+            left: calc(50% + 15px);
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: rgba(212,196,168,0.6);
+            font-family: 'STKaiti', 'KaiTi', serif;
+        }
+
+        /* 琴弦容器 */
+        .strings-container {
+            position: absolute;
+            top: 5%;
+            bottom: 15%;
+            left: 10%;
+            right: 10%;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        /* 琴弦 */
+        .string {
+            position: relative;
+            width: 3px;
+            height: 100%;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .string::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                rgba(212,196,168,0.3) 0%,
+                rgba(212,196,168,0.8) 50%,
+                rgba(212,196,168,0.3) 100%
+            );
+            box-shadow: 0 0 4px rgba(212,196,168,0.3);
+        }
+
+        /* 粗弦 */
+        .string.thick::before {
+            width: 3px;
+        }
+
+        /* 弦振动动画 */
+        .string.vibrating::before {
+            animation: vibrate 0.5s ease-out;
+        }
+
+        @keyframes vibrate {
+            0%, 100% { transform: translateX(-50%) scaleX(1); }
+            10% { transform: translateX(-55%) scaleX(1.5); }
+            20% { transform: translateX(-45%) scaleX(1.5); }
+            30% { transform: translateX(-52%) scaleX(1.3); }
+            40% { transform: translateX(-48%) scaleX(1.3); }
+            50% { transform: translateX(-50%) scaleX(1.1); }
+        }
+
+        /* 弦号 */
+        .string-number {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: rgba(212,196,168,0.6);
+            font-family: 'STKaiti', 'KaiTi', serif;
+        }
+
+        /* 弹奏指示 */
+        .play-indicator {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, rgba(212,196,168,0.8) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, -50%);
+        }
+
+        .play-indicator.show {
+            animation: playFlash 0.3s ease-out;
+        }
+
+        @keyframes playFlash {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
+        }
+
+        /* 底部控制 */
+        .control-panel {
+            height: 60px;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 0 15px;
+            border-top: 1px solid rgba(212,196,168,0.1);
+        }
+
+        /* 状态栏 */
+        .status-bar {
+            height: 30px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            font-size: 0.8rem;
+            color: rgba(212,196,168,0.7);
+        }
+
+        .recording-indicator {
+            width: 8px;
+            height: 8px;
+            background: #c9302c;
+            border-radius: 50%;
+            display: none;
+        }
+
+        .recording-indicator.active {
+            display: block;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 弹窗样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #2c2416, #1a1510);
+            border-radius: 15px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 80%;
+            overflow: hidden;
+            border: 1px solid rgba(212,196,168,0.2);
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(212,196,168,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            color: #d4c4a8;
+            font-size: 1.1rem;
+            font-family: 'STKaiti', 'KaiTi', serif;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: rgba(212,196,168,0.5);
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* 提示 */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(0,0,0,0.9);
+            color: #d4c4a8;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s;
+            border: 1px solid rgba(212,196,168,0.3);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- 竖屏提示 -->
+    <div class="orientation-tip">
+        <div class="icon">📱</div>
+        <p>请横屏使用古琴模拟器</p>
+        <p style="font-size: 0.9rem; margin-top: 10px; opacity: 0.7;">将手机旋转90度以获得最佳体验</p>
+    </div>
+
+    <!-- 主应用 -->
+    <div class="app-container">
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <div class="toolbar-title">古琴模拟器</div>
+            <div class="toolbar-actions">
+                <button class="btn btn-secondary" id="btnRecordings">我的演奏</button>
+                <button class="btn btn-primary" id="btnRecord">录制</button>
+            </div>
+        </div>
+
+        <!-- 演奏模式 -->
+        <div class="mode-bar">
+            <button class="mode-btn active" data-mode="sanyin">散音</button>
+            <button class="mode-btn" data-mode="fanyin">泛音</button>
+            <button class="mode-btn" data-mode="anyin">按音</button>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="recording-indicator" id="recordingIndicator"></span>
+                <span id="statusText">准备就绪</span>
+            </div>
+            <div class="status-item" id="recordTime" style="display: none;">
+                <span id="timeDisplay">00:00</span>
+            </div>
+        </div>
+
+        <!-- 古琴 -->
+        <div class="guqin-container">
+            <div class="guqin" id="guqin">
+                <!-- 琴徽由JS生成 -->
+                <div class="strings-container" id="stringsContainer">
+                    <!-- 琴弦由JS生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <button class="btn btn-secondary" id="btnDemo">试听</button>
+            <button class="btn btn-secondary" id="btnClear">清空</button>
+            <button class="btn btn-primary" id="btnPlayback" disabled>回放</button>
+        </div>
+    </div>
+
+    <!-- 录制列表弹窗 -->
+    <div class="modal" id="recordingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>我的演奏</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <ul class="recording-list" id="recordingList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示 -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ==================== 音频上下文 ====================
+        let audioContext = null;
+        let masterGain = null;
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioContext.createGain();
+                masterGain.gain.value = 0.7;
+                masterGain.connect(audioContext.destination);
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        // ==================== 古琴配置 ====================
+        // 七根弦的基频（从外到内：一弦至七弦）
+        const stringConfig = [
+            { number: 1, note: 'C',  freq: 130.81, openNote: 'C2' },  // 一弦 下准 C
+            { number: 2, note: 'D',  freq: 146.83, openNote: 'D2' },  // 二弦
+            { number: 3, note: 'F',  freq: 174.61, openNote: 'F2' },  // 三弦 宫弦
+            { number: 4, note: 'G',  freq: 196.00, openNote: 'G2' },  // 四弦
+            { number: 5, note: 'A',  freq: 220.00, openNote: 'A2' },  // 五弦
+            { number: 6, note: 'C',  freq: 261.63, openNote: 'C3' },  // 六弦
+            { number: 7, note: 'D',  freq: 293.66, openNote: 'D3' }   // 七弦 上准 D
+        ];
+
+        // 十三徽位位置（百分比）和音高倍数
+        const huiPositions = [
+            { position: 2,   ratio: 7/8,   label: '一徽' },   // 岳山处
+            { position: 9,   ratio: 6/7,   label: '二徽' },
+            { position: 16,  ratio: 5/6,   label: '三徽' },
+            { position: 23,  ratio: 4/5,   label: '四徽' },
+            { position: 30,  ratio: 3/4,   label: '五徽' },
+            { position: 37,  ratio: 2/3,   label: '六徽' },
+            { position: 44,  ratio: 5/8,   label: '七徽' },
+            { position: 50,  ratio: 1/2,   label: '八徽' },   // 中点
+            { position: 56,  ratio: 3/5,   label: '九徽' },
+            { position: 63,  ratio: 4/7,   label: '十徽' },
+            { position: 70,  ratio: 3/7,   label: '十一徽' },
+            { position: 77,  ratio: 2/5,   label: '十二徽' },
+            { position: 84,  ratio: 1/3,   label: '十三徽' },
+            { position: 95,  ratio: 1/4,   label: '龙龈' }    // 龙龈处
+        ];
+
+        // 当前演奏模式
+        let currentMode = 'sanyin'; // sanyin:散音, fanyin:泛音, anyin:按音
+
+        // ==================== 音色合成 ====================
+        function playGuqinSound(stringIndex, position, mode) {
+            initAudio();
+            const string = stringConfig[stringIndex];
+            const hui = huiPositions.find(h => Math.abs(h.position - position) < 5) || huiPositions[7];
+            
+            let freq = string.freq;
+            let timbre = 'sanyin';
+            let noteName = string.openNote;
+
+            // 根据模式和徽位计算音高
+            if (mode === 'sanyin') {
+                // 散音：空弦音
+                timbre = 'sanyin';
+            } else if (mode === 'fanyin') {
+                // 泛音：轻触徽位
+                freq = string.freq / hui.ratio;
+                timbre = 'fanyin';
+                noteName = getNoteName(freq);
+            } else if (mode === 'anyin') {
+                // 按音：按弦取音
+                freq = string.freq / hui.ratio;
+                timbre = 'anyin';
+                noteName = getNoteName(freq);
+            }
+
+            // 合成声音
+            synthesizeGuqin(freq, timbre);
+
+            // 视觉反馈
+            showPlayIndicator(stringIndex, position);
+
+            // 录制
+            if (isRecording) {
+                recordNote(string.number, noteName, freq, mode, hui.label);
+            }
+
+            return { note: noteName, freq: freq };
+        }
+
+        function synthesizeGuqin(freq, timbre) {
+            const now = audioContext.currentTime;
+            const duration = timbre === 'fanyin' ? 1.5 : 3;
+
+            // 基音振荡器
+            const osc1 = audioContext.createOscillator();
+            const gain1 = audioContext.createGain();
+            
+            // 根据音色选择波形
+            if (timbre === 'sanyin') {
+                osc1.type = 'triangle';  // 散音较厚实
+            } else if (timbre === 'fanyin') {
+                osc1.type = 'sine';      // 泛音纯净
+            } else {
+                osc1.type = 'sawtooth';  // 按音有摩擦感
+            }
+            
+            osc1.frequency.value = freq;
+
+            // 包络
+            gain1.gain.setValueAtTime(0, now);
+            gain1.gain.linearRampToValueAtTime(0.5, now + 0.05);
+            
+            if (timbre === 'fanyin') {
+                // 泛音快速衰减
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + duration);
+            } else {
+                // 散音和按音悠长
+                gain1.gain.setValueAtTime(0.5, now + 0.1);
+                gain1.gain.exponentialRampToValueAtTime(0.3, now + 1);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + duration);
+            }
+
+            // 滤波器
+            const filter = audioContext.createBiquadFilter();
+            if (timbre === 'fanyin') {
+                filter.type = 'highpass';
+                filter.frequency.value = freq * 2;
+            } else {
+                filter.type = 'lowpass';
+                filter.frequency.value = freq * 4;
+            }
+
+            osc1.connect(filter);
+            filter.connect(gain1);
+            gain1.connect(masterGain);
+
+            // 谐波（仅散音和按音）
+            if (timbre !== 'fanyin') {
+                const osc2 = audioContext.createOscillator();
+                const gain2 = audioContext.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.value = freq * 2;
+                gain2.gain.setValueAtTime(0, now);
+                gain2.gain.linearRampToValueAtTime(0.2, now + 0.02);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.6);
+                
+                osc2.connect(gain2);
+                gain2.connect(masterGain);
+                osc2.start(now);
+                osc2.stop(now + duration * 0.6);
+            }
+
+            osc1.start(now);
+            osc1.stop(now + duration);
+        }
+
+        function getNoteName(freq) {
+            // 简化的音名计算
+            const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const midiNum = Math.round(69 + 12 * Math.log2(freq / 440));
+            const octave = Math.floor(midiNum / 12) - 1;
+            const noteIndex = midiNum % 12;
+            return notes[noteIndex] + octave;
+        }
+
+        // ==================== 初始化古琴界面 ====================
+        function initGuqin() {
+            const guqin = document.getElementById('guqin');
+            const stringsContainer = document.getElementById('stringsContainer');
+
+            // 生成琴徽
+            huiPositions.forEach((hui, index) => {
+                const huiEl = document.createElement('div');
+                huiEl.className = `hui ${index === 7 ? 'large' : ''}`;
+                huiEl.style.top = `${hui.position}%`;
+                guqin.appendChild(huiEl);
+
+                // 徽位标签
+                const label = document.createElement('span');
+                label.className = 'hui-label';
+                label.textContent = hui.label;
+                label.style.top = `${hui.position}%`;
+                guqin.appendChild(label);
+            });
+
+            // 生成琴弦
+            stringConfig.forEach((string, index) => {
+                const stringEl = document.createElement('div');
+                stringEl.className = `string ${index >= 5 ? 'thick' : ''}`;
+                stringEl.dataset.stringIndex = index;
+                
+                // 弦号
+                const numberEl = document.createElement('span');
+                numberEl.className = 'string-number';
+                numberEl.textContent = string.number;
+                stringEl.appendChild(numberEl);
+
+                // 点击事件
+                stringEl.addEventListener('click', (e) => {
+                    const rect = stringEl.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    const position = (y / rect.height) * 100;
+                    playGuqinSound(index, position, currentMode);
+                });
+
+                stringEl.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const rect = stringEl.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    const y = touch.clientY - rect.top;
+                    const position = (y / rect.height) * 100;
+                    playGuqinSound(index, position, currentMode);
+                });
+
+                stringsContainer.appendChild(stringEl);
+            });
+        }
+
+        function showPlayIndicator(stringIndex, position) {
+            const strings = document.querySelectorAll('.string');
+            const string = strings[stringIndex];
+            
+            string.classList.add('vibrating');
+            setTimeout(() => string.classList.remove('vibrating'), 500);
+        }
+
+        // ==================== 模式切换 ====================
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                
+                const modeNames = {
+                    'sanyin': '散音 - 空弦音',
+                    'fanyin': '泛音 - 轻触徽位',
+                    'anyin': '按音 - 按弦取音'
+                };
+                showToast(modeNames[currentMode]);
+            });
+        });
+
+        // ==================== 录制功能 ====================
+        let isRecording = false;
+        let recordingStartTime = 0;
+        let currentRecording = [];
+        let recordings = JSON.parse(localStorage.getItem('guqin_recordings') || '[]');
+        let recordTimer = null;
+
+        document.getElementById('btnRecord').addEventListener('click', toggleRecording);
+
+        function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        function startRecording() {
+            initAudio();
+            isRecording = true;
+            recordingStartTime = Date.now();
+            currentRecording = [];
+
+            const btn = document.getElementById('btnRecord');
+            btn.classList.add('recording');
+            btn.textContent = '⏹️ 停止';
+
+            document.getElementById('recordingIndicator').classList.add('active');
+            document.getElementById('statusText').textContent = '正在录制...';
+            document.getElementById('recordTime').style.display = 'block';
+
+            recordTimer = setInterval(updateRecordTime, 1000);
+            showToast('开始录制，弹奏古琴吧！');
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            clearInterval(recordTimer);
+
+            const btn = document.getElementById('btnRecord');
+            btn.classList.remove('recording');
+            btn.textContent = '录制';
+
+            document.getElementById('recordingIndicator').classList.remove('active');
+            document.getElementById('statusText').textContent = '录制完成';
+            document.getElementById('recordTime').style.display = 'none';
+            document.getElementById('timeDisplay').textContent = '00:00';
+
+            if (currentRecording.length > 0) {
+                const recording = {
+                    id: Date.now(),
+                    name: `演奏 ${recordings.length + 1}`,
+                    date: new Date().toLocaleString(),
+                    duration: ((Date.now() - recordingStartTime) / 1000).toFixed(1),
+                    notes: currentRecording
+                };
+                recordings.push(recording);
+                localStorage.setItem('guqin_recordings', JSON.stringify(recordings));
+                showToast('录制已保存！');
+                updateRecordingList();
+            }
+        }
+
+        function updateRecordTime() {
+            const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timeDisplay').textContent = `${minutes}:${seconds}`;
+        }
+
+        function recordNote(stringNum, note, freq, mode, huiLabel) {
+            currentRecording.push({
+                string: stringNum,
+                note: note,
+                freq: freq,
+                mode: mode,
+                hui: huiLabel,
+                time: Date.now() - recordingStartTime
+            });
+        }
+
+        // ==================== 回放功能 ====================
+        document.getElementById('btnPlayback').addEventListener('click', () => {
+            if (recordings.length > 0) {
+                playRecording(recordings[recordings.length - 1]);
+            }
+        });
+
+        function playRecording(recording) {
+            if (!recording.notes.length) return;
+            
+            showToast('开始回放...');
+            
+            recording.notes.forEach(noteData => {
+                setTimeout(() => {
+                    synthesizeGuqin(noteData.freq, noteData.mode);
+                }, noteData.time);
+            });
+        }
+
+        // ==================== 录制列表 ====================
+        document.getElementById('btnRecordings').addEventListener('click', () => {
+            updateRecordingList();
+            document.getElementById('recordingsModal').classList.add('show');
+        });
+
+        function updateRecordingList() {
+            const list = document.getElementById('recordingList');
+            
+            if (recordings.length === 0) {
+                list.innerHTML = '<li style="text-align: center; color: rgba(212,196,168,0.5); padding: 40px;">还没有录制任何演奏</li>';
+                document.getElementById('btnPlayback').disabled = true;
+            } else {
+                list.innerHTML = recordings.map(rec => `
+                    <li class="recording-item" style="background: rgba(212,196,168,0.1); border-radius: 10px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="color: #d4c4a8; font-size: 0.95rem;">${rec.name}</div>
+                            <div style="color: rgba(212,196,168,0.6); font-size: 0.8rem;">${rec.date} · ${rec.duration}秒 · ${rec.notes.length}音</div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="playRecordingById(${rec.id})" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: #8B4513; color: #d4c4a8; cursor: pointer;">▶</button>
+                            <button onclick="deleteRecording(${rec.id})" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: #c9302c; color: #fff; cursor: pointer;">🗑</button>
+                        </div>
+                    </li>
+                `).join('');
+                document.getElementById('btnPlayback').disabled = false;
+            }
+        }
+
+        function playRecordingById(id) {
+            const recording = recordings.find(r => r.id === id);
+            if (recording) playRecording(recording);
+        }
+
+        function deleteRecording(id) {
+            if (confirm('确定要删除这个演奏吗？')) {
+                recordings = recordings.filter(r => r.id !== id);
+                localStorage.setItem('guqin_recordings', JSON.stringify(recordings));
+                updateRecordingList();
+                showToast('已删除');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('recordingsModal').classList.remove('show');
+        }
+
+        // ==================== 试听功能 ====================
+        document.getElementById('btnDemo').addEventListener('click', () => {
+            playDemo();
+        });
+
+        function playDemo() {
+            initAudio();
+            showToast('播放示例...');
+            
+            // 简单的《沧海一声笑》旋律片段
+            const demo = [
+                { string: 2, pos: 50, mode: 'sanyin', delay: 0 },      // 散音
+                { string: 4, pos: 50, mode: 'sanyin', delay: 500 },
+                { string: 5, pos: 50, mode: 'sanyin', delay: 1000 },
+                { string: 3, pos: 50, mode: 'sanyin', delay: 1500 },
+                { string: 4, pos: 50, mode: 'sanyin', delay: 2000 },
+            ];
+            
+            demo.forEach(d => {
+                setTimeout(() => {
+                    playGuqinSound(d.string - 1, d.pos, d.mode);
+                }, d.delay);
+            });
+        }
+
+        // ==================== 清空功能 ====================
+        document.getElementById('btnClear').addEventListener('click', () => {
+            if (confirm('确定要清空所有录制数据吗？')) {
+                recordings = [];
+                localStorage.removeItem('guqin_recordings');
+                updateRecordingList();
+                showToast('已清空所有数据');
+            }
+        });
+
+        // ==================== 工具函数 ====================
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            initGuqin();
+            updateRecordingList();
+            
+            document.querySelector('.modal').addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal')) {
+                    closeModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
