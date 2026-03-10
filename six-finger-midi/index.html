@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 v2.2.3 - 音乐听辨训练</title>
+    <title>六指迷笛 v2.2.4 - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
@@ -256,6 +256,44 @@
             margin-bottom: 12px;
             padding-bottom: 8px;
             border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .track-controls {
+            display: flex;
+            gap: 4px;
+            margin-left: auto;
+            margin-right: 8px;
+        }
+
+        .track-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: #888;
+            font-size: 0.7rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+        }
+
+        .track-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        .track-btn.active {
+            background: #e94560;
+            border-color: #e94560;
+            color: #fff;
+        }
+
+        .track-btn.solo-active {
+            background: #feca57;
+            border-color: #feca57;
+            color: #1a1a2e;
         }
 
         .part-icon {
@@ -802,7 +840,7 @@
     <div class="container">
         <!-- 标题 -->
         <header class="header">
-            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.2.3</span></h1>
+            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.2.4</span></h1>
             <div style="font-size: 0.7rem; color: #666; margin-top: 5px; font-family: monospace;">
                 🎧 Wwise Style: Switch Container | Vertical Remixing | Voice Limit=1
             </div>
@@ -872,6 +910,10 @@
                         <div class="part-header">
                             <span class="part-icon">🎺</span>
                             <span class="part-name">旋律</span>
+                            <div class="track-controls">
+                                <button class="track-btn" id="melodyMute" onclick="toggleMute('melody')">M</button>
+                                <button class="track-btn" id="melodySolo" onclick="toggleSolo('melody')">S</button>
+                            </div>
                             <span class="part-status" id="melodyStatus"></span>
                         </div>
                         <div class="part-options" id="melodyOptions">
@@ -886,6 +928,10 @@
                         <div class="part-header">
                             <span class="part-icon">🎹</span>
                             <span class="part-name">和声</span>
+                            <div class="track-controls">
+                                <button class="track-btn" id="harmonyMute" onclick="toggleMute('harmony')">M</button>
+                                <button class="track-btn" id="harmonySolo" onclick="toggleSolo('harmony')">S</button>
+                            </div>
                             <span class="part-status" id="harmonyStatus"></span>
                         </div>
                         <div class="part-options" id="harmonyOptions">
@@ -900,6 +946,10 @@
                         <div class="part-header">
                             <span class="part-icon">🎸</span>
                             <span class="part-name">贝斯</span>
+                            <div class="track-controls">
+                                <button class="track-btn" id="bassMute" onclick="toggleMute('bass')">M</button>
+                                <button class="track-btn" id="bassSolo" onclick="toggleSolo('bass')">S</button>
+                            </div>
                             <span class="part-status" id="bassStatus"></span>
                         </div>
                         <div class="part-options" id="bassOptions">
@@ -914,6 +964,10 @@
                         <div class="part-header">
                             <span class="part-icon">🥁</span>
                             <span class="part-name">鼓组</span>
+                            <div class="track-controls">
+                                <button class="track-btn" id="drumsMute" onclick="toggleMute('drums')">M</button>
+                                <button class="track-btn" id="drumsSolo" onclick="toggleSolo('drums')">S</button>
+                            </div>
                             <span class="part-status" id="drumsStatus"></span>
                         </div>
                         <div class="part-options" id="drumsOptions">
@@ -1040,7 +1094,9 @@
             originalProgressInterval: null,
             userProgressInterval: null,
             compareTargetProgressInterval: null,
-            compareUserProgressInterval: null
+            compareUserProgressInterval: null,
+            mutedTracks: { melody: false, harmony: false, bass: false, drums: false },
+            soloTrack: null
         };
 
         // AudioBuffer 缓存系统（根治延迟）
@@ -2160,6 +2216,76 @@
             } else {
                 container.innerHTML = activeParts.map(p => `<span class="part-badge">${p}</span>`).join('');
             }
+        }
+
+        // ==================== Mute / Solo 控制 ====================
+        
+        function toggleMute(part) {
+            gameState.mutedTracks[part] = !gameState.mutedTracks[part];
+            
+            const btn = document.getElementById(part + 'Mute');
+            if (gameState.mutedTracks[part]) {
+                btn.classList.add('active');
+                // 如果该轨道正在播放，立即静音
+                if (trackGainNodes[part]) {
+                    trackGainNodes[part].gain.setValueAtTime(0, gameState.audioContext.currentTime);
+                }
+            } else {
+                btn.classList.remove('active');
+                // 恢复音量（如果不是被 solo 排除）
+                if (trackGainNodes[part] && !isSoloExcluding(part)) {
+                    trackGainNodes[part].gain.setValueAtTime(MUSIC_TRACKS[part].volume, gameState.audioContext.currentTime);
+                }
+            }
+            
+            // 如果开启 mute，关闭 solo
+            if (gameState.mutedTracks[part] && gameState.soloTrack === part) {
+                toggleSolo(part);
+            }
+        }
+        
+        function toggleSolo(part) {
+            if (gameState.soloTrack === part) {
+                // 关闭 solo
+                gameState.soloTrack = null;
+                document.getElementById(part + 'Solo').classList.remove('solo-active');
+                
+                // 恢复所有非 mute 轨道的音量
+                parts.forEach(p => {
+                    if (trackGainNodes[p] && !gameState.mutedTracks[p]) {
+                        trackGainNodes[p].gain.setValueAtTime(MUSIC_TRACKS[p].volume, gameState.audioContext.currentTime);
+                    }
+                });
+            } else {
+                // 关闭之前的 solo
+                if (gameState.soloTrack) {
+                    document.getElementById(gameState.soloTrack + 'Solo').classList.remove('solo-active');
+                }
+                
+                // 开启新的 solo
+                gameState.soloTrack = part;
+                document.getElementById(part + 'Solo').classList.add('solo-active');
+                
+                // 只有 solo 轨道有音量，其他轨道静音（除了被 mute 的）
+                parts.forEach(p => {
+                    if (trackGainNodes[p]) {
+                        if (p === part && !gameState.mutedTracks[p]) {
+                            trackGainNodes[p].gain.setValueAtTime(MUSIC_TRACKS[p].volume, gameState.audioContext.currentTime);
+                        } else {
+                            trackGainNodes[p].gain.setValueAtTime(0, gameState.audioContext.currentTime);
+                        }
+                    }
+                });
+                
+                // 如果该轨道被 mute，取消 mute
+                if (gameState.mutedTracks[part]) {
+                    toggleMute(part);
+                }
+            }
+        }
+        
+        function isSoloExcluding(part) {
+            return gameState.soloTrack && gameState.soloTrack !== part;
         }
 
         // 确认选择（阶段2 → 阶段3）
