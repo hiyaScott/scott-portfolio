@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六指迷笛 v2.1.6 - 音乐听辨训练</title>
+    <title>六指迷笛 v2.1.7 - 音乐听辨训练</title>
     <style>
         * {
             margin: 0;
@@ -786,10 +786,23 @@
         <div style="margin-top: 30px; padding: 15px 40px; background: linear-gradient(135deg, #e94560, #ff6b6b); border-radius: 30px; color: #fff; font-size: 1.2rem;">点击开始</div>
     </div>
 
+    <!-- 关卡预热 Loading 界面 -->
+    <div id="levelLoadingOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9998;">
+        <div style="font-size: 3rem; margin-bottom: 20px;">🎵</div>
+        <div style="font-size: 1.5rem; color: #fff; margin-bottom: 10px;">正在准备音频...</div>
+        <div style="font-size: 1rem; color: #888; margin-bottom: 30px;">第 <span id="loadingLevelNum">1</span> 关</div>
+        
+        <div style="width: 300px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+            <div id="loadingProgress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #e94560, #ff6b6b, #feca57); transition: width 0.3s ease;"></div>
+        </div>
+        
+        <div id="loadingStatus" style="margin-top: 15px; font-size: 0.9rem; color: #666; font-family: monospace;">初始化音频上下文...</div>
+    </div>
+
     <div class="container">
         <!-- 标题 -->
         <header class="header">
-            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.1.6</span></h1>
+            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.1.7</span></h1>
             <div style="font-size: 0.7rem; color: #666; margin-top: 5px; font-family: monospace;">
                 🎧 Wwise Style: Switch Container | Vertical Remixing | Voice Limit=1
             </div>
@@ -1029,6 +1042,137 @@
             compareTargetProgressInterval: null,
             compareUserProgressInterval: null
         };
+
+        // 音频预热缓存
+        const audioWarmupCache = {
+            isWarmedUp: false
+        };
+
+        // ==================== 关卡预热系统 ====================
+        
+        // 显示关卡加载界面并预热音频
+        async function warmupLevelAudio() {
+            const loadingOverlay = document.getElementById('levelLoadingOverlay');
+            const loadingProgress = document.getElementById('loadingProgress');
+            const loadingStatus = document.getElementById('loadingStatus');
+            const loadingLevelNum = document.getElementById('loadingLevelNum');
+            
+            loadingLevelNum.textContent = gameState.currentLevel;
+            loadingOverlay.style.display = 'flex';
+            
+            // 步骤1: 确保音频上下文就绪 (20%)
+            loadingStatus.textContent = '初始化音频上下文...';
+            initAudioContext();
+            if (gameState.audioContext.state === 'suspended') {
+                await gameState.audioContext.resume();
+            }
+            loadingProgress.style.width = '20%';
+            await sleep(100);
+            
+            // 步骤2: 初始化混音器 (40%)
+            loadingStatus.textContent = '初始化混音器...';
+            initMasterMixer();
+            loadingProgress.style.width = '40%';
+            await sleep(100);
+            
+            // 步骤3: 预热所有声部的所有变体 (80%)
+            loadingStatus.textContent = '预热乐器音色...';
+            await warmupAllInstruments();
+            loadingProgress.style.width = '80%';
+            
+            // 步骤4: 静默播放一次目标组合完成最终预热 (100%)
+            loadingStatus.textContent = '合成目标音乐...';
+            await warmupTargetCombination();
+            loadingProgress.style.width = '100%';
+            
+            // 隐藏加载界面
+            await sleep(200);
+            loadingOverlay.style.display = 'none';
+            audioWarmupCache.isWarmedUp = true;
+            
+            console.log('关卡音频预热完成');
+        }
+        
+        // 预热所有乐器
+        async function warmupAllInstruments() {
+            const ctx = gameState.audioContext;
+            const now = ctx.currentTime;
+            
+            for (const part of parts) {
+                for (const option of options) {
+                    const oscType = getOscillatorTypeForPart(part);
+                    const freq = getWarmupFrequency(part, option);
+                    
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    
+                    osc.type = oscType;
+                    osc.frequency.value = freq;
+                    gain.gain.value = 0;
+                    
+                    osc.connect(gain);
+                    gain.connect(trackGainNodes[part] || ctx.destination);
+                    
+                    osc.start(now);
+                    osc.stop(now + 0.001);
+                }
+            }
+            
+            await sleep(50);
+        }
+        
+        // 静默预热目标组合
+        async function warmupTargetCombination() {
+            const ctx = gameState.audioContext;
+            const now = ctx.currentTime;
+            
+            parts.forEach(part => {
+                const state = gameState.targetCombination[part];
+                const pattern = getPatternForPart(part, state);
+                
+                pattern.forEach((note, i) => {
+                    if (note && i < 2) {
+                        const beatDur = 0.5;
+                        if (part === 'drums') {
+                            createDrumSource(note, now + i * 0.01, 0);
+                        } else {
+                            createNoteSource(noteFrequencies[note] || 440, beatDur * 0.1, now + i * 0.01, 0, getOscillatorTypeForPart(part));
+                        }
+                    }
+                });
+            });
+            
+            await sleep(100);
+        }
+        
+        function getOscillatorTypeForPart(part) {
+            const types = { melody: 'sine', harmony: 'triangle', bass: 'triangle', drums: 'sine' };
+            return types[part] || 'sine';
+        }
+        
+        function getWarmupFrequency(part, option) {
+            const freqs = {
+                melody: { A: 440, B: 523.25, C: 659.25 },
+                harmony: { A: 329.63, B: 392, C: 493.88 },
+                bass: { A: 130.81, B: 146.83, C: 164.81 },
+                drums: { A: 60, B: 80, C: 100 }
+            };
+            return freqs[part]?.[option] || 440;
+        }
+        
+        function getPatternForPart(part, state) {
+            switch(part) {
+                case 'melody': return generateMelodyPattern(state);
+                case 'harmony': return generateHarmonyPattern(state);
+                case 'bass': return generateBassPattern(state);
+                case 'drums': return generateDrumsPattern(state);
+                default: return [];
+            }
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
 
         // 声部顺序：旋律、和声、贝斯、鼓组
         const parts = ['melody', 'harmony', 'bass', 'drums'];
@@ -1810,11 +1954,11 @@
             createVisualizer('targetVisualizer');
             createVisualizer('compareVisualizer');
             
-            // 自动开始播放目标音乐并循环
-            setTimeout(() => {
+            // 先预热音频，再播放
+            warmupLevelAudio().then(() => {
                 playTargetCombination(true);
                 animateVisualizer('targetVisualizer', true);
-            }, 500);
+            });
         }
 
         function generateTargetCombination() {
@@ -2368,11 +2512,11 @@
             // 生成新目标
             generateTargetCombination();
             
-            // 自动播放目标音乐
-            setTimeout(() => {
+            // 先预热音频，再播放
+            warmupLevelAudio().then(() => {
                 playTargetCombination(true);
                 animateVisualizer('targetVisualizer', true);
-            }, 300);
+            });
         }
 
         function updateStageIndicator() {
