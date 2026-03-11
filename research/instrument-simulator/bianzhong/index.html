@@ -420,6 +420,104 @@
             font-size: 0.9rem;
         }
 
+        /* 专业模式面板 */
+        .pro-mode-panel {
+            position: fixed;
+            bottom: 70px;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, rgba(26,26,46,0.98), rgba(15,52,96,0.98));
+            border-top: 2px solid var(--neon-cyan, #00ffff);
+            padding: 15px 20px;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .pro-mode-panel.active {
+            display: flex;
+        }
+
+        .pro-mode-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--neon-cyan, #00ffff);
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .bpm-display {
+            background: rgba(0,255,255,0.1);
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid var(--neon-cyan, #00ffff);
+        }
+
+        .chord-grid {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .chord-btn {
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+
+        .chord-btn:hover {
+            border-color: var(--neon-gold, #f5af19);
+            background: rgba(245,175,25,0.1);
+        }
+
+        .chord-btn.active {
+            border-color: var(--neon-cyan, #00ffff);
+            background: rgba(0,255,255,0.2);
+            box-shadow: 0 0 15px rgba(0,255,255,0.3);
+        }
+
+        .chord-btn .chord-type {
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.6);
+            font-weight: normal;
+        }
+
+        .chord-btn.playing {
+            animation: chordPulse 0.3s ease-out;
+        }
+
+        @keyframes chordPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); background: rgba(0,255,255,0.4); }
+            100% { transform: scale(1); }
+        }
+
+        .mode-toggle {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: #fff;
+        }
+
+        .mode-toggle.active {
+            background: linear-gradient(135deg, #00d2d3, #01a3a4);
+        }
+
         /* 录制列表弹窗 */
         .modal {
             display: none;
@@ -650,9 +748,21 @@
 
         <!-- 控制面板 -->
         <div class="control-panel">
+            <button class="btn btn-secondary mode-toggle" id="btnProMode">🎹 专业模式</button>
             <button class="btn btn-secondary" id="btnDemo">▶️ 试听</button>
             <button class="btn btn-secondary" id="btnClear">🗑️ 清空</button>
             <button class="btn btn-primary btn-large" id="btnPlayback" disabled>▶️ 回放</button>
+        </div>
+    </div>
+
+    <!-- 专业模式面板 -->
+    <div class="pro-mode-panel" id="proModePanel">
+        <div class="pro-mode-header">
+            <span>🎹 琶音器模式 | 和弦分解</span>
+            <span class="bpm-display">BPM 80</span>
+        </div>
+        <div class="chord-grid" id="chordGrid">
+            <!-- 和弦按钮将动态生成 -->
         </div>
     </div>
 
@@ -699,6 +809,71 @@
     <div class="toast" id="toast"></div>
 
     <script>
+        // ==================== 专业模式配置 ====================
+        const BPM = 80;
+        const SIXTEENTH_NOTE_MS = 15000 / BPM; // 16分音符时长 (60000 / BPM / 4)
+        
+        // 和弦库 - 基于 1 2 3 4 5 6 b7 音阶
+        // C大调音阶: C(1) D(2) E(3) F(4) G(5) A(6) Bb(b7)
+        const chordLibrary = {
+            '1': [
+                { name: 'C', type: '大三', notes: [261.63, 329.63, 392.00], intervals: [1, 3, 5] },
+                { name: 'Csus2', type: 'sus2', notes: [261.63, 293.66, 392.00], intervals: [1, 2, 5] },
+                { name: 'Csus4', type: 'sus4', notes: [261.63, 349.23, 392.00], intervals: [1, 4, 5] },
+                { name: 'Cadd9', type: 'add9', notes: [261.63, 329.63, 392.00, 587.33], intervals: [1, 3, 5, 9] },
+                { name: 'C6', type: '6', notes: [261.63, 329.63, 392.00, 440.00], intervals: [1, 3, 5, 6] }
+            ],
+            '2': [
+                { name: 'Dm', type: '小三', notes: [293.66, 349.23, 440.00], intervals: [2, 4, 6] },
+                { name: 'Dsus2', type: 'sus2', notes: [293.66, 329.63, 440.00], intervals: [2, 3, 6] },
+                { name: 'Dsus4', type: 'sus4', notes: [293.66, 392.00, 440.00], intervals: [2, 5, 6] },
+                { name: 'Dm7', type: 'm7', notes: [293.66, 349.23, 440.00, 493.88], intervals: [2, 4, 6, 1] },
+                { name: 'D7sus4', type: '7sus4', notes: [293.66, 392.00, 440.00, 493.88], intervals: [2, 5, 6, 1] }
+            ],
+            '3': [
+                { name: 'Em', type: '小三', notes: [329.63, 392.00, 493.88], intervals: [3, 5, 7] },
+                { name: 'Esus4', type: 'sus4', notes: [329.63, 440.00, 493.88], intervals: [3, 6, 7] },
+                { name: 'E7', type: '属7', notes: [329.63, 392.00, 493.88, 246.94], intervals: [3, 5, 7, 2] },
+                { name: 'Emadd9', type: 'madd9', notes: [329.63, 392.00, 493.88, 587.33], intervals: [3, 5, 7, 9] },
+                { name: 'Em7', type: 'm7', notes: [329.63, 392.00, 493.88, 587.33], intervals: [3, 5, 7, 2] }
+            ],
+            '4': [
+                { name: 'F', type: '大三', notes: [349.23, 440.00, 523.25], intervals: [4, 6, 1] },
+                { name: 'Fsus2', type: 'sus2', notes: [349.23, 392.00, 523.25], intervals: [4, 5, 1] },
+                { name: 'Fadd9', type: 'add9', notes: [349.23, 440.00, 523.25, 659.25], intervals: [4, 6, 1, 3] },
+                { name: 'Fmaj7', type: 'maj7', notes: [349.23, 440.00, 523.25, 622.25], intervals: [4, 6, 1, 3] },
+                { name: 'F6', type: '6', notes: [349.23, 440.00, 523.25, 587.33], intervals: [4, 6, 1, 2] }
+            ],
+            '5': [
+                { name: 'G', type: '大三', notes: [392.00, 493.88, 587.33], intervals: [5, 7, 2] },
+                { name: 'Gsus4', type: 'sus4', notes: [392.00, 523.25, 587.33], intervals: [5, 1, 2] },
+                { name: 'Gadd9', type: 'add9', notes: [392.00, 493.88, 587.33, 659.25], intervals: [5, 7, 2, 3] },
+                { name: 'G7', type: '属7', notes: [392.00, 493.88, 587.33, 349.23], intervals: [5, 7, 2, 4] },
+                { name: 'G6', type: '6', notes: [392.00, 493.88, 587.33, 329.63], intervals: [5, 7, 2, 3] }
+            ],
+            '6': [
+                { name: 'Am', type: '小三', notes: [440.00, 523.25, 659.25], intervals: [6, 1, 3] },
+                { name: 'Asus2', type: 'sus2', notes: [440.00, 493.88, 659.25], intervals: [6, 7, 3] },
+                { name: 'Asus4', type: 'sus4', notes: [440.00, 587.33, 659.25], intervals: [6, 2, 3] },
+                { name: 'Am7', type: 'm7', notes: [440.00, 523.25, 659.25, 392.00], intervals: [6, 1, 3, 5] },
+                { name: 'Amadd9', type: 'madd9', notes: [440.00, 523.25, 659.25, 587.33], intervals: [6, 1, 3, 2] }
+            ],
+            'b7': [
+                { name: 'Bb', type: '大三', notes: [466.16, 587.33, 698.46], intervals: ['b7', 2, 4] },
+                { name: 'Bbsus4', type: 'sus4', notes: [466.16, 659.25, 698.46], intervals: ['b7', 3, 4] },
+                { name: 'Bbadd9', type: 'add9', notes: [466.16, 587.33, 698.46, 523.25], intervals: ['b7', 2, 4, 1] },
+                { name: 'Bb7', type: '属7', notes: [466.16, 587.33, 698.46, 349.23], intervals: ['b7', 2, 4, 6] },
+                { name: 'Bb6', type: '6', notes: [466.16, 587.33, 698.46, 440.00], intervals: ['b7', 2, 4, 6] }
+            ]
+        };
+
+        // 专业模式状态
+        let isProMode = false;
+        let isArpeggiatorPlaying = false;
+        let currentChord = null;
+        let arpeggiatorTimeout = null;
+        let activeChordBtn = null;
+
         // ==================== 音频上下文 ====================
         let audioContext = null;
         let masterGain = null;
@@ -1353,11 +1528,161 @@
             setTimeout(() => toast.classList.remove('show'), 2000);
         }
 
+        // ==================== 专业模式功能 ====================
+        function initProMode() {
+            const chordGrid = document.getElementById('chordGrid');
+            const degrees = ['1', '2', '3', '4', '5', '6', 'b7'];
+            
+            degrees.forEach(degree => {
+                const chords = chordLibrary[degree];
+                // 为每个级数选择一个默认和弦（优先选择包含sus或add的丰富和弦）
+                const defaultChordIndex = chords.findIndex(c => c.type.includes('sus') || c.type.includes('add')) || 0;
+                const chord = chords[defaultChordIndex];
+                
+                const btn = document.createElement('button');
+                btn.className = 'chord-btn';
+                btn.dataset.degree = degree;
+                btn.dataset.chordIndex = defaultChordIndex;
+                btn.innerHTML = `
+                    <span>${degree}</span>
+                    <span class="chord-type">${chord.name}</span>
+                `;
+                
+                // 长按切换和弦类型
+                let longPressTimer;
+                btn.addEventListener('mousedown', () => {
+                    longPressTimer = setTimeout(() => {
+                        cycleChordType(btn, degree);
+                    }, 500);
+                });
+                btn.addEventListener('mouseup', () => clearTimeout(longPressTimer));
+                btn.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+                
+                // 触摸设备支持
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    longPressTimer = setTimeout(() => {
+                        cycleChordType(btn, degree);
+                    }, 500);
+                });
+                btn.addEventListener('touchend', () => clearTimeout(longPressTimer));
+                
+                // 点击触发琶音器
+                btn.addEventListener('click', () => {
+                    if (!isProMode) return;
+                    triggerChordArpeggio(btn, degree, parseInt(btn.dataset.chordIndex));
+                });
+                
+                chordGrid.appendChild(btn);
+            });
+        }
+
+        function cycleChordType(btn, degree) {
+            const chords = chordLibrary[degree];
+            let currentIndex = parseInt(btn.dataset.chordIndex);
+            let nextIndex = (currentIndex + 1) % chords.length;
+            
+            // 切换到下一个和弦类型
+            btn.dataset.chordIndex = nextIndex;
+            const chord = chords[nextIndex];
+            btn.innerHTML = `
+                <span>${degree}</span>
+                <span class="chord-type">${chord.name}</span>
+            `;
+            
+            showToast(`${degree}级: ${chord.name} ${chord.type}`);
+        }
+
+        function triggerChordArpeggio(btn, degree, chordIndex) {
+            initAudio();
+            
+            // 触发限制：如果正在播放，先停止当前琶音
+            if (isArpeggiatorPlaying) {
+                stopArpeggio();
+            }
+            
+            const chords = chordLibrary[degree];
+            const chord = chords[chordIndex];
+            
+            // 视觉反馈
+            document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeChordBtn = btn;
+            
+            // 显示当前和弦
+            showToast(`${chord.name} ${chord.type}`);
+            
+            // 播放琶音（和弦分解）
+            isArpeggiatorPlaying = true;
+            currentChord = chord;
+            
+            // 琶音模式：上行分解
+            playArpeggioPattern(chord.notes, 'up');
+        }
+
+        function playArpeggioPattern(notes, pattern = 'up') {
+            const noteDuration = SIXTEENTH_NOTE_MS; // 16分音符
+            
+            if (pattern === 'up') {
+                // 上行琶音
+                notes.forEach((freq, index) => {
+                    arpeggiatorTimeout = setTimeout(() => {
+                        if (isArpeggiatorPlaying) {
+                            playBellSound(freq, 1.5); // 稍短的音长
+                            
+                            // 最后一个音播放完后重置状态
+                            if (index === notes.length - 1) {
+                                setTimeout(() => {
+                                    isArpeggiatorPlaying = false;
+                                    if (activeChordBtn) {
+                                        activeChordBtn.classList.remove('active');
+                                    }
+                                }, noteDuration);
+                            }
+                        }
+                    }, index * noteDuration);
+                });
+            }
+        }
+
+        function stopArpeggio() {
+            isArpeggiatorPlaying = false;
+            if (arpeggiatorTimeout) {
+                clearTimeout(arpeggiatorTimeout);
+            }
+            if (activeChordBtn) {
+                activeChordBtn.classList.remove('active');
+                activeChordBtn = null;
+            }
+        }
+
+        function toggleProMode() {
+            isProMode = !isProMode;
+            const panel = document.getElementById('proModePanel');
+            const btn = document.getElementById('btnProMode');
+            
+            if (isProMode) {
+                panel.classList.add('active');
+                btn.classList.add('active');
+                btn.innerHTML = '🎹 退出专业';
+                showToast('专业模式开启 - BPM 80');
+            } else {
+                panel.classList.remove('active');
+                btn.classList.remove('active');
+                btn.innerHTML = '🎹 专业模式';
+                stopArpeggio();
+            }
+        }
+
         // ==================== 初始化 ====================
         document.addEventListener('DOMContentLoaded', () => {
             initBells();
             updateRecordingList();
             checkSharedRecording();
+            initProMode(); // 初始化专业模式
+
+            // 专业模式切换按钮
+            document.getElementById('btnProMode').addEventListener('click', toggleProMode);
 
             // 点击空白关闭弹窗
             document.querySelectorAll('.modal').forEach(modal => {
