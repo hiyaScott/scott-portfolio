@@ -810,69 +810,106 @@
 
     <script>
         // ==================== 专业模式配置 ====================
-        const BPM = 80;
-        const SIXTEENTH_NOTE_MS = 15000 / BPM; // 16分音符时长 (60000 / BPM / 4)
+        const BPM = 50; // BPM 50
+        const BEAT_MS = 60000 / BPM; // 每拍时长 (1200ms @ BPM 50)
+        const EIGHTH_NOTE_MS = BEAT_MS / 2; // 8分音符 (600ms)
+        const FINAL_NOTE_BEATS = 2; // 最后一个音停两拍
         
-        // 和弦库 - 基于 1 2 3 4 5 6 b7 音阶 (4/4拍 15135琶音结构)
-        // C大调音阶: C(1) D(2) E(3) F(4) G(5) A(6) Bb(b7)
-        // 15135 结构: 根音(1) - 五度(5) - 高八度根音(1) - 三度(3) - 五度(5)
+        // 音程倍数 (十二平均律)
+        const INTERVAL_RATIOS = {
+            1: 1,           // 根音
+            2: 1.122462,    // 大二度
+            3: 1.189207,    // 小三度 (降3度)
+            4: 1.334840,    // 纯四度
+            5: 1.498307,    // 纯五度
+            6: 1.681793,    // 大六度
+            7: 1.887748,    // 大七度
+            b3: 1.189207,   // 小三度
+            b7: 1.781797,   // 小七度
+            octave: 2       // 八度
+        };
+        
+        // 和弦库 - 4/4拍 15135琶音结构
+        // 1级(C)和2级(D)根音在C2音区 (65.41Hz)
+        // 其他级数根音在C1音区 (32.70Hz)
         const chordLibrary = {
-            '1': [
-                { name: 'C', type: '大三', notes: [261.63, 392.00, 523.25, 329.63, 392.00], intervals: [1, 5, 1, 3, 5], pattern: '15135' },
-                { name: 'Csus2', type: 'sus2', notes: [261.63, 392.00, 523.25, 293.66, 392.00], intervals: [1, 5, 1, 2, 5], pattern: '15125' },
-                { name: 'Csus4', type: 'sus4', notes: [261.63, 392.00, 523.25, 349.23, 392.00], intervals: [1, 5, 1, 4, 5], pattern: '15145' },
-                { name: 'Cadd9', type: 'add9', notes: [261.63, 392.00, 523.25, 329.63, 392.00], intervals: [1, 5, 1, 3, 5], pattern: '15135' },
-                { name: 'C6', type: '6', notes: [261.63, 392.00, 523.25, 329.63, 392.00], intervals: [1, 5, 1, 3, 5], pattern: '15135' }
-            ],
-            '2': [
-                { name: 'Dm', type: '小三', notes: [293.66, 440.00, 587.33, 349.23, 440.00], intervals: [2, 6, 2, 4, 6], pattern: '26246' },
-                { name: 'Dsus2', type: 'sus2', notes: [293.66, 440.00, 587.33, 329.63, 440.00], intervals: [2, 6, 2, 3, 6], pattern: '26236' },
-                { name: 'Dsus4', type: 'sus4', notes: [293.66, 440.00, 587.33, 392.00, 440.00], intervals: [2, 6, 2, 5, 6], pattern: '26256' },
-                { name: 'Dm7', type: 'm7', notes: [293.66, 440.00, 587.33, 349.23, 440.00], intervals: [2, 6, 2, 4, 6], pattern: '26246' },
-                { name: 'D7sus4', type: '7sus4', notes: [293.66, 440.00, 587.33, 392.00, 440.00], intervals: [2, 6, 2, 5, 6], pattern: '26256' }
-            ],
-            '3': [
-                { name: 'Em', type: '小三', notes: [329.63, 493.88, 659.25, 392.00, 493.88], intervals: [3, 7, 3, 5, 7], pattern: '37357' },
-                { name: 'Esus4', type: 'sus4', notes: [329.63, 493.88, 659.25, 440.00, 493.88], intervals: [3, 7, 3, 6, 7], pattern: '37367' },
-                { name: 'E7', type: '属7', notes: [329.63, 493.88, 659.25, 392.00, 493.88], intervals: [3, 7, 3, 5, 7], pattern: '37357' },
-                { name: 'Emadd9', type: 'madd9', notes: [329.63, 493.88, 659.25, 392.00, 493.88], intervals: [3, 7, 3, 5, 7], pattern: '37357' },
-                { name: 'Em7', type: 'm7', notes: [329.63, 493.88, 659.25, 392.00, 493.88], intervals: [3, 7, 3, 5, 7], pattern: '37357' }
-            ],
-            '4': [
-                { name: 'F', type: '大三', notes: [349.23, 523.25, 698.46, 440.00, 523.25], intervals: [4, 1, 4, 6, 1], pattern: '41461' },
-                { name: 'Fsus2', type: 'sus2', notes: [349.23, 523.25, 698.46, 392.00, 523.25], intervals: [4, 1, 4, 5, 1], pattern: '41451' },
-                { name: 'Fadd9', type: 'add9', notes: [349.23, 523.25, 698.46, 440.00, 523.25], intervals: [4, 1, 4, 6, 1], pattern: '41461' },
-                { name: 'Fmaj7', type: 'maj7', notes: [349.23, 523.25, 698.46, 440.00, 523.25], intervals: [4, 1, 4, 6, 1], pattern: '41461' },
-                { name: 'F6', type: '6', notes: [349.23, 523.25, 698.46, 440.00, 523.25], intervals: [4, 1, 4, 6, 1], pattern: '41461' }
-            ],
-            '5': [
-                { name: 'G', type: '大三', notes: [392.00, 587.33, 783.99, 493.88, 587.33], intervals: [5, 2, 5, 7, 2], pattern: '52572' },
-                { name: 'Gsus4', type: 'sus4', notes: [392.00, 587.33, 783.99, 523.25, 587.33], intervals: [5, 2, 5, 1, 2], pattern: '52512' },
-                { name: 'Gadd9', type: 'add9', notes: [392.00, 587.33, 783.99, 493.88, 587.33], intervals: [5, 2, 5, 7, 2], pattern: '52572' },
-                { name: 'G7', type: '属7', notes: [392.00, 587.33, 783.99, 493.88, 587.33], intervals: [5, 2, 5, 7, 2], pattern: '52572' },
-                { name: 'G6', type: '6', notes: [392.00, 587.33, 783.99, 493.88, 587.33], intervals: [5, 2, 5, 7, 2], pattern: '52572' }
-            ],
-            '6': [
-                { name: 'Am', type: '小三', notes: [440.00, 659.25, 880.00, 523.25, 659.25], intervals: [6, 3, 6, 1, 3], pattern: '63613' },
-                { name: 'Asus2', type: 'sus2', notes: [440.00, 659.25, 880.00, 493.88, 659.25], intervals: [6, 3, 6, 7, 3], pattern: '63673' },
-                { name: 'Asus4', type: 'sus4', notes: [440.00, 659.25, 880.00, 587.33, 659.25], intervals: [6, 3, 6, 2, 3], pattern: '63623' },
-                { name: 'Am7', type: 'm7', notes: [440.00, 659.25, 880.00, 523.25, 659.25], intervals: [6, 3, 6, 1, 3], pattern: '63613' },
-                { name: 'Amadd9', type: 'madd9', notes: [440.00, 659.25, 880.00, 523.25, 659.25], intervals: [6, 3, 6, 1, 3], pattern: '63613' }
-            ],
-            'b7': [
-                { name: 'Bb', type: '大三', notes: [466.16, 698.46, 932.32, 587.33, 698.46], intervals: ['b7', 4, 'b7', 2, 4], pattern: 'b74b724' },
-                { name: 'Bbsus4', type: 'sus4', notes: [466.16, 698.46, 932.32, 659.25, 698.46], intervals: ['b7', 4, 'b7', 3, 4], pattern: 'b74b734' },
-                { name: 'Bbadd9', type: 'add9', notes: [466.16, 698.46, 932.32, 587.33, 698.46], intervals: ['b7', 4, 'b7', 2, 4], pattern: 'b74b724' },
-                { name: 'Bb7', type: '属7', notes: [466.16, 698.46, 932.32, 587.33, 698.46], intervals: ['b7', 4, 'b7', 2, 4], pattern: 'b74b724' },
-                { name: 'Bb6', type: '6', notes: [466.16, 698.46, 932.32, 587.33, 698.46], intervals: ['b7', 4, 'b7', 2, 4], pattern: 'b74b724' }
-            ]
+            '1': { // C 和弦 - 根音C2 (65.41Hz)
+                rootFreq: 65.41,
+                chords: [
+                    { name: 'C', type: '大三', pattern: [1, 5, 'octave', 3, 5] },
+                    { name: 'Csus2', type: 'sus2', pattern: [1, 5, 'octave', 2, 5] },
+                    { name: 'Csus4', type: 'sus4', pattern: [1, 5, 'octave', 4, 5] },
+                    { name: 'Cadd9', type: 'add9', pattern: [1, 5, 'octave', 3, 5] },
+                    { name: 'C6', type: '6', pattern: [1, 5, 'octave', 3, 6] }
+                ]
+            },
+            '2': { // Dm 和弦 - 根音D2 (73.42Hz)
+                rootFreq: 73.42,
+                chords: [
+                    { name: 'Dm', type: '小三', pattern: [1, 5, 'octave', 'b3', 5] },
+                    { name: 'Dsus2', type: 'sus2', pattern: [1, 5, 'octave', 2, 5] },
+                    { name: 'Dsus4', type: 'sus4', pattern: [1, 5, 'octave', 4, 5] },
+                    { name: 'Dm7', type: 'm7', pattern: [1, 5, 'octave', 'b3', 'b7'] },
+                    { name: 'D7sus4', type: '7sus4', pattern: [1, 5, 'octave', 4, 'b7'] }
+                ]
+            },
+            '3': { // Em 和弦 - 根音E1 (41.20Hz = C1 * 大三度)
+                rootFreq: 41.20,
+                chords: [
+                    { name: 'Em', type: '小三', pattern: [1, 5, 'octave', 'b3', 5] },
+                    { name: 'Esus4', type: 'sus4', pattern: [1, 5, 'octave', 4, 5] },
+                    { name: 'E7', type: '属7', pattern: [1, 5, 'octave', 'b3', 'b7'] },
+                    { name: 'Emadd9', type: 'madd9', pattern: [1, 5, 'octave', 'b3', 5] },
+                    { name: 'Em7', type: 'm7', pattern: [1, 5, 'octave', 'b3', 'b7'] }
+                ]
+            },
+            '4': { // F 和弦 - 根音F1 (43.65Hz)
+                rootFreq: 43.65,
+                chords: [
+                    { name: 'F', type: '大三', pattern: [1, 5, 'octave', 3, 5] },
+                    { name: 'Fsus2', type: 'sus2', pattern: [1, 5, 'octave', 2, 5] },
+                    { name: 'Fadd9', type: 'add9', pattern: [1, 5, 'octave', 3, 5] },
+                    { name: 'Fmaj7', type: 'maj7', pattern: [1, 5, 'octave', 3, 7] },
+                    { name: 'F6', type: '6', pattern: [1, 5, 'octave', 3, 6] }
+                ]
+            },
+            '5': { // G 和弦 - 根音G1 (49.00Hz)
+                rootFreq: 49.00,
+                chords: [
+                    { name: 'G', type: '大三', pattern: [1, 5, 'octave', 3, 5] },
+                    { name: 'Gsus4', type: 'sus4', pattern: [1, 5, 'octave', 4, 5] },
+                    { name: 'Gadd9', type: 'add9', pattern: [1, 5, 'octave', 3, 5] },
+                    { name: 'G7', type: '属7', pattern: [1, 5, 'octave', 3, 'b7'] },
+                    { name: 'G6', type: '6', pattern: [1, 5, 'octave', 3, 6] }
+                ]
+            },
+            '6': { // Am 和弦 - 根音A1 (55.00Hz)
+                rootFreq: 55.00,
+                chords: [
+                    { name: 'Am', type: '小三', pattern: [1, 5, 'octave', 'b3', 5] },
+                    { name: 'Asus2', type: 'sus2', pattern: [1, 5, 'octave', 2, 5] },
+                    { name: 'Asus4', type: 'sus4', pattern: [1, 5, 'octave', 4, 5] },
+                    { name: 'Am7', type: 'm7', pattern: [1, 5, 'octave', 'b3', 'b7'] },
+                    { name: 'Amadd9', type: 'madd9', pattern: [1, 5, 'octave', 'b3', 5] }
+                ]
+            },
+            'b7': { // Bb 和弦 - 根音Bb1 (58.27Hz)
+                rootFreq: 58.27,
+                chords: [
+                    { name: 'Bb', type: '大三', pattern: [1, 5, 'octave', 3, 5] },
+                    { name: 'Bbsus4', type: 'sus4', pattern: [1, 5, 'octave', 4, 5] },
+                    { name: 'Bbadd9', type: 'add9', pattern: [1, 5, 'octave', 3, 5] },
+                    { name: 'Bb7', type: '属7', pattern: [1, 5, 'octave', 3, 'b7'] },
+                    { name: 'Bb6', type: '6', pattern: [1, 5, 'octave', 3, 6] }
+                ]
+            }
         };
 
         // 专业模式状态
         let isProMode = false;
         let isArpeggiatorPlaying = false;
         let currentChord = null;
-        let arpeggiatorTimeouts = []; // 改为数组保存所有定时器
+        let arpeggiatorTimeouts = [];
         let activeChordBtn = null;
 
         // ==================== 音频上下文 ====================
