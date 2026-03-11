@@ -759,7 +759,7 @@
     <div class="pro-mode-panel" id="proModePanel">
         <div class="pro-mode-header">
             <span>🎹 琶音器模式 | 和弦分解</span>
-            <span class="bpm-display">BPM 80</span>
+            <span class="bpm-display">BPM 50</span>
         </div>
         <div class="chord-grid" id="chordGrid">
             <!-- 和弦按钮将动态生成 -->
@@ -1617,7 +1617,8 @@
             const degrees = ['1', '2', '3', '4', '5', '6', 'b7'];
             
             degrees.forEach(degree => {
-                const chords = chordLibrary[degree];
+                const chordData = chordLibrary[degree];
+                const chords = chordData.chords;
                 // 为每个级数选择一个默认和弦（优先选择包含sus或add的丰富和弦）
                 const defaultChordIndex = chords.findIndex(c => c.type.includes('sus') || c.type.includes('add')) || 0;
                 const chord = chords[defaultChordIndex];
@@ -1661,7 +1662,8 @@
         }
 
         function cycleChordType(btn, degree) {
-            const chords = chordLibrary[degree];
+            const chordData = chordLibrary[degree];
+            const chords = chordData.chords;
             let currentIndex = parseInt(btn.dataset.chordIndex);
             let nextIndex = (currentIndex + 1) % chords.length;
             
@@ -1676,6 +1678,16 @@
             showToast(`${degree}级: ${chord.name} ${chord.type}`);
         }
 
+        // 根据pattern生成音符频率数组
+        function generateChordNotes(rootFreq, pattern) {
+            const notes = [];
+            for (const interval of pattern) {
+                const ratio = INTERVAL_RATIOS[interval];
+                notes.push(rootFreq * ratio);
+            }
+            return notes;
+        }
+
         function triggerChordArpeggio(btn, degree, chordIndex) {
             initAudio();
             
@@ -1684,8 +1696,12 @@
                 stopArpeggio();
             }
             
-            const chords = chordLibrary[degree];
-            const chord = chords[chordIndex];
+            const chordData = chordLibrary[degree];
+            const chord = chordData.chords[chordIndex];
+            const rootFreq = chordData.rootFreq;
+            
+            // 生成音符频率
+            const notes = generateChordNotes(rootFreq, chord.pattern);
             
             // 视觉反馈
             document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
@@ -1699,14 +1715,9 @@
             isArpeggiatorPlaying = true;
             currentChord = chord;
             
-            // 琶音模式：上行分解
-            playArpeggioPattern(chord.notes, 'up');
+            // 琶音模式：4/4拍 15135结构
+            playArpeggioPattern(notes);
         }
-
-        // 4/4拍 琶音器配置
-        const BEAT_MS = 60000 / BPM; // 每拍时长 (750ms @ BPM 80)
-        const EIGHTH_NOTE_MS = BEAT_MS / 2; // 8分音符 (375ms)
-        const FINAL_NOTE_BEATS = 2; // 最后一个音停两拍
         
         function playArpeggioPattern(notes, pattern = '15135') {
             const now = audioContext.currentTime;
@@ -1716,7 +1727,7 @@
             arpeggiatorTimeouts = [];
             
             // 5个音的 15135 结构
-            // 0ms: 音1, 375ms: 音5, 750ms: 音1, 1125ms: 音3, 1500ms: 音5(延长)
+            // 0ms: 音1, 600ms: 音5, 1200ms: 音1, 1800ms: 音3, 2400ms: 音5(延长)
             const noteCount = notes.length;
             const regularNoteDuration = EIGHTH_NOTE_MS / 1000; // 8分音符秒数
             const finalNoteDuration = (BEAT_MS * FINAL_NOTE_BEATS) / 1000; // 最后音延长两拍
@@ -1767,7 +1778,7 @@
                 if (activeChordBtn) {
                     activeChordBtn.classList.remove('active');
                 }
-            }, BEAT_MS * 4); // 4拍 = 3000ms @ BPM 80
+            }, BEAT_MS * 4); // 4拍 = 4800ms @ BPM 50
             
             arpeggiatorTimeouts = [...visualTimeouts, resetTimeout];
         }
@@ -1792,7 +1803,7 @@
                 panel.classList.add('active');
                 btn.classList.add('active');
                 btn.innerHTML = '🎹 退出专业';
-                showToast('专业模式开启 - BPM 80');
+                showToast('专业模式开启 - BPM 50');
             } else {
                 panel.classList.remove('active');
                 btn.classList.remove('active');
