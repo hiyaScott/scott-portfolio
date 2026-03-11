@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编钟模拟器 - 游戏设计文档 (GDD)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Share+Tech+Mono&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00ffff;
+            --neon-green: #39ff14;
+            --neon-yellow: #ffff00;
+            --neon-orange: #ff6600;
+            --neon-gold: #f5af19;
+            --dark: #0a0a0a;
+            --deep-blue: #1a1a2e;
+            --section-blue: #16213e;
+        }
+        
+        body {
+            background: var(--dark);
+            color: #e0e0e0;
+            font-family: 'Noto Sans SC', sans-serif;
+            line-height: 1.8;
+            min-height: 100vh;
+        }
+        
+        /* 头部 */
+        .header {
+            background: linear-gradient(135deg, var(--deep-blue) 0%, var(--section-blue) 100%);
+            padding: 60px 20px;
+            text-align: center;
+            border-bottom: 3px solid var(--neon-gold);
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            color: var(--neon-gold);
+            text-shadow: 0 0 30px rgba(245, 175, 25, 0.5);
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            font-size: 1.2rem;
+            color: rgba(255,255,255,0.7);
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        .header .version {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 8px 20px;
+            background: rgba(245, 175, 25, 0.1);
+            border: 1px solid var(--neon-gold);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: var(--neon-gold);
+        }
+        
+        /* 导航 */
+        .nav {
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .nav a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+        
+        .nav a:hover {
+            background: rgba(245, 175, 25, 0.2);
+            color: var(--neon-gold);
+        }
+        
+        /* 主内容区 */
+        .main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        /* 章节标题 */
+        .section {
+            margin-bottom: 60px;
+        }
+        
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--neon-gold);
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(245, 175, 25, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .section-title .icon {
+            font-size: 1.5rem;
+        }
+        
+        /* 子标题 */
+        .subsection {
+            margin: 40px 0 30px;
+            padding-left: 20px;
+            border-left: 4px solid var(--neon-cyan);
+        }
+        
+        .subsection h3 {
+            font-size: 1.4rem;
+            color: var(--neon-cyan);
+            margin-bottom: 15px;
+        }
+        
+        /* 正文 */
+        p {
+            margin-bottom: 20px;
+            text-align: justify;
+        }
+        
+        /* 引用块 */
+        .quote {
+            background: linear-gradient(135deg, rgba(0,255,255,0.05), rgba(255,0,255,0.05));
+            border-left: 4px solid var(--neon-cyan);
+            padding: 20px 25px;
+            margin: 25px 0;
+            border-radius: 0 10px 10px 0;
+            font-style: italic;
+            color: rgba(255,255,255,0.9);
+        }
+        
+        /* 信息框 */
+        .info-box {
+            background: rgba(245, 175, 25, 0.05);
+            border: 1px solid rgba(245, 175, 25, 0.3);
+            border-radius: 10px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        
+        .info-box-title {
+            font-weight: 700;
+            color: var(--neon-gold);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 列表 */
+        ul, ol {
+            margin: 20px 0;
+            padding-left: 30px;
+        }
+        
+        li {
+            margin: 12px 0;
+        }
+        
+        /* 表格 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            font-size: 0.95rem;
+        }
+        
+        th {
+            background: rgba(245, 175, 25, 0.2);
+            color: var(--neon-gold);
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        tr:hover {
+            background: rgba(255,255,255,0.03);
+        }
+        
+        /* 代码块 */
+        code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9em;
+            color: var(--neon-cyan);
+        }
+        
+        pre {
+            background: rgba(0,0,0,0.5);
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin: 20px 0;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        /* 图示容器 */
+        .diagram {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .diagram-title {
+            color: var(--neon-gold);
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        
+        /* 交互流程图 */
+        .flow {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin: 30px 0;
+        }
+        
+        .flow-step {
+            background: linear-gradient(135deg, var(--section-blue), var(--deep-blue));
+            padding: 15px 25px;
+            border-radius: 30px;
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            font-weight: 500;
+        }
+        
+        .flow-arrow {
+            color: var(--neon-gold);
+            font-size: 1.5rem;
+        }
+        
+        /* 双音特性展示 */
+        .dual-tone-demo {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .tone-box {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid;
+            border-radius: 15px;
+            padding: 25px 35px;
+            text-align: center;
+            min-width: 200px;
+        }
+        
+        .tone-box.zheng {
+            border-color: var(--neon-cyan);
+        }
+        
+        .tone-box.ce {
+            border-color: var(--neon-pink);
+        }
+        
+        .tone-box h4 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+        
+        .tone-box.zheng h4 { color: var(--neon-cyan); }
+        .tone-box.ce h4 { color: var(--neon-pink); }
+        
+        .tone-note {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        
+        .tone-freq {
+            font-family: 'Share Tech Mono', monospace;
+            color: rgba(255,255,255,0.6);
+            font-size: 0.9rem;
+        }
+        
+        /* 音频波形示意 */
+        .waveform {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            height: 60px;
+            margin: 20px 0;
+        }
+        
+        .wave-bar {
+            width: 4px;
+            background: linear-gradient(to top, var(--neon-gold), transparent);
+            border-radius: 2px;
+            animation: wave 1.2s ease-in-out infinite;
+        }
+        
+        @keyframes wave {
+            0%, 100% { height: 20%; }
+            50% { height: 100%; }
+        }
+        
+        /* 标签 */
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 3px;
+        }
+        
+        .tag-tech { background: rgba(0,255,255,0.15); color: var(--neon-cyan); }
+        .tag-ui { background: rgba(255,0,255,0.15); color: var(--neon-pink); }
+        .tag-core { background: rgba(245,175,25,0.15); color: var(--neon-gold); }
+        .tag-complete { background: rgba(57,255,20,0.15); color: var(--neon-green); }
+        
+        /* 功能状态 */
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .status-complete .status-dot { background: var(--neon-green); box-shadow: 0 0 8px var(--neon-green); }
+        .status-complete { color: var(--neon-green); }
+        .status-progress .status-dot { background: var(--neon-gold); }
+        .status-progress { color: var(--neon-gold); }
+        
+        /* 底部 */
+        .footer {
+            background: var(--deep-blue);
+            padding: 40px 20px;
+            text-align: center;
+            border-top: 2px solid rgba(245, 175, 25, 0.3);
+        }
+        
+        .footer a {
+            color: var(--neon-gold);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px 30px;
+            border: 2px solid var(--neon-gold);
+            border-radius: 30px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .footer a:hover {
+            background: var(--neon-gold);
+            color: var(--dark);
+        }
+        
+        /* 锚点偏移修正 */
+        .anchor {
+            display: block;
+            position: relative;
+            top: -70px;
+            visibility: hidden;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2rem; }
+            .section-title { font-size: 1.5rem; }
+            .nav-inner { gap: 5px; }
+            .nav a { padding: 6px 10px; font-size: 0.8rem; }
+            table { font-size: 0.85rem; }
+            th, td { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <header class="header">
+        <h1>🔔 编钟模拟器</h1>
+        <p class="subtitle">Bianzhong Simulator - Game Design Document</p>
+        <span class="version">v1.0.0 | 2026.03.11</span>
+    </header>
+    
+    <!-- 导航 -->
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#overview">项目概述</a>
+            <a href="#core">核心机制</a>
+            <a href="#audio">音频系统</a>
+            <a href="#ui">UI/UE 设计</a>
+            <a href="#interaction">交互逻辑</a>
+            <a href="#recording">录制系统</a>
+            <a href="#tech">技术实现</a>
+            <a href="#roadmap">开发路线图</a>
+        </div>
+    </nav>
+    
+    <!-- 主内容 -->
+    <main class="main">
+        <!-- 项目概述 -->
+        <section class="section">
+            <span class="anchor" id="overview"></span>
+            <h2 class="section-title"><span class="icon">📋</span>项目概述</h2>
+            
+            <div class="quote">
+                "编钟模拟器是一款基于 Web Audio API 开发的交互式音乐体验应用，旨在还原中国古代曾侯乙编钟的独特音色与演奏方式，让用户能够在浏览器中体验这一世界级文化遗产的魅力。"
+            </div>
+            
+            <div class="subsection">
+                <h3>核心定位</h3>
+                <p>编钟模拟器不是传统意义上的"游戏"，而是一个<strong>文化体验型音乐应用</strong>。核心价值在于：</p>
+                <ul>
+                    <li><strong>文化传承</strong> - 让现代人以互动方式接触和理解编钟这一古老乐器</li>
+                    <li><strong>音乐创作</strong> - 提供录制和分享功能，鼓励用户创作原创音乐</li>
+                    <li><strong>教育科普</strong> - 展示一钟双音的物理原理和音乐理论知识</li>
+                </ul>
+            </div>
+            
+            <div class="subsection">
+                <h3>灵感来源</h3>
+                <p>设计参考对象：<strong>曾侯乙编钟</strong>（战国早期，1978年湖北随县出土）</p>
+                <table>
+                    <tr>
+                        <th>参考维度</th>
+                        <th>实现方式</th>
+                    </tr>
+                    <tr>
+                        <td>音阶结构</td>
+                        <td>采用五声音阶 (C-D-E-G-A) 对应宫商角徵羽</td>
+                    </tr>
+                    <tr>
+                        <td>三排布局</td>
+                        <td>上层小编钟（高音）、中层中编钟（中音）、下层大编钟（低音）</td>
+                    </tr>
+                    <tr>
+                        <td>一钟双音</td>
+                        <td>每口钟可发出正鼓音和侧鼓音两个不同音高</td>
+                    </tr>
+                    <tr>
+                        <td>铜器音色</td>
+                        <td>使用 Web Audio API 合成带有金属谐波的钟声</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="info-box">
+                <div class="info-box-title">🎯 设计目标</div>
+                <ol>
+                    <li>在移动端浏览器实现接近原生 App 的触控体验</li>
+                    <li>准确还原编钟"一钟双音"的声学特性</li>
+                    <li>提供完整的录制-回放-分享创作闭环</li>
+                    <li>保持界面简洁优雅，突出编钟本身的美学</li>
+                </ol>
+            </div>
+        </section>
+        
+        <!-- 核心机制 -->
+        <section class="section">
+            <span class="anchor" id="core"></span>
+            <h2 class="section-title"><span class="icon">⚙️</span>核心机制</h2>
+            
+            <div class="subsection">
+                <h3>一钟双音系统</h3>
+                <p>这是编钟模拟器最核心的设计特色，也是曾侯乙编钟最神奇的声学特性。</p>
+                
+                <div class="dual-tone-demo">
+                    <div class="tone-box zheng">
+                        <h4>🔵 正敲 (正鼓音)</h4>
+                        <p>敲击钟的正鼓部</p>
+                        <div class="waveform">
+                            <div class="wave-bar" style="animation-delay: 0s;"></div>
+                            <div class="wave-bar" style="animation-delay: 0.1s;"></div>
+                            <div class="wave-bar" style="animation-delay: 0.2s;"></div>
+                            <div class="wave-bar" style="animation-delay: 0.3s;"></div>
+                            <div class="wave-bar" style="animation-delay: 0.4s;"></div>
+                            <div class="wave-bar" style="animation-delay: 0.5s;"></div>
+                        </div>
+                        <div class="tone-note">C4</div>
+                        <div class="tone-freq">261.63 Hz</div>
+                        <p style="font-size: 0.85rem; margin-top: 10px; color: rgba(255,255,255,0.6);">音高较低，音色浑厚</p>
+                    </div>
+                    
+                    <div style="font-size: 3rem; color: var(--neon-gold);">+3°</div>
+                    
+                    <div class="tone-box ce">
+                        <h4>🔴 侧敲 (侧鼓音)</h4>
+                        <p>敲击钟的侧鼓部</p>
+                        <div class="waveform">
+                            <div class="wave-bar" style="animation-delay: 0.2s; background: linear-gradient(to top, var(--neon-pink), transparent);"></div>
+                            <div class="wave-bar" style="animation-delay: 0.3s; background: linear-gradient(to top, var(--neon-pink), transparent);"></div>
+                            <div class="wave-bar" style="animation-delay: 0.4s; background: linear-gradient(to top, var(--neon-pink), transparent);"></div>
+                            <div class="wave-bar" style="animation-delay: 0.5s; background: linear-gradient(to top, var(--neon-pink), transparent);"></div>
+                            <div class="wave-bar" style="animation-delay: 0.6s; background: linear-gradient(to top, var(--neon-pink), transparent);"></div>
+                            <div class="wave-bar" style="animation-delay: 0.7s; background: linear-gradient(to top, var(--neon-pink), transparent);"></div>
+                        </div>
+                        <div class="tone-note">E4</div>
+                        <div class="tone-freq">329.63 Hz</div>
+                        <p style="font-size: 0.85rem; margin-top: 10px; color: rgba(255,255,255,0.6);">音高较高，音色清亮</p>
+                    </div>
+                </div>
+                
+                <p>每口编钟的两个音高相差<strong>大三度</strong>（约4个半音），这一特性使得仅15口钟就能覆盖30个不同音高，极大地扩展了音域。</p>
+            </div>
+            
+            <div class="subsection">
+                <h3>音区架构</h3>
+                <p>编钟按大小分为三排，对应高中低三个音区：</p>
+                
+                <table>
+                    <tr>
+                        <th>排层</th>
+                        <th>钟大小</th>
+                        <th>音区范围</th>
+                        <th>数量</th>
+                        <th>视觉设计</th>
+                    </tr>
+                    <tr>
+                        <td>上层</td>
+                        <td>小编钟</td>
+                        <td>C5 - A5</td>
+                        <td>5口</td>
+                        <td>尺寸最小，位置最高</td>
+                    </tr>
+                    <tr>
+                        <td>中层</td>
+                        <td>中编钟</td>
+                        <td>C4 - A4</td>
+                        <td>5口</td>
+                        <td>中等尺寸，中间位置</td>
+                    </tr>
+                    <tr>
+                        <td>下层</td>
+                        <td>大编钟</td>
+                        <td>C3 - A3</td>
+                        <td>5口</td>
+                        <td>尺寸最大，位置最低</td>
+                    </tr>
+                </table>
+                
+                <p>总计：15口编钟 × 2音/钟 = <strong>30个可用音高</strong></p>
+            </div>
+            
+            <div class="subsection">
+                <h3>音色合成原理</h3>
+                <p>使用 Web Audio API 的振荡器节点合成编钟音色，包含三个层次：</p>
+                
+                <div class="info-box">
+                    <div class="info-box-title">🔊 音频架构</div>
+                    <ol>
+                        <li><strong>基频层</strong> - 正弦波，基频 <code>f</code>，音量 0.6，3秒衰减</li>
+                        <li><strong>二次谐波</strong> - 正弦波，频率 <code>2f</code>，音量 0.3，2.4秒衰减</li>
+                        <li><strong>三次谐波</strong> - 三角波，频率 <code>3f</code>，音量 0.15，1.5秒衰减（提供金属感）</li>
+                    </ol>
+                    <p style="margin-top: 15px; font-size: 0.9rem; color: rgba(255,255,255,0.7);">
+                        包络设计：Attack 20ms（快速起音）→ Decay 3s（长衰减）<br>
+                        这一设计模拟了铜钟被敲击后持续振动的物理特性
+                    </p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 音频系统 -->
+        <section class="section">
+            <span class="anchor" id="audio"></span>
+            <h2 class="section-title"><span class="icon">🎵</span>音频系统</h2>
+            
+            <div class="subsection">
+                <h3>音频配置表</h3>
+                <table>
+                    <tr>
+                        <th>层级</th>
+                        <th>音名</th>
+                        <th>正敲频率</th>
+                        <th>侧敲频率</th>
+                        <th>波形类型</th>
+                    </tr>
+                    <tr>
+                        <td rowspan="5">上层 (高音)</td>
+                        <td>C5</td>
+                        <td>523.25 Hz</td>
+                        <td>659.25 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>D5</td>
+                        <td>587.33 Hz</td>
+                        <td>698.46 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>E5</td>
+                        <td>659.25 Hz</td>
+                        <td>783.99 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>G5</td>
+                        <td>783.99 Hz</td>
+                        <td>987.77 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>A5</td>
+                        <td>880.00 Hz</td>
+                        <td>1046.50 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="5">中层 (中音)</td>
+                        <td>C4</td>
+                        <td>261.63 Hz</td>
+                        <td>329.63 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>D4</td>
+                        <td>293.66 Hz</td>
+                        <td>349.23 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>E4</td>
+                        <td>329.63 Hz</td>
+                        <td>392.00 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>G4</td>
+                        <td>392.00 Hz</td>
+                        <td>493.88 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>A4</td>
+                        <td>440.00 Hz</td>
+                        <td>523.25 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="5">下层 (低音)</td>
+                        <td>C3</td>
+                        <td>130.81 Hz</td>
+                        <td>164.81 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>D3</td>
+                        <td>146.83 Hz</td>
+                        <td>174.61 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>E3</td>
+                        <td>164.81 Hz</td>
+                        <td>196.00 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>G3</td>
+                        <td>196.00 Hz</td>
+                        <td>246.94 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                    <tr>
+                        <td>A3</td>
+                        <td>220.00 Hz</td>
+                        <td>261.63 Hz</td>
+                        <td>Sine + Triangle</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="subsection">
+                <h3>音频路由图</h3>
+                <div class="diagram">
+                    <div class="diagram-title">音频信号流</div>
+                    <div class="flow">
+                        <div class="flow-step">振荡器层<br><small>基频+谐波</small></div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-step">增益节点<br><small>ADSR包络</small></div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-step">主增益<br><small>Volume: 0.8</small></div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-step">音频输出<br><small>destination</small></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- UI/UE 设计 -->
+        <section class="section">
+            <span class="anchor" id="ui"></span>
+            <h2 class="section-title"><span class="icon">🎨</span>UI/UE 设计</h2>
+            
+            <div class="subsection">
+                <h3>设计原则</h3>
+                <ul>
+                    <li><strong>沉浸优先</strong> - 深色背景减少视觉干扰，突出金色编钟</li>
+                    <li><strong>横屏体验</strong> - 强制横屏模式，模拟真实编钟的宽展布局</li>
+                    <li><strong>直观操作</strong> - 无需教程，点击/触控即可发声</li>
+                    <li><strong>即时反馈</strong> - 每次敲击都有视觉和听觉双重反馈</li>
+                </ul>
+            </div>
+            
+            <div class="subsection">
+                <h3>界面布局</h3>
+                <div class="diagram">
+                    <div class="diagram-title">界面结构（从上到下）</div>
+                    <pre><code>┌─────────────────────────────────────┐
+│  🔧 工具栏                          │  ← 标题 + 录制按钮
+│  [🔔 编钟模拟器]        [🔴 录制]   │
+├─────────────────────────────────────┤
+│  📊 状态栏                          │  ← 状态提示 + 录制计时
+│  ● 准备就绪          ⏱️ 00:00       │
+├─────────────────────────────────────┤
+│                                     │
+│         🏛️ 编钟区域                  │  ← 核心交互区
+│      ┌───────────────┐              │
+│      │ ○ ○ ○ ○ ○   │  上层(高音)   │
+│      │ ○  ○  ○  ○  ○ │  中层(中音)   │
+│      │ ○   ○   ○   ○   ○ │  下层(低音)   │
+│      └───────────────┘              │
+│                                     │
+├─────────────────────────────────────┤
+│  🎮 控制面板                        │  ← 快捷操作
+│  [▶️ 试听] [🗑️ 清空] [▶️ 回放]      │
+└─────────────────────────────────────┘</code></pre>
+                </div>
+            </div>
+            
+            <div class="subsection">
+                <h3>色彩系统</h3>
+                <table>
+                    <tr>
+                        <th>元素</th>
+                        <th>颜色</th>
+                        <th>用途</th>
+                    </tr>
+                    <tr>
+                        <td>背景</td>
+                        <td><code>#1a1a2e → #16213e → #0f3460</code></td>
+                        <td>深蓝色渐变，营造庄重氛围</td>
+                    </tr>
+                    <tr>
+                        <td>编钟</td>
+                        <td><code>#FFD700 → #DAA520 → #B8860B</code></td>
+                        <td>金色渐变，青铜质感</td>
+                    </tr>
+                    <tr>
+                        <td>钟架</td>
+                        <td><code>#8B4513 → #654321</code></td>
+                        <td>木质纹理</td>
+                    </tr>
+                    <tr>
+                        <td>强调色</td>
+                        <td><code>#f5af19</code></td>
+                        <td>标题、按钮、高亮</td>
+                    </tr>
+                    <tr>
+                        <td>录制中</td>
+                        <td><code>#ff0000</code></td>
+                        <td>闪烁动画表示录制状态</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="subsection">
+                <h3>视觉反馈系统</h3>
+                <table>
+                    <tr>
+                        <th>操作</th>
+                        <th>视觉反馈</th>
+                        <th>动画效果</th>
+                    </tr>
+                    <tr>
+                        <td>点击编钟</td>
+                        <td>钟体摆动</td>
+                        <td>0.3s 摇摆动画 (±5°)</td>
+                    </tr>
+                    <tr>
+                        <td>正敲/侧敲</td>
+                        <td>击槌图标显示</td>
+                        <td>锤击动画 + 位置提示</td>
+                    </tr>
+                    <tr>
+                        <td>开始录制</td>
+                        <td>录制按钮变红 + 脉冲动画</td>
+                        <td>1s 闪烁周期</td>
+                    </tr>
+                    <tr>
+                        <td>Toast 提示</td>
+                        <td>底部弹出提示</td>
+                        <td>滑入滑出，2s 显示</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+        
+        <!-- 交互逻辑 -->
+        <section class="section">
+            <span class="anchor" id="interaction"></span>
+            <h2 class="section-title"><span class="icon">👆</span>核心交互逻辑</h2>
+            
+            <div class="subsection">
+                <h3>敲击检测机制</h3>
+                <p>编钟采用<strong>点击位置判断</strong>来确定正敲或侧敲：</p>
+                
+                <div class="diagram">
+                    <div class="diagram-title">点击区域划分</div>
+                    <pre><code>┌─────────────────────────┐
+│       编钟钟体           │
+│   ◄─────┼─────►         │
+│   侧敲  │  正敲          │
+│ (左侧)  │ (右侧)         │
+│   E4    │   C4           │
+│  高音   │  低音          │
+└─────────────────────────┘
+
+判定逻辑：
+if (点击位置.x < 钟体宽度 / 2) → 侧敲 (侧鼓音)
+else → 正敲 (正鼓音)</code></pre>
+                </div>
+                
+                <p>悬停提示：鼠标/手指悬停时显示"正"和"侧"字样，帮助用户理解交互方式。</p>
+            </div>
+            
+            <div class="subsection">
+                <h3>手势支持</h3>
+                <table>
+                    <tr>
+                        <th>手势</th>
+                        <th>对应操作</th>
+                        <th>触发方式</th>
+                    </tr>
+                    <tr>
+                        <td>点击 / 触摸</td>
+                        <td>敲击编钟</td>
+                        <td><code>click</code> / <code>touchstart</code></td>
+                    </tr>
+                    <tr>
+                        <td>横滑</td>
+                        <td>快速连续敲击</td>
+                        <td>多点触控支持</td>
+                    </tr>
+                </table>
+                <p><strong>注意：</strong>为防止误触，<code>-webkit-tap-highlight-color</code> 设置为透明，消除移动端点击高亮。</p>
+            </div>
+            
+            <div class="subsection">
+                <h3>屏幕方向处理</h3>
+                <div class="info-box">
+                    <div class="info-box-title">📱 横屏强制</div>
+                    <p>编钟的布局天生适合横屏展示。当检测到竖屏时：</p>
+                    <ol>
+                        <li>显示旋转提示："请横屏使用编钟模拟器"</li>
+                        <li>隐藏主应用界面</li>
+                        <li>提供视觉引导动画（手机旋转图标）</li>
+                    </ol>
+                    <p>实现：<code>@media screen and (orientation: portrait)</code> CSS 媒体查询</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 录制系统 -->
+        <section class="section">
+            <span class="anchor" id="recording"></span>
+            <h2 class="section-title"><span class="icon">⏺️</span>录制与回放系统</h2>
+            
+            <div class="subsection">
+                <h3>数据结构设计</h3>
+                <div class="diagram">
+                    <div class="diagram-title">Recording 对象结构</div>
+                    <pre><code>{
+    id: 1709999999999,           // 时间戳作为唯一ID
+    name: "演奏 1",              // 用户可编辑名称
+    date: "2026/3/11 10:30:00",  // 录制日期时间
+    duration: "45.2",            // 演奏时长（秒）
+    notes: [                     // 音符数组
+        {
+            note: "C4",          // 音名
+            freq: 261.63,        // 频率
+            isSide: false,       // 是否侧敲
+            time: 0              // 相对开始的时间戳(ms)
+        },
+        {
+            note: "E4",
+            freq: 329.63,
+            isSide: true,
+            time: 850
+        },
+        // ...
+    ]
+}</code></pre>
+                </div>
+            </div>
+            
+            <div class="subsection">
+                <h3>录制流程</h3>
+                <div class="flow">
+                    <div class="flow-step">点击录制</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">初始化音频</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">开始计时</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">记录每次敲击<br><small>时间+音高+方式</small></div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">停止录制</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">保存到 LocalStorage</div>
+                </div>
+            </div>
+            
+            <div class="subsection">
+                <h3>回放机制</h3>
+                <p>回放使用 <code>setTimeout</code> 按照录制时的时间戳精确触发每个音符：</p>
+                <pre><code>recording.notes.forEach((noteData) => {
+    setTimeout(() => {
+        playBellSound(noteData.freq);
+    }, noteData.time);
+});</code></pre>
+                <p>特点：</p>
+                <ul>
+                    <li>非音频文件录制，数据体积极小</li>
+                    <li>可精确还原演奏时机</li>
+                    <li>支持任意速度回放（可扩展变速功能）</li>
+                </ul>
+            </div>
+            
+            <div class="subsection">
+                <h3>分享功能</h3>
+                <table>
+                    <tr>
+                        <th>分享方式</th>
+                        <th>实现方式</th>
+                        <th>数据格式</th>
+                    </tr>
+                    <tr>
+                        <td>链接分享</td>
+                        <td>Base64 编码 + URL 参数</td>
+                        <td><code>?share=eyJuYW1lIjo...</code></td>
+                    </tr>
+                    <tr>
+                        <td>图片卡片</td>
+                        <td>Canvas 绘制 + 下载</td>
+                        <td>PNG 图片</td>
+                    </tr>
+                    <tr>
+                        <td>数据导出</td>
+                        <td>Blob + 文件下载</td>
+                        <td>JSON 文件</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="subsection">
+                <h3>存储方案</h3>
+                <div class="info-box">
+                    <div class="info-box-title">💾 LocalStorage 持久化</div>
+                    <ul>
+                        <li><strong>键名</strong>: <code>bianzhong_recordings</code></li>
+                        <li><strong>格式</strong>: JSON 字符串</li>
+                        <li><strong>容量</strong>: 浏览器限制约 5-10MB</li>
+                        <li><strong>数据量估算</strong>: 一首30秒的演奏约 500 个音符 ≈ 10KB</li>
+                        <li><strong>理论容量</strong>: 约 500-1000 首演奏</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 技术实现 -->
+        <section class="section">
+            <span class="anchor" id="tech"></span>
+            <h2 class="section-title"><span class="icon">💻</span>技术实现</h2>
+            
+            <div class="subsection">
+                <h3>技术栈</h3>
+                <table>
+                    <tr>
+                        <th>类别</th>
+                        <th>技术</th>
+                        <th>版本/说明</th>
+                    </tr>
+                    <tr>
+                        <td>核心 API</td>
+                        <td>Web Audio API</td>
+                        <td>原生浏览器支持</td>
+                    </tr>
+                    <tr>
+                        <td>存储</td>
+                        <td>localStorage</td>
+                        <td>录制数据持久化</td>
+                    </tr>
+                    <tr>
+                        <td>绘图</td>
+                        <td>Canvas API</td>
+                        <td>分享卡片生成</td>
+                    </tr>
+                    <tr>
+                        <td>样式</td>
+                        <td>CSS3</td>
+                        <td>Flexbox + 渐变 + 动画</td>
+                    </tr>
+                    <tr>
+                        <td>框架</td>
+                        <td>无</td>
+                        <td>纯原生实现</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="subsection">
+                <h3>浏览器兼容性</h3>
+                <table>
+                    <tr>
+                        <th>浏览器</th>
+                        <th>支持情况</th>
+                        <th>备注</th>
+                    </tr>
+                    <tr>
+                        <td>Chrome / Edge</td>
+                        <td class="status status-complete"><span class="status-dot"></span>完全支持</td>
+                        <td>推荐</td>
+                    </tr>
+                    <tr>
+                        <td>Firefox</td>
+                        <td class="status status-complete"><span class="status-dot"></span>完全支持</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>Safari</td>
+                        <td class="status status-complete"><span class="status-dot"></span>完全支持</td>
+                        <td>iOS 需用户交互激活音频</td>
+                    </tr>
+                    <tr>
+                        <td>微信内置浏览器</td>
+                        <td class="status status-progress"><span class="status-dot"></span>部分支持</td>
+                        <td>可能有自动播放限制</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="subsection">
+                <h3>音频自动播放策略</h3>
+                <p>现代浏览器对自动播放有严格限制，采用以下策略处理：</p>
+                <pre><code>function initAudio() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = 0.8;
+        masterGain.connect(audioContext.destination);
+    }
+    // 处理暂停状态（iOS Safari 需要）
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+}
+
+// 在用户首次点击/触摸时初始化
+bell.addEventListener('click', () => {
+    initAudio();  // 确保音频上下文已激活
+    playBellSound(freq);
+});</code></pre>
+            </div>
+        </section>
+        
+        <!-- 开发路线图 -->
+        <section class="section">
+            <span class="anchor" id="roadmap"></span>
+            <h2 class="section-title"><span class="icon">🗺️</span>开发路线图</h2>
+            
+            <div class="subsection">
+                <h3>已实现功能 <span class="tag tag-complete">已完成</span></h3>
+                <ul>
+                    <li><span class="tag tag-core">核心</span> 一钟双音系统（正敲/侧敲）</li>
+                    <li><span class="tag tag-core">核心</span> 三排15口编钟音阶布局</li>
+                    <li><span class="tag tag-core">核心</span> Web Audio API 音色合成</li>
+                    <li><span class="tag tag-ui">UI</span> 响应式横屏布局</li>
+                    <li><span class="tag tag-ui">UI</span> 编钟摆动动画</li>
+                    <li><span class="tag tag-tech">技术</span> 录制与回放系统</li>
+                    <li><span class="tag tag-tech">技术</span> LocalStorage 持久化存储</li>
+                    <li><span class="tag tag-tech">技术</span> 分享链接生成</li>
+                    <li><span class="tag tag-tech">技术</span> 分享卡片生成（Canvas）</li>
+                    <li><span class="tag tag-tech">技术</span> 数据导出为 JSON</li>
+                </ul>
+            </div>
+            
+            <div class="subsection">
+                <h3>未来可扩展功能</h3>
+                <table>
+                    <tr>
+                        <th>功能</th>
+                        <th>优先级</th>
+                        <th>说明</th>
+                    </tr>
+                    <tr>
+                        <td>更多编钟数量</td>
+                        <td>P1</td>
+                        <td>增加至 21 口或 25 口，扩展音域</td>
+                    </tr>
+                    <tr>
+                        <td>节拍器</td>
+                        <td>P1</td>
+                        <td>辅助演奏者保持节奏</td>
+                    </tr>
+                    <tr>
+                        <td>录音重命名</td>
+                        <td>P2</td>
+                        <td>支持自定义演奏名称</td>
+                    </tr>
+                    <tr>
+                        <td>变速回放</td>
+                        <td>P2</td>
+                        <td>0.5x - 2x 速度调节</td>
+                    </tr>
+                    <tr>
+                        <td>音轨叠加</td>
+                        <td>P2</td>
+                        <td>多轨录制，类似 Overdub</td>
+                    </tr>
+                    <tr>
+                        <td>教程模式</td>
+                        <td>P3</td>
+                        <td>引导新手学习演奏简单曲目</td>
+                    </tr>
+                    <tr>
+                        <td>云端存储</td>
+                        <td>P3</td>
+                        <td>用户账号系统，跨设备同步</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+        
+        <!-- 附录 -->
+        <section class="section">
+            <h2 class="section-title"><span class="icon">📎</span>附录</h2>
+            
+            <div class="subsection">
+                <h3>参考资源</h3>
+                <ul>
+                    <li>曾侯乙编钟 - 湖北省博物馆</li>
+                    <li>Web Audio API 规范 - W3C</li>
+                    <li>《中国古代音乐史稿》杨荫浏</li>
+                </ul>
+            </div>
+            
+            <div class="subsection">
+                <h3>相关链接</h3>
+                <ul>
+                    <li><a href="../bianzhong/index.html" style="color: var(--neon-cyan);">编钟模拟器演示</a> - 在线体验</li>
+                    <li><a href="../../kimi-claw/index.html" style="color: var(--neon-cyan);">能力图谱主页</a> - 更多项目</li>
+                </ul>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 底部 -->
+    <footer class="footer">
+        <a href="../bianzhong/index.html">
+            <span>🎵</span>
+            立即体验编钟模拟器
+        </a>
+    </footer>
+</body>
+</html>
