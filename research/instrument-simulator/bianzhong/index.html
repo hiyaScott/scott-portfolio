@@ -871,7 +871,7 @@
         let isProMode = false;
         let isArpeggiatorPlaying = false;
         let currentChord = null;
-        let arpeggiatorTimeout = null;
+        let arpeggiatorTimeouts = []; // 改为数组保存所有定时器
         let activeChordBtn = null;
 
         // ==================== 音频上下文 ====================
@@ -1623,33 +1623,39 @@
         function playArpeggioPattern(notes, pattern = 'up') {
             const noteDuration = SIXTEENTH_NOTE_MS; // 16分音符
             
+            // 清理之前的定时器
+            arpeggiatorTimeouts.forEach(id => clearTimeout(id));
+            arpeggiatorTimeouts = [];
+            
             if (pattern === 'up') {
                 // 上行琶音
                 notes.forEach((freq, index) => {
-                    arpeggiatorTimeout = setTimeout(() => {
+                    const timeoutId = setTimeout(() => {
                         if (isArpeggiatorPlaying) {
                             playBellSound(freq, 1.5); // 稍短的音长
                             
                             // 最后一个音播放完后重置状态
                             if (index === notes.length - 1) {
-                                setTimeout(() => {
+                                const resetId = setTimeout(() => {
                                     isArpeggiatorPlaying = false;
                                     if (activeChordBtn) {
                                         activeChordBtn.classList.remove('active');
                                     }
                                 }, noteDuration);
+                                arpeggiatorTimeouts.push(resetId);
                             }
                         }
                     }, index * noteDuration);
+                    arpeggiatorTimeouts.push(timeoutId);
                 });
             }
         }
 
         function stopArpeggio() {
             isArpeggiatorPlaying = false;
-            if (arpeggiatorTimeout) {
-                clearTimeout(arpeggiatorTimeout);
-            }
+            // 清理所有定时器
+            arpeggiatorTimeouts.forEach(id => clearTimeout(id));
+            arpeggiatorTimeouts = [];
             if (activeChordBtn) {
                 activeChordBtn.classList.remove('active');
                 activeChordBtn = null;
