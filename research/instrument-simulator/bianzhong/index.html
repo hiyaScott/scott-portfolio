@@ -918,55 +918,100 @@
         };
 
         // ==================== 编钟音色合成 ====================
+        // 音频缓存 - 预生成所有音色的 AudioBuffer
+        const audioBufferCache = {};
+        const BUFFER_DURATION = 3.0; // 3秒音频缓冲
+        const SAMPLE_RATE = 44100;
+        
+        // 生成编钟音色的 AudioBuffer
+        function generateBellBuffer(freq) {
+            const length = BUFFER_DURATION * SAMPLE_RATE;
+            const buffer = audioContext.createBuffer(1, length, SAMPLE_RATE);
+            const data = buffer.getChannelData(0);
+            
+            // 基频 + 二次谐波 + 三次谐波合成
+            const fundamental = freq;
+            const harmonic2 = freq * 2;
+            const harmonic3 = freq * 3;
+            
+            for (let i = 0; i < length; i++) {
+                const t = i / SAMPLE_RATE;
+                
+                // 基频 (正弦波) - 音量 0.6，3秒衰减
+                const env1 = Math.exp(-t / 0.5); // 衰减时间常数
+                const wave1 = Math.sin(2 * Math.PI * fundamental * t) * 0.6 * env1;
+                
+                // 二次谐波 (正弦波) - 音量 0.3，2.4秒衰减
+                const env2 = Math.exp(-t / 0.4);
+                const wave2 = Math.sin(2 * Math.PI * harmonic2 * t) * 0.3 * env2;
+                
+                // 三次谐波 (三角波近似) - 音量 0.15，1.5秒衰减
+                const env3 = Math.exp(-t / 0.25);
+                // 三角波：用锯齿波的奇次谐波近似
+                let triWave = 0;
+                for (let h = 1; h <= 5; h += 2) {
+                    triWave += Math.sin(2 * Math.PI * harmonic3 * h * t) / (h * h);
+                }
+                triWave *= 0.15 * env3;
+                
+                // 快速起音 (Attack 20ms)
+                let attack = 1;
+                if (t < 0.02) {
+                    attack = t / 0.02;
+                }
+                
+                data[i] = (wave1 + wave2 + triWave) * attack;
+            }
+            
+            return buffer;
+        }
+        
+        // 预生成所有需要的频率的 AudioBuffer
+        function preloadAllSounds() {
+            const allFreqs = [];
+            
+            // 收集所有编钟频率
+            Object.values(bellConfig).forEach(row => {
+                row.forEach(bell => {
+                    allFreqs.push(bell.freq);
+                    allFreqs.push(bell.sideFreq);
+                });
+            });
+            
+            // 收集和弦库中的所有频率
+            Object.values(chordLibrary).forEach(chords => {
+                chords.forEach(chord => {
+                    chord.notes.forEach(freq => {
+                        if (!allFreqs.includes(freq)) {
+                            allFreqs.push(freq);
+                        }
+                    });
+                });
+            });
+            
+            // 预生成所有 AudioBuffer
+            allFreqs.forEach(freq => {
+                if (!audioBufferCache[freq]) {
+                    audioBufferCache[freq] = generateBellBuffer(freq);
+                }
+            });
+            
+            console.log(`预加载完成: ${Object.keys(audioBufferCache).length} 个音色`);
+        }
+        
+        // 播放缓存的音频（低延迟）
         function playBellSound(freq, duration = 3) {
             initAudio();
-            const now = audioContext.currentTime;
-
-            // 创建振荡器 - 基频
-            const osc1 = audioContext.createOscillator();
-            const gain1 = audioContext.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.value = freq;
-
-            // 包络 - 快速起音，长衰减（钟声特性）
-            gain1.gain.setValueAtTime(0, now);
-            gain1.gain.linearRampToValueAtTime(0.6, now + 0.02);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-            osc1.connect(gain1);
-            gain1.connect(masterGain);
-
-            // 添加二次谐波
-            const osc2 = audioContext.createOscillator();
-            const gain2 = audioContext.createGain();
-            osc2.type = 'sine';
-            osc2.frequency.value = freq * 2;
-            gain2.gain.setValueAtTime(0, now);
-            gain2.gain.linearRampToValueAtTime(0.3, now + 0.02);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.8);
-
-            osc2.connect(gain2);
-            gain2.connect(masterGain);
-
-            // 添加三次谐波（金属感）
-            const osc3 = audioContext.createOscillator();
-            const gain3 = audioContext.createGain();
-            osc3.type = 'triangle';
-            osc3.frequency.value = freq * 3;
-            gain3.gain.setValueAtTime(0, now);
-            gain3.gain.linearRampToValueAtTime(0.15, now + 0.01);
-            gain3.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.5);
-
-            osc3.connect(gain3);
-            gain3.connect(masterGain);
-
-            // 播放
-            osc1.start(now);
-            osc1.stop(now + duration);
-            osc2.start(now);
-            osc2.stop(now + duration * 0.8);
-            osc3.start(now);
-            osc3.stop(now + duration * 0.5);
+            
+            // 如果缓存中不存在，实时生成
+            if (!audioBufferCache[freq]) {
+                audioBufferCache[freq] = generateBellBuffer(freq);
+            }
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBufferCache[freq];
+            source.connect(masterGain);
+            source.start();
         }
 
         // ==================== 初始化编钟界面 ====================
@@ -1621,33 +1666,45 @@
         }
 
         function playArpeggioPattern(notes, pattern = 'up') {
-            const noteDuration = SIXTEENTH_NOTE_MS; // 16分音符
+            const noteDuration = SIXTEENTH_NOTE_MS / 1000; // 转换为秒
+            const now = audioContext.currentTime;
             
-            // 清理之前的定时器
+            // 清理之前的定时器（视觉反馈用）
             arpeggiatorTimeouts.forEach(id => clearTimeout(id));
             arpeggiatorTimeouts = [];
             
             if (pattern === 'up') {
-                // 上行琶音
+                // 使用 AudioContext 的精确调度
                 notes.forEach((freq, index) => {
-                    const timeoutId = setTimeout(() => {
-                        if (isArpeggiatorPlaying) {
-                            playBellSound(freq, 1.5); // 稍短的音长
-                            
-                            // 最后一个音播放完后重置状态
-                            if (index === notes.length - 1) {
-                                const resetId = setTimeout(() => {
-                                    isArpeggiatorPlaying = false;
-                                    if (activeChordBtn) {
-                                        activeChordBtn.classList.remove('active');
-                                    }
-                                }, noteDuration);
-                                arpeggiatorTimeouts.push(resetId);
-                            }
-                        }
-                    }, index * noteDuration);
-                    arpeggiatorTimeouts.push(timeoutId);
+                    const playTime = now + (index * noteDuration);
+                    
+                    // 预创建 BufferSource
+                    if (!audioBufferCache[freq]) {
+                        audioBufferCache[freq] = generateBellBuffer(freq);
+                    }
+                    
+                    const source = audioContext.createBufferSource();
+                    source.buffer = audioBufferCache[freq];
+                    source.connect(masterGain);
+                    
+                    // 精确调度播放时间
+                    source.start(playTime);
+                    
+                    // 视觉反馈定时器（不需要音频精度）
+                    const visualTimeout = setTimeout(() => {
+                        // 可以在这里添加视觉反馈
+                    }, index * SIXTEENTH_NOTE_MS);
+                    arpeggiatorTimeouts.push(visualTimeout);
                 });
+                
+                // 最后一个音播放完后重置状态
+                const resetTimeout = setTimeout(() => {
+                    isArpeggiatorPlaying = false;
+                    if (activeChordBtn) {
+                        activeChordBtn.classList.remove('active');
+                    }
+                }, notes.length * SIXTEENTH_NOTE_MS);
+                arpeggiatorTimeouts.push(resetTimeout);
             }
         }
 
@@ -1698,6 +1755,20 @@
                     }
                 });
             });
+
+            // 首次用户交互时初始化音频并预加载所有声音
+            const firstInteractionHandler = () => {
+                initAudio();
+                // 延迟一点时间让音频上下文准备好
+                setTimeout(() => {
+                    preloadAllSounds();
+                    showToast('🎵 音频缓存完成 - 点击即可播放');
+                }, 100);
+                document.removeEventListener('click', firstInteractionHandler);
+                document.removeEventListener('touchstart', firstInteractionHandler);
+            };
+            document.addEventListener('click', firstInteractionHandler);
+            document.addEventListener('touchstart', firstInteractionHandler);
         });
     </script>
 </body>
