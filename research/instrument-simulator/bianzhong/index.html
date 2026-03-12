@@ -1166,6 +1166,11 @@
         
         // 生成编钟音色的 AudioBuffer
         function generateBellBuffer(freq) {
+            // 确保音频上下文已初始化
+            if (!audioContext) {
+                initAudio();
+            }
+            
             const length = BUFFER_DURATION * SAMPLE_RATE;
             const buffer = audioContext.createBuffer(1, length, SAMPLE_RATE);
             const data = buffer.getChannelData(0);
@@ -1990,15 +1995,24 @@
 
         // ==================== 经典曲目功能 ====================
         function initClassicPieces() {
-            // 预加载经典曲目所需音频
-            Object.values(classicPieces).forEach(piece => {
-                piece.notes.forEach(noteData => {
-                    const freq = getFreqByNote(noteData.note, noteData.isSide);
-                    if (freq && !audioBufferCache[freq]) {
-                        audioBufferCache[freq] = generateBellBuffer(freq);
-                    }
+            // 预加载经典曲目所需音频 - 延迟到音频上下文准备好后
+            console.log('initClassicPieces: 延迟加载，等待音频上下文');
+        }
+        
+        function preloadClassicPieces() {
+            try {
+                Object.values(classicPieces).forEach(piece => {
+                    piece.notes.forEach(noteData => {
+                        const freq = getFreqByNote(noteData.note, noteData.isSide);
+                        if (freq && !audioBufferCache[freq]) {
+                            audioBufferCache[freq] = generateBellBuffer(freq);
+                        }
+                    });
                 });
-            });
+                console.log('经典曲目音频预加载完成');
+            } catch (e) {
+                console.error('preloadClassicPieces 错误:', e);
+            }
         }
 
         function getFreqByNote(noteName, isSide = false) {
@@ -2177,6 +2191,7 @@
                 // 延迟一点时间让音频上下文准备好
                 setTimeout(() => {
                     preloadAllSounds();
+                    preloadClassicPieces(); // 预加载经典曲目
                     showToast('🎵 音频就绪 - 开始演奏吧');
                 }, 100);
                 document.removeEventListener('click', firstInteractionHandler);
