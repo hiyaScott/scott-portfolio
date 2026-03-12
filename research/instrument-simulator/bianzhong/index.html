@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- v1.6.0: PWA 配置 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="编钟模拟器">
+    <link rel="manifest" href="manifest.json">
     <title>编钟模拟器</title>
     <style>
         * {
@@ -666,6 +671,53 @@
             background: linear-gradient(135deg, #00d2d3, #01a3a4);
         }
 
+        /* v1.6.0: 全屏按钮样式 */
+        .fullscreen-btn {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: #fff;
+            font-size: 0.8rem;
+        }
+        
+        .fullscreen-btn:hover {
+            background: linear-gradient(135deg, #34495e, #2c3e50);
+        }
+
+        /* v1.6.0: 引导提示样式 */
+        .pwa-prompt {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 2px solid #f5af19;
+            border-radius: 15px;
+            padding: 20px 30px;
+            z-index: 2000;
+            text-align: center;
+            max-width: 320px;
+            display: none;
+        }
+        
+        .pwa-prompt.show {
+            display: block;
+        }
+        
+        .pwa-prompt h3 {
+            color: #f5af19;
+            margin-bottom: 15px;
+        }
+        
+        .pwa-prompt p {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .pwa-prompt .btn {
+            margin: 5px;
+        }
+
         /* 录制列表弹窗 */
         .modal {
             display: none;
@@ -932,7 +984,7 @@
     <div class="app-container">
         <!-- 工具栏 -->
         <div class="toolbar">
-            <div class="toolbar-title">🔔 编钟模拟器 <span style="font-size:0.7rem;opacity:0.7;">v1.5.8</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.6.0</span></div>
             <div class="toolbar-actions">
                 <button class="btn btn-secondary" id="btnDesignDoc" onclick="window.open('design-doc.html', '_blank')">
                     📋 设计案
@@ -992,6 +1044,17 @@
             <button class="btn btn-secondary mode-toggle" id="btnProMode">🎹 专业模式</button>
             <button class="btn btn-secondary" id="btnClear">🗑️ 清空</button>
             <button class="btn btn-primary btn-large" id="btnPlayback" disabled>▶️ 回放</button>
+            <!-- v1.6.0: 全屏按钮 -->
+            <button class="btn fullscreen-btn" id="btnFullscreen">⛶ 全屏</button>
+        </div>
+    </div>
+
+    <!-- v1.6.0: PWA 引导提示 -->
+    <div class="pwa-prompt" id="pwaPrompt">
+        <h3>🎵 获得更佳体验</h3>
+        <p id="pwaPromptText"></p>
+        <div>
+            <button class="btn btn-primary" id="btnPWAClose">知道了</button>
         </div>
     </div>
 
@@ -2347,7 +2410,72 @@
             };
             document.addEventListener('click', firstInteractionHandler);
             document.addEventListener('touchstart', firstInteractionHandler);
+            
+            // v1.6.0: 初始化 PWA 检测
+            initPWA();
         });
+        
+        // ==================== v1.6.0: PWA 全屏功能 ====================
+        function initPWA() {
+            const pwaPrompt = document.getElementById('pwaPrompt');
+            const pwaPromptText = document.getElementById('pwaPromptText');
+            const btnPWAClose = document.getElementById('btnPWAClose');
+            const btnFullscreen = document.getElementById('btnFullscreen');
+            
+            // 检测是否在 iOS Safari 中运行
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            
+            // 检测是否已经添加到主屏幕（standalone 模式）
+            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+            
+            // 全屏按钮点击事件
+            btnFullscreen.addEventListener('click', () => {
+                if (isStandalone) {
+                    // 已经是全屏模式
+                    showToast('✅ 已处于全屏模式');
+                    return;
+                }
+                
+                // 尝试进入全屏
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) {
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) {
+                    elem.msRequestFullscreen();
+                }
+                
+                // 显示引导提示
+                if (isIOS && isSafari) {
+                    pwaPromptText.innerHTML = '点击下方的 <strong>分享按钮 ⬆️</strong><br>然后选择 <strong>"添加到主屏幕"</strong><br>下次从主屏幕打开即可全屏体验';
+                    pwaPrompt.classList.add('show');
+                } else {
+                    showToast('🎵 全屏模式已开启');
+                }
+            });
+            
+            // 关闭引导提示
+            btnPWAClose.addEventListener('click', () => {
+                pwaPrompt.classList.remove('show');
+            });
+            
+            // 如果是首次访问且不是 standalone 模式，延迟显示提示
+            if (!isStandalone && isIOS && isSafari) {
+                setTimeout(() => {
+                    pwaPromptText.innerHTML = '想要全屏体验？<br>点击右上角的 <strong>⛶ 全屏</strong> 按钮了解方法';
+                    pwaPrompt.classList.add('show');
+                }, 3000);
+            }
+            
+            // 监听显示模式变化
+            window.matchMedia('(display-mode: standalone)').addEventListener('change', (evt) => {
+                if (evt.matches) {
+                    showToast('🎉 已进入全屏模式');
+                }
+            });
+        }
     </script>
 </body>
 </html>
