@@ -115,6 +115,28 @@
             gap: 10px;
         }
 
+        /* v1.6.4: 工具栏状态显示 */
+        .toolbar-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .toolbar-status .recording-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            display: inline-block;
+        }
+
+        .toolbar-status .recording-indicator.recording {
+            background: #f44336;
+            animation: blink 1s infinite;
+        }
+
         .btn {
             padding: 8px 15px;
             border: none;
@@ -629,6 +651,7 @@
             border-radius: 15px;
             border: 1px solid var(--neon-cyan, #00ffff);
             font-size: 0.75rem;
+            color: #00ffff; /* v1.6.4: BPM 字色改为浅色 */
         }
 
         .chord-grid {
@@ -654,6 +677,7 @@
             align-items: center;
             justify-content: center;
             gap: 1px;
+            position: relative; /* v1.6.4: 用于倒计时定位 */
         }
 
         .chord-btn:hover {
@@ -976,22 +1000,38 @@
         /* 提示信息 */
         .toast {
             position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
+            bottom: 110px; /* v1.6.4: 移到面板上方 */
+            right: 20px; /* v1.6.4: 右侧对齐 */
+            left: auto;
+            transform: translateX(0) translateY(100px);
             background: rgba(0,0,0,0.8);
             color: #fff;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-size: 0.9rem;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
             z-index: 2000;
             opacity: 0;
             transition: all 0.3s;
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
         .toast.show {
-            transform: translateX(-50%) translateY(0);
+            transform: translateX(0) translateY(0);
             opacity: 1;
+        }
+
+        /* v1.6.4: 和弦按钮倒计时 */
+        .chord-btn .countdown {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 0.5rem;
+            color: #00ffff;
+            background: rgba(0,0,0,0.6);
+            padding: 1px 3px;
+            border-radius: 3px;
+            min-width: 12px;
+            text-align: center;
         }
     </style>
 </head>
@@ -1009,7 +1049,12 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.6.3</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.6.4</span></div>
+            <!-- v1.6.4: 状态信息显示 -->
+            <div class="toolbar-status" id="toolbarStatus">
+                <span class="recording-indicator" id="recordingIndicator"></span>
+                <span id="statusText">准备就绪</span>
+            </div>
             <div class="toolbar-actions">
                 <button class="btn btn-secondary" id="btnDesignDoc" onclick="window.open('design-doc.html', '_blank')">
                     📋 设计案
@@ -1026,8 +1071,8 @@
             </div>
         </div>
 
-        <!-- 状态栏 -->
-        <div class="status-bar">
+        <!-- v1.6.4: 状态栏隐藏，信息移到工具栏 -->
+        <div class="status-bar" style="display: none;">
             <div class="status-item">
                 <span class="recording-indicator" id="recordingIndicator"></span>
                 <span id="statusText">准备就绪</span>
@@ -2146,8 +2191,38 @@
             arpeggiatorTimeouts.forEach(id => clearTimeout(id));
             arpeggiatorTimeouts = [];
             
+            // v1.6.4: 清理之前的倒计时显示
+            document.querySelectorAll('.chord-btn .countdown').forEach(el => el.remove());
+            
             // v1.5.5 修复：4个音都使用传入的 notes，不再固定最后一个音为 C3
             const eighthNoteDuration = EIGHTH_NOTE_MS / 1000; // 8分音符秒数 (0.6s)
+            
+            // v1.6.4: 创建倒计时显示
+            let remainingTime = 4800; // 总时长 4.8秒
+            const countdownEl = document.createElement('span');
+            countdownEl.className = 'countdown';
+            if (activeChordBtn) {
+                activeChordBtn.appendChild(countdownEl);
+                countdownEl.textContent = '5s';
+            }
+            
+            // 更新倒计时的函数
+            const updateCountdown = () => {
+                if (remainingTime <= 0) {
+                    if (countdownEl && countdownEl.parentNode) {
+                        countdownEl.remove();
+                    }
+                    return;
+                }
+                remainingTime -= 100;
+                if (countdownEl) {
+                    countdownEl.textContent = Math.ceil(remainingTime / 1000) + 's';
+                }
+            };
+            
+            // 每100ms更新一次倒计时
+            const countdownInterval = setInterval(updateCountdown, 100);
+            arpeggioTimeouts.push(countdownInterval);
             
             // 播放4个音（每个8分音符）
             for (let i = 0; i < 4; i++) {
@@ -2173,7 +2248,10 @@
                 isArpeggiatorPlaying = false;
                 if (activeChordBtn) {
                     activeChordBtn.classList.remove('active');
+                    const countdown = activeChordBtn.querySelector('.countdown');
+                    if (countdown) countdown.remove();
                 }
+                clearInterval(countdownInterval);
             }, BEAT_MS * 4); // 4拍 = 4800ms @ BPM 50
             
             arpeggiatorTimeouts.push(resetTimeout);
