@@ -829,50 +829,50 @@
             octave: 2       // 八度
         };
         
-        // 和弦库 - 4/4拍 15135琶音结构
+        // 和弦库 - 4/4拍 1513琶音结构（4个音，最后一个音停两拍）
         // 所有根音从C2音区开始 (65.41Hz基准)
         // 调式：C大调 (与编钟非专业模式一致)
         const chordLibrary = {
             '1': { // C 大三和弦 - 根音C2 (65.41Hz)
                 rootFreq: 65.41,
                 chords: [
-                    { name: 'C', type: '大三', pattern: [1, 5, 'octave', 3, 5] }
+                    { name: 'C', type: '大三', pattern: [1, 5, 'octave', 3] }
                 ]
             },
             '2': { // Dm 小三和弦 - 根音D2 (73.42Hz)
                 rootFreq: 73.42,
                 chords: [
-                    { name: 'Dm', type: '小三', pattern: [1, 5, 'octave', 'b3', 5] }
+                    { name: 'Dm', type: '小三', pattern: [1, 5, 'octave', 'b3'] }
                 ]
             },
             '3': { // Em 小三和弦 - 根音E2 (82.41Hz)
                 rootFreq: 82.41,
                 chords: [
-                    { name: 'Em', type: '小三', pattern: [1, 5, 'octave', 'b3', 5] }
+                    { name: 'Em', type: '小三', pattern: [1, 5, 'octave', 'b3'] }
                 ]
             },
             '4': { // F 大三和弦 - 根音F2 (87.31Hz)
                 rootFreq: 87.31,
                 chords: [
-                    { name: 'F', type: '大三', pattern: [1, 5, 'octave', 3, 5] }
+                    { name: 'F', type: '大三', pattern: [1, 5, 'octave', 3] }
                 ]
             },
             '5': { // G 大三和弦 - 根音G2 (98.00Hz)
                 rootFreq: 98.00,
                 chords: [
-                    { name: 'G', type: '大三', pattern: [1, 5, 'octave', 3, 5] }
+                    { name: 'G', type: '大三', pattern: [1, 5, 'octave', 3] }
                 ]
             },
             '6': { // Am 小三和弦 - 根音A2 (110.00Hz)
                 rootFreq: 110.00,
                 chords: [
-                    { name: 'Am', type: '小三', pattern: [1, 5, 'octave', 'b3', 5] }
+                    { name: 'Am', type: '小三', pattern: [1, 5, 'octave', 'b3'] }
                 ]
             },
             'b7': { // Bb 大三和弦 - 根音Bb2 (116.54Hz)
                 rootFreq: 116.54,
                 chords: [
-                    { name: 'Bb', type: '大三', pattern: [1, 5, 'octave', 3, 5] }
+                    { name: 'Bb', type: '大三', pattern: [1, 5, 'octave', 3] }
                 ]
             }
         };
@@ -1659,22 +1659,21 @@
             playArpeggioPattern(notes);
         }
         
-        function playArpeggioPattern(notes, pattern = '15135') {
+        function playArpeggioPattern(notes) {
             const now = audioContext.currentTime;
             
             // 清理之前的定时器
             arpeggiatorTimeouts.forEach(id => clearTimeout(id));
             arpeggiatorTimeouts = [];
             
-            // 5个音的 15135 结构
-            // 0ms: 音1, 600ms: 音5, 1200ms: 音1, 1800ms: 音3, 2400ms: 音5(延长)
-            const noteCount = notes.length;
-            const regularNoteDuration = EIGHTH_NOTE_MS / 1000; // 8分音符秒数
-            const finalNoteDuration = (BEAT_MS * FINAL_NOTE_BEATS) / 1000; // 最后音延长两拍
+            // 1513 琶音结构：4个8分音符占2拍，然后延音踏板空2拍，总4拍
+            // 0ms: 音1, 600ms: 音5, 1200ms: 音1(高八度), 1800ms: 音3, 然后延音踏板踩2拍
+            const eighthNoteDuration = EIGHTH_NOTE_MS / 1000; // 8分音符秒数 (0.6s)
+            const sustainDuration = (BEAT_MS * 2) / 1000; // 延音踏板持续2拍 (2.4s)
             
-            // 前4个音按时序播放（每个8分音符）
-            for (let i = 0; i < noteCount - 1; i++) {
-                const playTime = now + (i * regularNoteDuration);
+            // 4个8分音符按时序播放
+            for (let i = 0; i < notes.length; i++) {
+                const playTime = now + (i * eighthNoteDuration);
                 const freq = notes[i];
                 
                 // 确保音频缓冲已生成
@@ -1688,31 +1687,7 @@
                 source.start(playTime);
             }
             
-            // 最后一个音：延长两拍
-            const lastIndex = noteCount - 1;
-            const lastPlayTime = now + (lastIndex * regularNoteDuration);
-            const lastFreq = notes[lastIndex];
-            
-            if (!audioBufferCache[lastFreq]) {
-                audioBufferCache[lastFreq] = generateBellBuffer(lastFreq);
-            }
-            
-            const lastSource = audioContext.createBufferSource();
-            lastSource.buffer = audioBufferCache[lastFreq];
-            lastSource.connect(masterGain);
-            lastSource.start(lastPlayTime);
-            
-            // 视觉反馈和状态重置定时器
-            const visualTimeouts = [
-                // 每个音的视觉反馈
-                setTimeout(() => {}, 0),
-                setTimeout(() => {}, EIGHTH_NOTE_MS),
-                setTimeout(() => {}, EIGHTH_NOTE_MS * 2),
-                setTimeout(() => {}, EIGHTH_NOTE_MS * 3),
-                setTimeout(() => {}, EIGHTH_NOTE_MS * 4)
-            ];
-            
-            // 4拍后重置状态（最后一个音持续两拍，所以总时长是 4拍）
+            // 4拍后重置状态（4个8分音符占2拍 + 延音踏板2拍 = 总4拍）
             const resetTimeout = setTimeout(() => {
                 isArpeggiatorPlaying = false;
                 if (activeChordBtn) {
@@ -1720,7 +1695,7 @@
                 }
             }, BEAT_MS * 4); // 4拍 = 4800ms @ BPM 50
             
-            arpeggiatorTimeouts = [...visualTimeouts, resetTimeout];
+            arpeggiatorTimeouts.push(resetTimeout);
         }
 
         function stopArpeggio() {
