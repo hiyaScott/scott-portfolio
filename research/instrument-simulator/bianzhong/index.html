@@ -701,67 +701,50 @@
             animation: chordPulse 0.3s ease-out;
         }
 
-        /* v1.6.6: 边框燃尽动画 - 顺时针消失（像时钟从12点开始） */
+        /* v1.6.7: 边框燃尽动画 - 连续流畅的顺时针消失 */
         .chord-btn {
             position: relative;
         }
         
-        .chord-btn::before {
-            content: '';
+        .chord-btn .burn-ring {
             position: absolute;
-            top: -3px;
-            left: -3px;
-            right: -3px;
-            bottom: -3px;
-            border-radius: 11px;
-            background: conic-gradient(from 0deg, 
-                rgba(0, 255, 255, 0.8) 0deg, 
-                rgba(0, 255, 255, 0.8) 360deg, 
-                transparent 360deg);
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            pointer-events: none;
             opacity: 0;
-            z-index: -1;
         }
         
-        .chord-btn.active::before {
-            animation: borderBurnClockwise 4.8s linear forwards;
+        .chord-btn.active .burn-ring {
             opacity: 1;
         }
         
-        @keyframes borderBurnClockwise {
+        .chord-btn .burn-ring svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg); /* 从12点开始 */
+        }
+        
+        .chord-btn .burn-ring circle {
+            fill: none;
+            stroke: rgba(0, 255, 255, 0.8);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-dasharray: 200; /* 周长 */
+            stroke-dashoffset: 0;
+        }
+        
+        .chord-btn.active .burn-ring circle {
+            animation: burnRing 4.8s linear forwards;
+        }
+        
+        @keyframes burnRing {
             0% {
-                background: conic-gradient(from 0deg, 
-                    rgba(0, 255, 255, 0.8) 0deg, 
-                    rgba(0, 255, 255, 0.8) 360deg, 
-                    transparent 360deg);
-            }
-            25% {
-                background: conic-gradient(from 0deg, 
-                    transparent 0deg, 
-                    transparent 90deg,
-                    rgba(0, 255, 255, 0.6) 90deg, 
-                    rgba(0, 255, 255, 0.6) 360deg, 
-                    transparent 360deg);
-            }
-            50% {
-                background: conic-gradient(from 0deg, 
-                    transparent 0deg, 
-                    transparent 180deg,
-                    rgba(0, 255, 255, 0.4) 180deg, 
-                    rgba(0, 255, 255, 0.4) 360deg, 
-                    transparent 360deg);
-            }
-            75% {
-                background: conic-gradient(from 0deg, 
-                    transparent 0deg, 
-                    transparent 270deg,
-                    rgba(0, 255, 255, 0.2) 270deg, 
-                    rgba(0, 255, 255, 0.2) 360deg, 
-                    transparent 360deg);
+                stroke-dashoffset: 0; /* 完整边框 */
             }
             100% {
-                background: conic-gradient(from 0deg, 
-                    transparent 0deg, 
-                    transparent 360deg);
+                stroke-dashoffset: 200; /* 完全消失 */
             }
         }
 
@@ -1101,7 +1084,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.6.6</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.6.7</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2249,9 +2232,26 @@
             // v1.5.5 修复：4个音都使用传入的 notes，不再固定最后一个音为 C3
             const eighthNoteDuration = EIGHTH_NOTE_MS / 1000; // 8分音符秒数 (0.6s)
             
-            // v1.6.6: 添加边框燃尽动画（通过添加 active 类触发 CSS 动画）
+            // v1.6.7: 创建 SVG 燃尽环
             if (activeChordBtn) {
-                activeChordBtn.classList.add('active');
+                // 移除旧的燃尽环
+                const oldRing = activeChordBtn.querySelector('.burn-ring');
+                if (oldRing) oldRing.remove();
+                
+                // 创建新的燃尽环
+                const ring = document.createElement('div');
+                ring.className = 'burn-ring';
+                ring.innerHTML = `
+                    <svg viewBox="0 0 60 60">
+                        <rect x="2" y="2" width="56" height="56" rx="8" ry="8" />
+                    </svg>
+                `;
+                activeChordBtn.appendChild(ring);
+                
+                // 触发动画
+                requestAnimationFrame(() => {
+                    activeChordBtn.classList.add('active');
+                });
             }
             
             // 播放4个音（每个8分音符）
@@ -2277,7 +2277,10 @@
             const resetTimeout = setTimeout(() => {
                 isArpeggiatorPlaying = false;
                 if (activeChordBtn) {
-                    activeChordBtn.classList.remove('active'); // v1.6.6: 移除 active 类停止动画
+                    activeChordBtn.classList.remove('active');
+                    // v1.6.7: 移除燃尽环
+                    const ring = activeChordBtn.querySelector('.burn-ring');
+                    if (ring) ring.remove();
                 }
             }, BEAT_MS * 4); // 4拍 = 4800ms @ BPM 50
             
