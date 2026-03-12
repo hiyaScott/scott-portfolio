@@ -895,7 +895,7 @@
     <div class="app-container">
         <!-- 工具栏 -->
         <div class="toolbar">
-            <div class="toolbar-title">🔔 编钟模拟器 <span style="font-size:0.7rem;opacity:0.7;">v1.5.6</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span style="font-size:0.7rem;opacity:0.7;">v1.5.7</span></div>
             <div class="toolbar-actions">
                 <button class="btn btn-secondary" id="btnDesignDoc" onclick="window.open('design-doc.html', '_blank')">
                     📋 设计案
@@ -1998,8 +1998,21 @@
             playArpeggioPattern(notes);
         }
         
+        // v1.5.7: 维护正在播放的音频源数组（用于单实例限制）
+        let activeSources = [];
+        
         function playArpeggioPattern(notes) {
             const now = audioContext.currentTime;
+            
+            // v1.5.7: 单实例锁 - 停止之前所有正在播放的音频源
+            activeSources.forEach(source => {
+                try {
+                    source.stop();
+                } catch (e) {
+                    // 忽略已经停止的源
+                }
+            });
+            activeSources = [];
             
             // 清理之前的定时器
             arpeggiatorTimeouts.forEach(id => clearTimeout(id));
@@ -2022,6 +2035,9 @@
                 source.buffer = audioBufferCache[freq];
                 source.connect(masterGain);
                 source.start(playTime);
+                
+                // v1.5.7: 跟踪这个音频源
+                activeSources.push(source);
             }
             
             // 4拍后重置状态（4个8分音符占2拍 + 延音踏板2拍 = 总4拍）
