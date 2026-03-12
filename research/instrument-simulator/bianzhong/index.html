@@ -532,20 +532,39 @@
         }
 
         /* 专业模式面板 */
+        /* v1.5.8: 优化专业模式面板布局 */
         .pro-mode-panel {
             position: fixed;
-            bottom: 70px;
+            bottom: 0; /* 底对齐 */
             left: 0;
             right: 0;
             background: linear-gradient(180deg, rgba(26,26,46,0.98), rgba(15,52,96,0.98));
             border-top: 2px solid var(--neon-cyan, #00ffff);
-            padding: 15px 20px;
+            padding: 12px 20px;
             z-index: 100;
             display: none;
-            flex-direction: column;
-            gap: 15px;
-            max-height: 200px;
-            overflow-y: auto;
+            flex-direction: row; /* 水平排列 */
+            align-items: center; /* 垂直居中 */
+            justify-content: center; /* 水平居中 */
+            gap: 20px;
+            height: 90px; /* 固定高度 */
+            overflow: hidden;
+        }
+
+        /* v1.5.8: 遮罩层，防止点击下方按钮 */
+        .pro-mode-overlay {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 90px;
+            background: transparent;
+            z-index: 99;
+            display: none;
+        }
+        
+        .pro-mode-overlay.active {
+            display: block;
         }
 
         .pro-mode-panel.active {
@@ -554,35 +573,53 @@
 
         .pro-mode-header {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column; /* 垂直排列 */
+            align-items: flex-start;
+            gap: 5px;
             color: var(--neon-cyan, #00ffff);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: bold;
+        }
+
+        /* v1.5.8: 退出按钮 */
+        .pro-mode-exit-btn {
+            background: rgba(255,0,0,0.2);
+            border: 1px solid rgba(255,0,0,0.5);
+            color: #ff6666;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .pro-mode-exit-btn:hover {
+            background: rgba(255,0,0,0.4);
         }
 
         .bpm-display {
             background: rgba(0,255,255,0.1);
-            padding: 5px 15px;
-            border-radius: 20px;
+            padding: 4px 12px;
+            border-radius: 15px;
             border: 1px solid var(--neon-cyan, #00ffff);
+            font-size: 0.75rem;
         }
 
         .chord-grid {
             display: flex;
             justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
+            gap: 8px;
+            flex-wrap: nowrap; /* 不换行 */
         }
 
         .chord-btn {
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             border: 2px solid rgba(255,255,255,0.2);
             background: rgba(255,255,255,0.05);
-            border-radius: 10px;
+            border-radius: 8px;
             color: #fff;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
@@ -590,7 +627,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 2px;
+            gap: 1px;
         }
 
         .chord-btn:hover {
@@ -895,7 +932,7 @@
     <div class="app-container">
         <!-- 工具栏 -->
         <div class="toolbar">
-            <div class="toolbar-title">🔔 编钟模拟器 <span style="font-size:0.7rem;opacity:0.7;">v1.5.7</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span style="font-size:0.7rem;opacity:0.7;">v1.5.8</span></div>
             <div class="toolbar-actions">
                 <button class="btn btn-secondary" id="btnDesignDoc" onclick="window.open('design-doc.html', '_blank')">
                     📋 设计案
@@ -958,15 +995,20 @@
         </div>
     </div>
 
+    <!-- v1.5.8: 遮罩层，防止点击下方按钮 -->
+    <div class="pro-mode-overlay" id="proModeOverlay"></div>
+
     <!-- 专业模式面板 -->
     <div class="pro-mode-panel" id="proModePanel">
         <div class="pro-mode-header">
-            <span>🎹 琶音器模式 | 和弦分解</span>
-            <span class="bpm-display">BPM 50</span>
+            <span>🎹 琶音器 | 和弦分解</span>
+            <button class="pro-mode-exit-btn" id="btnExitProPanel">退出专业</button>
         </div>
         <div class="chord-grid" id="chordGrid">
             <!-- 和弦按钮将动态生成 -->
         </div>
+        
+        <div class="bpm-display">BPM 50</div>
     </div>
 
     <!-- 录制列表弹窗 -->
@@ -2066,6 +2108,7 @@
             console.log('toggleProMode 被调用, 当前状态:', isProMode);
             isProMode = !isProMode;
             const panel = document.getElementById('proModePanel');
+            const overlay = document.getElementById('proModeOverlay'); // v1.5.8: 遮罩层
             const btn = document.getElementById('btnProMode');
             
             console.log('面板元素:', panel);
@@ -2073,16 +2116,16 @@
             
             if (isProMode) {
                 panel.classList.add('active');
+                overlay.classList.add('active'); // v1.5.8: 显示遮罩层
                 btn.classList.add('active');
                 btn.innerHTML = '🎹 退出专业';
                 showToast('专业模式开启 - BPM 50');
-                // v1.5.6: 删除了点击空白处关闭监听
             } else {
                 panel.classList.remove('active');
+                overlay.classList.remove('active'); // v1.5.8: 隐藏遮罩层
                 btn.classList.remove('active');
                 btn.innerHTML = '🎹 专业模式';
                 stopArpeggio();
-                // v1.5.6: 删除了移除点击空白处监听
             }
         }
         
@@ -2270,6 +2313,12 @@
             document.getElementById('btnProMode').addEventListener('click', function() {
                 console.log('专业模式按钮被点击');
                 toggleProMode();
+            });
+            
+            // v1.5.8: 面板上的退出按钮
+            document.getElementById('btnExitProPanel').addEventListener('click', function() {
+                console.log('面板退出按钮被点击');
+                if (isProMode) toggleProMode();
             });
 
             // 经典曲目按钮
