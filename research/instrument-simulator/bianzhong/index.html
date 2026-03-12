@@ -895,7 +895,7 @@
     <div class="app-container">
         <!-- 工具栏 -->
         <div class="toolbar">
-            <div class="toolbar-title">🔔 编钟模拟器 <span style="font-size:0.7rem;opacity:0.7;">v1.5.4</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span style="font-size:0.7rem;opacity:0.7;">v1.5.5</span></div>
             <div class="toolbar-actions">
                 <button class="btn btn-secondary" id="btnDesignDoc" onclick="window.open('design-doc.html', '_blank')">
                     📋 设计案
@@ -2005,13 +2005,11 @@
             arpeggiatorTimeouts.forEach(id => clearTimeout(id));
             arpeggiatorTimeouts = [];
             
-            // 1513 琶音结构：4个8分音符占2拍，然后延音踏板空2拍，总4拍
-            // 最后一个音固定为 C3 (130.81Hz)
+            // v1.5.5 修复：4个音都使用传入的 notes，不再固定最后一个音为 C3
             const eighthNoteDuration = EIGHTH_NOTE_MS / 1000; // 8分音符秒数 (0.6s)
-            const C3_FREQ = 130.81; // 固定最后一个音为 C3
             
-            // 前3个音按时序播放（每个8分音符）
-            for (let i = 0; i < 3; i++) {
+            // 播放4个音（每个8分音符）
+            for (let i = 0; i < 4; i++) {
                 const playTime = now + (i * eighthNoteDuration);
                 const freq = notes[i];
                 
@@ -2025,18 +2023,6 @@
                 source.connect(masterGain);
                 source.start(playTime);
             }
-            
-            // 最后一个音：固定为 C3
-            const lastPlayTime = now + (3 * eighthNoteDuration);
-            
-            if (!audioBufferCache[C3_FREQ]) {
-                audioBufferCache[C3_FREQ] = generateBellBuffer(C3_FREQ);
-            }
-            
-            const lastSource = audioContext.createBufferSource();
-            lastSource.buffer = audioBufferCache[C3_FREQ];
-            lastSource.connect(masterGain);
-            lastSource.start(lastPlayTime);
             
             // 4拍后重置状态（4个8分音符占2拍 + 延音踏板2拍 = 总4拍）
             const resetTimeout = setTimeout(() => {
