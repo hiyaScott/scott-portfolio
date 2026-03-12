@@ -701,6 +701,30 @@
             animation: chordPulse 0.3s ease-out;
         }
 
+        /* v1.6.5: 边框燃尽动画 */
+        @keyframes borderBurn {
+            0% {
+                box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.8), 
+                            inset 0 0 0 2px rgba(0, 255, 255, 0.4);
+            }
+            25% {
+                box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.6), 
+                            inset 0 0 0 2px rgba(0, 255, 255, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 0 1px rgba(0, 255, 255, 0.4), 
+                            inset 0 0 0 1px rgba(0, 255, 255, 0.2);
+            }
+            75% {
+                box-shadow: 0 0 0 0.5px rgba(0, 255, 255, 0.2), 
+                            inset 0 0 0 0.5px rgba(0, 255, 255, 0.1);
+            }
+            100% {
+                box-shadow: 0 0 0 0px rgba(0, 255, 255, 0), 
+                            inset 0 0 0 0px rgba(0, 255, 255, 0);
+            }
+        }
+
         @keyframes chordPulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.1); background: rgba(0,255,255,0.4); }
@@ -1020,19 +1044,7 @@
             opacity: 1;
         }
 
-        /* v1.6.4: 和弦按钮倒计时 */
-        .chord-btn .countdown {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            font-size: 0.5rem;
-            color: #00ffff;
-            background: rgba(0,0,0,0.6);
-            padding: 1px 3px;
-            border-radius: 3px;
-            min-width: 12px;
-            text-align: center;
-        }
+        /* v1.6.4: 和弦按钮倒计时 - 已移除，改用边框燃尽动画 */
     </style>
 </head>
 <body>
@@ -1049,7 +1061,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.6.4</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.6.5</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2197,32 +2209,10 @@
             // v1.5.5 修复：4个音都使用传入的 notes，不再固定最后一个音为 C3
             const eighthNoteDuration = EIGHTH_NOTE_MS / 1000; // 8分音符秒数 (0.6s)
             
-            // v1.6.4: 创建倒计时显示
-            let remainingTime = 4800; // 总时长 4.8秒
-            const countdownEl = document.createElement('span');
-            countdownEl.className = 'countdown';
+            // v1.6.5: 添加边框燃尽动画
             if (activeChordBtn) {
-                activeChordBtn.appendChild(countdownEl);
-                countdownEl.textContent = '5s';
+                activeChordBtn.style.animation = 'borderBurn 4.8s linear forwards';
             }
-            
-            // 更新倒计时的函数
-            const updateCountdown = () => {
-                if (remainingTime <= 0) {
-                    if (countdownEl && countdownEl.parentNode) {
-                        countdownEl.remove();
-                    }
-                    return;
-                }
-                remainingTime -= 100;
-                if (countdownEl) {
-                    countdownEl.textContent = Math.ceil(remainingTime / 1000) + 's';
-                }
-            };
-            
-            // 每100ms更新一次倒计时
-            const countdownInterval = setInterval(updateCountdown, 100);
-            arpeggioTimeouts.push(countdownInterval);
             
             // 播放4个音（每个8分音符）
             for (let i = 0; i < 4; i++) {
@@ -2248,10 +2238,8 @@
                 isArpeggiatorPlaying = false;
                 if (activeChordBtn) {
                     activeChordBtn.classList.remove('active');
-                    const countdown = activeChordBtn.querySelector('.countdown');
-                    if (countdown) countdown.remove();
+                    activeChordBtn.style.animation = ''; // v1.6.5: 清除动画
                 }
-                clearInterval(countdownInterval);
             }, BEAT_MS * 4); // 4拍 = 4800ms @ BPM 50
             
             arpeggiatorTimeouts.push(resetTimeout);
