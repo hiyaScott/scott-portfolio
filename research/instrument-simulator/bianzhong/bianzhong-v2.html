@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编钟模拟器 v2.3.5</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid rgba(245, 175, 25, 0.3);
+        }
+        .toolbar-title { font-size: 1.2rem; font-weight: bold; }
+        .toolbar-title span { font-size: 0.7rem; opacity: 0.7; margin-left: 10px; }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: linear-gradient(45deg, #f5af19, #f12711); color: white; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(245, 175, 25, 0.3); }
+        .bells-container { padding: 20px; display: flex; justify-content: center; }
+        .frame { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .bell-row { display: flex; gap: 10px; justify-content: center; }
+        .bell {
+            background: linear-gradient(145deg, #d4af37, #b8941f);
+            border-radius: 50% 50% 45% 45%;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3), inset 0 -3px 10px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: rgba(0,0,0,0.6);
+            font-weight: bold;
+        }
+        .bell:active { transform: scale(0.95); }
+        .bell.small { width: 50px; height: 45px; }
+        .bell.medium { width: 65px; height: 58px; }
+        .bell.large { width: 80px; height: 72px; }
+        .pro-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(22, 33, 62, 0.98);
+            border-top: 2px solid #f5af19;
+            padding: 20px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+        .pro-panel.active { transform: translateY(0); }
+        .chord-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 400px; margin: 0 auto; }
+        .chord-btn {
+            padding: 15px;
+            background: rgba(245, 175, 25, 0.2);
+            border: 1px solid #f5af19;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .chord-btn:hover { background: rgba(245, 175, 25, 0.4); }
+        .chord-btn.active { background: #f5af19; color: #1a1a2e; }
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="toolbar-title">🔔 编钟模拟器 <span>v2.3.5</span></div>
+        <div>
+            <button class="btn btn-primary" id="btnProMode">🎹 专业模式</button>
+        </div>
+    </div>
+
+    <div class="bells-container">
+        <div class="frame" id="bellsFrame">
+            <!-- 动态生成编钟 -->
+        </div>
+    </div>
+
+    <!-- 专业模式面板 -->
+    <div class="pro-panel" id="proModePanel">
+        <div style="text-align: center; margin-bottom: 15px;">
+            <strong style="color: #f5af19;">🎹 专业模式</strong>
+            <p style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 5px;">和弦琶音 · BPM 50</p>
+        </div>
+        <div class="chord-grid" id="chordGrid">
+            <!-- 动态生成和弦按钮 -->
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn btn-primary" id="btnExitPro">退出专业</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // 音频上下文
+        let audioContext = null;
+        let masterGain = null;
+        const audioBufferCache = {};
+        
+        // 编钟配置（简化版）
+        const bellConfig = {
+            row1: [ // 上层 - 高音
+                { note: 'G5', freq: 783.99 }, { note: 'F5', freq: 698.46 },
+                { note: 'E5', freq: 659.25 }, { note: 'D5', freq: 587.33 },
+                { note: 'C5', freq: 523.25 }
+            ],
+            row2: [ // 中层 - 中音
+                { note: 'B4', freq: 493.88 }, { note: 'A4', freq: 440.00 },
+                { note: 'G4', freq: 392.00 }, { note: 'F4', freq: 349.23 },
+                { note: 'E4', freq: 329.63 }, { note: 'D4', freq: 293.66 },
+                { note: 'C4', freq: 261.63 }
+            ],
+            row3: [ // 下层 - 低音
+                { note: 'B3', freq: 246.94 }, { note: 'A3', freq: 220.00 },
+                { note: 'G3', freq: 196.00 }, { note: 'F3', freq: 174.61 },
+                { note: 'E3', freq: 164.81 }, { note: 'D3', freq: 146.83 },
+                { note: 'C3', freq: 130.81 }
+            ]
+        };
+        
+        // 和弦库 - v2.3.5 修复版（直接定义频率）
+        const chordLibrary = {
+            '1': { name: 'C', type: '大三', notes: [65.41, 98.00, 130.81, 164.81] },    // C2-G2-C3-E3
+            '2': { name: 'Dm', type: '小三', notes: [73.42, 110.00, 146.83, 174.61] }, // D2-A2-D3-F3
+            '3': { name: 'Em', type: '小三', notes: [82.41, 123.47, 164.81, 196.00] }, // E2-B2-E3-G3
+            '4': { name: 'F', type: '大三', notes: [87.31, 130.81, 174.61, 220.00] },  // F2-C3-F3-A3
+            '5': { name: 'G', type: '大三', notes: [98.00, 146.83, 196.00, 246.94] },  // G2-D3-G3-B3
+            '6': { name: 'Am', type: '小三', notes: [110.00, 164.81, 220.00, 261.63] }, // A2-E3-A3-C4
+            'b7': { name: 'Bb', type: '大三', notes: [116.54, 174.61, 233.08, 293.66] } // Bb2-F3-Bb3-D4
+        };
+        
+        // 专业模式状态
+        let isProMode = false;
+        let isArpeggiatorPlaying = false;
+        let arpeggioTimeouts = []; // v2.3.5: 全局计时器数组，用于限制实例
+        let activeChordBtn = null;
+        
+        // BPM 配置
+        const BPM = 50;
+        const BEAT_MS = 60000 / BPM; // 1200ms
+        const EIGHTH_NOTE_MS = BEAT_MS / 2; // 600ms
+        
+        // 初始化音频
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioContext.createGain();
+                masterGain.gain.value = 0.6;
+                masterGain.connect(audioContext.destination);
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+        
+        // 生成编钟音色
+        function generateBellBuffer(freq) {
+            const duration = 3;
+            const sampleRate = audioContext.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = audioContext.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+                const envelope = Math.exp(-t * 1.5);
+                data[i] = (Math.sin(2 * Math.PI * freq * t) * 0.6 + 
+                          Math.sin(2 * Math.PI * freq * 2 * t) * 0.3) * envelope * 0.3;
+            }
+            return buffer;
+        }
+        
+        // 播放编钟声音
+        function playBellSound(freq) {
+            initAudio();
+            if (!audioBufferCache[freq]) {
+                audioBufferCache[freq] = generateBellBuffer(freq);
+            }
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBufferCache[freq];
+            source.connect(masterGain);
+            source.start();
+        }
+        
+        // 创建编钟元素
+        function createBellElement(bell, size, index) {
+            const div = document.createElement('div');
+            div.className = `bell ${size}`;
+            div.textContent = bell.note;
+            div.dataset.freq = bell.freq;
+            div.addEventListener('click', () => {
+                initAudio();
+                playBellSound(bell.freq);
+                div.style.transform = 'scale(0.9)';
+                setTimeout(() => div.style.transform = 'scale(1)', 100);
+            });
+            return div;
+        }
+        
+        // 初始化编钟
+        function initBells() {
+            const frame = document.getElementById('bellsFrame');
+            
+            const row1 = document.createElement('div');
+            row1.className = 'bell-row';
+            bellConfig.row1.forEach((bell, i) => row1.appendChild(createBellElement(bell, 'small', i)));
+            frame.appendChild(row1);
+            
+            const row2 = document.createElement('div');
+            row2.className = 'bell-row';
+            bellConfig.row2.forEach((bell, i) => row2.appendChild(createBellElement(bell, 'medium', i)));
+            frame.appendChild(row2);
+            
+            const row3 = document.createElement('div');
+            row3.className = 'bell-row';
+            bellConfig.row3.forEach((bell, i) => row3.appendChild(createBellElement(bell, 'large', i)));
+            frame.appendChild(row3);
+        }
+        
+        // v2.3.5: 停止所有琶音（实例限制为1的核心）
+        function stopAllArpeggios() {
+            // 清理所有计时器
+            arpeggioTimeouts.forEach(id => clearTimeout(id));
+            arpeggioTimeouts = [];
+            isArpeggiatorPlaying = false;
+            if (activeChordBtn) {
+                activeChordBtn.classList.remove('active');
+                activeChordBtn = null;
+            }
+        }
+        
+        // 播放琶音
+        function playArpeggioPattern(notes) {
+            // v2.3.5: 先停止之前的所有琶音（限制实例为1）
+            stopAllArpeggios();
+            
+            const now = audioContext.currentTime;
+            const eighthNoteDuration = EIGHTH_NOTE_MS / 1000;
+            
+            isArpeggiatorPlaying = true;
+            
+            // 播放4个音
+            for (let i = 0; i < 4; i++) {
+                const playTime = now + (i * eighthNoteDuration);
+                const freq = notes[i];
+                
+                if (!audioBufferCache[freq]) {
+                    audioBufferCache[freq] = generateBellBuffer(freq);
+                }
+                
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBufferCache[freq];
+                source.connect(masterGain);
+                source.start(playTime);
+            }
+            
+            // 4拍后重置状态
+            const resetTimeout = setTimeout(() => {
+                isArpeggiatorPlaying = false;
+                if (activeChordBtn) {
+                    activeChordBtn.classList.remove('active');
+                }
+            }, BEAT_MS * 4);
+            
+            arpeggioTimeouts.push(resetTimeout);
+        }
+        
+        // 触发和弦琶音
+        function triggerChordArpeggio(btn, degree) {
+            initAudio();
+            
+            const chordData = chordLibrary[degree];
+            if (!chordData) return;
+            
+            // 视觉反馈
+            document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeChordBtn = btn;
+            
+            showToast(`${chordData.name} ${chordData.type}`);
+            
+            // 播放琶音
+            playArpeggioPattern(chordData.notes);
+        }
+        
+        // 显示提示
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+        
+        // 初始化专业模式
+        function initProMode() {
+            const chordGrid = document.getElementById('chordGrid');
+            const degrees = ['1', '2', '3', '4', '5', '6', 'b7'];
+            
+            degrees.forEach(degree => {
+                const chordData = chordLibrary[degree];
+                if (!chordData) return;
+                
+                const btn = document.createElement('button');
+                btn.className = 'chord-btn';
+                btn.innerHTML = `<div>${degree}</div><div style="font-size:0.7rem;">${chordData.name}</div>`;
+                
+                btn.addEventListener('click', () => {
+                    if (!isProMode) return;
+                    triggerChordArpeggio(btn, degree);
+                });
+                
+                chordGrid.appendChild(btn);
+            });
+        }
+        
+        // v2.3.5: 切换专业模式（删除所有自动关闭逻辑）
+        function toggleProMode() {
+            isProMode = !isProMode;
+            const panel = document.getElementById('proModePanel');
+            const btn = document.getElementById('btnProMode');
+            
+            if (isProMode) {
+                panel.classList.add('active');
+                btn.textContent = '🎹 退出专业';
+                showToast('专业模式开启');
+                // v2.3.5: 删除了所有 window.onclick 监听和自动关闭逻辑
+                // 现在面板只能通过 btnExitPro 按钮关闭
+            } else {
+                panel.classList.remove('active');
+                btn.textContent = '🎹 专业模式';
+                stopAllArpeggios();
+            }
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initBells();
+            initProMode();
+            
+            document.getElementById('btnProMode').addEventListener('click', toggleProMode);
+            
+            // v2.3.5: 唯一的退出方式 - 点击退出按钮
+            document.getElementById('btnExitPro').addEventListener('click', () => {
+                if (isProMode) toggleProMode();
+            });
+            
+            // v2.3.5: 彻底删除 window.onclick 监听，不再有点击空白处关闭功能
+        });
+    </script>
+</body>
+</html>
