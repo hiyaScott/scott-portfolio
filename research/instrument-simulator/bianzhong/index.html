@@ -1116,7 +1116,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.2</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.3</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2399,7 +2399,8 @@
             try {
                 Object.values(classicPieces).forEach(piece => {
                     piece.notes.forEach(noteData => {
-                        const freq = getFreqByNote(noteData.note, noteData.isSide);
+                        // v1.8.3: 优先使用保存的freq（琶音），否则通过note查找
+                        const freq = noteData.freq || getFreqByNote(noteData.note, noteData.isSide);
                         if (freq && !audioBufferCache[freq]) {
                             audioBufferCache[freq] = generateBellBuffer(freq);
                         }
@@ -2480,12 +2481,13 @@
             });
             document.querySelector(`[data-piece-id="${pieceId}"]`)?.classList.add('playing');
 
-            // 播放每个音符
+            // 播放每个音符 - v1.8.3: 支持直接使用保存的freq（用于琶音）
             piece.notes.forEach((noteData, index) => {
                 const timeout = setTimeout(() => {
                     if (!isPlayingClassic) return;
                     
-                    const freq = getFreqByNote(noteData.note, noteData.isSide);
+                    // v1.8.3: 优先使用保存的freq（琶音），否则通过note查找
+                    const freq = noteData.freq || getFreqByNote(noteData.note, noteData.isSide);
                     if (freq) {
                         // 播放音频
                         playBellSound(freq);
@@ -3054,7 +3056,7 @@
             // 清理文件名（去掉扩展名）
             const cleanName = fileName.replace(/\.mid$/i, '').replace(/\.midi$/i, '');
             
-            // 创建经典曲目格式
+            // 创建经典曲目格式 - v1.8.3: 保留freq字段用于琶音
             const classicPiece = {
                 id: id,
                 name: cleanName,
@@ -3062,8 +3064,10 @@
                 tempo: Math.round(60000 / bellRecording.bpm / 2), // 估算每拍间隔
                 notes: bellRecording.notes.map(n => ({
                     note: n.note,
+                    freq: n.freq,  // v1.8.3: 保留频率，用于琶音正确播放
                     isSide: n.isSide || false,
-                    time: n.time
+                    time: n.time,
+                    isArpeggio: n.isArpeggio || false  // v1.8.3: 保留琶音标记
                 }))
             };
             
