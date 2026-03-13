@@ -1084,7 +1084,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.6.7</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.7.0</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -1094,6 +1094,10 @@
                 <button class="btn btn-secondary" id="btnDesignDoc" onclick="window.open('design-doc.html', '_blank')">
                     📋 设计案
                 </button>
+                <button class="btn btn-secondary" id="btnImportMidi" title="导入MIDI文件">
+                    🎹 MIDI
+                </button>
+                <input type="file" id="midiFileInput" accept=".mid,.midi" style="display: none;">
                 <button class="btn btn-secondary" id="btnRecordings">
                     🎵 我的演奏
                 </button>
@@ -2607,6 +2611,298 @@
                 }
             });
         }
+
+        // ==================== MIDI 文件导入功能 ====================
+        // MIDI音符编号到频率的映射表（基于A4=440Hz）
+        const midiToFreq = {};
+        for (let i = 0; i < 128; i++) {
+            midiToFreq[i] = 440 * Math.pow(2, (i - 69) / 12);
+        }
+
+        // MIDI音符编号到音符名称的映射
+        const midiToNote = {};
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        for (let i = 0; i < 128; i++) {
+            const octave = Math.floor(i / 12) - 1;
+            const noteName = noteNames[i % 12];
+            midiToNote[i] = `${noteName}${octave}`;
+        }
+
+        // 解析MIDI文件
+        function parseMidiFile(arrayBuffer) {
+            const data = new Uint8Array(arrayBuffer);
+            let pos = 0;
+
+            // 读取Uint8
+            function readUint8() {
+                return data[pos++];
+            }
+
+            // 读取Uint16（大端）
+            function readUint16() {
+                return (readUint8() << 8) | readUint8();
+            }
+
+            // 读取Uint32（大端）
+            function readUint32() {
+                return (readUint16() << 16) | readUint16();
+            }
+
+            // 读取可变长度值
+            function readVariableLength() {
+                let value = 0;
+                let byte;
+                do {
+                    byte = readUint8();
+                    value = (value << 7) | (byte & 0x7F);
+                } while (byte & 0x80);
+                return value;
+            }
+
+            // 检查MIDI文件头
+            const header = String.fromCharCode(...data.slice(0, 4));
+            if (header !== 'MThd') {
+                throw new Error('不是有效的MIDI文件');
+            }
+
+            pos = 4;
+            const headerLength = readUint32();
+            const format = readUint16();
+            const trackCount = readUint16();
+            const timeDivision = readUint16();
+
+            // 计算每个tick的毫秒数（基于120 BPM默认速度）
+            let ticksPerBeat = timeDivision & 0x7FFF;
+            let microsecondsPerBeat = 500000; // 120 BPM默认
+
+            const tracks = [];
+
+            // 解析每个音轨
+            for (let trackIndex = 0; trackIndex < trackCount; trackIndex++) {
+                const trackHeader = String.fromCharCode(...data.slice(pos, pos + 4));
+                if (trackHeader !== 'MTrk') {
+                    throw new Error(`音轨 ${trackIndex} 格式错误`);
+                }
+                pos += 4;
+
+                const trackLength = readUint32();
+                const trackEnd = pos + trackLength;
+
+                const events = [];
+                let runningStatus = 0;
+                let currentTime = 0;
+
+                while (pos < trackEnd) {
+                    const deltaTime = readVariableLength();
+                    currentTime += deltaTime;
+
+                    let status = readUint8();
+
+                    // 运行状态
+                    if (status < 0x80) {
+                        status = runningStatus;
+                        pos--;
+                    } else {
+                        runningStatus = status;
+                    }
+
+                    const type = status & 0xF0;
+                    const channel = status & 0x0F;
+
+                    if (type === 0x90) { // Note On
+                        const note = readUint8();
+                        const velocity = readUint8();
+                        if (velocity > 0) {
+                            events.push({
+                                time: currentTime,
+                                type: 'noteOn',
+                                note: note,
+                                velocity: velocity,
+                                channel: channel
+                            });
+                        } else {
+                            // 速度为0视为Note Off
+                            events.push({
+                                time: currentTime,
+                                type: 'noteOff',
+                                note: note,
+                                channel: channel
+                            });
+                        }
+                    } else if (type === 0x80) { // Note Off
+                        const note = readUint8();
+                        readUint8(); // velocity，忽略
+                        events.push({
+                            time: currentTime,
+                            type: 'noteOff',
+                            note: note,
+                            channel: channel
+                        });
+                    } else if (type === 0xB0) { // Control Change
+                        readUint8(); // controller
+                        readUint8(); // value
+                    } else if (type === 0xC0) { // Program Change
+                        readUint8(); // program
+                    } else if (type === 0xD0) { // Channel Pressure
+                        readUint8(); // pressure
+                    } else if (type === 0xE0) { // Pitch Bend
+                        readUint8();
+                        readUint8();
+                    } else if (status === 0xFF) { // Meta Event
+                        const metaType = readUint8();
+                        const metaLength = readVariableLength();
+
+                        if (metaType === 0x51) { // Tempo
+                            microsecondsPerBeat = (readUint8() << 16) | (readUint8() << 8) | readUint8();
+                        } else if (metaType === 0x2F) { // End of Track
+                            break;
+                        } else {
+                            pos += metaLength; // 跳过其他元事件
+                        }
+                    } else if (status === 0xF0 || status === 0xF7) { // SysEx
+                        const length = readVariableLength();
+                        pos += length;
+                    }
+                }
+
+                tracks.push({
+                    events: events,
+                    microsecondsPerBeat: microsecondsPerBeat
+                });
+            }
+
+            return {
+                format,
+                trackCount,
+                ticksPerBeat,
+                tracks
+            };
+        }
+
+        // 将MIDI转换为编钟演奏数据
+        function convertMidiToBells(midiData) {
+            const bpm = Math.round(60000000 / midiData.tracks[0].microsecondsPerBeat);
+            const msPerTick = (60000 / bpm) / midiData.ticksPerBeat;
+
+            const allNotes = [];
+
+            // 合并所有音轨的音符
+            midiData.tracks.forEach(track => {
+                track.events.forEach(event => {
+                    if (event.type === 'noteOn') {
+                        // 只处理在编钟音域内的音符 (C3-C6, MIDI 48-84)
+                        if (event.note >= 48 && event.note <= 84) {
+                            const timeMs = Math.round(event.time * msPerTick);
+                            const freq = midiToFreq[event.note];
+                            const noteName = midiToNote[event.note];
+
+                            allNotes.push({
+                                note: noteName,
+                                freq: freq,
+                                isSide: false,
+                                time: timeMs,
+                                originalMidiNote: event.note
+                            });
+                        }
+                    }
+                });
+            });
+
+            // 按时间排序
+            allNotes.sort((a, b) => a.time - b.time);
+
+            // 重新调整时间，从0开始
+            if (allNotes.length > 0) {
+                const firstTime = allNotes[0].time;
+                allNotes.forEach(n => n.time -= firstTime);
+            }
+
+            // 尝试映射到编钟实际的音符（简化处理）
+            const bellNotes = ['C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5', 'G5', 'A5'];
+            const bellFreqs = [130.81, 146.83, 164.81, 196.00, 220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+
+            allNotes.forEach(note => {
+                // 找到最接近的编钟音符
+                let closestIndex = 0;
+                let closestDiff = Infinity;
+
+                bellFreqs.forEach((freq, index) => {
+                    const diff = Math.abs(note.freq - freq);
+                    if (diff < closestDiff) {
+                        closestDiff = diff;
+                        closestIndex = index;
+                    }
+                });
+
+                // 如果偏差太大，保留原频率，否则映射到编钟音符
+                if (closestDiff / note.freq < 0.1) {
+                    note.note = bellNotes[closestIndex];
+                    note.freq = bellFreqs[closestIndex];
+                }
+            });
+
+            return {
+                name: `MIDI导入 ${new Date().toLocaleTimeString()}`,
+                bpm: bpm,
+                notes: allNotes
+            };
+        }
+
+        // MIDI文件导入处理
+        document.getElementById('btnImportMidi').addEventListener('click', () => {
+            document.getElementById('midiFileInput').click();
+        });
+
+        document.getElementById('midiFileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showToast(`正在解析 ${file.name}...`);
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const midiData = parseMidiFile(event.target.result);
+                    const bellRecording = convertMidiToBells(midiData);
+
+                    if (bellRecording.notes.length === 0) {
+                        showToast('未找到可播放的音符（编钟音域：C3-C6）');
+                        return;
+                    }
+
+                    // 保存到录制列表
+                    const recording = {
+                        id: Date.now(),
+                        name: bellRecording.name,
+                        date: new Date().toLocaleString(),
+                        duration: (bellRecording.notes[bellRecording.notes.length - 1].time / 1000 + 1).toFixed(1),
+                        notes: bellRecording.notes
+                    };
+
+                    recordings.push(recording);
+                    localStorage.setItem('bianzhong_recordings', JSON.stringify(recordings));
+                    updateRecordingList();
+
+                    showToast(`✅ MIDI导入成功！${bellRecording.notes.length}个音符，${bellRecording.bpm} BPM`);
+
+                    // 自动播放
+                    setTimeout(() => playRecording(recording), 500);
+
+                } catch (error) {
+                    console.error('MIDI解析错误:', error);
+                    showToast('❌ MIDI解析失败: ' + error.message);
+                }
+            };
+
+            reader.onerror = () => {
+                showToast('❌ 文件读取失败');
+            };
+
+            reader.readAsArrayBuffer(file);
+
+            // 清空input，允许重复选择同一文件
+            e.target.value = '';
+        });
     </script>
 </body>
 </html>
