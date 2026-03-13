@@ -1116,7 +1116,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.7.5</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.0</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2816,12 +2816,38 @@
             const bpm = Math.round(60000000 / midiData.tracks[0].microsecondsPerBeat);
             const msPerTick = (60000 / bpm) / midiData.ticksPerBeat;
 
+            // C1-B1 (MIDI 24-35) 到琶音和弦的映射
+            const c1ToArpeggio = {
+                24: { chord: '1', name: 'C' },   // C1 -> C大三和弦琶音
+                26: { chord: '2', name: 'Dm' },  // D1 -> Dm小三和弦琶音
+                28: { chord: '3', name: 'Em' },  // E1 -> Em小三和弦琶音
+                29: { chord: '4', name: 'F' },   // F1 -> F大三和弦琶音
+                31: { chord: '5', name: 'G' },   // G1 -> G大三和弦琶音
+                33: { chord: '6', name: 'Am' },  // A1 -> Am小三和弦琶音
+                34: { chord: 'b7', name: 'Bb' }  // Bb1 -> Bb大三和弦琶音
+            };
+
             const allNotes = [];
+            const arpeggioEvents = []; // 存储琶音触发事件
 
             // 合并所有音轨的音符
             midiData.tracks.forEach(track => {
                 track.events.forEach(event => {
                     if (event.type === 'noteOn') {
+                        // 检测C1区域音符 (24-35) 作为琶音触发器
+                        if (event.note >= 24 && event.note <= 35) {
+                            const arpeggioConfig = c1ToArpeggio[event.note];
+                            if (arpeggioConfig) {
+                                const timeMs = Math.round(event.time * msPerTick);
+                                arpeggioEvents.push({
+                                    time: timeMs,
+                                    chord: arpeggioConfig.chord,
+                                    name: arpeggioConfig.name
+                                });
+                            }
+                            return; // 跳过C1区域音符，不加入普通音符列表
+                        }
+                        
                         // 只处理在编钟音域内的音符 (C3-C6, MIDI 48-84)
                         if (event.note >= 48 && event.note <= 84) {
                             const timeMs = Math.round(event.time * msPerTick);
@@ -2838,6 +2864,28 @@
                         }
                     }
                 });
+            });
+
+            // 处理琶音事件，将和弦展开为琶音序列
+            // 琶音结构：4个音，每个8分音符（约600ms @ BPM 50）
+            const EIGHTH_NOTE_MS = 600; // 8分音符时长
+            
+            arpeggioEvents.forEach(event => {
+                const chordData = chordLibrary[event.chord];
+                if (chordData) {
+                    // 生成4个琶音音符
+                    for (let i = 0; i < 4; i++) {
+                        allNotes.push({
+                            note: chordData.name, // 使用和弦名作为显示
+                            freq: chordData.notes[i],
+                            isSide: false,
+                            time: event.time + (i * EIGHTH_NOTE_MS),
+                            isArpeggio: true,
+                            arpeggioIndex: i,
+                            chordName: chordData.name
+                        });
+                    }
+                }
             });
 
             // 按时间排序
@@ -2881,7 +2929,15 @@
                 'F': { baseNote: 'D', sideNote: 'F' }
             };
 
+            // 琶音音符不需要映射，直接保留（因为和弦频率已经预定义好了）
+            // 只映射普通编钟音符
             allNotes.forEach(note => {
+                // 如果是琶音音符，跳过映射
+                if (note.isArpeggio) {
+                    note.mapped = true;
+                    return;
+                }
+
                 // 解析原始音符名称（如 "C#4" -> noteName="C#", octave=4）
                 const match = note.note.match(/^([A-G][#b]?)(\d+)$/);
                 if (!match) return;
@@ -2949,9 +3005,12 @@
 
             // 过滤掉未成功映射的音符
             const validNotes = allNotes.filter(n => n.mapped);
+            
+            // 统计信息
+            const arpeggioCount = validNotes.filter(n => n.isArpeggio).length / 4;
 
             return {
-                name: `MIDI导入 ${new Date().toLocaleTimeString()}`,
+                name: `MIDI导入 ${new Date().toLocaleTimeString()}${arpeggioCount > 0 ? ` (${Math.floor(arpeggioCount)}个琶音)` : ''}`,
                 bpm: bpm,
                 notes: validNotes
             };
