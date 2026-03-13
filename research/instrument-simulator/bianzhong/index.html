@@ -1118,7 +1118,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.5</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.6</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2444,6 +2444,7 @@
                 const duration = Math.ceil(piece.notes[piece.notes.length - 1].time / 1000);
                 const isCustom = piece.id.startsWith('custom_');
                 const deleteBtn = isCustom ? `<button class="btn-icon delete" onclick="event.stopPropagation(); deleteClassicPiece('${piece.id}')" title="删除">🗑</button>` : '';
+                const shareBtn = `<button class="btn-icon" onclick="event.stopPropagation(); shareClassicPiece('${piece.id}')" title="分享链接" style="background: #3b82f6;">🔗</button>`;
                 return `
                     <div class="classic-item ${isPlayingClassic ? 'playing' : ''}" 
                          onclick="playClassicPiece('${piece.id}')"
@@ -2454,6 +2455,7 @@
                         </div>
                         <div class="classic-actions" style="display: flex; align-items: center; gap: 10px;">
                             <div class="classic-duration">${duration}秒</div>
+                            ${shareBtn}
                             ${deleteBtn}
                         </div>
                     </div>
@@ -2482,6 +2484,87 @@
             
             showToast('已删除经典曲目');
             renderClassicList(); // 重新渲染列表
+        }
+
+        // v1.8.6: 分享经典曲目
+        function shareClassicPiece(pieceId) {
+            const piece = classicPieces[pieceId];
+            if (!piece) return;
+            
+            // 压缩曲目数据
+            const shareData = {
+                n: piece.name,
+                d: piece.description,
+                t: piece.tempo,
+                notes: piece.notes.map(n => ({
+                    note: n.note,
+                    f: n.freq,
+                    s: n.isSide ? 1 : 0,
+                    time: n.time,
+                    a: n.isArpeggio ? 1 : 0
+                }))
+            };
+            
+            // 编码为base64
+            const jsonStr = JSON.stringify(shareData);
+            const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
+            
+            // 生成分享链接
+            const shareUrl = `${window.location.origin}${window.location.pathname}?classic=${base64}`;
+            
+            // 复制到剪贴板
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                showToast('✅ 分享链接已复制到剪贴板！');
+                alert(`🎼 分享链接已生成！\n\n链接已自动复制，直接发送给他人即可。\n\n曲目：${piece.name}\n时长：${Math.ceil(piece.notes[piece.notes.length-1].time/1000)}秒`);
+            }).catch(() => {
+                // 如果复制失败，显示链接供手动复制
+                prompt('🎼 分享链接（按Ctrl+C复制）：', shareUrl);
+            });
+        }
+
+        // v1.8.6: 从URL加载分享的经典曲目
+        function loadSharedClassicPiece() {
+            const params = new URLSearchParams(window.location.search);
+            const classicData = params.get('classic');
+            
+            if (classicData) {
+                try {
+                    // 解码base64
+                    const jsonStr = decodeURIComponent(escape(atob(classicData)));
+                    const shareData = JSON.parse(jsonStr);
+                    
+                    // 创建经典曲目对象
+                    const piece = {
+                        id: 'shared_' + Date.now(),
+                        name: shareData.n || '分享的曲目',
+                        description: shareData.d || '来自分享的曲目',
+                        tempo: shareData.t || 600,
+                        notes: shareData.notes.map(n => ({
+                            note: n.note,
+                            freq: n.f,
+                            isSide: !!n.s,
+                            time: n.time,
+                            isArpeggio: !!n.a
+                        }))
+                    };
+                    
+                    // 添加到经典曲目
+                    classicPieces[piece.id] = piece;
+                    
+                    showToast(`🎼 已加载分享的曲目：${piece.name}`);
+                    
+                    // 自动播放
+                    setTimeout(() => {
+                        playClassicPiece(piece.id);
+                        // 清除URL参数
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }, 500);
+                    
+                } catch (e) {
+                    console.error('加载分享的曲目失败:', e);
+                    showToast('❌ 分享链接无效');
+                }
+            }
         }
 
         function playClassicPiece(pieceId) {
@@ -2598,6 +2681,7 @@
             initBells();
             updateRecordingList();
             checkSharedRecording();
+            loadSharedClassicPiece(); // v1.8.6: 加载分享的经典曲目
             initProMode(); // 初始化专业模式
             initClassicPieces(); // 初始化经典曲目
 
