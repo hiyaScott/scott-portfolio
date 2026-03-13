@@ -1116,7 +1116,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.1</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.2</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -1341,7 +1341,7 @@
 
         // ==================== 曾侯乙复原曲目 ====================
         // 基于考古复原的战国曾侯乙编钟曲目
-        const classicPieces = {
+        let classicPieces = {
             'chushang': {
                 id: 'chushang',
                 name: '楚商',
@@ -1404,6 +1404,21 @@
                 ]
             }
         };
+
+        // v1.8.2: 从 localStorage 加载自定义经典曲目
+        function loadCustomClassicPieces() {
+            const saved = localStorage.getItem('bianzhong_custom_classics');
+            if (saved) {
+                try {
+                    const customPieces = JSON.parse(saved);
+                    // 合并到 classicPieces
+                    Object.assign(classicPieces, customPieces);
+                    console.log('已加载自定义经典曲目:', Object.keys(customPieces));
+                } catch (e) {
+                    console.error('加载自定义经典曲目失败:', e);
+                }
+            }
+        }
 
         let isPlayingClassic = false;
         let classicTimeouts = [];
@@ -2373,6 +2388,9 @@
         
         // ==================== 经典曲目功能 ====================
         function initClassicPieces() {
+            // v1.8.2: 先加载自定义经典曲目
+            loadCustomClassicPieces();
+            
             // 预加载经典曲目所需音频 - 延迟到音频上下文准备好后
             console.log('initClassicPieces: 延迟加载，等待音频上下文');
         }
@@ -3028,6 +3046,40 @@
             };
         }
 
+        // v1.8.2: 保存为经典曲目
+        function saveAsClassicPiece(fileName, bellRecording) {
+            // 生成唯一ID
+            const id = 'custom_' + Date.now();
+            
+            // 清理文件名（去掉扩展名）
+            const cleanName = fileName.replace(/\.mid$/i, '').replace(/\.midi$/i, '');
+            
+            // 创建经典曲目格式
+            const classicPiece = {
+                id: id,
+                name: cleanName,
+                description: `MIDI导入 · ${bellRecording.notes.length}个音符 · ${bellRecording.bpm} BPM`,
+                tempo: Math.round(60000 / bellRecording.bpm / 2), // 估算每拍间隔
+                notes: bellRecording.notes.map(n => ({
+                    note: n.note,
+                    isSide: n.isSide || false,
+                    time: n.time
+                }))
+            };
+            
+            // 添加到 classicPieces
+            classicPieces[id] = classicPiece;
+            
+            // 保存到 localStorage
+            const saved = localStorage.getItem('bianzhong_custom_classics');
+            let customPieces = saved ? JSON.parse(saved) : {};
+            customPieces[id] = classicPiece;
+            localStorage.setItem('bianzhong_custom_classics', JSON.stringify(customPieces));
+            
+            showToast(`✅ 已保存为经典曲目：${cleanName}`);
+            console.log('经典曲目已保存:', id, cleanName);
+        }
+
         // MIDI文件导入处理
         document.getElementById('btnImportMidi').addEventListener('click', () => {
             document.getElementById('midiFileInput').click();
@@ -3064,6 +3116,13 @@
                     updateRecordingList();
 
                     showToast(`✅ MIDI导入成功！${bellRecording.notes.length}个音符，${bellRecording.bpm} BPM`);
+
+                    // v1.8.2: 询问是否保存为经典曲目
+                    setTimeout(() => {
+                        if (confirm(`🎼 是否将 "${file.name}" 保存为经典曲目？\n\n这将添加到「经典曲目」菜单中，方便随时播放。`)) {
+                            saveAsClassicPiece(file.name, bellRecording);
+                        }
+                    }, 600);
 
                     // 自动播放
                     setTimeout(() => playRecording(recording), 500);
