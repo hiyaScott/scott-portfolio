@@ -1084,7 +1084,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.7.1</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.7.2</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2820,6 +2820,16 @@
             // 编钟音阶映射（C大调五声音阶：C, D, E, G, A）
             const bellNotes = ['C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5', 'G5', 'A5'];
             const bellFreqs = [130.81, 146.83, 164.81, 196.00, 220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+            
+            // 侧敲频率映射表（B和F需要使用侧敲）
+            const sideFreqs = {
+                'G3': 246.94,  // 侧敲 B3
+                'G4': 493.88,  // 侧敲 B4
+                'G5': 987.77,  // 侧敲 B5
+                'D3': 174.61,  // 侧敲 F3
+                'D4': 349.23,  // 侧敲 F4
+                'D5': 698.46   // 侧敲 F5
+            };
 
             // 半音到最近编钟音的映射表
             const chromaticToBell = {
@@ -2832,6 +2842,13 @@
                 'B': 'C', 'B#': 'C', 'Cb': 'A'
             };
 
+            // 特殊映射：使用侧敲来实现特定音符
+            // B -> G的侧敲, F -> D的侧敲
+            const sideHitMapping = {
+                'B': { baseNote: 'G', sideNote: 'B' },
+                'F': { baseNote: 'D', sideNote: 'F' }
+            };
+
             allNotes.forEach(note => {
                 // 解析原始音符名称（如 "C#4" -> noteName="C#", octave=4）
                 const match = note.note.match(/^([A-G][#b]?)(\d+)$/);
@@ -2840,12 +2857,29 @@
                 const originalNoteName = match[1];
                 const originalOctave = parseInt(match[2]);
 
+                // 检查是否使用侧敲映射
+                const sideMapping = sideHitMapping[originalNoteName];
+                if (sideMapping) {
+                    // 使用侧敲：B->G侧敲, F->D侧敲
+                    const targetBellNote = `${sideMapping.baseNote}${originalOctave}`;
+                    const bellIndex = bellNotes.indexOf(targetBellNote);
+
+                    if (bellIndex !== -1) {
+                        note.note = targetBellNote;  // 存储基础音名（如 G4）
+                        note.freq = sideFreqs[targetBellNote];  // 使用侧敲频率！
+                        note.isSide = true;  // 标记为侧敲
+                        note.mapped = true;
+                        note.displayNote = sideMapping.sideNote + originalOctave;  // 用于显示的音符名
+                    }
+                    return;
+                }
+
                 // 映射到编钟音名
                 const bellNoteName = chromaticToBell[originalNoteName] || originalNoteName;
 
-                // 处理八度（B->C 和 A#->C 需要升八度）
+                // 处理八度（B->C 和 A#->C 需要升八度）- 注意：B现在由侧敲处理了
                 let finalOctave = originalOctave;
-                if ((originalNoteName === 'B' || originalNoteName === 'A#' || originalNoteName === 'Bb') && bellNoteName === 'C') {
+                if ((originalNoteName === 'A#' || originalNoteName === 'Bb') && bellNoteName === 'C') {
                     finalOctave = originalOctave + 1;
                 }
 
@@ -2857,6 +2891,29 @@
 
                 if (bellIndex !== -1) {
                     // 找到匹配的编钟音
+                    note.note = targetBellNote;
+                    note.freq = bellFreqs[bellIndex];
+                    note.isSide = false;  // 正敲
+                    note.mapped = true;
+                } else {
+                    // 未找到，使用频率最近匹配
+                    let closestIndex = 0;
+                    let closestDiff = Infinity;
+
+                    bellFreqs.forEach((freq, index) => {
+                        const diff = Math.abs(note.freq - freq);
+                        if (diff < closestDiff) {
+                            closestDiff = diff;
+                            closestIndex = index;
+                        }
+                    });
+
+                    note.note = bellNotes[closestIndex];
+                    note.freq = bellFreqs[closestIndex];
+                    note.isSide = false;
+                    note.mapped = true;
+                }
+            });
                     note.note = targetBellNote;
                     note.freq = bellFreqs[bellIndex];
                     note.mapped = true;
