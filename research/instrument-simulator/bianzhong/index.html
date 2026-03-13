@@ -1116,7 +1116,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.0</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.1</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -1415,9 +1415,21 @@
         function initAudio() {
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // v1.8.1: 添加动态范围压缩器防止失真
+                const compressor = audioContext.createDynamicsCompressor();
+                compressor.threshold.value = -24;
+                compressor.knee.value = 30;
+                compressor.ratio.value = 12;
+                compressor.attack.value = 0.003;
+                compressor.release.value = 0.25;
+                
                 masterGain = audioContext.createGain();
-                masterGain.gain.value = 0.8;
-                masterGain.connect(audioContext.destination);
+                masterGain.gain.value = 0.6;  // 降低主音量
+                
+                // 连接：masterGain -> compressor -> destination
+                masterGain.connect(compressor);
+                compressor.connect(audioContext.destination);
             }
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
@@ -1476,22 +1488,22 @@
             for (let i = 0; i < length; i++) {
                 const t = i / SAMPLE_RATE;
                 
-                // 基频 (正弦波) - 音量 0.6，3秒衰减
-                const env1 = Math.exp(-t / 0.5); // 衰减时间常数
-                const wave1 = Math.sin(2 * Math.PI * fundamental * t) * 0.6 * env1;
+                // v1.8.1: 降低音量防止失真 (0.6->0.45, 0.3->0.22, 0.15->0.08)
+                // 基频 (正弦波) - 音量 0.45，3秒衰减
+                const env1 = Math.exp(-t / 0.5);
+                const wave1 = Math.sin(2 * Math.PI * fundamental * t) * 0.45 * env1;
                 
-                // 二次谐波 (正弦波) - 音量 0.3，2.4秒衰减
+                // 二次谐波 (正弦波) - 音量 0.22，2.4秒衰减
                 const env2 = Math.exp(-t / 0.4);
-                const wave2 = Math.sin(2 * Math.PI * harmonic2 * t) * 0.3 * env2;
+                const wave2 = Math.sin(2 * Math.PI * harmonic2 * t) * 0.22 * env2;
                 
-                // 三次谐波 (三角波近似) - 音量 0.15，1.5秒衰减
+                // 三次谐波 (三角波近似) - 音量 0.08，1.5秒衰减
                 const env3 = Math.exp(-t / 0.25);
-                // 三角波：用锯齿波的奇次谐波近似
                 let triWave = 0;
                 for (let h = 1; h <= 5; h += 2) {
                     triWave += Math.sin(2 * Math.PI * harmonic3 * h * t) / (h * h);
                 }
-                triWave *= 0.15 * env3;
+                triWave *= 0.08 * env3;
                 
                 // 快速起音 (Attack 20ms)
                 let attack = 1;
@@ -1499,7 +1511,7 @@
                     attack = t / 0.02;
                 }
                 
-                data[i] = (wave1 + wave2 + triWave) * attack;
+                data[i] = (wave1 + wave2 + triWave) * attack * 0.85; // 额外衰减15%
             }
             
             return buffer;
