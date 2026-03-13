@@ -1084,7 +1084,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.7.0</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.7.1</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2817,34 +2817,75 @@
                 allNotes.forEach(n => n.time -= firstTime);
             }
 
-            // 尝试映射到编钟实际的音符（简化处理）
+            // 编钟音阶映射（C大调五声音阶：C, D, E, G, A）
             const bellNotes = ['C3', 'D3', 'E3', 'G3', 'A3', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5', 'G5', 'A5'];
             const bellFreqs = [130.81, 146.83, 164.81, 196.00, 220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
 
+            // 半音到最近编钟音的映射表
+            const chromaticToBell = {
+                'C': 'C', 'C#': 'C', 'Db': 'C',
+                'D': 'D', 'D#': 'E', 'Eb': 'E',
+                'E': 'E', 'E#': 'E', 'Fb': 'E',
+                'F': 'E', 'F#': 'G', 'Gb': 'G',
+                'G': 'G', 'G#': 'A', 'Ab': 'A',
+                'A': 'A', 'A#': 'C', 'Bb': 'A',
+                'B': 'C', 'B#': 'C', 'Cb': 'A'
+            };
+
             allNotes.forEach(note => {
-                // 找到最接近的编钟音符
-                let closestIndex = 0;
-                let closestDiff = Infinity;
+                // 解析原始音符名称（如 "C#4" -> noteName="C#", octave=4）
+                const match = note.note.match(/^([A-G][#b]?)(\d+)$/);
+                if (!match) return;
 
-                bellFreqs.forEach((freq, index) => {
-                    const diff = Math.abs(note.freq - freq);
-                    if (diff < closestDiff) {
-                        closestDiff = diff;
-                        closestIndex = index;
-                    }
-                });
+                const originalNoteName = match[1];
+                const originalOctave = parseInt(match[2]);
 
-                // 如果偏差太大，保留原频率，否则映射到编钟音符
-                if (closestDiff / note.freq < 0.1) {
+                // 映射到编钟音名
+                const bellNoteName = chromaticToBell[originalNoteName] || originalNoteName;
+
+                // 处理八度（B->C 和 A#->C 需要升八度）
+                let finalOctave = originalOctave;
+                if ((originalNoteName === 'B' || originalNoteName === 'A#' || originalNoteName === 'Bb') && bellNoteName === 'C') {
+                    finalOctave = originalOctave + 1;
+                }
+
+                // 构建编钟音符名称
+                const targetBellNote = `${bellNoteName}${finalOctave}`;
+
+                // 在编钟列表中查找
+                const bellIndex = bellNotes.indexOf(targetBellNote);
+
+                if (bellIndex !== -1) {
+                    // 找到匹配的编钟音
+                    note.note = targetBellNote;
+                    note.freq = bellFreqs[bellIndex];
+                    note.mapped = true;
+                } else {
+                    // 未找到，使用频率最近匹配
+                    let closestIndex = 0;
+                    let closestDiff = Infinity;
+
+                    bellFreqs.forEach((freq, index) => {
+                        const diff = Math.abs(note.freq - freq);
+                        if (diff < closestDiff) {
+                            closestDiff = diff;
+                            closestIndex = index;
+                        }
+                    });
+
                     note.note = bellNotes[closestIndex];
                     note.freq = bellFreqs[closestIndex];
+                    note.mapped = true;
                 }
             });
+
+            // 过滤掉未成功映射的音符
+            const validNotes = allNotes.filter(n => n.mapped);
 
             return {
                 name: `MIDI导入 ${new Date().toLocaleTimeString()}`,
                 bpm: bpm,
-                notes: allNotes
+                notes: validNotes
             };
         }
 
