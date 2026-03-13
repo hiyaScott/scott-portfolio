@@ -1116,7 +1116,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.3</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.8.4</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2440,6 +2440,8 @@
             const list = document.getElementById('classicList');
             list.innerHTML = Object.values(classicPieces).map(piece => {
                 const duration = Math.ceil(piece.notes[piece.notes.length - 1].time / 1000);
+                const isCustom = piece.id.startsWith('custom_');
+                const deleteBtn = isCustom ? `<button class="btn-icon delete" onclick="event.stopPropagation(); deleteClassicPiece('${piece.id}')" title="删除">🗑</button>` : '';
                 return `
                     <div class="classic-item ${isPlayingClassic ? 'playing' : ''}" 
                          onclick="playClassicPiece('${piece.id}')"
@@ -2448,10 +2450,36 @@
                             <div class="classic-name">${piece.name}</div>
                             <div class="classic-desc">${piece.description}</div>
                         </div>
-                        <div class="classic-duration">${duration}秒</div>
+                        <div class="classic-actions" style="display: flex; align-items: center; gap: 10px;">
+                            <div class="classic-duration">${duration}秒</div>
+                            ${deleteBtn}
+                        </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        // v1.8.4: 删除经典曲目
+        function deleteClassicPiece(pieceId) {
+            if (!confirm('确定要删除这首经典曲目吗？')) return;
+            
+            // 从 classicPieces 中删除
+            delete classicPieces[pieceId];
+            
+            // 从 localStorage 中删除
+            const saved = localStorage.getItem('bianzhong_custom_classics');
+            if (saved) {
+                try {
+                    const customPieces = JSON.parse(saved);
+                    delete customPieces[pieceId];
+                    localStorage.setItem('bianzhong_custom_classics', JSON.stringify(customPieces));
+                } catch (e) {
+                    console.error('删除经典曲目失败:', e);
+                }
+            }
+            
+            showToast('已删除经典曲目');
+            renderClassicList(); // 重新渲染列表
         }
 
         function playClassicPiece(pieceId) {
