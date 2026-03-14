@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v5.6 - 添加"处理中"状态
-修复：正确识别"正在处理任务"vs"已回复完成"
+Shrimp Jetton 认知负载监控 v5.7 - 显示具体会话信息
+修复：显示具体群聊/私聊/后台任务名称
 """
 
 import json
@@ -9,6 +9,7 @@ import os
 import time
 import glob
 import psutil
+import re
 from datetime import datetime
 from urllib import request
 
@@ -43,8 +44,60 @@ def get_session_files():
             pass
     return sessions
 
+def extract_chat_info(content):
+    """从消息内容中提取群聊/私聊信息"""
+    info = {
+        'group_subject': None,
+        'conversation_label': None,
+        'sender_name': None,
+        'is_group': False,
+        'is_private': False
+    }
+    
+    # 检测群聊
+    if '"group_subject"' in content:
+        match = re.search(r'"group_subject"\s*:\s*"([^"]+)"', content)
+        if match:
+            info['group_subject'] = match.group(1)
+            info['is_group'] = True
+    
+    # 检测 conversation_label
+    if '"conversation_label"' in content:
+        match = re.search(r'"conversation_label"\s*:\s*"([^"]+)"', content)
+        if match:
+            info['conversation_label'] = match.group(1)
+    
+    # 检测发送者
+    if '"name"' in content and '"label"' in content:
+        match = re.search(r'"name"\s*:\s*"([^"]+)"', content)
+        if match and match.group(1) not in ['', 'unknown']:
+            info['sender_name'] = match.group(1)
+    
+    # 如果没有 group_subject 但有 group 字样，可能是私聊
+    if not info['is_group'] and ('"is_group_chat": true' in content.lower() or 'group' in content.lower()):
+        info['is_group'] = True
+    elif not info['is_group']:
+        info['is_private'] = True
+    
+    return info
+
+def extract_subagent_task(content):
+    """从 sessions_spawn 调用中提取任务描述"""
+    task = None
+    if '"name": "sessions_spawn"' in content:
+        # 尝试提取 task 参数
+        match = re.search(r'"task"\s*:\s*"([^"]{5,100})', content)
+        if match:
+            task = match.group(1)[:30]  # 截断到30字符
+        else:
+            # 尝试从参数中提取
+            match = re.search(r'"task"\s*:\s*"([^"]+)"', content)
+            if match:
+                task = match.group(1)[:30]
+    return task
+
 def analyze_session(file_path):
-    """分析会话 - v5.6: 区分等待中/处理中/已回复"""
+    """分析会话 - v5.7: 显示具体会话名称"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -55,9 +108,8 @@ def analyze_session(file_path):
         last_user_time = 0
         last_assistant_time = 0
         
-        has_group = False
-        has_private = False
-        has_subagent = False
+        chat_info = None
+        subagent_task = None
         has_recent_thinking = False
         
         for line in lines[-100:]:
@@ -72,17 +124,17 @@ def analyze_session(file_path):
                     total_tokens += len(content) // 4
                     messages += 1
                     
+                    # 提取聊天信息（从用户消息中）
+                    if role == 'user' and chat_info is None:
+                        chat_info = extract_chat_info(content)
+                    
+                    # 提取后台任务信息
+                    if role == 'user' and subagent_task is None:
+                        subagent_task = extract_subagent_task(content)
+                    
                     # 记录用户消息时间
                     if role == 'user':
                         last_user_time = timestamp
-                        # 识别类型
-                        if 'Feishu' in content:
-                            if 'group' in content.lower():
-                                has_group = True
-                            elif 'user' in content.lower():
-                                has_private = True
-                        if '"name": "sessions_spawn"' in content:
-                            has_subagent = True
                     
                     # 记录助手消息时间（排除纯thinking消息）
                     elif role == 'assistant':
@@ -97,7 +149,7 @@ def analyze_session(file_path):
                         if not is_thinking_only:
                             last_assistant_time = timestamp
                         
-                        # 检测是否有thinking消息（表示正在处理）
+                        # 检测是否有thinking消息
                         if isinstance(content_list, list):
                             for item in content_list:
                                 if isinstance(item, dict) and item.get('type') == 'thinking':
@@ -105,21 +157,33 @@ def analyze_session(file_path):
                                     break
                     
                     # 检测工具调用
-                    if '"toolCallId"' in content or '"name": "' in content:
+                    if '"toolCallId"' in content:
                         tool_calls += 1
                         
             except:
                 pass
         
-        # 确定类型
-        if has_subagent:
-            session_type = "🤖 后台任务"
-        elif has_group:
-            session_type = "👥 群聊对话"
-        elif has_private:
-            session_type = "💬 私聊对话"
+        # 确定会话类型和名称
+        if subagent_task:
+            session_type = "🤖"
+            session_name = subagent_task[:20] if subagent_task else "后台任务"
+        elif chat_info and chat_info['is_group']:
+            session_type = "👥"
+            # 使用 group_subject 或 conversation_label 的短版本
+            if chat_info['group_subject'] and chat_info['group_subject'] != chat_info.get('conversation_label'):
+                name = chat_info['group_subject']
+            elif chat_info['conversation_label']:
+                name = chat_info['conversation_label'][:12] + "..."
+            else:
+                name = "群聊"
+            session_name = name[:20]
+        elif chat_info and chat_info['is_private']:
+            session_type = "💬"
+            sender = chat_info.get('sender_name', '私聊')
+            session_name = f"{sender[:15]}" if sender else "私聊"
         else:
-            session_type = "💭 一般对话"
+            session_type = "💭"
+            session_name = "一般对话"
         
         # 状态判断
         file_mtime = os.path.getmtime(file_path)
@@ -127,7 +191,6 @@ def analyze_session(file_path):
         
         # 解析时间戳
         try:
-            from datetime import datetime
             user_ts = datetime.fromisoformat(last_user_time.replace('Z', '+00:00')).timestamp() if last_user_time else 0
             assistant_ts = datetime.fromisoformat(last_assistant_time.replace('Z', '+00:00')).timestamp() if last_assistant_time else 0
         except:
@@ -139,13 +202,10 @@ def analyze_session(file_path):
         wait_time = 0
         
         if user_ts > assistant_ts:
-            # 用户消息更新 - 等待回复
             is_waiting = True
             wait_time = int(time.time() - user_ts)
         elif last_activity < 30 and has_recent_thinking:
-            # 文件最近30秒内有更新，且有 thinking - 正在处理
             is_processing = True
-        # 否则：已回复完成
         
         return {
             'messages': messages,
@@ -155,13 +215,15 @@ def analyze_session(file_path):
             'is_processing': is_processing,
             'wait_time': max(0, wait_time),
             'last_mtime': file_mtime,
-            'session_type': session_type
+            'session_type': session_type,
+            'session_name': session_name,
+            'full_type': f"{session_type} {session_name}"
         }
     except Exception as e:
         print(f"[analyze_session error] {e}")
         return {'messages': 0, 'estimated_tokens': 0, 'tool_calls': 0, 
                 'is_waiting': False, 'is_processing': False, 'wait_time': 0, 'last_mtime': 0,
-                'session_type': "💭 一般对话"}
+                'session_type': "💭", 'session_name': "未知", 'full_type': "💭 未知"}
 
 def get_cognitive_load():
     sessions = get_session_files()
@@ -204,14 +266,14 @@ def get_cognitive_load():
             status = "✅ 已回复"
         
         details.append({
-            'name': a['session_type'],
+            'name': a['full_type'],
             'status': status,
             'tokens': a['estimated_tokens']
         })
     
     last_active = int(time.time() - recent_mtime) if recent_mtime > 0 else 999
     
-    # 评分：处理中也计入负载
+    # 评分
     if pending_count > 0:
         if max_wait < 30:
             score = 30
@@ -222,7 +284,7 @@ def get_cognitive_load():
         else:
             score = 95
     elif processing_count > 0:
-        score = 60  # 有任务在处理
+        score = 60
     else:
         score = 10
     
@@ -266,7 +328,7 @@ def update_redis(data):
         return False
 
 def main():
-    print("🧠 Shrimp Jetton v5.6 - 处理中状态检测")
+    print("🧠 Shrimp Jetton v5.7 - 显示具体会话信息")
     while True:
         try:
             load = get_cognitive_load()
@@ -291,8 +353,8 @@ def main():
             
             if update_redis(data):
                 ts = datetime.now().strftime("%H:%M:%S")
-                tasks = ", ".join([d['name'].split()[1] for d in load['task_queue'][:3]])
-                print(f"[{ts}] {text} | 处理:{load['processing_count']} | 等待:{load['pending_count']} | CPU:{load['system']['cpu_percent']}%")
+                tasks = ", ".join([d['name'] for d in load['task_queue'][:2]])
+                print(f"[{ts}] {text} | {tasks}")
         except Exception as e:
             print(f"[ERR] {e}")
         
