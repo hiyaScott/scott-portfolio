@@ -178,30 +178,41 @@
             padding: 20px;
         }
         
-        /* 倒计时显示 */
-        .countdown-display {
-            text-align: center;
-            margin: 20px 0;
-            padding: 15px;
-            background: rgba(255,255,255,0.03);
+        /* 倒计时条 */
+        .countdown-bar-container {
+            background: rgba(255,255,255,0.05);
             border-radius: 10px;
-            border: 1px solid #222;
+            padding: 15px 20px;
+            margin-bottom: 24px;
+            border: 1px solid #333;
         }
-        .countdown-label {
+        .countdown-bar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .countdown-bar-label {
             font-size: 12px;
-            color: #666;
-            margin-bottom: 8px;
+            color: #888;
         }
-        .countdown-value {
-            font-size: 32px;
-            font-weight: 700;
+        .countdown-bar-time {
+            font-size: 18px;
+            font-weight: 600;
             color: var(--neon-cyan, #00ffff);
             font-family: 'SF Mono', monospace;
         }
-        .countdown-unit {
-            font-size: 14px;
-            color: #666;
-            margin-left: 4px;
+        .countdown-progress-bg {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .countdown-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #00ffff);
+            border-radius: 3px;
+            transition: width 1s linear;
         }
     </style>
 </head>
@@ -249,23 +260,33 @@
             <div id="taskList">加载中...</div>
         </div>
         
-        <!-- 倒计时显示 -->
-        <div class="countdown-display">
-            <div class="countdown-label">⏱️ 下次数据更新</div>
-            <div class="countdown-value">
-                <span id="countdownSec">60</span>
-                <span class="countdown-unit">秒</span>
+        <!-- 倒计时进度条 -->
+        <div class="countdown-bar-container">
+            <div class="countdown-bar-header">
+                <span class="countdown-bar-label">⏱️ 数据更新倒计时</span>
+                <span class="countdown-bar-time"><span id="countdownSec">30</span>秒</span>
+            </div>
+            <div class="countdown-progress-bg">
+                <div class="countdown-progress-fill" id="countdownBar" style="width: 100%"></div>
             </div>
         </div>
         
         <!-- 说明 -->
         <div class="info-section">
-            <div class="info-title">📊 关于认知负载</div>
-            <div class="info-item">认知评分 = 会话数×40% + Token数×30% + 工具调用×30%</div>
-            <div class="info-item">0-40%: 低负载，可放心派活</div>
-            <div class="info-item">40-70%: 中等负载，谨慎派活</div>
-            <div class="info-item">70%+: 高负载，建议等待</div>
-            <div class="info-item">数据来源：实时分析 session 文件</div>
+            <div class="info-title">📊 指标说明</div>
+            <div class="info-item"><b>认知评分</b>：综合负载指数。0-40%低负载可派活，40-70%中等谨慎派活，70%+高负载建议等待</div>
+            <div class="info-item"><b>活跃会话</b>：正在进行的对话/任务数量。数量越多表示并行处理的任务越多</div>
+            <div class="info-item"><b>总消息数</b>：最近活跃的消息总数。反映对话活跃程度和历史累积</div>
+            <div class="info-item"><b>工具调用</b>：使用API/工具的次数。目前对话类任务工具调用较少，数据分析/代码生成类任务较多</div>
+            <div class="info-item"><b>上下文占用</b>：Token使用量占上下文窗口的比例。比例越高说明当前对话越复杂深入</div>
+            <div class="info-item"><b>任务队列</b>：当前活跃的任务列表。类型包括：对话、子代理任务、定时任务等</div>
+        </div>
+        
+        <div class="info-section" style="margin-top: 16px;">
+            <div class="info-title">💡 使用建议</div>
+            <div class="info-item">🟢 低负载：系统空闲或轻量对话，可放心派发任何任务</div>
+            <div class="info-item">🟡 中等负载：正在处理多项任务，建议派发简单任务或等待</div>
+            <div class="info-item">🔴 高负载：深度思考或多任务并行，强烈建议等待当前任务完成</div>
         </div>
         
         <div class="update-time" id="updateTime">--</div>
@@ -339,19 +360,22 @@
         
         fetchData();
         
-        // 倒计时逻辑
-        let countdown = 30;
+        // 倒计时逻辑 - 带进度条
+        const UPDATE_INTERVAL = 30; // 30秒
+        let countdown = UPDATE_INTERVAL;
+        
         setInterval(() => {
             countdown--;
             if (countdown <= 0) {
-                countdown = 30;
+                countdown = UPDATE_INTERVAL;
                 fetchData();
             }
+            // 更新倒计时数字
             document.getElementById('countdownSec').textContent = countdown;
+            // 更新进度条宽度
+            const progressPercent = (countdown / UPDATE_INTERVAL) * 100;
+            document.getElementById('countdownBar').style.width = progressPercent + '%';
         }, 1000);
-        
-        // 每30秒刷新数据
-        setInterval(fetchData, 30000);
     </script>
 </body>
 </html>
