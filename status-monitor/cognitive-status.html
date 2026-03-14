@@ -352,6 +352,11 @@
             font-family: 'SF Mono', monospace;
         }
         
+        /* 趋势图样式 */
+        .metric-card.trend-card { padding: 8px 4px; }
+        .trend-chart { width: 60px; height: 24px; margin: 2px auto 0; }
+        .trend-chart canvas { display: block; }
+        
         /* 提示弹窗 */
         .metric-tooltip {
             position: fixed;
@@ -507,7 +512,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.16.1</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">15</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
+                <span id="versionText">v5.17.0</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">15</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
             </div>
         </div>
         
@@ -575,8 +580,8 @@
             <div class="metric-card" onclick="showMetricTip('pending')"><div class="metric-label">待处理</div><div class="metric-value" id="pendingValue">--</div></div>
             <div class="metric-card" onclick="showMetricTip('processing')"><div class="metric-label">处理中</div><div class="metric-value" id="processingValue">--</div></div>
             <div class="metric-card" onclick="showMetricTip('tokens')"><div class="metric-label">Token负载</div><div class="metric-value" id="tokensValue">--</div></div>
-            <div class="metric-card" onclick="showMetricTip('wait')"><div class="metric-label">最长等待</div><div class="metric-value" id="waitValue">--</div></div>
-            <div class="metric-card" onclick="showMetricTip('lastActive')"><div class="metric-label">最后活跃</div><div class="metric-value" id="lastActiveValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('estimated')"><div class="metric-label">预计响应</div><div class="metric-value" id="estimatedValue">--</div></div>
+            <div class="metric-card trend-card" onclick="showMetricTip('trend')"><div class="metric-label">5分钟趋势</div><div class="trend-chart" id="trendChart"><canvas id="trendCanvas" width="60" height="30"></canvas></div></div>
         </div>
         
         <!-- 指标提示弹窗 -->
@@ -619,36 +624,44 @@
                     </div>
                 </div>
                 <div class="info-panel" id="panel-metrics">
-                    <div style="color:#888;margin-bottom:12px;font-size:12px;">📊 评分规则 (混合算法)</div>
-                    <div style="font-size:13px;color:#aaa;margin-bottom:12px;"><b style="color:#00ffff">最终评分</b> = max(等待评分, Token评分) + 处理加成</div>
+                    <div style="color:#888;margin-bottom:12px;font-size:12px;">📊 评分规则 (混合算法) - v5.17</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:12px;"><b style="color:#00ffff">最终评分</b> = 基础评分 + max(等待评分, Token评分)</div>
                     <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                        <div style="font-size:11px;color:#666;margin-bottom:8px;">等待评分 (0-95)</div>
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">状态阈值 (新)</div>
                         <div style="font-size:10px;color:#888;">
-                            <span style="color:#22c55e">0-10s</span> → 20-30% · 
-                            <span style="color:#3b82f6">10-30s</span> → 30-55% · 
-                            <span style="color:#eab308">30-60s</span> → 55-80% · 
-                            <span style="color:#ef4444">60s+</span> → 80-95%
+                            <span style="color:#22c55e">0-25%</span> 空闲 · 
+                            <span style="color:#3b82f6">25-45%</span> 轻载 · 
+                            <span style="color:#eab308">45-65%</span> 中等 · 
+                            <span style="color:#ef4444">65%+</span> 高载
                         </div>
                     </div>
                     <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                        <div style="font-size:11px;color:#666;margin-bottom:8px;">Token评分 (0-80) - 只算处理中任务</div>
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">等待评分 (0-30)</div>
                         <div style="font-size:10px;color:#888;">
-                            <span style="color:#22c55e">10k</span> → 10% · 
-                            <span style="color:#3b82f6">50k</span> → 30% · 
-                            <span style="color:#eab308">100k</span> → 50% · 
-                            <span style="color:#ef4444">200k+</span> → 75-80%
+                            <span style="color:#22c55e">0-10s</span> → 0-5% · 
+                            <span style="color:#3b82f6">10-30s</span> → 5-15% · 
+                            <span style="color:#eab308">30-60s</span> → 15-25% · 
+                            <span style="color:#ef4444">60s+</span> → 25-30%
                         </div>
                     </div>
                     <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                        <div style="font-size:11px;color:#666;margin-bottom:8px;">处理中加成</div>
-                        <div style="font-size:10px;color:#888;">每个处理中任务 +3% (最多+15%)</div>
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">Token评分 (0-20) - 只算处理中任务</div>
+                        <div style="font-size:10px;color:#888;">
+                            <span style="color:#22c55e">10k</span> → 2% · 
+                            <span style="color:#3b82f6">50k</span> → 10% · 
+                            <span style="color:#eab308">100k</span> → 20%
+                        </div>
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">基础评分 + 处理中加成</div>
+                        <div style="font-size:10px;color:#888;">活跃会话×10 + 工具调用×2 + 每个处理中任务×3 (最多+15)</div>
                     </div>
                 </div>
                 <div class="info-panel" id="panel-tips">
-                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🟢 <b style="color:#22c55e">空闲(0-20%)</b>：可立即响应</div>
-                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🔵 <b style="color:#3b82f6">轻载(20-40%)</b>：30秒内响应</div>
-                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🟡 <b style="color:#eab308">中等(40-60%)</b>：可派简单任务</div>
-                    <div style="font-size:13px;color:#aaa;">🔴 <b style="color:#ef4444">高载(60%+)</b>：建议等待</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🟢 <b style="color:#22c55e">空闲(0-25%)</b>：可立即响应</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🔵 <b style="color:#3b82f6">轻载(25-45%)</b>：30秒内响应</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🟡 <b style="color:#eab308">中等(45-65%)</b>：建议简单任务</div>
+                    <div style="font-size:13px;color:#aaa;">🔴 <b style="color:#ef4444">高载(65%+)</b>：建议等待</div>
                 </div>
                 <div class="info-panel" id="panel-status">
                     <div style="font-size:13px;color:#aaa;margin-bottom:8px;"><span style="color:#eab308;">⏳</span> <b>等待中</b>：用户发了消息，我还没开始处理</div>
@@ -673,8 +686,8 @@
         const metricTips = {
             sessions: {
                 title: '📊 活跃会话',
-                desc: '最近1小时内有活动（发送/接收消息）的会话数量。包括群聊、私聊和后台任务。',
-                formula: '参与方式：会话数量本身不直接影响评分，但为其他指标提供上下文。'
+                desc: '最近10分钟内有活动（发送/接收消息）的会话数量。包括群聊、私聊和后台任务。',
+                formula: '活跃标准：文件修改时间 < 10分钟。为其他指标提供上下文参考。'
             },
             pending: {
                 title: '⏳ 待处理',
@@ -691,15 +704,15 @@
                 desc: '当前处理中任务的上下文Token总量。代表AI需要处理的内容复杂度。',
                 formula: '参与方式：直接贡献「Token评分」。只统计处理中任务的Tokens。\n10k: 10% | 50k: 30% | 100k: 50% | 200k+: 75-80%'
             },
-            wait: {
-                title: '⏱️ 最长等待',
-                desc: '所有待处理消息中，等待时间最长的那一条。',
-                formula: '参与方式：作为「等待评分」的计算依据。\n这个值越大，说明有用户在等待越久，评分越高。'
+            estimated: {
+                title: '⏱️ 预计响应时间',
+                desc: '基于当前处理任务数量和Token量估算的响应时间。让你知道大概要等多久。',
+                formula: '计算方式：\n• 每个处理中任务：+30秒基础时间\n• 每50k tokens：+最多30秒\n• 每个排队任务：+15秒\n\n示例：2个处理中任务 + 100k tokens = 约60-90秒'
             },
-            lastActive: {
-                title: '💓 最后活跃',
-                desc: '距离最近一次会话活动（任何消息）的时间。反映系统的整体活跃度。',
-                formula: '参与方式：不参与评分计算。\n纯监控指标，用于了解系统整体活跃程度。'
+            trend: {
+                title: '📈 5分钟趋势',
+                desc: '最近10分钟的认知评分变化趋势（每30秒一个点）。帮助你判断负载是在上升还是下降。',
+                formula: '显示规则：\n• 绿色线段 = 评分下降（负载减轻）\n• 黄色/红色线段 = 评分上升（负载增加）\n• 横轴 = 时间（左旧右新）\n• 纵轴 = 评分（0-100%）'
             }
         };
         
@@ -837,8 +850,10 @@
             document.getElementById('pendingValue').textContent = data.pending_count || 0;
             document.getElementById('processingValue').textContent = data.processing_count || 0;
             document.getElementById('tokensValue').textContent = data.total_tokens_formatted || '0';
-            document.getElementById('waitValue').textContent = data.max_wait_formatted || '0s';
-            document.getElementById('lastActiveValue').textContent = data.last_active_formatted || '0s';
+            document.getElementById('estimatedValue').textContent = data.estimated_response_formatted || '立即';
+            
+            // 绘制趋势图
+            drawTrendChart(data.history_trend || []);
             
             // 更新任务队列 - 显示具体任务描述
             const taskList = document.getElementById('taskList');
@@ -875,6 +890,54 @@
             }
             
             document.getElementById('updateTime').textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
+        }
+        
+        // 绘制迷你趋势图
+        function drawTrendChart(history) {
+            const canvas = document.getElementById('trendCanvas');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, width, height);
+            
+            if (!history || history.length < 2) {
+                ctx.fillStyle = '#444';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('暂无数据', width/2, height/2 + 3);
+                return;
+            }
+            
+            // 找到最大最小值
+            const scores = history.map(h => h.score);
+            const minScore = Math.min(...scores, 0);
+            const maxScore = Math.max(...scores, 100);
+            const range = maxScore - minScore || 100;
+            
+            // 绘制线段
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            for (let i = 0; i < history.length - 1; i++) {
+                const x1 = (i / (history.length - 1)) * width;
+                const x2 = ((i + 1) / (history.length - 1)) * width;
+                const y1 = height - ((history[i].score - minScore) / range) * (height - 4) - 2;
+                const y2 = height - ((history[i+1].score - minScore) / range) * (height - 4) - 2;
+                
+                // 根据趋势选择颜色
+                const isRising = history[i+1].score > history[i].score;
+                ctx.strokeStyle = isRising ? '#eab308' : '#22c55e';
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
         }
         
         // 初始加载
