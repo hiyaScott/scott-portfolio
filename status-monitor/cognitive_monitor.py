@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v5.8 - 智能标签
+Shrimp Jetton 认知负载监控 v5.8.0 - 智能标签
 修复：显示8字以内中文标签，描述正在做的事情
 """
 
