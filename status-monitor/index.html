@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kimi Claw 状态监控</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #0f0f0f;
@@ -20,23 +16,10 @@
             align-items: center;
             padding: 20px;
         }
-        .container {
-            width: 100%;
-            max-width: 480px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-        .header h1 {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .header .subtitle {
-            color: #888;
-            font-size: 14px;
-        }
+        .container { width: 100%; max-width: 480px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+        .header .subtitle { color: #888; font-size: 14px; }
         .status-card {
             background: #1a1a1a;
             border-radius: 16px;
@@ -75,30 +58,13 @@
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.05); opacity: 0.8; }
         }
-        .status-text {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
+        .status-text { font-size: 28px; font-weight: 600; margin-bottom: 8px; }
         .status-ready .status-text { color: #22c55e; }
         .status-busy .status-text { color: #eab308; }
         .status-error .status-text { color: #ef4444; }
-        .current-task {
-            color: #888;
-            font-size: 14px;
-            margin-bottom: 24px;
-        }
-        .task-label {
-            color: #666;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
-        }
-        .task-value {
-            color: #fff;
-            font-size: 16px;
-        }
+        .current-task { color: #888; font-size: 14px; margin-bottom: 24px; min-height: 20px; }
+        .task-label { color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .task-value { color: #fff; font-size: 16px; min-height: 24px; }
         .metrics {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -107,19 +73,9 @@
             padding-top: 24px;
             border-top: 1px solid #2a2a2a;
         }
-        .metric {
-            text-align: left;
-        }
-        .metric-label {
-            color: #666;
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-        .metric-value {
-            color: #fff;
-            font-size: 14px;
-            font-family: monospace;
-        }
+        .metric { text-align: left; }
+        .metric-label { color: #666; font-size: 12px; margin-bottom: 4px; }
+        .metric-value { color: #fff; font-size: 14px; font-family: monospace; }
         .refresh-btn {
             width: 100%;
             margin-top: 24px;
@@ -132,9 +88,8 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .refresh-btn:hover {
-            background: #3a3a3a;
-        }
+        .refresh-btn:hover { background: #3a3a3a; }
+        .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .auto-refresh {
             display: flex;
             align-items: center;
@@ -151,16 +106,11 @@
             border-radius: 50%;
             animation: blink 2s ease-in-out infinite;
         }
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        .timestamp {
-            text-align: center;
-            margin-top: 20px;
-            color: #444;
-            font-size: 12px;
-        }
+        .dot.paused { animation: none; opacity: 0.5; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .timestamp { text-align: center; margin-top: 20px; color: #444; font-size: 12px; }
+        .error-msg { color: #ef4444; font-size: 12px; margin-top: 8px; }
+        .loading { opacity: 0.6; }
     </style>
 </head>
 <body>
@@ -170,84 +120,146 @@
             <div class="subtitle">实时查看我的运行状态</div>
         </div>
         
-        <div class="status-card">
-            <div class="status-indicator status-busy" id="indicator">⚡</div>
-            <div class="status-text" id="statusText">处理中</div>
-            <div class="current-task" id="currentTask">正在创建状态监控系统</div>
+        <div class="status-card" id="statusCard">
+            <div class="status-indicator status-busy" id="indicator">⏳</div>
+            <div class="status-text" id="statusText">加载中...</div>
+            <div class="current-task" id="currentTask">正在获取状态...</div>
             
             <div class="task-label">当前任务</div>
-            <div class="task-value" id="taskDetail">初始化 Web 状态页面</div>
+            <div class="task-value" id="taskDetail">-</div>
             
             <div class="metrics">
                 <div class="metric">
                     <div class="metric-label">频道</div>
-                    <div class="metric-value">Feishu</div>
+                    <div class="metric-value" id="channel">-</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">模型</div>
-                    <div class="metric-value">kimi-coding/k2p5</div>
+                    <div class="metric-value" id="model">-</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">会话状态</div>
-                    <div class="metric-value">Active</div>
+                    <div class="metric-value" id="session">-</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">最后更新</div>
-                    <div class="metric-value" id="lastUpdate">10:25:01</div>
+                    <div class="metric-value" id="lastUpdate">-</div>
                 </div>
             </div>
             
-            <button class="refresh-btn" onclick="location.reload()">🔄 刷新状态</button>
+            <button class="refresh-btn" id="refreshBtn" onclick="loadStatus()">🔄 刷新状态</button>
+            <div class="error-msg" id="errorMsg"></div>
             
             <div class="auto-refresh">
-                <div class="dot"></div>
-                <span>自动刷新中 (每 5 秒)</span>
+                <div class="dot" id="autoDot"></div>
+                <span id="autoText">自动刷新中 (每 5 秒)</span>
             </div>
         </div>
         
-        <div class="timestamp" id="timestamp">最后同步: 2026-03-14 10:25:01 CST</div>
+        <div class="timestamp" id="timestamp">等待数据...</div>
     </div>
 
     <script>
-        // 模拟状态更新
-        const states = {
-            ready: {
-                emoji: '🟢',
-                text: '就绪',
-                class: 'status-ready',
-                task: '等待指令'
-            },
-            busy: {
-                emoji: '⚡',
-                text: '处理中',
-                class: 'status-busy',
-                task: '正在执行任务'
-            },
-            error: {
-                emoji: '🔴',
-                text: '异常',
-                class: 'status-error',
-                task: '需要检查'
-            }
+        // 状态配置
+        const stateConfig = {
+            ready: { emoji: '🟢', text: '就绪', class: 'status-ready', task: '等待指令' },
+            busy: { emoji: '⚡', text: '处理中', class: 'status-busy', task: '正在执行任务' },
+            error: { emoji: '🔴', text: '异常', class: 'status-error', task: '需要检查' }
         };
 
-        // 自动刷新
-        setInterval(() => {
-            location.reload();
-        }, 5000);
+        let autoRefreshInterval;
 
-        // 更新时间戳
-        function updateTime() {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('zh-CN', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit',
-                hour12: false 
-            });
-            document.getElementById('lastUpdate').textContent = timeStr;
+        // 加载状态
+        async function loadStatus() {
+            const btn = document.getElementById('refreshBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            btn.disabled = true;
+            errorMsg.textContent = '';
+
+            try {
+                // 添加时间戳避免缓存
+                const response = await fetch(`status.json?t=${Date.now()}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                updateUI(data);
+            } catch (err) {
+                errorMsg.textContent = '获取状态失败: ' + err.message;
+                console.error('Status fetch error:', err);
+            } finally {
+                btn.disabled = false;
+            }
         }
-        updateTime();
+
+        // 更新UI
+        function updateUI(data) {
+            const config = stateConfig[data.status] || stateConfig.error;
+            
+            // 更新指示器
+            const indicator = document.getElementById('indicator');
+            indicator.className = 'status-indicator ' + config.class;
+            indicator.textContent = config.emoji;
+            
+            // 更新状态文本
+            document.getElementById('statusText').textContent = data.status_text || config.text;
+            
+            // 更新任务
+            document.getElementById('currentTask').textContent = data.current_task || config.task;
+            document.getElementById('taskDetail').textContent = data.current_task || '-';
+            
+            // 更新指标
+            document.getElementById('channel').textContent = data.channel || '-';
+            document.getElementById('model').textContent = data.model || '-';
+            document.getElementById('session').textContent = data.session_uptime || '-';
+            
+            // 格式化时间
+            const lastUpdate = data.last_heartbeat || data.since;
+            document.getElementById('lastUpdate').textContent = formatTime(lastUpdate);
+            
+            // 更新时间戳
+            document.getElementById('timestamp').textContent = 
+                '最后同步: ' + new Date().toLocaleString('zh-CN');
+        }
+
+        // 格式化时间
+        function formatTime(isoString) {
+            if (!isoString) return '-';
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleTimeString('zh-CN', { 
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
+                });
+            } catch {
+                return isoString;
+            }
+        }
+
+        // 启动自动刷新
+        function startAutoRefresh() {
+            loadStatus(); // 立即加载
+            autoRefreshInterval = setInterval(loadStatus, 5000); // 每5秒
+        }
+
+        // 停止自动刷新
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                document.getElementById('autoDot').classList.add('paused');
+                document.getElementById('autoText').textContent = '自动刷新已暂停';
+            }
+        }
+
+        // 页面加载时启动
+        startAutoRefresh();
+
+        // 页面不可见时暂停刷新
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopAutoRefresh();
+            } else {
+                startAutoRefresh();
+            }
+        });
     </script>
 </body>
 </html>
