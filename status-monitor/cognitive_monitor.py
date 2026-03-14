@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v5.7 - 显示具体会话信息
-修复：显示具体群聊/私聊/后台任务名称
+Shrimp Jetton 认知负载监控 v5.8 - 智能标签
+修复：显示8字以内中文标签，描述正在做的事情
 """
 
 import json
@@ -16,6 +16,45 @@ from urllib import request
 UPSTASH_REDIS_REST_URL = "https://singular-snake-71209.upstash.io"
 UPSTASH_REDIS_REST_TOKEN = "gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk"
 WORKSPACE = "/root/.openclaw/agents/main/sessions"
+
+# 关键词到标签的映射
+KEYWORD_TAGS = {
+    '监控': '系统监控',
+    '状态': '系统监控', 
+    '负载': '系统监控',
+    ' cognitive': '系统监控',
+    'redis': '系统监控',
+    '战棋': '战棋研究',
+    'srpg': '战棋研究',
+    '梦幻模拟战': '战棋数据',
+    '天地劫': '战棋数据',
+    '铃兰之剑': '战棋数据',
+    '数据库': '数据整理',
+    '数据收集': '数据整理',
+    '技能': '战棋研究',
+    '英雄': '战棋数据',
+    '游戏设计': '游戏设计',
+    'gdd': '游戏设计',
+    '关卡': '关卡设计',
+    '数值': '数值设计',
+    'godot': '游戏开发',
+    '象棋': '象棋游戏',
+    '编钟': '编钟模拟',
+    '音频': '音频设计',
+    'wwise': '音频设计',
+    '文档': '文档整理',
+    '飞书': '飞书集成',
+    'github': '代码提交',
+    'git': '代码提交',
+    'push': '代码提交',
+    '测试': 'QA测试',
+    'qa': 'QA测试',
+    'bug': 'Bug修复',
+    '修复': 'Bug修复',
+    '部署': '系统部署',
+    '定时任务': '任务调度',
+    'cron': '任务调度',
+}
 
 def get_system_metrics():
     """获取系统指标"""
@@ -44,60 +83,72 @@ def get_session_files():
             pass
     return sessions
 
-def extract_chat_info(content):
-    """从消息内容中提取群聊/私聊信息"""
-    info = {
-        'group_subject': None,
-        'conversation_label': None,
-        'sender_name': None,
-        'is_group': False,
-        'is_private': False
-    }
+def extract_task_label(content):
+    """从内容中提取8字以内标签"""
+    content_lower = content.lower()
     
-    # 检测群聊
-    if '"group_subject"' in content:
-        match = re.search(r'"group_subject"\s*:\s*"([^"]+)"', content)
+    # 1. 先检查关键词映射
+    for keyword, tag in KEYWORD_TAGS.items():
+        if keyword in content_lower:
+            return tag[:8]
+    
+    # 2. 检测后台任务
+    if 'sessions_spawn' in content:
+        # 提取任务描述
+        match = re.search(r'"task"\s*:\s*"([^"]{5,50})', content)
         if match:
-            info['group_subject'] = match.group(1)
-            info['is_group'] = True
+            task = match.group(1).strip()
+            # 提取前8个字或关键词
+            if len(task) <= 8:
+                return task
+            # 尝试提取核心动词+名词
+            task_lower = task.lower()
+            for keyword, tag in KEYWORD_TAGS.items():
+                if keyword in task_lower:
+                    return tag[:8]
+            # 默认取前8字
+            return task[:8]
     
-    # 检测 conversation_label
-    if '"conversation_label"' in content:
-        match = re.search(r'"conversation_label"\s*:\s*"([^"]+)"', content)
-        if match:
-            info['conversation_label'] = match.group(1)
+    # 3. 检测工具调用类型
+    if 'feishu_doc' in content or 'feishu_wiki' in content:
+        return '飞书文档'
+    if 'feishu_bitable' in content:
+        return '飞书表格'
+    if 'feishu_drive' in content:
+        return '飞书云盘'
+    if 'web_search' in content or 'kimi_search' in content:
+        return '信息检索'
+    if 'web_fetch' in content:
+        return '网页抓取'
+    if 'read' in content or 'write' in content:
+        return '文件操作'
+    if 'exec' in content:
+        return '命令执行'
+    if 'browser' in content:
+        return '浏览器操作'
+    if 'github' in content or 'git ' in content:
+        return '代码提交'
     
-    # 检测发送者
-    if '"name"' in content and '"label"' in content:
-        match = re.search(r'"name"\s*:\s*"([^"]+)"', content)
-        if match and match.group(1) not in ['', 'unknown']:
-            info['sender_name'] = match.group(1)
+    # 4. 检测消息内容主题
+    if '计策' in content or '策略' in content:
+        return '计策设计'
+    if '角色' in content and '技能' in content:
+        return '技能设计'
+    if '关卡' in content:
+        return '关卡设计'
+    if '数值' in content:
+        return '数值设计'
+    if '剧情' in content or '故事' in content:
+        return '剧情设计'
+    if 'ui' in content_lower or '界面' in content:
+        return 'UI设计'
+    if '音效' in content or '音乐' in content:
+        return '音频设计'
     
-    # 如果没有 group_subject 但有 group 字样，可能是私聊
-    if not info['is_group'] and ('"is_group_chat": true' in content.lower() or 'group' in content.lower()):
-        info['is_group'] = True
-    elif not info['is_group']:
-        info['is_private'] = True
-    
-    return info
-
-def extract_subagent_task(content):
-    """从 sessions_spawn 调用中提取任务描述"""
-    task = None
-    if '"name": "sessions_spawn"' in content:
-        # 尝试提取 task 参数
-        match = re.search(r'"task"\s*:\s*"([^"]{5,100})', content)
-        if match:
-            task = match.group(1)[:30]  # 截断到30字符
-        else:
-            # 尝试从参数中提取
-            match = re.search(r'"task"\s*:\s*"([^"]+)"', content)
-            if match:
-                task = match.group(1)[:30]
-    return task
+    return None
 
 def analyze_session(file_path):
-    """分析会话 - v5.7: 显示具体会话名称"""
+    """分析会话 - v5.8: 智能标签"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -108,11 +159,11 @@ def analyze_session(file_path):
         last_user_time = 0
         last_assistant_time = 0
         
-        chat_info = None
-        subagent_task = None
+        label = None
         has_recent_thinking = False
+        is_group = False
         
-        for line in lines[-100:]:
+        for line in lines[-50:]:  # 只检查最近50条
             try:
                 msg = json.loads(line.strip())
                 if msg.get('type') == 'message':
@@ -124,19 +175,20 @@ def analyze_session(file_path):
                     total_tokens += len(content) // 4
                     messages += 1
                     
-                    # 提取聊天信息（从用户消息中）
-                    if role == 'user' and chat_info is None:
-                        chat_info = extract_chat_info(content)
-                    
-                    # 提取后台任务信息
-                    if role == 'user' and subagent_task is None:
-                        subagent_task = extract_subagent_task(content)
+                    # 提取标签（从最近的消息中）
+                    if label is None:
+                        extracted = extract_task_label(content)
+                        if extracted:
+                            label = extracted
                     
                     # 记录用户消息时间
                     if role == 'user':
                         last_user_time = timestamp
+                        # 检测是否群聊
+                        if 'group_subject' in content or '"is_group_chat": true' in content.lower():
+                            is_group = True
                     
-                    # 记录助手消息时间（排除纯thinking消息）
+                    # 记录助手消息时间
                     elif role == 'assistant':
                         content_list = msg_data.get('content', [])
                         is_thinking_only = True
@@ -145,16 +197,11 @@ def analyze_session(file_path):
                                 if isinstance(item, dict) and item.get('type') != 'thinking':
                                     is_thinking_only = False
                                     break
+                                if isinstance(item, dict) and item.get('type') == 'thinking':
+                                    has_recent_thinking = True
                         
                         if not is_thinking_only:
                             last_assistant_time = timestamp
-                        
-                        # 检测是否有thinking消息
-                        if isinstance(content_list, list):
-                            for item in content_list:
-                                if isinstance(item, dict) and item.get('type') == 'thinking':
-                                    has_recent_thinking = True
-                                    break
                     
                     # 检测工具调用
                     if '"toolCallId"' in content:
@@ -163,27 +210,16 @@ def analyze_session(file_path):
             except:
                 pass
         
-        # 确定会话类型和名称
-        if subagent_task:
-            session_type = "🤖"
-            session_name = subagent_task[:20] if subagent_task else "后台任务"
-        elif chat_info and chat_info['is_group']:
+        # 确定会话类型和标签
+        if label:
+            session_type = "🤖" if 'sessions_spawn' in str(lines[-30:]) else ("👥" if is_group else "💬")
+            session_name = label[:8]
+        elif is_group:
             session_type = "👥"
-            # 使用 group_subject 或 conversation_label 的短版本
-            if chat_info['group_subject'] and chat_info['group_subject'] != chat_info.get('conversation_label'):
-                name = chat_info['group_subject']
-            elif chat_info['conversation_label']:
-                name = chat_info['conversation_label'][:12] + "..."
-            else:
-                name = "群聊"
-            session_name = name[:20]
-        elif chat_info and chat_info['is_private']:
-            session_type = "💬"
-            sender = chat_info.get('sender_name', '私聊')
-            session_name = f"{sender[:15]}" if sender else "私聊"
+            session_name = "群聊"
         else:
-            session_type = "💭"
-            session_name = "一般对话"
+            session_type = "💬"
+            session_name = "私聊"
         
         # 状态判断
         file_mtime = os.path.getmtime(file_path)
@@ -328,7 +364,7 @@ def update_redis(data):
         return False
 
 def main():
-    print("🧠 Shrimp Jetton v5.7 - 显示具体会话信息")
+    print("🧠 Shrimp Jetton v5.8 - 智能标签")
     while True:
         try:
             load = get_cognitive_load()
