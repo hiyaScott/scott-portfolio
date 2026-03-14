@@ -312,6 +312,17 @@
             padding: 12px 8px;
             border: 1px solid #222;
             text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .metric-card:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: #444;
+            transform: translateY(-2px);
+        }
+        .metric-card:active {
+            transform: translateY(0);
         }
         .metric-label {
             font-size: 10px;
@@ -324,6 +335,69 @@
             font-size: 18px;
             font-weight: 700;
             font-family: 'SF Mono', monospace;
+        }
+        
+        /* 提示弹窗 */
+        .metric-tooltip {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .metric-tooltip.active {
+            display: flex;
+        }
+        .tooltip-content {
+            background: linear-gradient(180deg, rgba(40,40,50,0.98) 0%, rgba(30,30,40,0.99) 100%);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 320px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            animation: tooltipIn 0.3s ease;
+        }
+        @keyframes tooltipIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .tooltip-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        .tooltip-desc {
+            font-size: 0.9rem;
+            color: #aaa;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .tooltip-formula {
+            background: rgba(0,255,255,0.1);
+            border-left: 3px solid #00ffff;
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            color: #00ffff;
+            margin-bottom: 16px;
+        }
+        .tooltip-close {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        .tooltip-close:hover {
+            background: rgba(255,255,255,0.2);
         }
         
         /* 任务队列 */
@@ -462,12 +536,22 @@
         
         <!-- 指标网格 - 6个标签 -->
         <div class="metrics-grid">
-            <div class="metric-card"><div class="metric-label">活跃会话</div><div class="metric-value" id="sessionsValue">--</div></div>
-            <div class="metric-card"><div class="metric-label">待处理</div><div class="metric-value" id="pendingValue">--</div></div>
-            <div class="metric-card"><div class="metric-label">处理中</div><div class="metric-value" id="processingValue">--</div></div>
-            <div class="metric-card"><div class="metric-label">Token负载</div><div class="metric-value" id="tokensValue">--</div></div>
-            <div class="metric-card"><div class="metric-label">最长等待</div><div class="metric-value" id="waitValue">--</div></div>
-            <div class="metric-card"><div class="metric-label">最后活跃</div><div class="metric-value" id="lastActiveValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('sessions')"><div class="metric-label">活跃会话</div><div class="metric-value" id="sessionsValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('pending')"><div class="metric-label">待处理</div><div class="metric-value" id="pendingValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('processing')"><div class="metric-label">处理中</div><div class="metric-value" id="processingValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('tokens')"><div class="metric-label">Token负载</div><div class="metric-value" id="tokensValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('wait')"><div class="metric-label">最长等待</div><div class="metric-value" id="waitValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('lastActive')"><div class="metric-label">最后活跃</div><div class="metric-value" id="lastActiveValue">--</div></div>
+        </div>
+        
+        <!-- 指标提示弹窗 -->
+        <div class="metric-tooltip" id="metricTooltip" onclick="hideMetricTip()">
+            <div class="tooltip-content" onclick="event.stopPropagation()">
+                <div class="tooltip-title" id="tooltipTitle">指标说明</div>
+                <div class="tooltip-desc" id="tooltipDesc">点击任意指标查看详细说明</div>
+                <div class="tooltip-formula" id="tooltipFormula"></div>
+                <button class="tooltip-close" onclick="hideMetricTip()">知道了</button>
+            </div>
         </div>
         
         <!-- 任务队列 -->
@@ -539,6 +623,56 @@
             document.querySelectorAll('.info-panel').forEach(p => p.classList.remove('active'));
             const selected = document.getElementById('panel-' + tabName);
             if (selected) selected.classList.add('active');
+        }
+        
+        // 指标提示数据
+        const metricTips = {
+            sessions: {
+                title: '📊 活跃会话',
+                desc: '最近1小时内有活动（发送/接收消息）的会话数量。包括群聊、私聊和后台任务。',
+                formula: '参与方式：会话数量本身不直接影响评分，但为其他指标提供上下文。'
+            },
+            pending: {
+                title: '⏳ 待处理',
+                desc: '用户已发送消息但我尚未开始处理的数量。反映等待队列的长度。',
+                formula: '参与方式：直接贡献「等待评分」。等待时间越长 → 评分越高。\n0-10s: 20-30% | 10-30s: 30-55% | 30-60s: 55-80% | 60s+: 80-95%'
+            },
+            processing: {
+                title: '🔄 处理中',
+                desc: '当前正在执行任务的数量。检测到thinking消息或工具调用视为处理中。',
+                formula: '参与方式：每个处理中任务 +3% 评分加成（最多+15%）。\n反映系统正在进行的实际工作量。'
+            },
+            tokens: {
+                title: '🔤 Token负载',
+                desc: '当前处理中任务的上下文Token总量。代表AI需要处理的内容复杂度。',
+                formula: '参与方式：直接贡献「Token评分」。只统计处理中任务的Tokens。\n10k: 10% | 50k: 30% | 100k: 50% | 200k+: 75-80%'
+            },
+            wait: {
+                title: '⏱️ 最长等待',
+                desc: '所有待处理消息中，等待时间最长的那一条。',
+                formula: '参与方式：作为「等待评分」的计算依据。\n这个值越大，说明有用户在等待越久，评分越高。'
+            },
+            lastActive: {
+                title: '💓 最后活跃',
+                desc: '距离最近一次会话活动（任何消息）的时间。反映系统的整体活跃度。',
+                formula: '参与方式：不参与评分计算。\n纯监控指标，用于了解系统整体活跃程度。'
+            }
+        };
+        
+        // 显示指标提示
+        function showMetricTip(metricKey) {
+            const tip = metricTips[metricKey];
+            if (!tip) return;
+            
+            document.getElementById('tooltipTitle').textContent = tip.title;
+            document.getElementById('tooltipDesc').textContent = tip.desc;
+            document.getElementById('tooltipFormula').textContent = tip.formula;
+            document.getElementById('metricTooltip').classList.add('active');
+        }
+        
+        // 隐藏指标提示
+        function hideMetricTip() {
+            document.getElementById('metricTooltip').classList.remove('active');
         }
         
         const config = {
