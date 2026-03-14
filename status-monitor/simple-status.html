@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shrimp Jetton 状态</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        /* 顶部状态 - 最醒目 */
+        .status-header {
+            text-align: center;
+            padding: 40px 20px;
+            border-bottom: 2px solid #333;
+            margin-bottom: 20px;
+        }
+        .status-icon {
+            font-size: 80px;
+            margin-bottom: 15px;
+        }
+        .status-label {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .status-desc {
+            font-size: 16px;
+            color: #888;
+            line-height: 1.5;
+        }
+        
+        /* 倒计时 - 简化版，放醒目位置 */
+        .countdown-simple {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+        .countdown-simple .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 1.5s infinite;
+        }
+        .countdown-simple .text {
+            font-size: 14px;
+            color: #888;
+        }
+        .countdown-simple .time {
+            font-size: 18px;
+            font-weight: 600;
+            color: #22c55e;
+            font-family: monospace;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* 关键数字 */
+        .key-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .metric-box {
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 20px 15px;
+            text-align: center;
+            border: 1px solid #222;
+        }
+        .metric-box .number {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .metric-box .label {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* 等待队列 */
+        .queue-section {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #222;
+        }
+        .queue-title {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 15px;
+        }
+        .queue-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #222;
+        }
+        .queue-item:last-child { border-bottom: none; }
+        .queue-name { font-size: 15px; }
+        .queue-status {
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+        }
+        
+        /* 底部信息 */
+        .footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #444;
+            font-size: 12px;
+        }
+        
+        /* 状态颜色 */
+        .status-green { color: #22c55e; }
+        .status-yellow { color: #eab308; }
+        .status-orange { color: #f97316; }
+        .status-red { color: #ef4444; }
+        .status-purple { color: #a855f7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部大状态 -->
+        <div class="status-header">
+            <div class="status-icon" id="statusIcon">⏳</div>
+            <div class="status-label" id="statusLabel">检测中...</div>
+            <div class="status-desc" id="statusDesc">正在获取状态...</div>
+        </div>
+        
+        <!-- 简化倒计时 -->
+        <div class="countdown-simple">
+            <div class="dot"></div>
+            <span class="text">数据更新</span>
+            <span class="time" id="countdownTime">30s</span>
+        </div>
+        
+        <!-- 关键数字 -->
+        <div class="key-metrics">
+            <div class="metric-box">
+                <div class="number" id="pendingNum">--</div>
+                <div class="label">待回复</div>
+            </div>
+            <div class="metric-box">
+                <div class="number" id="waitNum">--</div>
+                <div class="label">最长等待</div>
+            </div>
+            <div class="metric-box">
+                <div class="number" id="sessionNum">--</div>
+                <div class="label">活跃会话</div>
+            </div>
+        </div>
+        
+        <!-- 等待队列 -->
+        <div class="queue-section">
+            <div class="queue-title">📋 当前处理中</div>
+            <div id="queueList">
+                <div class="queue-item">
+                    <span class="queue-name">加载中...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部 -->
+        <div class="footer">
+            v6.0.0 | 基于响应延迟的体验指标 | 30s刷新
+        </div>
+    </div>
+
+    <script>
+        const config = {
+            url: 'https://singular-snake-71209.upstash.io',
+            token: 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk'
+        };
+        
+        const statusConfig = {
+            10: { icon: '🟢', label: '空闲', class: 'status-green', desc: '可立即响应' },
+            30: { icon: '🟡', label: '轻负载', class: 'status-yellow', desc: '30秒内响应' },
+            60: { icon: '🟠', label: '中负载', class: 'status-orange', desc: '1-2分钟响应' },
+            85: { icon: '🔴', label: '高负载', class: 'status-red', desc: '建议稍后' },
+            100: { icon: '⛔', label: '超负荷', class: 'status-purple', desc: '强烈建议等待' }
+        };
+        
+        async function fetchData() {
+            try {
+                const response = await fetch(`${config.url}/get/ux_status.json`, {
+                    headers: { 'Authorization': `Bearer ${config.token}` }
+                });
+                
+                if (!response.ok) throw new Error('Fetch failed');
+                
+                const data = await response.json();
+                if (!data.result) return;
+                
+                const outer = JSON.parse(data.result);
+                const status = JSON.parse(outer.value);
+                
+                updateUI(status);
+            } catch (e) {
+                console.error('Error:', e);
+            }
+        }
+        
+        function updateUI(data) {
+            const score = data.ux_score || 10;
+            
+            // 确定状态配置
+            let config = statusConfig[10];
+            if (score >= 95) config = statusConfig[100];
+            else if (score >= 85) config = statusConfig[85];
+            else if (score >= 60) config = statusConfig[60];
+            else if (score >= 30) config = statusConfig[30];
+            
+            // 更新顶部大状态
+            document.getElementById('statusIcon').textContent = config.icon;
+            document.getElementById('statusLabel').textContent = config.label;
+            document.getElementById('statusLabel').className = 'status-label ' + config.class;
+            document.getElementById('statusDesc').textContent = data.ux_desc || config.desc;
+            
+            // 更新数字
+            document.getElementById('pendingNum').textContent = data.pending_count || 0;
+            
+            const waitSec = data.max_wait_sec || 0;
+            let waitText = waitSec + 's';
+            if (waitSec > 60) waitText = Math.floor(waitSec/60) + 'm';
+            document.getElementById('waitNum').textContent = waitText;
+            
+            document.getElementById('sessionNum').textContent = data.total_sessions || 0;
+            
+            // 更新队列
+            const queueList = document.getElementById('queueList');
+            if (data.session_details && data.session_details.length > 0) {
+                queueList.innerHTML = data.session_details.map(item => `
+                    <div class="queue-item">
+                        <span class="queue-name">${item.name}</span>
+                        <span class="queue-status">${item.status}</span>
+                    </div>
+                `).join('');
+            } else {
+                queueList.innerHTML = '<div class="queue-item"><span class="queue-name">无活跃任务</span></div>';
+            }
+        }
+        
+        // 初始化
+        fetchData();
+        
+        // 简化倒计时
+        let countdown = 30;
+        setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                countdown = 30;
+                fetchData();
+            }
+            document.getElementById('countdownTime').textContent = countdown + 's';
+        }, 1000);
+    </script>
+</body>
+</html>
