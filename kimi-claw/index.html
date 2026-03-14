@@ -201,6 +201,16 @@
         .status-item {
             text-align: center;
             padding: 15px;
+            transition: all 0.3s;
+        }
+        
+        a.status-item {
+            cursor: pointer;
+        }
+        
+        a.status-item:hover {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
         }
         
         .status-item .label {
@@ -503,36 +513,15 @@
                 <div class="label">运行时长</div>
                 <div class="value" id="uptime">计算中...</div>
             </div>
-            <div class="status-item">
-                <div class="label">记忆条目</div>
-                <div class="value">∞</div>
-            </div>
+            <a href="../status-monitor/cognitive-status.html" class="status-item" style="text-decoration: none;">
+                <div class="label">实时负载</div>
+                <div class="value" id="cognitiveLoad">--%</div>
+            </a>
             <div class="status-item">
                 <div class="label">守护对象</div>
                 <div class="value" style="color: var(--neon-pink);">Scott</div>
             </div>
         </div>
-        
-        <!-- 实时负载监控 -->
-        <a href="../status-monitor/cognitive-status.html" class="load-monitor-link" style="text-decoration: none; display: block;">
-            <div class="load-monitor" id="loadMonitor">
-                <div class="load-header">
-                    <span class="load-title">⚡ 实时负载</span>
-                    <span class="load-status" id="loadStatus">检测中...</span>
-                </div>
-                <div class="load-bar-container">
-                    <div class="load-bar" id="loadBar"></div>
-                </div>
-                <div class="load-details">
-                    <span>CPU: <b id="cpuVal">--</b>%</span>
-                    <span>内存: <b id="memVal">--</b>%</span>
-                    <span>任务: <b id="taskVal">--</b></span>
-                </div>
-                <div class="load-countdown">
-                    <span class="countdown-text">下次刷新: <b id="countdown">60</b>秒 → 点击查看详情</span>
-                </div>
-            </div>
-        </a>
         
         <!-- 技能区 -->
         <h2 class="section-title" id="skills">能力图谱</h2>
@@ -781,11 +770,10 @@
         // 实时负载监控
         const REDIS_URL = 'https://singular-snake-71209.upstash.io';
         const REDIS_TOKEN = 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk';
-        let countdown = 60;
         
         async function fetchLoad() {
             try {
-                const response = await fetch(`${REDIS_URL}/get/metrics.json`, {
+                const response = await fetch(`${REDIS_URL}/get/cognitive.json`, {
                     headers: { 'Authorization': `Bearer ${REDIS_TOKEN}` }
                 });
                 
@@ -804,32 +792,17 @@
         }
         
         function updateLoadUI(metrics) {
-            const busyness = metrics.busyness_score || 0;
+            const score = metrics.cognitive_score || metrics.busyness_score || 0;
             const statusCode = metrics.status_code || 'low';
             
-            // 更新状态文字
-            const statusEl = document.getElementById('loadStatus');
-            statusEl.textContent = metrics.status_text || '--';
-            statusEl.className = 'load-status ' + (statusCode === 'high' ? 'high' : statusCode === 'medium' ? 'medium' : '');
-            
-            // 更新进度条
-            const barEl = document.getElementById('loadBar');
-            barEl.style.width = busyness + '%';
-            barEl.className = 'load-bar ' + (statusCode === 'high' ? 'high' : statusCode === 'medium' ? 'medium' : '');
-            
-            // 更新详情
-            document.getElementById('cpuVal').textContent = metrics.cpu_percent?.toFixed(1) || '--';
-            document.getElementById('memVal').textContent = metrics.memory_percent?.toFixed(1) || '--';
-            document.getElementById('taskVal').textContent = (metrics.running_subagents || 0) + (metrics.active_sessions > 0 ? '+会话' : '');
-        }
-        
-        function updateCountdown() {
-            countdown--;
-            if (countdown <= 0) {
-                countdown = 60;
-                fetchLoad();
+            // 更新简洁显示
+            const loadEl = document.getElementById('cognitiveLoad');
+            if (loadEl) {
+                loadEl.textContent = score + '%';
+                // 根据负载设置颜色
+                loadEl.style.color = statusCode === 'high' ? '#ef4444' : 
+                                    statusCode === 'medium' ? '#eab308' : '#22c55e';
             }
-            document.getElementById('countdown').textContent = countdown;
         }
         
         // 已暂停任务展开/收起
@@ -847,7 +820,7 @@
 
         // 初始化
         fetchLoad();
-        setInterval(updateCountdown, 1000);
+        setInterval(fetchLoad, 30000);
         
         // 故障效果
         setInterval(() => {
