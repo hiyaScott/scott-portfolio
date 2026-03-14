@@ -116,6 +116,52 @@
             flex-wrap: nowrap;
         }
 
+        /* v1.9.0: 更多菜单容器 */
+        .more-menu-container {
+            position: relative;
+        }
+
+        .more-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: rgba(30, 30, 50, 0.98);
+            border: 1px solid rgba(245, 175, 25, 0.3);
+            border-radius: 8px;
+            padding: 6px;
+            min-width: 140px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+            z-index: 1000;
+        }
+
+        .more-dropdown.show {
+            display: flex;
+        }
+
+        .dropdown-item {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dropdown-item:hover {
+            background: rgba(245, 175, 25, 0.15);
+            color: #f5af19;
+        }
+
         /* v1.7.3: 小屏幕适配 */
         @media (max-width: 768px) {
             .toolbar {
@@ -1123,22 +1169,30 @@
                 <span id="statusText">准备就绪</span>
             </div>
             <div class="toolbar-actions">
-                <button class="btn btn-secondary" id="btnDesignDoc" onclick="window.open('design-doc.html', '_blank')">
-                    📋 设计案
-                </button>
-                <button class="btn btn-secondary" id="btnImportMidi" title="导入MIDI文件">
-                    🎹 MIDI
-                </button>
-                <input type="file" id="midiFileInput" accept=".mid,.midi" style="display: none;">
-                <button class="btn btn-secondary" id="btnRecordings">
-                    🎵 我的演奏
-                </button>
-                <button class="btn btn-secondary" id="btnClassic">
-                    🎼 经典曲目
-                </button>
                 <button class="btn btn-primary" id="btnRecord">
                     🔴 录制
                 </button>
+                <!-- v1.9.0: 更多菜单 -->
+                <div class="more-menu-container">
+                    <button class="btn btn-secondary" id="btnMore" title="更多">
+                        ☰ 更多
+                    </button>
+                    <div class="more-dropdown" id="moreDropdown">
+                        <button class="dropdown-item" id="btnRecordings">
+                            🎵 我的演奏
+                        </button>
+                        <button class="dropdown-item" id="btnClassic">
+                            🎼 经典曲目
+                        </button>
+                        <button class="dropdown-item" id="btnImportMidi">
+                            🎹 MIDI导入
+                        </button>
+                        <button class="dropdown-item" id="btnDesignDoc" onclick="window.open('design-doc.html', '_blank')">
+                            📋 设计案
+                        </button>
+                    </div>
+                </div>
+                <input type="file" id="midiFileInput" accept=".mid,.midi" style="display: none;">
             </div>
         </div>
 
@@ -1784,10 +1838,7 @@
         }
 
         // ==================== 录制列表 ====================
-        document.getElementById('btnRecordings').addEventListener('click', () => {
-            updateRecordingList();
-            document.getElementById('recordingsModal').classList.add('show');
-        });
+        // v1.9.0: 按钮事件已移至初始化部分
 
         function updateRecordingList() {
             const list = document.getElementById('recordingList');
@@ -2629,7 +2680,47 @@
             });
 
             // 经典曲目按钮
-            document.getElementById('btnClassic').addEventListener('click', openClassicModal);
+            document.getElementById('btnClassic').addEventListener('click', () => {
+                closeMoreMenu();
+                openClassicModal();
+            });
+
+            // v1.9.0: 更多菜单功能
+            const btnMore = document.getElementById('btnMore');
+            const moreDropdown = document.getElementById('moreDropdown');
+
+            function toggleMoreMenu() {
+                moreDropdown.classList.toggle('show');
+            }
+
+            function closeMoreMenu() {
+                moreDropdown.classList.remove('show');
+            }
+
+            btnMore.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleMoreMenu();
+            });
+
+            // 我的演奏按钮
+            document.getElementById('btnRecordings').addEventListener('click', () => {
+                closeMoreMenu();
+                updateRecordingList();
+                document.getElementById('recordingsModal').classList.add('show');
+            });
+
+            // MIDI导入按钮
+            document.getElementById('btnImportMidi').addEventListener('click', () => {
+                closeMoreMenu();
+                document.getElementById('midiFileInput').click();
+            });
+
+            // 点击空白处关闭更多菜单
+            document.addEventListener('click', (e) => {
+                if (!btnMore.contains(e.target) && !moreDropdown.contains(e.target)) {
+                    closeMoreMenu();
+                }
+            });
 
             // 点击空白关闭弹窗
             document.querySelectorAll('.modal').forEach(modal => {
@@ -3169,9 +3260,7 @@
         }
 
         // MIDI文件导入处理
-        document.getElementById('btnImportMidi').addEventListener('click', () => {
-            document.getElementById('midiFileInput').click();
-        });
+        // v1.9.0: 按钮点击事件已移至初始化部分
 
         document.getElementById('midiFileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
