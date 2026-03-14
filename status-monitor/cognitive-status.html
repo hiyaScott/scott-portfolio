@@ -584,7 +584,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.18.0</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">15</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
+                <span id="versionText">v5.19.0</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">30</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
             </div>
         </div>
         
@@ -694,6 +694,7 @@
             <div class="info-tabs">
                 <label class="info-tab"><input type="radio" name="infoTab" value="labels" checked onchange="switchInfoTab('labels')"><span class="tab-btn">🏷️ 标签</span></label>
                 <label class="info-tab"><input type="radio" name="infoTab" value="metrics" onchange="switchInfoTab('metrics')"><span class="tab-btn">📊 指标</span></label>
+                <label class="info-tab"><input type="radio" name="infoTab" value="trend" onchange="switchInfoTab('trend')"><span class="tab-btn">📈 走势</span></label>
                 <label class="info-tab"><input type="radio" name="infoTab" value="tips" onchange="switchInfoTab('tips')"><span class="tab-btn">💡 建议</span></label>
                 <label class="info-tab"><input type="radio" name="infoTab" value="status" onchange="switchInfoTab('status')"><span class="tab-btn">📋 状态</span></label>
             </div>
@@ -747,6 +748,42 @@
                     <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
                         <div style="font-size:11px;color:#666;margin-bottom:8px;">基础评分 + 处理中加成</div>
                         <div style="font-size:10px;color:#888;">活跃会话×10 + 工具调用×2 + 每个处理中任务×3 (最多+15)</div>
+                    </div>
+                </div>
+                <div class="info-panel" id="panel-trend">
+                    <div style="color:#888;margin-bottom:12px;font-size:12px;">📈 认知负载走势图说明</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:12px;">
+                        <b style="color:#00ffff">这是什么？</b><br>
+                        认知评分的时序变化图，每30秒采集一个数据点，反映系统负载的实时趋势。
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">颜色含义</div>
+                        <div style="font-size:10px;color:#888;">
+                            <span style="color:#22c55e">● 绿色(0-25%)</span> 空闲状态，可立即响应<br>
+                            <span style="color:#3b82f6">● 蓝色(25-45%)</span> 轻负载，30秒内响应<br>
+                            <span style="color:#eab308">● 黄色(45-65%)</span> 中等负载，建议简单任务<br>
+                            <span style="color:#ef4444">● 红色(65%+)</span> 高负载，建议等待
+                        </div>
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">时间范围</div>
+                        <div style="font-size:10px;color:#888;">
+                            <b>5分钟</b>：最近10个数据点，适合观察短期波动<br>
+                            <b>15分钟</b>：最近30个数据点，适合观察中期趋势<br>
+                            <b>1小时</b>：最近120个数据点，适合观察长期模式
+                        </div>
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">如何阅读</div>
+                        <div style="font-size:10px;color:#888;">
+                            • <b>曲线上升</b>：负载增加，可能有新任务启动<br>
+                            • <b>曲线下降</b>：负载减轻，任务正在完成<br>
+                            • <b>平稳期</b>：系统运行稳定<br>
+                            • <b>尖峰</b>：突发高负载，通常是多任务并发
+                        </div>
+                    </div>
+                    <div style="font-size:12px;color:#666;margin-top:12px;">
+                        💡 数据存储在本地SQLite数据库，不占用Redis空间
                     </div>
                 </div>
                 <div class="info-panel" id="panel-tips">
@@ -1000,7 +1037,7 @@
             fetchData();
         }
         
-        // 绘制股票走势图（类似K线图）
+        // 绘制平滑曲线走势图
         function drawStockChart(history) {
             const canvas = document.getElementById('stockChartCanvas');
             if (!canvas || !history || history.length < 2) {
@@ -1069,45 +1106,90 @@
             ctx.stroke();
             ctx.setLineDash([]);
             
-            // 绘制K线（评分范围）
-            const barWidth = Math.max(4, (chartWidth / history.length) * 0.7);
-            const spacing = chartWidth / history.length;
+            // 根据评分范围确定线条颜色
+            function getScoreColor(score) {
+                if (score >= 65) return '#ef4444'; // 红色 - 高负载
+                if (score >= 45) return '#eab308'; // 黄色 - 中等
+                if (score >= 25) return '#3b82f6'; // 蓝色 - 轻负载
+                return '#22c55e'; // 绿色 - 空闲
+            }
             
-            history.forEach((point, i) => {
-                const x = padding.left + i * spacing + spacing / 2;
-                const highY = padding.top + chartHeight - ((point.score_max - minScore) / range) * chartHeight;
-                const lowY = padding.top + chartHeight - ((point.score_min - minScore) / range) * chartHeight;
-                const openY = i > 0 ? padding.top + chartHeight - ((history[i-1].score - minScore) / range) * chartHeight : highY;
-                const closeY = padding.top + chartHeight - ((point.score - minScore) / range) * chartHeight;
+            // 计算点的坐标
+            const points = history.map((point, i) => ({
+                x: padding.left + (i / (history.length - 1)) * chartWidth,
+                y: padding.top + chartHeight - ((point.score - minScore) / range) * chartHeight,
+                score: point.score
+            }));
+            
+            // 绘制平滑曲线
+            if (points.length >= 2) {
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
                 
-                // 颜色：上涨绿色，下跌红色
-                const isUp = point.score >= (i > 0 ? history[i-1].score : point.score);
-                ctx.fillStyle = isUp ? '#22c55e' : '#ef4444';
-                ctx.strokeStyle = isUp ? '#22c55e' : '#ef4444';
-                
-                // 绘制高低线
+                // 绘制渐变填充区域
+                ctx.save();
                 ctx.beginPath();
-                ctx.moveTo(x, highY);
-                ctx.lineTo(x, lowY);
-                ctx.lineWidth = 1;
+                ctx.moveTo(points[0].x, padding.top + chartHeight);
+                for (let i = 0; i < points.length; i++) {
+                    if (i === 0) {
+                        ctx.lineTo(points[i].x, points[i].y);
+                    } else {
+                        const prev = points[i - 1];
+                        const curr = points[i];
+                        const cpX = (prev.x + curr.x) / 2;
+                        ctx.bezierCurveTo(cpX, prev.y, cpX, curr.y, curr.x, curr.y);
+                    }
+                }
+                ctx.lineTo(points[points.length - 1].x, padding.top + chartHeight);
+                ctx.closePath();
+                const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
+                gradient.addColorStop(0, 'rgba(0, 255, 255, 0.15)');
+                gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.restore();
+                
+                // 绘制主曲线（分段着色）
+                for (let i = 1; i < points.length; i++) {
+                    const prev = points[i - 1];
+                    const curr = points[i];
+                    const avgScore = (prev.score + curr.score) / 2;
+                    
+                    ctx.strokeStyle = getScoreColor(avgScore);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(prev.x, prev.y);
+                    const cpX = (prev.x + curr.x) / 2;
+                    ctx.bezierCurveTo(cpX, prev.y, cpX, curr.y, curr.x, curr.y);
+                    ctx.stroke();
+                }
+                
+                // 绘制当前点高亮
+                const lastPoint = points[points.length - 1];
+                ctx.fillStyle = getScoreColor(lastPoint.score);
+                ctx.beginPath();
+                ctx.arc(lastPoint.x, lastPoint.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                // 绘制开盘收盘矩形
-                const rectY = Math.min(openY, closeY);
-                const rectHeight = Math.abs(closeY - openY) || 2;
-                ctx.fillRect(x - barWidth/2, rectY, barWidth, rectHeight);
-            });
+                // 绘制当前点数值
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(lastPoint.score + '%', lastPoint.x, lastPoint.y - 12);
+            }
             
             // X轴时间标签（显示首尾）
             if (history.length > 0) {
                 ctx.fillStyle = '#666';
                 ctx.font = '10px sans-serif';
                 ctx.textAlign = 'left';
-                const firstTime = history[0].timestamp.split(' ')[1] || history[0].timestamp;
-                ctx.fillText(firstTime, padding.left, height - 10);
+                ctx.fillText(history[0].timestamp, padding.left, height - 10);
                 ctx.textAlign = 'right';
-                const lastTime = history[history.length-1].timestamp.split(' ')[1] || history[history.length-1].timestamp;
-                ctx.fillText(lastTime, width - padding.right, height - 10);
+                ctx.fillText(history[history.length - 1].timestamp, width - padding.right, height - 10);
             }
         }
         
