@@ -426,12 +426,32 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #222;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.2s ease;
         }
-        .task-item:last-child { border-bottom: none; }
-        .task-name { font-weight: 500; font-size: 14px; }
-        .task-stats { font-size: 13px; color: #666; }
+        .task-item:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.1);
+        }
+        .task-item:last-child { margin-bottom: 0; }
+        .task-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .task-name { font-weight: 500; font-size: 14px; color: #fff; }
+        .task-detail { font-size: 11px; color: #666; }
+        .task-status { 
+            font-size: 12px; 
+            color: #888; 
+            white-space: nowrap;
+            padding: 4px 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+        }
+        .task-status.processing { color: #60a5fa; background: rgba(59,130,246,0.15); }
+        .task-status.waiting { color: #facc15; background: rgba(234,179,8,0.15); }
+        .task-status.idle { color: #22c55e; background: rgba(34,197,94,0.15); }
         
         /* Radio Tab */
         .info-tabs-container {
@@ -479,7 +499,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.16.0</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">15</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
+                <span id="versionText">v5.16.1</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">15</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
             </div>
         </div>
         
@@ -574,11 +594,20 @@
             </div>
             <div class="info-content" id="infoContent">
                 <div class="info-panel active" id="panel-labels">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; font-size: 0.85rem;">
-                        <span style="color: #22c55e;">🟢 系统监控</span><span style="color: #22c55e;">🟢 战棋研究</span><span style="color: #22c55e;">🟢 数据整理</span>
-                        <span style="color: #3b82f6;">🔵 游戏设计</span><span style="color: #3b82f6;">🔵 游戏开发</span><span style="color: #3b82f6;">🔵 音频设计</span>
-                        <span style="color: #eab308;">🟡 飞书文档</span><span style="color: #eab308;">🟡 信息检索</span><span style="color: #eab308;">🟡 文件操作</span>
-                        <span style="color: #ef4444;">🔴 代码提交</span><span style="color: #ef4444;">🔴 QA测试</span><span style="color: #ef4444;">🔴 系统部署</span>
+                    <div style="font-size:12px;color:#888;margin-bottom:12px;">任务分类示例：</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; font-size: 0.8rem;">
+                        <span style="color: #22c55e;">🟢 SRPG: 天地劫数据分析</span>
+                        <span style="color: #22c55e;">🟢 SRPG: 梦幻模拟战研究</span>
+                        <span style="color: #22c55e;">🟢 SRPG: 计策系统设计</span>
+                        <span style="color: #3b82f6;">🔵 编钟: 烧绳子动画修复</span>
+                        <span style="color: #3b82f6;">🔵 编钟: 和弦系统开发</span>
+                        <span style="color: #3b82f6;">🔵 音频: Wwise集成研究</span>
+                        <span style="color: #3b82f6;">🔵 开发: 游戏导出打包</span>
+                        <span style="color: #eab308;">🟡 设计: 编钟设计案</span>
+                        <span style="color: #eab308;">🟡 飞书: 文档处理</span>
+                        <span style="color: #ef4444;">🔴 Git: 代码推送发布</span>
+                        <span style="color: #22c55e;">🟢 系统: 认知监控优化</span>
+                        <span style="color: #22c55e;">🟢 对话: 一般对话</span>
                     </div>
                 </div>
                 <div class="info-panel" id="panel-metrics">
@@ -797,21 +826,38 @@
             document.getElementById('waitValue').textContent = data.max_wait_formatted || '0s';
             document.getElementById('lastActiveValue').textContent = data.last_active_formatted || '0s';
             
-            // 更新任务队列 - 显示智能标签或会话类型
+            // 更新任务队列 - 显示具体任务描述
             const taskList = document.getElementById('taskList');
             if (data.task_queue && data.task_queue.length > 0) {
                 taskList.innerHTML = data.task_queue.map(task => {
-                    // 显示智能标签(如果有)或类型
-                    const displayName = task.label || task.name || '💭 未知';
+                    // 显示具体任务名
+                    const displayName = task.label || task.name || '💭 未知任务';
+                    const statusText = task.status || '✅ 空闲';
+                    
+                    // 判断状态样式
+                    let statusClass = 'idle';
+                    if (statusText.includes('🔄') || statusText.includes('processing')) {
+                        statusClass = 'processing';
+                    } else if (statusText.includes('⏳') || statusText.includes('wait')) {
+                        statusClass = 'waiting';
+                    }
+                    
+                    // 格式化tokens显示
+                    const tokens = task.tokens || 0;
+                    const tokensText = tokens > 1000 ? `${(tokens/1000).toFixed(1)}k tokens` : `${tokens} tokens`;
+                    
                     return `
                         <div class="task-item">
-                            <span class="task-name">${displayName}</span>
-                            <span class="task-stats">${task.status || '✅ 已回复'}</span>
+                            <div class="task-info">
+                                <span class="task-name">${displayName}</span>
+                                <span class="task-detail">${tokensText} · ${task.last_role === 'user' ? '等待中' : task.last_role === 'tool' ? '工具执行' : '已回复'}</span>
+                            </div>
+                            <span class="task-status ${statusClass}">${statusText}</span>
                         </div>
                     `;
                 }).join('');
             } else {
-                taskList.innerHTML = '<div class="task-item"><span class="task-name">无活跃任务</span></div>';
+                taskList.innerHTML = '<div class="task-item"><span class="task-name">🟢 无活跃任务 - 系统空闲</span></div>';
             }
             
             document.getElementById('updateTime').textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
