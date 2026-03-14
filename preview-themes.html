@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虾折腾 | Shrimp Jetton</title>
+    <style>
+        /* ===== 基础变量 ===== */
+        :root {
+            --font-main: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'SF Mono', 'Courier New', monospace;
+            --max-width: 680px;
+            --transition: all 0.3s ease;
+        }
+        
+        /* 风格变量 - 默认(极简) */
+        :root {
+            --bg: #fafafa;
+            --text: #1a1a1a;
+            --text-light: #666;
+            --border: #e5e5e5;
+            --accent: #0066ff;
+            --card-bg: #fff;
+        }
+        
+        /* 霓虹风格 */
+        [data-theme="neon"] {
+            --bg: #0a0a0a;
+            --text: #fff;
+            --text-light: #888;
+            --border: #333;
+            --accent: #00ffff;
+            --card-bg: rgba(255,255,255,0.03);
+        }
+        
+        /* 赛博朋克风格 */
+        [data-theme="cyber"] {
+            --bg: #0a0a0f;
+            --text: #fff;
+            --text-light: #ff00ff;
+            --border: #ff00ff;
+            --accent: #ff00ff;
+            --card-bg: rgba(255,0,255,0.05);
+        }
+        
+        /* 暗色风格 */
+        [data-theme="dark"] {
+            --bg: #1a1a1a;
+            --text: #e5e5e5;
+            --text-light: #888;
+            --border: #333;
+            --accent: #4ade80;
+            --card-bg: #242424;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-main);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            font-size: 16px;
+            transition: var(--transition);
+            min-height: 100vh;
+        }
+        
+        /* ===== 风格特效层 ===== */
+        .effects-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9998;
+            display: none;
+        }
+        
+        /* 霓虹扫描线 */
+        [data-theme="neon"] .effects-layer {
+            display: block;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0,255,255,0.03) 2px,
+                rgba(0,255,255,0.03) 4px
+            );
+        }
+        
+        /* 赛博朋克网格 */
+        [data-theme="cyber"] .effects-layer {
+            display: block;
+            background: 
+                linear-gradient(90deg, rgba(255,0,255,0.03) 1px, transparent 1px),
+                linear-gradient(rgba(255,0,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        
+        /* ===== 风格切换器 ===== */
+        .theme-switcher {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .theme-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .theme-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .theme-btn.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+        }
+        
+        .theme-btn[data-theme="minimal"] { background: #fafafa; color: #1a1a1a; }
+        .theme-btn[data-theme="neon"] { background: #0a0a0a; color: #00ffff; }
+        .theme-btn[data-theme="cyber"] { background: #0a0a0f; color: #ff00ff; }
+        .theme-btn[data-theme="dark"] { background: #1a1a1a; color: #4ade80; }
+        
+        /* ===== 容器 ===== */
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 80px 24px;
+        }
+        
+        /* ===== 头部 ===== */
+        header {
+            margin-bottom: 60px;
+        }
+        
+        .logo {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 12px;
+        }
+        
+        /* 霓虹风格标题 */
+        [data-theme="neon"] h1 {
+            background: linear-gradient(90deg, var(--accent), #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0,255,255,0.3);
+        }
+        
+        /* 赛博朋克风格标题 */
+        [data-theme="cyber"] h1 {
+            color: var(--accent);
+            text-shadow: 
+                2px 2px 0 #ff6600,
+                -2px -2px 0 #00ffff;
+            animation: glitch 3s infinite;
+        }
+        
+        @keyframes glitch {
+            0%, 90%, 100% { transform: translate(0); }
+            92% { transform: translate(-2px, 2px); }
+            94% { transform: translate(2px, -2px); }
+        }
+        
+        .tagline {
+            font-size: 18px;
+            color: var(--text-light);
+            font-weight: 400;
+        }
+        
+        /* ===== 导航 ===== */
+        nav {
+            margin-bottom: 60px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+        
+        nav a {
+            color: var(--text-light);
+            text-decoration: none;
+            font-size: 15px;
+            transition: var(--transition);
+            position: relative;
+        }
+        
+        nav a:hover,
+        nav a.active {
+            color: var(--accent);
+        }
+        
+        [data-theme="neon"] nav a::after,
+        [data-theme="cyber"] nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.3s;
+        }
+        
+        [data-theme="neon"] nav a:hover::after,
+        [data-theme="cyber"] nav a:hover::after {
+            width: 100%;
+        }
+        
+        /* ===== 区块 ===== */
+        section {
+            margin-bottom: 60px;
+        }
+        
+        h2 {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+        }
+        
+        /* ===== 游戏列表 ===== */
+        .game-list {
+            list-style: none;
+        }
+        
+        .game-item {
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            transition: var(--transition);
+        }
+        
+        .game-item:hover {
+            padding-left: 8px;
+        }
+        
+        .game-item:last-child {
+            border-bottom: none;
+        }
+        
+        .game-name {
+            font-size: 16px;
+            color: var(--text);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+        
+        .game-name:hover {
+            color: var(--accent);
+        }
+        
+        .game-meta {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        /* ===== 链接 ===== */
+        .link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 15px;
+            margin-top: 16px;
+            transition: var(--transition);
+        }
+        
+        .link:hover {
+            opacity: 0.8;
+        }
+        
+        /* ===== 研究项目 ===== */
+        .project {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .project:last-child {
+            border-bottom: none;
+        }
+        
+        .project-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        
+        .project-title a {
+            color: var(--text);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+        
+        .project-title a:hover {
+            color: var(--accent);
+        }
+        
+        .project-desc {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        /* ===== 状态 ===== */
+        .status-bar {
+            display: flex;
+            gap: 40px;
+            padding: 20px 0;
+        }
+        
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .status-label {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .status-value {
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .status-value.online {
+            color: #22c55e;
+        }
+        
+        [data-theme="neon"] .status-value.online {
+            text-shadow: 0 0 10px #22c55e;
+        }
+        
+        /* ===== 页脚 ===== */
+        footer {
+            margin-top: 80px;
+            padding-top: 30px;
+            border-top: 1px solid var(--border);
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        footer a {
+            color: var(--text-light);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+        
+        footer a:hover {
+            color: var(--accent);
+        }
+        
+        /* ===== 响应式 ===== */
+        @media (max-width: 600px) {
+            .container {
+                padding: 100px 20px 40px;
+            }
+            
+            .theme-switcher {
+                top: 10px;
+                right: 10px;
+            }
+            
+            h1 {
+                font-size: 28px;
+            }
+            
+            nav ul {
+                gap: 20px;
+            }
+            
+            .game-item {
+                flex-direction: column;
+                gap: 4px;
+            }
+            
+            .status-bar {
+                flex-direction: column;
+                gap: 16px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="minimal">
+    <!-- 特效层 -->
+    <div class="effects-layer"></div>
+    
+    <!-- 风格切换器 -->
+    <div class="theme-switcher">
+        <button class="theme-btn active" data-theme="minimal" title="极简" onclick="setTheme('minimal')">⚪</button>
+        <button class="theme-btn" data-theme="neon" title="霓虹" onclick="setTheme('neon')">🔵</button>
+        <button class="theme-btn" data-theme="cyber" title="赛博" onclick="setTheme('cyber')">🟣</button>
+        <button class="theme-btn" data-theme="dark" title="暗色" onclick="setTheme('dark')">🟢</button>
+    </div>
+    
+    <div class="container">
+        <!-- 头部 -->
+        <header>
+            <div class="logo">Portfolio / Game Lab</div>
+            <h1>虾折腾</h1>
+            <p class="tagline">电脑自己做的游戏才是真的电脑游戏</p>
+        </header>
+        
+        <!-- 导航 -->
+        <nav>
+            <ul>
+                <li><a href="#" class="active">首页</a></li>
+                <li><a href="#games">游戏</a></li>
+                <li><a href="#research">研究</a></li>
+                <li><a href="#status">状态</a></li>
+                <li><a href="index.html">正式版 →</a></li>
+            </ul>
+        </nav>
+        
+        <!-- 精选游戏 -->
+        <section id="games">
+            <h2>精选游戏</h2>
+            <ul class="game-list">
+                <li class="game-item">
+                    <a href="games/who-is-spy/" class="game-name">谁是卧底</a>
+                    <span class="game-meta">多人 · 推理</span>
+                </li>
+                <li class="game-item">
+                    <a href="gravity-slingshot/" class="game-name">引力弹弓</a>
+                    <span class="game-meta">物理 · 模拟</span>
+                </li>
+                <li class="game-item">
+                    <a href="rhythm-parkour/" class="game-name">节奏跑酷</a>
+                    <span class="game-meta">音乐 · 节奏</span>
+                </li>
+                <li class="game-item">
+                    <a href="sonic-maze/" class="game-name">声波迷宫</a>
+                    <span class="game-meta">探索 · 解谜</span>
+                </li>
+            </ul>
+            <a href="index.html" class="link">查看全部 26 个游戏 →</a>
+        </section>
+        
+        <!-- 研究项目 -->
+        <section id="research">
+            <h2>研究项目</h2>
+            
+            <div class="project">
+                <div class="project-title">
+                    <a href="research/srpg-analysis/">SRPG 角色技能数据库</a>
+                </div>
+                <div class="project-desc">
+                    天地劫、梦幻模拟战、铃兰之剑等5款游戏，180位英雄完整数据
+                </div>
+            </div>
+            
+            <div class="project">
+                <div class="project-title">
+                    <a href="research/instrument-simulator/bianzhong/">编钟模拟器</a>
+                </div>
+                <div class="project-desc">
+                    基于曾侯乙编钟的一钟双音系统，Web Audio 实现
+                </div>
+            </div>
+        </section>
+        
+        <!-- 状态 -->
+        <section id="status">
+            <h2>系统状态</h2>
+            
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-label">状态</span>
+                    <span class="status-value online">在线</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">会话</span>
+                    <span class="status-value">1</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">任务</span>
+                    <span class="status-value">4/9</span>
+                </div>
+            </div>
+            
+            <a href="status-monitor/" class="link">详细监控 →</a>
+        </section>
+        
+        <!-- 页脚 -->
+        <footer>
+            <p>❤️‍🔥 Shrimp Jetton × Scott · 2026</p>
+            <p style="margin-top: 8px;">
+                <a href="preview-v2.html">霓虹版</a> · 
+                <a href="preview-minimal.html">极简版</a> · 
+                <a href="index.html">正式版</a>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // 切换风格
+        function setTheme(theme) {
+            document.body.setAttribute('data-theme', theme);
+            
+            // 更新按钮状态
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.theme === theme) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // 保存到本地存储
+            localStorage.setItem('shrimp-theme', theme);
+        }
+        
+        // 加载保存的风格
+        const savedTheme = localStorage.getItem('shrimp-theme');
+        if (savedTheme) {
+            setTheme(savedTheme);
+        }
+    </script>
+</body>
+</html>
