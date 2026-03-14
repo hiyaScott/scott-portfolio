@@ -466,6 +466,78 @@
         .task-status.waiting { color: #facc15; background: rgba(234,179,8,0.15); }
         .task-status.idle { color: #22c55e; background: rgba(34,197,94,0.15); }
         
+        /* 股票走势图 */
+        .stock-chart-container {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #222;
+            margin-bottom: 24px;
+        }
+        .stock-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .stock-chart-title {
+            font-size: 14px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .time-range-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .time-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid #333;
+            background: transparent;
+            color: #666;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .time-btn:hover {
+            border-color: #555;
+            color: #999;
+        }
+        .time-btn.active {
+            background: rgba(0,255,255,0.1);
+            border-color: #00ffff;
+            color: #00ffff;
+        }
+        .stock-chart-wrapper {
+            position: relative;
+            height: 200px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .stock-chart-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .stock-legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 12px;
+            font-size: 11px;
+            color: #666;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend-color {
+            width: 12px;
+            height: 3px;
+            border-radius: 2px;
+        }
+        
         /* Radio Tab */
         .info-tabs-container {
             background: rgba(255,255,255,0.02);
@@ -512,7 +584,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.17.0</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">15</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
+                <span id="versionText">v5.18.0</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">15</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
             </div>
         </div>
         
@@ -581,7 +653,7 @@
             <div class="metric-card" onclick="showMetricTip('processing')"><div class="metric-label">处理中</div><div class="metric-value" id="processingValue">--</div></div>
             <div class="metric-card" onclick="showMetricTip('tokens')"><div class="metric-label">Token负载</div><div class="metric-value" id="tokensValue">--</div></div>
             <div class="metric-card" onclick="showMetricTip('estimated')"><div class="metric-label">预计响应</div><div class="metric-value" id="estimatedValue">--</div></div>
-            <div class="metric-card trend-card" onclick="showMetricTip('trend')"><div class="metric-label">5分钟趋势</div><div class="trend-chart" id="trendChart"><canvas id="trendCanvas" width="60" height="30"></canvas></div></div>
+            <div class="metric-card" onclick="showMetricTip('history')"><div class="metric-label">历史数据</div><div class="metric-value" id="historyCount">--</div></div>
         </div>
         
         <!-- 指标提示弹窗 -->
@@ -596,6 +668,26 @@
         
         <!-- 任务队列 -->
         <div class="task-queue"><h3>📋 当前任务队列</h3><div id="taskList">加载中...</div></div>
+        
+        <!-- 股票走势图 -->
+        <div class="stock-chart-container">
+            <div class="stock-chart-header">
+                <span class="stock-chart-title">📈 认知负载走势</span>
+                <div class="time-range-buttons">
+                    <button class="time-btn active" data-range="5m" onclick="switchTimeRange('5m')">5分</button>
+                    <button class="time-btn" data-range="15m" onclick="switchTimeRange('15m')">15分</button>
+                    <button class="time-btn" data-range="1h" onclick="switchTimeRange('1h')">1小时</button>
+                </div>
+            </div>
+            <div class="stock-chart-wrapper">
+                <canvas id="stockChartCanvas" class="stock-chart-canvas"></canvas>
+            </div>
+            <div class="stock-legend">
+                <div class="legend-item"><div class="legend-color" style="background:#00ffff"></div><span>评分范围</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#666"></div><span>平均线</span></div>
+                <div class="legend-item"><span id="chartStats">最高:-- 最低:-- 平均:--</span></div>
+            </div>
+        </div>
         
         <!-- 说明区 -->
         <div class="info-tabs-container">
@@ -709,10 +801,10 @@
                 desc: '基于当前处理任务数量和Token量估算的响应时间。让你知道大概要等多久。',
                 formula: '计算方式：\n• 每个处理中任务：+30秒基础时间\n• 每50k tokens：+最多30秒\n• 每个排队任务：+15秒\n\n示例：2个处理中任务 + 100k tokens = 约60-90秒'
             },
-            trend: {
-                title: '📈 5分钟趋势',
-                desc: '最近10分钟的认知评分变化趋势（每30秒一个点）。帮助你判断负载是在上升还是下降。',
-                formula: '显示规则：\n• 绿色线段 = 评分下降（负载减轻）\n• 黄色/红色线段 = 评分上升（负载增加）\n• 横轴 = 时间（左旧右新）\n• 纵轴 = 评分（0-100%）'
+            history: {
+                title: '📊 历史数据点',
+                desc: '当前时间范围内的数据点数量。数据存储在本地SQLite数据库中，每分钟聚合一次。',
+                formula: '存储说明：\n• 5分钟：最多5个点\n• 15分钟：最多15个点\n• 1小时：最多60个点\n\n长期数据在本地维护，不占用Redis空间。'
             }
         };
         
@@ -772,8 +864,8 @@
             if (memEl) memEl.textContent = (data.memory_percent || 0) + '%';
             
             // 更新连接状态
-            const connStatus = score > 60 ? '高负载' : score > 40 ? '中等' : score > 20 ? '轻负载' : '空闲';
-            const connColor = score > 60 ? 'high' : score > 40 ? 'busy' : 'online';
+            const connStatus = score >= 65 ? '高负载' : score >= 45 ? '中等' : score >= 25 ? '轻负载' : '空闲';
+            const connColor = score >= 65 ? 'high' : score >= 45 ? 'busy' : 'online';
             const connEl = document.getElementById('connectionValue');
             if (connEl) {
                 connEl.textContent = '实时 (' + connStatus + ')';
@@ -803,32 +895,32 @@
                 radioPercent.textContent = score + '%';
                 radioPointer.style.left = score + '%';
                 
-                let statusText = '空闲 可立即响应';
+                let statusText = '🟢 空闲 - 立即响应';
                 let pointerClass = 'idle';
                 let percentClass = 'idle';
                 let activeZone = zoneIdle;
                 let statusColor = '#4ade80';
                 
-                if (score >= 60) {
-                    statusText = '高负载 建议稍后派发';
+                if (score >= 65) {
+                    statusText = '🔴 高负载 - 建议等待';
                     pointerClass = 'high';
                     percentClass = 'high';
                     activeZone = zoneHigh;
                     statusColor = '#f87171';
-                } else if (score >= 40) {
-                    statusText = '中等负载 可派发简单任务';
+                } else if (score >= 45) {
+                    statusText = '🟡 中等负载 - 建议简单任务';
                     pointerClass = 'medium';
                     percentClass = 'medium';
                     activeZone = zoneMedium;
                     statusColor = '#facc15';
-                } else if (score >= 20) {
-                    statusText = '轻负载 30秒内响应';
+                } else if (score >= 25) {
+                    statusText = '🔵 轻负载 - 30秒内响应';
                     pointerClass = 'low';
                     percentClass = 'low';
                     activeZone = zoneLow;
                     statusColor = '#60a5fa';
                 } else {
-                    statusText = '空闲 可立即响应';
+                    statusText = '🟢 空闲 - 立即响应';
                     pointerClass = 'idle';
                     percentClass = 'idle';
                     activeZone = zoneIdle;
@@ -852,8 +944,12 @@
             document.getElementById('tokensValue').textContent = data.total_tokens_formatted || '0';
             document.getElementById('estimatedValue').textContent = data.estimated_response_formatted || '立即';
             
-            // 绘制趋势图
-            drawTrendChart(data.history_trend || []);
+            // 更新历史数据计数
+            const historyData = data['history_' + currentTimeRange] || [];
+            document.getElementById('historyCount').textContent = historyData.length + '点';
+            
+            // 绘制股票走势图
+            drawStockChart(historyData);
             
             // 更新任务队列 - 显示具体任务描述
             const taskList = document.getElementById('taskList');
@@ -892,9 +988,128 @@
             document.getElementById('updateTime').textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
         }
         
-        // 绘制迷你趋势图
-        function drawTrendChart(history) {
-            const canvas = document.getElementById('trendCanvas');
+        // 当前时间范围
+        let currentTimeRange = '5m';
+        
+        // 切换时间范围
+        function switchTimeRange(range) {
+            currentTimeRange = range;
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.range === range);
+            });
+            fetchData();
+        }
+        
+        // 绘制股票走势图（类似K线图）
+        function drawStockChart(history) {
+            const canvas = document.getElementById('stockChartCanvas');
+            if (!canvas || !history || history.length < 2) {
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#444';
+                    ctx.font = '14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('暂无数据', canvas.width/2, canvas.height/2);
+                }
+                document.getElementById('chartStats').textContent = '最高:-- 最低:-- 平均:--';
+                return;
+            }
+            
+            // 设置canvas尺寸
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const padding = { top: 20, right: 50, bottom: 30, left: 10 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, width, height);
+            
+            // 计算范围
+            const scores = history.map(h => h.score);
+            const minScore = Math.min(...scores, 0);
+            const maxScore = Math.max(...scores, 100);
+            const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+            const range = maxScore - minScore || 100;
+            
+            // 更新统计
+            document.getElementById('chartStats').textContent = `最高:${maxScore}% 最低:${minScore}% 平均:${avgScore}%`;
+            
+            // 绘制网格线
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding.top + (chartHeight / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(width - padding.right, y);
+                ctx.stroke();
+                
+                // Y轴标签
+                const scoreLabel = Math.round(maxScore - (range / 4) * i);
+                ctx.fillStyle = '#666';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(scoreLabel + '%', width - padding.right + 5, y + 3);
+            }
+            
+            // 绘制平均线
+            const avgY = padding.top + chartHeight - ((avgScore - minScore) / range) * chartHeight;
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, avgY);
+            ctx.lineTo(width - padding.right, avgY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 绘制K线（评分范围）
+            const barWidth = Math.max(4, (chartWidth / history.length) * 0.7);
+            const spacing = chartWidth / history.length;
+            
+            history.forEach((point, i) => {
+                const x = padding.left + i * spacing + spacing / 2;
+                const highY = padding.top + chartHeight - ((point.score_max - minScore) / range) * chartHeight;
+                const lowY = padding.top + chartHeight - ((point.score_min - minScore) / range) * chartHeight;
+                const openY = i > 0 ? padding.top + chartHeight - ((history[i-1].score - minScore) / range) * chartHeight : highY;
+                const closeY = padding.top + chartHeight - ((point.score - minScore) / range) * chartHeight;
+                
+                // 颜色：上涨绿色，下跌红色
+                const isUp = point.score >= (i > 0 ? history[i-1].score : point.score);
+                ctx.fillStyle = isUp ? '#22c55e' : '#ef4444';
+                ctx.strokeStyle = isUp ? '#22c55e' : '#ef4444';
+                
+                // 绘制高低线
+                ctx.beginPath();
+                ctx.moveTo(x, highY);
+                ctx.lineTo(x, lowY);
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // 绘制开盘收盘矩形
+                const rectY = Math.min(openY, closeY);
+                const rectHeight = Math.abs(closeY - openY) || 2;
+                ctx.fillRect(x - barWidth/2, rectY, barWidth, rectHeight);
+            });
+            
+            // X轴时间标签（显示首尾）
+            if (history.length > 0) {
+                ctx.fillStyle = '#666';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'left';
+                const firstTime = history[0].timestamp.split(' ')[1] || history[0].timestamp;
+                ctx.fillText(firstTime, padding.left, height - 10);
+                ctx.textAlign = 'right';
+                const lastTime = history[history.length-1].timestamp.split(' ')[1] || history[history.length-1].timestamp;
+                ctx.fillText(lastTime, width - padding.right, height - 10);
+            }
+        }
             if (!canvas) return;
             
             const ctx = canvas.getContext('2d');
