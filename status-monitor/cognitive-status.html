@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shrimp Jetton 认知负载监控</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 700px; margin: 0 auto; }
+        
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid #222;
+            margin-bottom: 30px;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header .subtitle { color: #666; font-size: 14px; }
+        .header .version {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 4px 12px;
+            background: rgba(34, 197, 94, 0.1);
+            border-radius: 12px;
+            font-size: 12px;
+            color: #22c55e;
+        }
+        
+        /* 认知负载仪表盘 */
+        .cognitive-gauge {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1a 100%);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            border: 1px solid #333;
+            margin-bottom: 24px;
+        }
+        
+        .gauge-value {
+            font-size: 80px;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+        .gauge-value.high { color: #ef4444; }
+        .gauge-value.medium { color: #eab308; }
+        .gauge-value.low { color: #22c55e; }
+        
+        .gauge-label {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .gauge-suggestion {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .gauge-bar {
+            height: 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .gauge-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: all 0.5s ease;
+        }
+        .gauge-fill.high { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .gauge-fill.medium { background: linear-gradient(90deg, #eab308, #facc15); }
+        .gauge-fill.low { background: linear-gradient(90deg, #22c55e, #4ade80); }
+        
+        /* 指标网格 */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .metric-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #222;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'SF Mono', monospace;
+        }
+        
+        /* 任务队列 */
+        .task-queue {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #222;
+            margin-bottom: 24px;
+        }
+        
+        .task-queue h3 {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #222;
+        }
+        .task-item:last-child { border-bottom: none; }
+        
+        .task-name {
+            font-weight: 500;
+        }
+        
+        .task-stats {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        /* 说明 */
+        .info-section {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #222;
+        }
+        .info-title {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        .info-item {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+            padding-left: 16px;
+            position: relative;
+        }
+        .info-item::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: #22c55e;
+        }
+        
+        .update-time {
+            text-align: center;
+            color: #444;
+            font-size: 12px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Shrimp Jetton</h1>
+            <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
+            <div class="version">v5.0.0 | 60s刷新</div>
+        </div>
+        
+        <!-- 认知负载仪表盘 -->
+        <div class="cognitive-gauge">
+            <div class="gauge-value" id="cognitiveValue">--</div>
+            <div class="gauge-label" id="statusText">加载中...</div>
+            <div class="gauge-suggestion" id="suggestionText">正在分析认知负载...</div>
+            <div class="gauge-bar">
+                <div class="gauge-fill" id="cognitiveBar" style="width: 0%"></div>
+            </div>
+        </div>
+        
+        <!-- 指标网格 -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">活跃会话</div>
+                <div class="metric-value" id="sessionsValue">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">总消息数</div>
+                <div class="metric-value" id="messagesValue">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">工具调用</div>
+                <div class="metric-value" id="toolsValue">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">上下文占用</div>
+                <div class="metric-value" id="contextValue">--%</div>
+            </div>
+        </div>
+        
+        <!-- 任务队列 -->
+        <div class="task-queue">
+            <h3>📋 当前任务队列</h3>
+            <div id="taskList">加载中...</div>
+        </div>
+        
+        <!-- 说明 -->
+        <div class="info-section">
+            <div class="info-title">📊 关于认知负载</div>
+            <div class="info-item">认知评分 = 会话数×40% + Token数×30% + 工具调用×30%</div>
+            <div class="info-item">0-40%: 低负载，可放心派活</div>
+            <div class="info-item">40-70%: 中等负载，谨慎派活</div>
+            <div class="info-item">70%+: 高负载，建议等待</div>
+            <div class="info-item">数据来源：实时分析 session 文件</div>
+        </div>
+        
+        <div class="update-time" id="updateTime">--</div>
+    </div>
+
+    <script>
+        const config = {
+            url: 'https://singular-snake-71209.upstash.io',
+            token: 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk'
+        };
+        
+        async function fetchData() {
+            try {
+                const response = await fetch(`${config.url}/get/cognitive.json`, {
+                    headers: { 'Authorization': `Bearer ${config.token}` }
+                });
+                
+                if (!response.ok) throw new Error('Fetch failed');
+                
+                const data = await response.json();
+                if (!data.result) return;
+                
+                const outer = JSON.parse(data.result);
+                const metrics = JSON.parse(outer.value);
+                
+                updateUI(metrics);
+            } catch (e) {
+                console.error('Error:', e);
+            }
+        }
+        
+        function updateUI(data) {
+            const score = data.cognitive_score || 0;
+            const statusCode = data.status_code || 'low';
+            
+            // 更新仪表盘
+            const valueEl = document.getElementById('cognitiveValue');
+            valueEl.textContent = score + '%';
+            valueEl.className = 'gauge-value ' + statusCode;
+            
+            document.getElementById('statusText').textContent = data.status_text || '--';
+            document.getElementById('suggestionText').textContent = data.suggestion || '--';
+            
+            const barEl = document.getElementById('cognitiveBar');
+            barEl.style.width = score + '%';
+            barEl.className = 'gauge-fill ' + statusCode;
+            
+            // 更新指标
+            document.getElementById('sessionsValue').textContent = data.active_sessions || 0;
+            document.getElementById('messagesValue').textContent = (data.total_messages || 0).toLocaleString();
+            document.getElementById('toolsValue').textContent = data.total_tool_calls || 0;
+            document.getElementById('contextValue').textContent = (data.avg_context_usage || 0) + '%';
+            
+            // 更新任务队列
+            const taskList = document.getElementById('taskList');
+            if (data.task_queue && data.task_queue.length > 0) {
+                taskList.innerHTML = data.task_queue.map(task => `
+                    <div class="task-item">
+                        <span class="task-name">${task.name}</span>
+                        <span class="task-stats">${task.messages}消息 · ${task.tokens}tokens · 工具${task.tools}</span>
+                    </div>
+                `).join('');
+            } else {
+                taskList.innerHTML = '<div class="task-item"><span class="task-name">无活跃任务</span></div>';
+            }
+            
+            // 更新时间
+            const time = new Date().toLocaleString('zh-CN');
+            document.getElementById('updateTime').textContent = '最后更新: ' + time;
+        }
+        
+        fetchData();
+        setInterval(fetchData, 60000);
+    </script>
+</body>
+</html>
