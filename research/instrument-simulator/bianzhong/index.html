@@ -393,17 +393,22 @@
             position: relative;
         }
 
-        /* 钟架 - v1.10.11: 比BG浅一点的蓝色 + 纹理 */
+        /* 钟架 - v1.10.12: 低饱和度灰蓝 + 可见纹理 */
         .frame {
             width: 95%;
             max-width: 800px;
-            background: 
-                linear-gradient(180deg, #1e4a6b 0%, #2a5a7d 50%, #1a4a6d 100%),
+            background-color: #2a3d4d;
+            background-image: 
                 repeating-linear-gradient(90deg, 
-                    rgba(255,255,255,0.03) 0px, 
-                    rgba(255,255,255,0.01) 2px,
-                    transparent 2px,
-                    transparent 8px
+                    rgba(0,0,0,0.15) 0px, 
+                    rgba(0,0,0,0.05) 1px,
+                    transparent 1px,
+                    transparent 6px
+                ),
+                linear-gradient(180deg, 
+                    rgba(255,255,255,0.08) 0%, 
+                    transparent 50%, 
+                    rgba(0,0,0,0.1) 100%
                 );
             border-radius: 10px;
             padding: 15px;
@@ -1707,7 +1712,7 @@
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.10.11</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.10.12</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2937,6 +2942,8 @@
                 btn.innerHTML = '🎹 退出专业';
                 // v1.10.0: 添加专业模式氛围
                 document.body.classList.add('pro-mode-active');
+                // v1.10.12: 专业模式打开音效
+                playProModeSound(true);
                 showToast('专业模式开启 - BPM 50');
             } else {
                 panel.classList.remove('active');
@@ -2946,6 +2953,43 @@
                 stopArpeggio();
                 // v1.10.0: 移除专业模式氛围
                 document.body.classList.remove('pro-mode-active');
+                // v1.10.12: 专业模式关闭音效
+                playProModeSound(false);
+            }
+        }
+        
+        // v1.10.12: 专业模式开关音效
+        function playProModeSound(isOpen) {
+            try {
+                const audioCtx = getAudioContext();
+                if (!audioCtx) return;
+                
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                const now = audioCtx.currentTime;
+                
+                if (isOpen) {
+                    // 打开音效：上升琶音
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.exponentialRampToValueAtTime(440, now + 0.15);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                } else {
+                    // 关闭音效：下降音
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(220, now + 0.15);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                }
+                
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } catch (e) {
+                console.error('播放专业模式音效失败:', e);
             }
         }
         
