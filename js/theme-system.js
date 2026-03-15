@@ -82,10 +82,10 @@
         toggle.onclick = toggleTheme;
         toggle.title = '切换主题';
         
-        // 样式
+        // 样式 - 避开顶部固定栏（如音乐控制台）
         toggle.style.cssText = `
             position: fixed;
-            top: 20px;
+            bottom: 20px;
             right: 20px;
             width: 44px;
             height: 44px;
