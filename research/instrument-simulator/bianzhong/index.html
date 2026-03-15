@@ -702,6 +702,117 @@
             display: flex;
         }
 
+        /* v1.10.0: 专业模式氛围效果 */
+        body.pro-mode-active {
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #0d1525 100%);
+        }
+        
+        body.pro-mode-active::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(0, 210, 210, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 210, 210, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 1;
+            animation: gridPulse 4s ease-in-out infinite;
+        }
+        
+        @keyframes gridPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+        
+        /* 扫描线效果 */
+        body.pro-mode-active::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(0, 210, 210, 0.5), 
+                rgba(245, 175, 25, 0.3),
+                transparent
+            );
+            animation: scanLine 3s linear infinite;
+            pointer-events: none;
+            z-index: 2;
+        }
+        
+        @keyframes scanLine {
+            0% { top: -2px; }
+            100% { top: 100vh; }
+        }
+        
+        /* 频谱可视化条 */
+        .spectrum-bar {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 3px;
+            z-index: 101;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        body.pro-mode-active .spectrum-bar {
+            opacity: 1;
+        }
+        
+        .spectrum-bar .bar {
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, #00ffff, #0088aa);
+            border-radius: 2px;
+            animation: spectrumJump 0.5s ease-in-out infinite alternate;
+        }
+        
+        .spectrum-bar .bar:nth-child(2) { animation-delay: 0.1s; height: 30px; }
+        .spectrum-bar .bar:nth-child(3) { animation-delay: 0.2s; height: 25px; }
+        .spectrum-bar .bar:nth-child(4) { animation-delay: 0.15s; height: 35px; }
+        .spectrum-bar .bar:nth-child(5) { animation-delay: 0.25s; height: 20px; }
+        .spectrum-bar .bar:nth-child(6) { animation-delay: 0.1s; height: 28px; }
+        .spectrum-bar .bar:nth-child(7) { animation-delay: 0.3s; height: 22px; }
+        
+        @keyframes spectrumJump {
+            0% { transform: scaleY(0.3); opacity: 0.5; }
+            100% { transform: scaleY(1); opacity: 1; }
+        }
+        
+        /* 专业模式霓虹边框增强 */
+        body.pro-mode-active .app-container {
+            position: relative;
+        }
+        
+        body.pro-mode-active .app-container::before {
+            content: '🔴 REC';
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            color: #ff4444;
+            font-size: 12px;
+            font-weight: bold;
+            animation: recBlink 1s ease-in-out infinite;
+            z-index: 101;
+            text-shadow: 0 0 10px #ff4444;
+        }
+        
+        @keyframes recBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
         .pro-mode-header {
             display: flex;
             flex-direction: column; /* 垂直排列 */
@@ -1167,11 +1278,20 @@
 
     <!-- 主应用 -->
     <div class="app-container">
-        <!-- 工具栏 -->
+        <!-- v1.10.0: 专业模式频谱条 -->
+        <div class="spectrum-bar" id="spectrumBar">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
         <div class="toolbar">
             <!-- v1.6.1: 全屏按钮移到标题之前 -->
             <button class="btn fullscreen-btn" id="btnFullscreen" title="全屏/添加到主屏幕">⛶</button>
-            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.9.12</span></div>
+            <div class="toolbar-title">🔔 编钟模拟器 <span>v1.10.0</span></div>
             <!-- v1.6.4: 状态信息显示 -->
             <div class="toolbar-status" id="toolbarStatus">
                 <span class="recording-indicator" id="recordingIndicator"></span>
@@ -2350,7 +2470,7 @@
             console.log('toggleProMode 被调用, 当前状态:', isProMode);
             isProMode = !isProMode;
             const panel = document.getElementById('proModePanel');
-            const overlay = document.getElementById('proModeOverlay'); // v1.5.8: 遮罩层
+            const overlay = document.getElementById('proModeOverlay');
             const btn = document.getElementById('btnProMode');
             
             console.log('面板元素:', panel);
@@ -2358,16 +2478,20 @@
             
             if (isProMode) {
                 panel.classList.add('active');
-                overlay.classList.add('active'); // v1.5.8: 显示遮罩层
+                overlay.classList.add('active');
                 btn.classList.add('active');
                 btn.innerHTML = '🎹 退出专业';
+                // v1.10.0: 添加专业模式氛围
+                document.body.classList.add('pro-mode-active');
                 showToast('专业模式开启 - BPM 50');
             } else {
                 panel.classList.remove('active');
-                overlay.classList.remove('active'); // v1.5.8: 隐藏遮罩层
+                overlay.classList.remove('active');
                 btn.classList.remove('active');
                 btn.innerHTML = '🎹 专业模式';
                 stopArpeggio();
+                // v1.10.0: 移除专业模式氛围
+                document.body.classList.remove('pro-mode-active');
             }
         }
         
