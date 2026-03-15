@@ -170,7 +170,9 @@
             });
             
             if (radioPercent && radioPointer) {
-                radioPercent.textContent = score + '%';
+                // 更新数字（PERCENT标签保持静态）
+                const numSpan = radioPercent.querySelector('.percent-number');
+                if (numSpan) numSpan.textContent = score;
                 radioPointer.style.left = score + '%';
                 
                 let statusText = '🟢 空闲 - 立即响应';
