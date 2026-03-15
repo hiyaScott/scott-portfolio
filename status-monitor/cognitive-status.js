@@ -45,45 +45,48 @@
             document.getElementById('metricTooltip').classList.add('active');
         }
         
-        // 格式化等待时间
-        function formatWaitTime(seconds) {
-            if (seconds < 60) return seconds + 's';
-            const mins = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            return mins + 'm' + (secs > 0 ? ' ' + secs + 's' : '');
-        }
-        
         // 隐藏指标提示
         function hideMetricTip() {
             document.getElementById('metricTooltip').classList.remove('active');
         }
         
-        // Redis 直接访问配置（方案 A：快速恢复）
-        const config = {
-            url: 'https://singular-snake-71209.upstash.io',
-            token: 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk'
-        };
+        // GitHub Pages API 数据源（无服务器方案 - Token安全隐藏）
+        // 数据通过监控脚本自动推送到 GitHub Pages
+        const DATA_URL = 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json';
         
         async function fetchData() {
             try {
-                const response = await fetch(`${config.url}/get/cognitive.json`, {
-                    headers: { 'Authorization': `Bearer ${config.token}` }
+                // 添加时间戳防止缓存
+                const cacheBuster = `?t=${Date.now()}`;
+                const response = await fetch(DATA_URL + cacheBuster, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
                 
-                if (!response.ok) throw new Error('Fetch failed');
+                if (!response.ok) throw new Error('Fetch failed: ' + response.status);
                 
-                const data = await response.json();
-                if (!data.result) return;
-                
-                const outer = JSON.parse(data.result);
-                const metrics = JSON.parse(outer.value);
+                const metrics = await response.json();
                 
                 updateUI(metrics);
+                
+                // 更新连接状态为正常
+                const connEl = document.getElementById('connectionValue');
+                if (connEl) {
+                    connEl.textContent = '实时';
+                    connEl.className = 'compact-status-value online';
+                }
             } catch (e) {
                 console.error('Error:', e);
-                // 显示离线状态
+                // 显示连接失败状态
                 document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
                 document.getElementById('radioStatusText').style.color = '#ef4444';
+                
+                const connEl = document.getElementById('connectionValue');
+                if (connEl) {
+                    connEl.textContent = '离线';
+                    connEl.className = 'compact-status-value high';
+                }
             }
         }
         
@@ -182,8 +185,8 @@
             document.getElementById('sessionsValue').textContent = data.active_sessions || 0;
             document.getElementById('pendingValue').textContent = data.pending_count || 0;
             document.getElementById('processingValue').textContent = data.processing_count || 0;
-            document.getElementById('waitValue').textContent = formatWaitTime(data.longest_wait_seconds || 0);
-            document.getElementById('etaValue').textContent = data.estimated_response_formatted || '--';
+            document.getElementById('tokensValue').textContent = data.total_tokens_formatted || '0';
+            document.getElementById('estimatedValue').textContent = data.estimated_response_formatted || 'Now';
             
             // 获取历史数据并绘制走势图
             const historyData = data['history_' + currentTimeRange] || [];
@@ -410,3 +413,4 @@
             const el = document.getElementById('countdownSec');
             if (el) el.textContent = countdown;
         }, 1000);
+    </script>
