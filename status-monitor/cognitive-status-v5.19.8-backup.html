@@ -594,7 +594,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.22.0</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">30</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
+                <span id="versionText">v5.19.8</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">30</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
             </div>
         </div>
         
@@ -865,43 +865,28 @@
             document.getElementById('metricTooltip').classList.remove('active');
         }
         
-        // GitHub Pages API 数据源（无服务器方案 - Token安全隐藏）
-        // 数据通过监控脚本自动推送到 GitHub Pages
-        const DATA_URL = 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json';
+        const config = {
+            url: 'https://singular-snake-71209.upstash.io',
+            token: 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk'
+        };
         
         async function fetchData() {
             try {
-                // 添加时间戳防止缓存
-                const cacheBuster = `?t=${Date.now()}`;
-                const response = await fetch(DATA_URL + cacheBuster, {
-                    headers: {
-                        'Accept': 'application/json'
-                    }
+                const response = await fetch(`${config.url}/get/cognitive.json`, {
+                    headers: { 'Authorization': `Bearer ${config.token}` }
                 });
                 
-                if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+                if (!response.ok) throw new Error('Fetch failed');
                 
-                const metrics = await response.json();
+                const data = await response.json();
+                if (!data.result) return;
+                
+                const outer = JSON.parse(data.result);
+                const metrics = JSON.parse(outer.value);
                 
                 updateUI(metrics);
-                
-                // 更新连接状态为正常
-                const connEl = document.getElementById('connectionValue');
-                if (connEl) {
-                    connEl.textContent = '实时';
-                    connEl.className = 'compact-status-value online';
-                }
             } catch (e) {
                 console.error('Error:', e);
-                // 显示连接失败状态
-                document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
-                document.getElementById('radioStatusText').style.color = '#ef4444';
-                
-                const connEl = document.getElementById('connectionValue');
-                if (connEl) {
-                    connEl.textContent = '离线';
-                    connEl.className = 'compact-status-value high';
-                }
             }
         }
         
