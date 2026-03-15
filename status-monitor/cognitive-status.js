@@ -45,6 +45,14 @@
             document.getElementById('metricTooltip').classList.add('active');
         }
         
+        // 格式化等待时间
+        function formatWaitTime(seconds) {
+            if (seconds < 60) return seconds + 's';
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return mins + 'm' + (secs > 0 ? ' ' + secs + 's' : '');
+        }
+        
         // 隐藏指标提示
         function hideMetricTip() {
             document.getElementById('metricTooltip').classList.remove('active');
@@ -174,8 +182,8 @@
             document.getElementById('sessionsValue').textContent = data.active_sessions || 0;
             document.getElementById('pendingValue').textContent = data.pending_count || 0;
             document.getElementById('processingValue').textContent = data.processing_count || 0;
-            document.getElementById('tokensValue').textContent = data.total_tokens_formatted || '0';
-            document.getElementById('estimatedValue').textContent = data.estimated_response_formatted || 'Now';
+            document.getElementById('waitValue').textContent = formatWaitTime(data.longest_wait_seconds || 0);
+            document.getElementById('etaValue').textContent = data.estimated_response_formatted || '--';
             
             // 获取历史数据并绘制走势图
             const historyData = data['history_' + currentTimeRange] || [];
