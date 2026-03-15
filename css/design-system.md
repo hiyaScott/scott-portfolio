@@ -1,6 +1,10 @@
-# Shrimp Jetton 设计系统 v1.0
+# 深空 DeepSpace 设计系统 v1.0
 
 基于认知监控页面 (cognitive-status.html) 提取的完整设计规范
+
+**命名时间**: 2026-03-15  
+**命名者**: Scott  
+**代号**: DeepSpace / 深空
 
 ---
 
