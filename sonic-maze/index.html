@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>声波迷宫 Sonic Maze</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #canvas {
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1);
+            cursor: crosshair;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ffff;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            pointer-events: none;
+        }
+        
+        #ui .level {
+            color: #ff00ff;
+        }
+        
+        #ui .time {
+            color: #00ff00;
+        }
+        
+        #ui .sonar {
+            color: #00ffff;
+        }
+        
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ffff;
+            font-size: 24px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        #message.show {
+            opacity: 1;
+        }
+        
+        #controls {
+            margin-top: 10px;
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        #controls span {
+            color: #00ffff;
+            margin: 0 5px;
+        }
+        
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent 50%,
+                rgba(0, 0, 0, 0.3) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
+            pointer-events: none;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    <div class="vignette"></div>
+    
+    <div id="gameContainer">
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div class="level">关卡: <span id="levelNum">1</span>/3</div>
+            <div class="sonar">声波冷却: <span id="sonarCd">READY</span></div>
+            <div class="time" id="timeDisplay" style="display: none;">剩余时间: <span id="timeLeft">60</span>s</div>
+        </div>
+        <div id="message"></div>
+        <div id="controls">
+            <span>WASD/方向键</span>移动 <span>点击/空格</span>声波 <span>R</span>重置
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const levelNumEl = document.getElementById('levelNum');
+        const sonarCdEl = document.getElementById('sonarCd');
+        const timeDisplayEl = document.getElementById('timeDisplay');
+        const timeLeftEl = document.getElementById('timeLeft');
+        const messageEl = document.getElementById('message');
+
+        // 游戏配置
+        const CELL_SIZE = 40;
+        const PLAYER_SPEED = 3;
+        const SONAR_SPEED = 4;
+        const SONAR_COOLDOWN = 800;
+        const WALL_FADE_TIME = 2000;
+        const SONAR_MAX_RADIUS = 300;
+        
+        // 游戏状态
+        let currentLevel = 1;
+        let player = { x: 0, y: 0, vx: 0, vy: 0 };
+        let sonars = [];
+        let walls = [];
+        let exit = { x: 0, y: 0 };
+        let lastSonarTime = 0;
+        let visibleWalls = new Map(); // wallKey -> fadeTime
+        let exploredCells = new Set();
+        let timeLeft = 60;
+        let gameTimer = null;
+        let levelTimeLimit = 60;
+        let gameRunning = true;
+
+        // 关卡设计 (1=墙, 0=路, 2=起点, 3=终点)
+        const levels = [
+            // 第1关: 简单走廊
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,2,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+                [1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+                [1,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
+                [1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1],
+                [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            // 第2关: 复杂迷宫
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,2,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,1],
+                [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1],
+                [1,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1],
+                [1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+                [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1],
+                [1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
+                [1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            // 第3关: 限时逃脱 (更复杂)
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,2,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
+                [1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+                [1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,0,1,1,1,1,1,1,0,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,0,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],
+                [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+                [1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,1,1,1,3,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ]
+        ];
+
+        // 初始化关卡
+        function initLevel(levelIndex) {
+            currentLevel = levelIndex;
+            
+            // 清理之前的计时器
+            if (gameTimer) {
+                clearInterval(gameTimer);
+                gameTimer = null;
+            }
+            
+            const levelData = levels[levelIndex - 1];
+            walls = [];
+            visibleWalls.clear();
+            exploredCells.clear();
+            sonars = [];
+            gameRunning = true;
+            
+            // 解析关卡数据
+            for (let row = 0; row < levelData.length; row++) {
+                for (let col = 0; col < levelData[row].length; col++) {
+                    const cell = levelData[row][col];
+                    const x = col * CELL_SIZE;
+                    const y = row * CELL_SIZE;
+                    
+                    if (cell === 1) {
+                        // 墙
+                        walls.push({
+                            x: x,
+                            y: y,
+                            width: CELL_SIZE,
+                            height: CELL_SIZE,
+                            key: `${row},${col}`
+                        });
+                    } else if (cell === 2) {
+                        // 起点
+                        player.x = x + CELL_SIZE / 2;
+                        player.y = y + CELL_SIZE / 2;
+                        player.vx = 0;
+                        player.vy = 0;
+                    } else if (cell === 3) {
+                        // 终点
+                        exit.x = x + CELL_SIZE / 2;
+                        exit.y = y + CELL_SIZE / 2;
+                    }
+                }
+            }
+            
+            // 重置UI
+            levelNumEl.textContent = currentLevel;
+            
+            // 第3关显示计时器
+            if (currentLevel === 3) {
+                timeDisplayEl.style.display = 'block';
+                levelTimeLimit = 60;
+                timeLeft = levelTimeLimit;
+                timeLeftEl.textContent = timeLeft;
+                startTimer();
+            } else {
+                timeDisplayEl.style.display = 'none';
+                if (gameTimer) {
+                    clearInterval(gameTimer);
+                    gameTimer = null;
+                }
+            }
+            
+            gameRunning = true;
+            showMessage(`关卡 ${currentLevel}`);
+        }
+
+        // 计时器
+        function startTimer() {
+            if (gameTimer) clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                if (!gameRunning) return;
+                timeLeft--;
+                timeLeftEl.textContent = timeLeft;
+                if (timeLeft <= 10) {
+                    timeLeftEl.style.color = '#ff0000';
+                } else {
+                    timeLeftEl.style.color = '#00ff00';
+                }
+                if (timeLeft <= 0) {
+                    gameOver();
+                }
+            }, 1000);
+        }
+
+        // 游戏结束
+        function gameOver() {
+            gameRunning = false;
+            if (gameTimer) {
+                clearInterval(gameTimer);
+                gameTimer = null;
+            }
+            showMessage('时间到！按 R 重试', 3000);
+        }
+
+        // 显示消息
+        function showMessage(text, duration = 2000) {
+            messageEl.textContent = text;
+            messageEl.classList.add('show');
+            setTimeout(() => {
+                messageEl.classList.remove('show');
+            }, duration);
+        }
+
+        // 发出声波
+        function fireSonar(direction = null) {
+            const now = Date.now();
+            if (now - lastSonarTime < SONAR_COOLDOWN) return;
+            
+            lastSonarTime = now;
+            
+            // 如果没有指定方向，向8个方向发射
+            if (!direction) {
+                const angles = [0, 45, 90, 135, 180, 225, 270, 315];
+                angles.forEach(angle => {
+                    const rad = angle * Math.PI / 180;
+                    sonars.push({
+                        x: player.x,
+                        y: player.y,
+                        vx: Math.cos(rad) * SONAR_SPEED,
+                        vy: Math.sin(rad) * SONAR_SPEED,
+                        radius: 0,
+                        maxRadius: SONAR_MAX_RADIUS,
+                        reflections: 0,
+                        maxReflections: 3,
+                        active: true
+                    });
+                });
+            }
+        }
+
+        // 更新游戏状态
+        function update() {
+            if (!gameRunning) return;
+            
+            // 更新玩家位置
+            player.x += player.vx;
+            player.y += player.vy;
+            
+            // 碰撞检测
+            const playerRadius = 8;
+            
+            // 边界检测
+            player.x = Math.max(playerRadius, Math.min(canvas.width - playerRadius, player.x));
+            player.y = Math.max(playerRadius, Math.min(canvas.height - playerRadius, player.y));
+            
+            // 墙壁碰撞
+            for (let wall of walls) {
+                if (circleRectCollision(player.x, player.y, playerRadius, wall)) {
+                    // 回退位置
+                    player.x -= player.vx;
+                    player.y -= player.vy;
+                    break;
+                }
+            }
+            
+            // 更新声波
+            updateSonars();
+            
+            // 更新墙壁可见性
+            const now = Date.now();
+            for (let [key, fadeTime] of visibleWalls) {
+                if (now > fadeTime) {
+                    visibleWalls.delete(key);
+                }
+            }
+            
+            // 记录探索过的区域
+            const cellCol = Math.floor(player.x / CELL_SIZE);
+            const cellRow = Math.floor(player.y / CELL_SIZE);
+            exploredCells.add(`${cellRow},${cellCol}`);
+            
+            // 检测到达终点
+            const distToExit = Math.hypot(player.x - exit.x, player.y - exit.y);
+            if (distToExit < CELL_SIZE / 2) {
+                levelComplete();
+            }
+            
+            // 更新冷却显示
+            const cd = Math.max(0, SONAR_COOLDOWN - (Date.now() - lastSonarTime));
+            sonarCdEl.textContent = cd > 0 ? `${Math.ceil(cd / 100) / 10}s` : 'READY';
+            sonarCdEl.style.color = cd > 0 ? '#ff6600' : '#00ff00';
+        }
+
+        // 更新声波
+        function updateSonars() {
+            for (let sonar of sonars) {
+                if (!sonar.active) continue;
+                
+                // 更新位置
+                sonar.x += sonar.vx;
+                sonar.y += sonar.vy;
+                sonar.radius += SONAR_SPEED;
+                
+                // 边界反射
+                if (sonar.x < 0 || sonar.x > canvas.width) {
+                    sonar.vx *= -1;
+                    sonar.reflections++;
+                }
+                if (sonar.y < 0 || sonar.y > canvas.height) {
+                    sonar.vy *= -1;
+                    sonar.reflections++;
+                }
+                
+                // 墙壁反射
+                for (let wall of walls) {
+                    if (circleRectCollision(sonar.x, sonar.y, 2, wall)) {
+                        // 检测碰撞面并反射
+                        const centerX = wall.x + wall.width / 2;
+                        const centerY = wall.y + wall.height / 2;
+                        const dx = sonar.x - centerX;
+                        const dy = sonar.y - centerY;
+                        
+                        // 判断碰撞方向
+                        if (Math.abs(dx) / wall.width > Math.abs(dy) / wall.height) {
+                            sonar.vx *= -1; // 水平反射
+                        } else {
+                            sonar.vy *= -1; // 垂直反射
+                        }
+                        
+                        // 将声波推出墙壁
+                        const pushX = sonar.vx > 0 ? 3 : -3;
+                        const pushY = sonar.vy > 0 ? 3 : -3;
+                        sonar.x += pushX;
+                        sonar.y += pushY;
+                        
+                        sonar.reflections++;
+                        
+                        // 使墙壁可见
+                        visibleWalls.set(wall.key, Date.now() + WALL_FADE_TIME);
+                        
+                        break; // 每帧只处理一次碰撞
+                    }
+                }
+                
+                // 检测最大半径或最大反射次数
+                if (sonar.radius > sonar.maxRadius || sonar.reflections > sonar.maxReflections) {
+                    sonar.active = false;
+                }
+                
+                // 使附近的墙壁可见（声波经过的区域）
+                for (let wall of walls) {
+                    const dist = Math.hypot(
+                        sonar.x - (wall.x + wall.width / 2),
+                        sonar.y - (wall.y + wall.height / 2)
+                    );
+                    if (dist < CELL_SIZE * 1.5) {
+                        visibleWalls.set(wall.key, Date.now() + WALL_FADE_TIME);
+                    }
+                }
+            }
+            
+            // 清理失效声波
+            sonars = sonars.filter(s => s.active);
+        }
+
+        // 圆形与矩形碰撞检测
+        function circleRectCollision(cx, cy, radius, rect) {
+            const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.width));
+            const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.height));
+            const dx = cx - closestX;
+            const dy = cy - closestY;
+            return (dx * dx + dy * dy) < (radius * radius);
+        }
+
+        // 关卡完成
+        function levelComplete() {
+            gameRunning = false;
+            if (gameTimer) {
+                clearInterval(gameTimer);
+                gameTimer = null;
+            }
+            
+            if (currentLevel < 3) {
+                showMessage(`关卡 ${currentLevel} 完成!`);
+                setTimeout(() => {
+                    initLevel(currentLevel + 1);
+                }, 2000);
+            } else {
+                showMessage('恭喜通关!', 5000);
+            }
+        }
+
+        // 渲染游戏
+        function render() {
+            // 清空画布（黑暗背景）
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制记忆残留（已探索区域微弱轮廓）
+            ctx.save();
+            for (let key of exploredCells) {
+                const [row, col] = key.split(',').map(Number);
+                const x = col * CELL_SIZE;
+                const y = row * CELL_SIZE;
+                
+                // 绘制微弱的网格线
+                ctx.strokeStyle = 'rgba(0, 50, 50, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, CELL_SIZE, CELL_SIZE);
+            }
+            ctx.restore();
+            
+            // 绘制被声波照亮的墙壁（紫色轮廓）
+            const now = Date.now();
+            ctx.save();
+            for (let [key, fadeTime] of visibleWalls) {
+                const wall = walls.find(w => w.key === key);
+                if (wall) {
+                    const fadeProgress = Math.max(0, (fadeTime - now) / WALL_FADE_TIME);
+                    
+                    // 发光效果
+                    ctx.shadowColor = '#ff00ff';
+                    ctx.shadowBlur = 15 * fadeProgress;
+                    ctx.strokeStyle = `rgba(255, 0, 255, ${fadeProgress})`;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
+                    
+                    // 内部填充
+                    ctx.fillStyle = `rgba(80, 0, 80, ${fadeProgress * 0.3})`;
+                    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                }
+            }
+            ctx.restore();
+            
+            // 绘制声波（青色波纹）
+            ctx.save();
+            for (let sonar of sonars) {
+                if (!sonar.active) continue;
+                
+                const progress = sonar.radius / sonar.maxRadius;
+                const alpha = 1 - progress;
+                
+                // 外环
+                ctx.beginPath();
+                ctx.arc(sonar.x, sonar.y, sonar.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 255, 255, ${alpha * 0.8})`;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                
+                // 内环
+                ctx.beginPath();
+                ctx.arc(sonar.x, sonar.y, sonar.radius * 0.7, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 255, 255, ${alpha * 0.4})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // 中心点
+                ctx.beginPath();
+                ctx.arc(sonar.x, sonar.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.fill();
+            }
+            ctx.restore();
+            
+            // 绘制终点（持续微弱发光的绿色点）
+            ctx.save();
+            const pulse = (Math.sin(Date.now() / 500) + 1) / 2;
+            ctx.shadowColor = '#00ff00';
+            ctx.shadowBlur = 15 + pulse * 10;
+            ctx.fillStyle = `rgba(0, 255, 0, ${0.5 + pulse * 0.3})`;
+            ctx.beginPath();
+            ctx.arc(exit.x, exit.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 终点外围光环
+            ctx.beginPath();
+            ctx.arc(exit.x, exit.y, 12, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(0, 255, 0, ${0.2 + pulse * 0.2})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+            
+            // 绘制玩家（中心点）
+            ctx.save();
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            
+            // 绘制扫描线效果
+            const scanY = (Date.now() / 20) % canvas.height;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, scanY);
+            ctx.lineTo(canvas.width, scanY);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 输入处理
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            
+            switch(e.key.toLowerCase()) {
+                case 'w':
+                case 'arrowup':
+                    player.vy = -PLAYER_SPEED;
+                    break;
+                case 's':
+                case 'arrowdown':
+                    player.vy = PLAYER_SPEED;
+                    break;
+                case 'a':
+                case 'arrowleft':
+                    player.vx = -PLAYER_SPEED;
+                    break;
+                case 'd':
+                case 'arrowright':
+                    player.vx = PLAYER_SPEED;
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    fireSonar();
+                    break;
+                case 'r':
+                    initLevel(currentLevel);
+                    break;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+            
+            switch(e.key.toLowerCase()) {
+                case 'w':
+                case 's':
+                case 'arrowup':
+                case 'arrowdown':
+                    player.vy = 0;
+                    break;
+                case 'a':
+                case 'd':
+                case 'arrowleft':
+                case 'arrowright':
+                    player.vx = 0;
+                    break;
+            }
+        });
+        
+        // 鼠标点击发射声波
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 计算朝向点击位置的方向
+            const dx = x - player.x;
+            const dy = y - player.y;
+            const dist = Math.hypot(dx, dy);
+            
+            if (dist > 0) {
+                const now = Date.now();
+                if (now - lastSonarTime < SONAR_COOLDOWN) return;
+                
+                lastSonarTime = now;
+                
+                // 发射5个方向的声波，中间朝向点击位置
+                const baseAngle = Math.atan2(dy, dx);
+                const spread = Math.PI / 6; // 30度散射
+                
+                for (let i = -2; i <= 2; i++) {
+                    const angle = baseAngle + i * spread / 2;
+                    sonars.push({
+                        x: player.x,
+                        y: player.y,
+                        vx: Math.cos(angle) * SONAR_SPEED,
+                        vy: Math.sin(angle) * SONAR_SPEED,
+                        radius: 0,
+                        maxRadius: SONAR_MAX_RADIUS,
+                        reflections: 0,
+                        maxReflections: 3,
+                        active: true
+                    });
+                }
+            }
+        });
+
+        // 启动游戏
+        initLevel(1);
+        gameLoop();
+    </script>
+</body>
+</html>

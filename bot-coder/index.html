@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BotCoder - 编程机器人</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            color: #00ffff;
+            font-family: 'Fira Code', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+            margin-bottom: 10px;
+            letter-spacing: 3px;
+        }
+        
+        .level-info {
+            font-size: 1.2em;
+            color: #ff00ff;
+            text-shadow: 0 0 5px #ff00ff;
+            margin-bottom: 15px;
+        }
+        
+        .game-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+        
+        /* 地图区域 */
+        .map-section {
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        
+        #gameCanvas {
+            background: #050510;
+            border: 1px solid #004444;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+        
+        /* 控制面板 */
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        /* 指令按钮区 */
+        .command-buttons {
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #ff00ff;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+        
+        .command-buttons h3 {
+            color: #ff00ff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 5px #ff00ff;
+        }
+        
+        .instruction-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+            text-align: left;
+        }
+        
+        .instruction-btn:hover {
+            background: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            transform: translateX(5px);
+        }
+        
+        .instruction-btn .cmd-icon {
+            display: inline-block;
+            width: 30px;
+            text-align: center;
+            margin-right: 10px;
+        }
+        
+        /* 程序区 */
+        .program-area {
+            background: rgba(10, 10, 20, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            width: 280px;
+            min-height: 300px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        .program-area h3 {
+            color: #00ff00;
+            margin-bottom: 10px;
+            text-shadow: 0 0 5px #00ff00;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .instruction-count {
+            font-size: 0.8em;
+            color: #ffff00;
+        }
+        
+        #programList {
+            list-style: none;
+            min-height: 200px;
+        }
+        
+        #programList li {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            margin: 5px 0;
+            padding: 8px 12px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+        
+        #programList li:hover {
+            background: rgba(0, 255, 0, 0.2);
+        }
+        
+        #programList li.executing {
+            background: rgba(255, 255, 0, 0.3);
+            border-color: #ffff00;
+            box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+        }
+        
+        #programList li.dragging {
+            opacity: 0.5;
+        }
+        
+        .remove-btn {
+            background: rgba(255, 0, 0, 0.3);
+            border: none;
+            color: #ff0000;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .remove-btn:hover {
+            background: rgba(255, 0, 0, 0.5);
+        }
+        
+        /* 操作按钮 */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        #runBtn {
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+        
+        #runBtn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.7);
+        }
+        
+        #runBtn:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        #resetBtn {
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+        }
+        
+        #resetBtn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(255, 0, 0, 0.7);
+        }
+        
+        /* 消息区 */
+        #message {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: 600;
+            border-radius: 10px;
+            text-align: center;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #message.success {
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        #message.error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff0000;
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+        }
+        
+        #message.info {
+            background: rgba(0, 200, 255, 0.2);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        
+        /* 帮助信息 */
+        .help-text {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(100, 100, 100, 0.1);
+            border: 1px solid #666;
+            border-radius: 5px;
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .help-text span {
+            color: #ffff00;
+        }
+        
+        /* 关卡选择器 */
+        .level-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .level-btn {
+            padding: 8px 15px;
+            background: rgba(255, 0, 255, 0.1);
+            border: 1px solid #ff00ff;
+            color: #ff00ff;
+            cursor: pointer;
+            border-radius: 5px;
+            font-family: 'Fira Code', monospace;
+            transition: all 0.3s;
+        }
+        
+        .level-btn:hover, .level-btn.active {
+            background: rgba(255, 0, 255, 0.3);
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+        }
+        
+        .level-btn.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>◈ BotCoder ◈</h1>
+    <div class="level-info">编写程序，控制机器人到达终点</div>
+    
+    <div class="level-selector" id="levelSelector">
+        <button class="level-btn active" data-level="0">关卡 1</button>
+        <button class="level-btn" data-level="1">关卡 2</button>
+        <button class="level-btn" data-level="2">关卡 3</button>
+    </div>
+    
+    <div class="game-container">
+        <div class="map-section">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+        </div>
+        
+        <div class="control-section">
+            <div class="command-buttons">
+                <h3>◈ 可用指令 ◈</h3>
+                <button class="instruction-btn" data-cmd="forward">
+                    <span class="cmd-icon">▲</span> 前进 (Forward)
+                </button>
+                <button class="instruction-btn" data-cmd="left">
+                    <span class="cmd-icon">↺</span> 左转 (Left)
+                </button>
+                <button class="instruction-btn" data-cmd="right">
+                    <span class="cmd-icon">↻</span> 右转 (Right)
+                </button>
+                <button class="instruction-btn" data-cmd="jump">
+                    <span class="cmd-icon">⇪</span> 跳跃 (Jump)
+                </button>
+            </div>
+            
+            <div class="program-area">
+                <h3>
+                    ◈ 程序区 ◈
+                    <span class="instruction-count"><span id="currentCount">0</span>/<span id="maxCount">10</span></span>
+                </h3>
+                <ul id="programList"></ul>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="action-btn" id="runBtn">▶ 运行</button>
+                <button class="action-btn" id="resetBtn">↺ 重置</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message" class="info">点击指令按钮添加到程序区</div>
+    
+    <div class="help-text">
+        <span>控制说明:</span> 点击指令按钮添加 | 拖拽调整顺序 | 点击删除按钮移除 | <span>R键</span> 重置关卡<br>
+        <span>指令说明:</span> 前进=向前移动1格 | 左转/右转=改变方向 | 跳跃=跳过前方陷阱
+    </div>
+
+    <script>
+        // 游戏配置
+        const GRID_SIZE = 8;
+        const CELL_SIZE = 45;
+        const CANVAS_PADDING = 20;
+        const MAX_INSTRUCTIONS = 10;
+        const ANIMATION_SPEED = 500; // 毫秒
+        
+        // 指令类型
+        const COMMANDS = {
+            forward: { name: '前进', icon: '▲', color: '#00ffff' },
+            left: { name: '左转', icon: '↺', color: '#ff00ff' },
+            right: { name: '右转', icon: '↻', color: '#ff00ff' },
+            jump: { name: '跳跃', icon: '⇪', color: '#ffff00' }
+        };
+        
+        // 关卡数据
+        const LEVELS = [
+            {
+                name: "直线前进",
+                description: "简单的直线，只需前进即可到达终点",
+                start: { x: 0, y: 4, dir: 1 }, // dir: 0=上, 1=右, 2=下, 3=左
+                end: { x: 3, y: 4 },
+                walls: [],
+                traps: []
+            },
+            {
+                name: "L形路径",
+                description: "需要转向的L形路径",
+                start: { x: 0, y: 1, dir: 1 },
+                end: { x: 5, y: 6 },
+                walls: [
+                    {x: 4, y: 0}, {x: 4, y: 1}, {x: 4, y: 2}, {x: 4, y: 3},
+                    {x: 6, y: 4}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7},
+                    {x: 0, y: 2}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 3, y: 2},
+                    {x: 5, y: 4}, {x: 4, y: 5}
+                ],
+                traps: [{x: 2, y: 4}]
+            },
+            {
+                name: "陷阱跳跃",
+                description: "使用跳跃指令越过陷阱到达终点",
+                start: { x: 0, y: 4, dir: 1 },
+                end: { x: 6, y: 4 },
+                walls: [
+                    {x: 3, y: 3}, {x: 3, y: 5},
+                    {x: 5, y: 3}, {x: 5, y: 5},
+                    {x: 7, y: 0}, {x: 7, y: 1}, {x: 7, y: 2}, {x: 7, y: 3},
+                    {x: 7, y: 5}, {x: 7, y: 6}, {x: 7, y: 7}
+                ],
+                traps: [{x: 3, y: 4}, {x: 5, y: 4}]
+            }
+        ];
+        
+        // 游戏状态
+        let currentLevel = 0;
+        let unlockedLevels = 1;
+        let program = [];
+        let robot = null;
+        let isRunning = false;
+        let currentStep = 0;
+        let animationTimeout = null;
+        let dragStartIndex = null;
+        
+        // DOM 元素
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const programList = document.getElementById('programList');
+        const messageEl = document.getElementById('message');
+        const runBtn = document.getElementById('runBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const currentCountEl = document.getElementById('currentCount');
+        const maxCountEl = document.getElementById('maxCount');
+        
+        // 初始化
+        function init() {
+            maxCountEl.textContent = MAX_INSTRUCTIONS;
+            setupEventListeners();
+            loadLevel(0);
+        }
+        
+        // 设置事件监听
+        function setupEventListeners() {
+            // 指令按钮
+            document.querySelectorAll('.instruction-btn').forEach(btn => {
+                btn.addEventListener('click', () => addInstruction(btn.dataset.cmd));
+            });
+            
+            // 运行按钮
+            runBtn.addEventListener('click', runProgram);
+            
+            // 重置按钮
+            resetBtn.addEventListener('click', resetProgram);
+            
+            // 键盘事件
+            document.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'r') {
+                    resetLevel();
+                }
+            });
+            
+            // 关卡选择
+            document.querySelectorAll('.level-btn').forEach((btn, idx) => {
+                btn.addEventListener('click', () => {
+                    if (idx < unlockedLevels) {
+                        loadLevel(idx);
+                    }
+                });
+            });
+        }
+        
+        // 加载关卡
+        function loadLevel(levelIndex) {
+            currentLevel = levelIndex;
+            const level = LEVELS[levelIndex];
+            
+            // 更新UI
+            document.querySelectorAll('.level-btn').forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === levelIndex);
+                btn.classList.toggle('locked', idx >= unlockedLevels);
+            });
+            
+            // 初始化机器人
+            robot = { ...level.start };
+            
+            // 重置程序
+            program = [];
+            updateProgramList();
+            
+            // 停止运行
+            stopRunning();
+            
+            // 显示消息
+            showMessage(`关卡 ${levelIndex + 1}: ${level.name}`, 'info');
+            
+            // 绘制
+            draw();
+        }
+        
+        // 添加指令
+        function addInstruction(cmd) {
+            if (isRunning) return;
+            
+            if (program.length >= MAX_INSTRUCTIONS) {
+                showMessage('程序已满！最多10条指令', 'error');
+                return;
+            }
+            
+            program.push(cmd);
+            updateProgramList();
+            showMessage('', 'info');
+        }
+        
+        // 更新程序列表显示
+        function updateProgramList() {
+            programList.innerHTML = '';
+            
+            program.forEach((cmd, index) => {
+                const li = document.createElement('li');
+                li.draggable = true;
+                li.dataset.index = index;
+                
+                if (isRunning && index === currentStep) {
+                    li.classList.add('executing');
+                }
+                
+                const cmdInfo = COMMANDS[cmd];
+                li.innerHTML = `
+                    <span><span style="color:${cmdInfo.color}">${cmdInfo.icon}</span> ${index + 1}. ${cmdInfo.name}</span>
+                    <button class="remove-btn" data-index="${index}">✕</button>
+                `;
+                
+                // 删除按钮
+                li.querySelector('.remove-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeInstruction(index);
+                });
+                
+                // 拖拽事件
+                li.addEventListener('dragstart', (e) => {
+                    dragStartIndex = index;
+                    li.classList.add('dragging');
+                });
+                
+                li.addEventListener('dragend', () => {
+                    li.classList.remove('dragging');
+                    dragStartIndex = null;
+                });
+                
+                li.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                });
+                
+                li.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (dragStartIndex !== null && dragStartIndex !== index) {
+                        swapInstructions(dragStartIndex, index);
+                    }
+                });
+                
+                programList.appendChild(li);
+            });
+            
+            currentCountEl.textContent = program.length;
+            currentCountEl.style.color = program.length >= MAX_INSTRUCTIONS ? '#ff0000' : '#ffff00';
+        }
+        
+        // 移除指令
+        function removeInstruction(index) {
+            if (isRunning) return;
+            program.splice(index, 1);
+            updateProgramList();
+        }
+        
+        // 交换指令位置
+        function swapInstructions(from, to) {
+            if (isRunning) return;
+            const temp = program[from];
+            program[from] = program[to];
+            program[to] = temp;
+            updateProgramList();
+        }
+        
+        // 运行程序
+        function runProgram() {
+            if (isRunning || program.length === 0) return;
+            
+            isRunning = true;
+            currentStep = 0;
+            runBtn.disabled = true;
+            
+            // 重置机器人位置
+            const level = LEVELS[currentLevel];
+            robot = { ...level.start };
+            
+            showMessage('程序运行中...', 'info');
+            executeStep();
+        }
+        
+        // 执行单步
+        function executeStep() {
+            if (!isRunning || currentStep >= program.length) {
+                // 程序结束但未到达终点
+                if (isRunning) {
+                    showMessage('程序结束！机器人未到达终点', 'error');
+                }
+                stopRunning();
+                return;
+            }
+            
+            updateProgramList();
+            
+            const cmd = program[currentStep];
+            let success = true;
+            
+            switch (cmd) {
+                case 'forward':
+                    success = moveForward();
+                    break;
+                case 'left':
+                    turnLeft();
+                    break;
+                case 'right':
+                    turnRight();
+                    break;
+                case 'jump':
+                    success = jump();
+                    break;
+            }
+            
+            draw();
+            
+            if (!success) {
+                stopRunning();
+                return;
+            }
+            
+            // 检查是否到达终点
+            const level = LEVELS[currentLevel];
+            if (robot.x === level.end.x && robot.y === level.end.y) {
+                showMessage('🎉 成功！进入下一关！', 'success');
+                stopRunning();
+                
+                // 解锁下一关
+                if (currentLevel + 1 > unlockedLevels && currentLevel < LEVELS.length - 1) {
+                    unlockedLevels = currentLevel + 2;
+                }
+                
+                // 延迟后进入下一关
+                setTimeout(() => {
+                    if (currentLevel < LEVELS.length - 1) {
+                        loadLevel(currentLevel + 1);
+                    } else {
+                        showMessage('🎊 恭喜！你已通关所有关卡！', 'success');
+                    }
+                }, 2000);
+                return;
+            }
+            
+            currentStep++;
+            animationTimeout = setTimeout(executeStep, ANIMATION_SPEED);
+        }
+        
+        // 停止运行
+        function stopRunning() {
+            isRunning = false;
+            currentStep = 0;
+            runBtn.disabled = false;
+            if (animationTimeout) {
+                clearTimeout(animationTimeout);
+                animationTimeout = null;
+            }
+            updateProgramList();
+        }
+        
+        // 前进
+        function moveForward() {
+            const dirs = [{dx: 0, dy: -1}, {dx: 1, dy: 0}, {dx: 0, dy: 1}, {dx: -1, dy: 0}];
+            const dir = dirs[robot.dir];
+            const newX = robot.x + dir.dx;
+            const newY = robot.y + dir.dy;
+            
+            return moveTo(newX, newY, false);
+        }
+        
+        // 跳跃
+        function jump() {
+            const dirs = [{dx: 0, dy: -1}, {dx: 1, dy: 0}, {dx: 0, dy: 1}, {dx: -1, dy: 0}];
+            const dir = dirs[robot.dir];
+            const newX = robot.x + dir.dx * 2;
+            const newY = robot.y + dir.dy * 2;
+            
+            return moveTo(newX, newY, true);
+        }
+        
+        // 移动到新位置
+        function moveTo(newX, newY, isJump) {
+            const level = LEVELS[currentLevel];
+            
+            // 检查是否撞墙或出界
+            if (newX < 0 || newX >= GRID_SIZE || newY < 0 || newY >= GRID_SIZE) {
+                showMessage('💥 撞墙了！程序失败', 'error');
+                return false;
+            }
+            
+            // 检查墙壁
+            if (level.walls.some(w => w.x === newX && w.y === newY)) {
+                showMessage('💥 撞墙了！程序失败', 'error');
+                return false;
+            }
+            
+            // 检查陷阱（跳跃时跳过中间的格子）
+            if (!isJump) {
+                const dirs = [{dx: 0, dy: -1}, {dx: 1, dy: 0}, {dx: 0, dy: 1}, {dx: -1, dy: 0}];
+                const dir = dirs[robot.dir];
+                const midX = robot.x + dir.dx;
+                const midY = robot.y + dir.dy;
+                
+                if (level.traps.some(t => t.x === midX && t.y === midY)) {
+                    showMessage('💀 掉入陷阱！程序失败', 'error');
+                    return false;
+                }
+            }
+            
+            // 移动机器人
+            robot.x = newX;
+            robot.y = newY;
+            return true;
+        }
+        
+        // 左转
+        function turnLeft() {
+            robot.dir = (robot.dir + 3) % 4;
+        }
+        
+        // 右转
+        function turnRight() {
+            robot.dir = (robot.dir + 1) % 4;
+        }
+        
+        // 重置程序
+        function resetProgram() {
+            stopRunning();
+            program = [];
+            updateProgramList();
+            const level = LEVELS[currentLevel];
+            robot = { ...level.start };
+            draw();
+            showMessage('程序已重置', 'info');
+        }
+        
+        // 重置关卡
+        function resetLevel() {
+            stopRunning();
+            loadLevel(currentLevel);
+        }
+        
+        // 显示消息
+        function showMessage(text, type) {
+            messageEl.textContent = text;
+            messageEl.className = type;
+        }
+        
+        // 绘制游戏
+        function draw() {
+            // 清空画布
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const level = LEVELS[currentLevel];
+            const offsetX = (canvas.width - GRID_SIZE * CELL_SIZE) / 2;
+            const offsetY = (canvas.height - GRID_SIZE * CELL_SIZE) / 2;
+            
+            // 绘制网格
+            ctx.strokeStyle = '#004444';
+            ctx.lineWidth = 1;
+            
+            for (let i = 0; i <= GRID_SIZE; i++) {
+                // 竖线
+                ctx.beginPath();
+                ctx.moveTo(offsetX + i * CELL_SIZE, offsetY);
+                ctx.lineTo(offsetX + i * CELL_SIZE, offsetY + GRID_SIZE * CELL_SIZE);
+                ctx.stroke();
+                
+                // 横线
+                ctx.beginPath();
+                ctx.moveTo(offsetX, offsetY + i * CELL_SIZE);
+                ctx.lineTo(offsetX + GRID_SIZE * CELL_SIZE, offsetY + i * CELL_SIZE);
+                ctx.stroke();
+            }
+            
+            // 绘制终点（绿色发光）
+            const endX = offsetX + level.end.x * CELL_SIZE + CELL_SIZE / 2;
+            const endY = offsetY + level.end.y * CELL_SIZE + CELL_SIZE / 2;
+            
+            // 终点发光效果
+            const endGradient = ctx.createRadialGradient(endX, endY, 0, endX, endY, CELL_SIZE / 2);
+            endGradient.addColorStop(0, 'rgba(0, 255, 0, 1)');
+            endGradient.addColorStop(0.5, 'rgba(0, 255, 0, 0.5)');
+            endGradient.addColorStop(1, 'rgba(0, 255, 0, 0.1)');
+            ctx.fillStyle = endGradient;
+            ctx.fillRect(
+                offsetX + level.end.x * CELL_SIZE + 2,
+                offsetY + level.end.y * CELL_SIZE + 2,
+                CELL_SIZE - 4,
+                CELL_SIZE - 4
+            );
+            
+            // 绘制墙壁
+            ctx.fillStyle = '#333';
+            level.walls.forEach(wall => {
+                ctx.fillRect(
+                    offsetX + wall.x * CELL_SIZE + 1,
+                    offsetY + wall.y * CELL_SIZE + 1,
+                    CELL_SIZE - 2,
+                    CELL_SIZE - 2
+                );
+                
+                // 墙壁边框
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(
+                    offsetX + wall.x * CELL_SIZE + 1,
+                    offsetY + wall.y * CELL_SIZE + 1,
+                    CELL_SIZE - 2,
+                    CELL_SIZE - 2
+                );
+            });
+            
+            // 绘制陷阱（红色发光）
+            level.traps.forEach(trap => {
+                const trapX = offsetX + trap.x * CELL_SIZE + CELL_SIZE / 2;
+                const trapY = offsetY + trap.y * CELL_SIZE + CELL_SIZE / 2;
+                
+                const trapGradient = ctx.createRadialGradient(trapX, trapY, 0, trapX, trapY, CELL_SIZE / 2);
+                trapGradient.addColorStop(0, 'rgba(255, 0, 0, 0.9)');
+                trapGradient.addColorStop(0.5, 'rgba(255, 0, 0, 0.4)');
+                trapGradient.addColorStop(1, 'rgba(255, 0, 0, 0.1)');
+                
+                ctx.fillStyle = trapGradient;
+                ctx.fillRect(
+                    offsetX + trap.x * CELL_SIZE + 2,
+                    offsetY + trap.y * CELL_SIZE + 2,
+                    CELL_SIZE - 4,
+                    CELL_SIZE - 4
+                );
+                
+                // X标记
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(offsetX + trap.x * CELL_SIZE + 8, offsetY + trap.y * CELL_SIZE + 8);
+                ctx.lineTo(offsetX + (trap.x + 1) * CELL_SIZE - 8, offsetY + (trap.y + 1) * CELL_SIZE - 8);
+                ctx.moveTo(offsetX + (trap.x + 1) * CELL_SIZE - 8, offsetY + trap.y * CELL_SIZE + 8);
+                ctx.lineTo(offsetX + trap.x * CELL_SIZE + 8, offsetY + (trap.y + 1) * CELL_SIZE - 8);
+                ctx.stroke();
+            });
+            
+            // 绘制机器人
+            const robotX = offsetX + robot.x * CELL_SIZE + CELL_SIZE / 2;
+            const robotY = offsetY + robot.y * CELL_SIZE + CELL_SIZE / 2;
+            
+            // 机器人发光效果
+            const robotGradient = ctx.createRadialGradient(robotX, robotY, 0, robotX, robotY, CELL_SIZE / 2);
+            robotGradient.addColorStop(0, 'rgba(0, 200, 255, 1)');
+            robotGradient.addColorStop(0.5, 'rgba(0, 150, 255, 0.6)');
+            robotGradient.addColorStop(1, 'rgba(0, 100, 255, 0.2)');
+            
+            ctx.fillStyle = robotGradient;
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 20;
+            
+            // 机器人主体（带方向）- 箭头形状，尖端朝前
+            ctx.save();
+            ctx.translate(robotX, robotY);
+            ctx.rotate(robot.dir * Math.PI / 2);
+            
+            // 机器人箭头形状（尖端朝右，即0度方向）
+            ctx.beginPath();
+            ctx.moveTo(CELL_SIZE / 2.5, 0); // 箭头尖端
+            ctx.lineTo(-CELL_SIZE / 3, -CELL_SIZE / 3); // 左后上
+            ctx.lineTo(-CELL_SIZE / 4, 0); // 左中（内凹）
+            ctx.lineTo(-CELL_SIZE / 3, CELL_SIZE / 3); // 左后下
+            ctx.closePath();
+            ctx.fill();
+            
+            // 机器人边框
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.restore();
+            
+            // 重置阴影
+            ctx.shadowBlur = 0;
+            
+            // 绘制方向指示线（实线，从机器人中心向前）
+            const dirs = [{dx: 0, dy: -1}, {dx: 1, dy: 0}, {dx: 0, dy: 1}, {dx: -1, dy: 0}];
+            const dir = dirs[robot.dir];
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]); // 实线
+            ctx.beginPath();
+            ctx.moveTo(robotX, robotY);
+            ctx.lineTo(robotX + dir.dx * CELL_SIZE * 0.6, robotY + dir.dy * CELL_SIZE * 0.6);
+            ctx.stroke();
+            
+            // 绘制箭头尖端
+            const arrowX = robotX + dir.dx * CELL_SIZE * 0.6;
+            const arrowY = robotY + dir.dy * CELL_SIZE * 0.6;
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(arrowX, arrowY, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        // 启动游戏
+        init();
+    </script>
+</body>
+</html>

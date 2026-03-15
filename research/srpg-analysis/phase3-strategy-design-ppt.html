@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>计策系统设计方案 - PPT演示文稿</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            display: none;
+            padding: 60px 80px;
+            position: relative;
+            background: linear-gradient(135deg, #1a1a3e 0%, #0f0f2e 100%);
+        }
+        .slide.active { display: flex; flex-direction: column; }
+        
+        /* 导航 */
+        .nav {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        .nav button {
+            padding: 8px 16px;
+            background: rgba(212, 175, 55, 0.2);
+            border: 1px solid #d4af37;
+            color: #d4af37;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .nav button:hover { background: rgba(212, 175, 55, 0.4); }
+        .slide-counter {
+            position: fixed;
+            bottom: 30px;
+            right: 40px;
+            color: #888;
+            font-size: 14px;
+        }
+        
+        /* 标题样式 */
+        h1 {
+            font-size: 3.5rem;
+            color: #d4af37;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        h2 {
+            font-size: 2.5rem;
+            color: #d4af37;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #d4af37;
+            padding-bottom: 15px;
+        }
+        h3 {
+            font-size: 1.8rem;
+            color: #f39c12;
+            margin: 25px 0 15px;
+        }
+        
+        /* 内容样式 */
+        .subtitle {
+            font-size: 1.5rem;
+            color: #888;
+            margin-bottom: 40px;
+        }
+        .content {
+            font-size: 1.3rem;
+            line-height: 1.8;
+            flex: 1;
+        }
+        ul {
+            margin-left: 30px;
+            margin-top: 15px;
+        }
+        li {
+            margin-bottom: 12px;
+        }
+        
+        /* 特殊框 */
+        .insight-box {
+            background: rgba(212, 175, 55, 0.1);
+            border-left: 4px solid #d4af37;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .warning-box {
+            background: rgba(231, 76, 60, 0.1);
+            border-left: 4px solid #e74c3c;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .formula {
+            background: #0f0f2e;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            margin: 15px 0;
+            border: 1px solid #333;
+        }
+        
+        /* 表格 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 1.1rem;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            background: #0f0f2e;
+            color: #d4af37;
+        }
+        
+        /* 标签 */
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #2d3436;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin: 2px;
+        }
+        .tag-red { background: #e74c3c; color: white; }
+        .tag-orange { background: #f39c12; color: white; }
+        .tag-blue { background: #3498db; color: white; }
+        .tag-green { background: #27ae60; color: white; }
+        
+        /* 两列布局 */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 20px;
+        }
+        .col-box {
+            background: rgba(255,255,255,0.05);
+            padding: 25px;
+            border-radius: 12px;
+        }
+        
+        /* 高亮 */
+        .highlight { color: #d4af37; font-weight: bold; }
+        
+        /* 封面特殊样式 */
+        .cover {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .cover h1 {
+            font-size: 4rem;
+            margin-bottom: 30px;
+        }
+        .cover .meta {
+            margin-top: 60px;
+            font-size: 1.2rem;
+            color: #888;
+        }
+        
+        /* 结束页 */
+        .end {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .end h1 {
+            font-size: 4rem;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 第1页：封面 -->
+<div class="slide active cover">
+    <h1>🎯 计策系统设计方案</h1>
+    <p class="subtitle">第三阶段：基于338位英雄数据的SRPG核心系统建议</p>
+    <div class="meta">
+        <p>数据来源：梦幻模拟战208位 + 天地劫150+位 + 铃兰之剑82位 + 三国志战棋版126位</p>
+        <p style="margin-top: 15px;">2026年3月14日</p>
+    </div>
+</div>
+
+<!-- 第2页：目录 -->
+<div class="slide">
+    <h2>📋 目录</h2>
+    <div class="content">
+        <ol style="font-size: 1.5rem; line-height: 2.2;">
+            <li><span class="highlight">核心洞察</span>：计策的本质是"战中成长"</li>
+            <li><span class="highlight">设计框架</span>：概念→结构→细节→体验</li>
+            <li><span class="highlight">三大计策类型</span>：时机型 / 环境型 / 数值型</li>
+            <li><span class="highlight">成长维度</span>：数值累加 / 优势造成 / 适应型</li>
+            <li><span class="highlight">限制体系</span>：CD / 能量 / 代价 / 条件</li>
+            <li><span class="highlight">关卡×计策</span>：场景化设计对应表</li>
+            <li><span class="highlight">关键原则</span>：设计的红线与底线</li>
+        </ol>
+    </div>
+</div>
+
+<!-- 第3页：核心洞察 -->
+<div class="slide">
+    <h2>💡 核心洞察：计策的本质</h2>
+    <div class="content">
+        <div class="insight-box">
+            <h3>"战中成长"——让玩家在战斗过程中持续变强</h3>
+            <p>不同于被动技能，计策的本质是<span class="highlight">让玩家在战斗过程中持续成长、积累优势的能力</span>。</p>
+            <p style="margin-top: 15px;">这是与传统SRPG最本质的差异——不是静态的数值比拼，而是<span class="highlight">动态的优势建构</span>。</p>
+        </div>
+        
+        <h3>三种成长模式</h3>
+        <div class="two-col">
+            <div class="col-box">
+                <h4>📈 数值累加型</h4>
+                <p>每次行动叠加层数，后期爆发</p>
+                <p style="margin-top: 10px; color: #888;">例：司马懿"鹰视狼顾"</p>
+            </div>
+            <div class="col-box">
+                <h4>🎯 优势造成型</h4>
+                <p>创造地形/时机优势，滚雪球</p>
+                <p style="margin-top: 10px; color: #888;">例：诸葛亮"八卦阵"</p>
+            </div>
+        </div>
+        <div style="margin-top: 20px; padding: 20px; background: rgba(39, 174, 96, 0.1); border-radius: 8px;">
+            <h4>🔄 适应型</h4>
+            <p>根据战场变化调整策略，越打越顺的掌控感</p>
+        </div>
+    </div>
+</div>
+
+<!-- 第4页：设计层级框架 -->
+<div class="slide">
+    <h2>🏗️ 设计层级框架</h2>
+    <div class="content">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+            <div style="background: rgba(231, 76, 60, 0.1); padding: 25px; border-radius: 12px; border: 1px solid #e74c3c;">
+                <h3>🎯 概念层 (Why)</h3>
+                <ul>
+                    <li>解决"开局定胜负"的枯燥感</li>
+                    <li>提供战中成长与变数</li>
+                    <li>让玩家掌握"改写规则"的权力</li>
+                    <li>与思考领域形成闭环</li>
+                </ul>
+            </div>
+            
+            <div style="background: rgba(243, 156, 18, 0.1); padding: 25px; border-radius: 12px; border: 1px solid #f39c12;">
+                <h3>📐 结构层 (What)</h3>
+                <ul>
+                    <li>三大类计策：时机/环境/数值</li>
+                    <li>成长维度：累加/优势/适应</li>
+                    <li>限制体系：CD/能量/代价/条件</li>
+                    <li>解锁路径：思考→战斗</li>
+                </ul>
+            </div>
+            
+            <div style="background: rgba(52, 152, 219, 0.1); padding: 25px; border-radius: 12px; border: 1px solid #3498db;">
+                <h3>🔍 细节层 (How)</h3>
+                <ul>
+                    <li>数值边界：单体≤1.8倍</li>
+                    <li>AOE倍率：≤0.7倍</li>
+                    <li>持续时间：1-3回合最佳</li>
+                    <li>触发条件：击杀/受击/回合结束</li>
+                </ul>
+            </div>
+            
+            <div style="background: rgba(39, 174, 96, 0.1); padding: 25px; border-radius: 12px; border: 1px solid #27ae60;">
+                <h3>✨ 体验层 (Feel)</h3>
+                <ul>
+                    <li>"我在变强"的正反馈</li>
+                    <li>每回合都有新选择</li>
+                    <li>逆境翻盘的爽快感</li>
+                    <li>策略深度的掌控感</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 第5-7页：三大计策类型 -->
+<div class="slide">
+    <h2>⚡ 类型一：时机型计策</h2>
+    <div class="content">
+        <p style="font-size: 1.2rem; margin-bottom: 25px;">利用战场时机创造优势的计策，考验玩家对节奏的把握。</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>计策名称</th>
+                    <th>触发时机</th>
+                    <th>效果</th>
+                    <th>设计要点</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>【先发制人】</strong></td>
+                    <td><span class="tag tag-red">战斗开始时</span></td>
+                    <td>首回合移动力+2，先攻</td>
+                    <td>适合快攻流派，抢占先机</td>
+                </tr>
+                <tr>
+                    <td><strong>【乘胜追击】</strong></td>
+                    <td><span class="tag tag-orange">击杀敌人后</span></td>
+                    <td>再行动一次，伤害+20%</td>
+                    <td>滚雪球核心，连续收割</td>
+                </tr>
+                <tr>
+                    <td><strong>【背水一战】</strong></td>
+                    <td><span class="tag tag-blue">生命值<30%</span></td>
+                    <td>攻击+50%，受到伤害+30%</td>
+                    <td>高风险高回报，绝境翻盘</td>
+                </tr>
+                <tr>
+                    <td><strong>【以逸待劳】</strong></td>
+                    <td><span class="tag tag-green">待机后</span></td>
+                    <td>下次攻击伤害+40%，必中</td>
+                    <td>鼓励策略性待机</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="warning-box">
+            <p><strong>关键洞察：</strong>时机型计策的设计难点在于<span class="highlight">触发条件的平衡</span>——太容易触发会滥用，太难则无人问津。</p>
+        </div>
+    </div>
+</div>
+
+<!-- 第6页：环境型计策 -->
+<div class="slide">
+    <h2>🌍 类型二：环境型计策</h2>
+    <div class="content">
+        <p style="font-size: 1.2rem; margin-bottom: 25px;">改变战场环境，创造持续优势的计策。</p>
+        
+        <div class="two-col">
+            <div class="col-box">
+                <h3>🔥 地形改变</h3>
+                <ul>
+                    <li><strong>【火烧连营】</strong><br/>区域持续灼烧，敌人经过受伤</li>
+                    <li><strong>【水淹七军】</strong><br/>制造水域，减速+易伤</li>
+                    <li><strong>【八门金锁】</strong><br/>生成阻挡地形，改变路径</li>
+                </ul>
+            </div>
+            
+            <div class="col-box">
+                <h3>⚡ 领域效果</h3>
+                <ul>
+                    <li><strong>【八卦阵】</strong><br/>范围内友方闪避+30%</li>
+                    <li><strong>【奇门遁甲】</strong><br/>敌人进入时随机debuff</li>
+                    <li><strong>【桃园结义】</strong><br/>范围内友方每回合回血</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="insight-box" style="margin-top: 25px;">
+            <h3>环境型计策设计公式</h3>
+            <div class="formula">
+                <strong>价值 = 影响范围 × 持续时间 × 效果强度 ÷ 冷却时间</strong>
+            </div>
+            <p>例：八卦阵（范围5格，持续3回合，闪避+30%，CD 5回合）</p>
+            <p style="color: #888;">价值 = 5 × 3 × 0.3 ÷ 5 = 0.9，属于<span class="highlight">优质辅助型</span>计策</p>
+        </div>
+    </div>
+</div>
+
+<!-- 第7页：数值型计策 -->
+<div class="slide">
+    <h2>📊 类型三：数值型计策</h2>
+    <div class="content">
+        <p style="font-size: 1.2rem; margin-bottom: 25px;">直接改变数值关系，简单粗暴但效果显著。</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>计策名称</th>
+                    <th>类型</th>
+                    <th>数值规则</th>
+                    <th>适用场景</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>【破釜沉舟】</strong></td>
+                    <td><span class="tag tag-red">爆发</span></td>
+                    <td>消耗50%当前生命，伤害×2.5</td>
+                    <td>Boss斩杀/绝境反击</td>
+                </tr>
+                <tr>
+                    <td><strong>【稳扎稳打】</strong></td>
+                    <td><span class="tag tag-blue">成长</span></td>
+                    <td>每回合攻击+10%，可叠加5层</td>
+                    <td>持久战/后期核心</td>
+                </tr>
+                <tr>
+                    <td><strong>【以弱胜强】</strong></td>
+                    <td><span class="tag tag-orange">克制</span></td>
+                    <td>对高等级敌人伤害+50%</td>
+                    <td>越级挑战</td>
+                </tr>
+                <tr>
+                    <td><strong>【援护】</strong></td>
+                    <td><span class="tag tag-green">防御</span></td>
+                    <td>替相邻友方承受伤害，减伤30%</td>
+                    <td>保护核心输出</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="warning-box">
+            <p><strong>数值红线：</strong>单体输出计策倍率<span class="highlight">不超过1.8倍</span>，AOE不超过0.7倍，否则会破坏基础战斗平衡。</p>
+        </div>
+    </div>
+</div>
+
+<!-- 第8页：成长维度 -->
+<div class="slide">
+    <h2>📈 成长维度详解</h2>
+    <div class="content">
+        <div class="two-col">
+            <div class="col-box" style="border-left: 4px solid #e74c3c;">
+                <h3>📊 数值累加型</h3>
+                <p style="margin-bottom: 15px;">每次行动叠加层数，后期爆发</p>
+                <ul>
+                    <li>线性成长：每回合+10%</li>
+                    <li>指数成长：层数平方增长</li>
+                    <li>阶梯成长：每3回合质变</li>
+                </ul>
+                <div style="margin-top: 15px; padding: 10px; background: rgba(231,76,60,0.1); border-radius: 4px;">
+                    <strong>代表：</strong>司马懿鹰视狼顾、诸葛亮五层被动
+                </div>
+            </div>
+            
+            <div class="col-box" style="border-left: 4px solid #f39c12;">
+                <h3>🎯 优势造成型</h3>
+                <p style="margin-bottom: 15px;">创造环境优势，滚雪球扩大</p>
+                <ul>
+                    <li>地形优势：火海/水域/高地</li>
+                    <li>位置优势：包夹/夹击/围攻</li>
+                    <li>时机优势：先手/再动/打断</li>
+                </ul>
+                <div style="margin-top: 15px; padding: 10px; background: rgba(243,156,18,0.1); border-radius: 4px;">
+                    <strong>代表：</strong>周瑜火烧连营、曹操乱世奸雄
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-box" style="margin-top: 25px; border-left: 4px solid #27ae60;">
+            <h3>🔄 适应型成长</h3>
+            <p>根据战场变化调整策略，越打越顺的掌控感</p>
+            <p style="margin-top: 10px; color: #888;"><strong>机制示例：</strong>血量越低闪避越高 / 敌人越多伤害越高 / 连续命中伤害递增</p>
+        </div>
+    </div>
+</div>
+
+<!-- 第9页：限制体系 -->
+<div class="slide">
+    <h2>⚖️ 限制体系设计</h2>
+    <div class="content">
+        <p style="font-size: 1.2rem; margin-bottom: 25px;">计策必须有合理的限制，否则会变成滥用的"万能解"。</p>
+        
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+            <div style="background: rgba(231, 76, 60, 0.1); padding: 20px; border-radius: 8px; text-align: center;">
+                <h3>⏱️ CD限制</h3>
+                <p style="margin-top: 10px;">使用后进入冷却</p>
+                <p style="color: #888; margin-top: 10px;">短CD：1-2回合<br/>中CD：3-4回合<br/>长CD：5+回合</p>
+            </div>
+            
+            <div style="background: rgba(243, 156, 18, 0.1); padding: 20px; border-radius: 8px; text-align: center;">
+                <h3>⚡ 能量限制</h3>
+                <p style="margin-top: 10px;">消耗能量释放</p>
+                <p style="color: #888; margin-top: 10px;">小计策：20点<br/>中计策：50点<br/>大计策：100点</p>
+            </div>
+            
+            <div style="background: rgba(52, 152, 219, 0.1); padding: 20px; border-radius: 8px; text-align: center;">
+                <h3>💀 代价限制</h3>
+                <p style="margin-top: 10px;">释放有代价</p>
+                <p style="color: #888; margin-top: 10px;">生命值<br/>资源消耗<br/>负面状态</p>
+            </div>
+            
+            <div style="background: rgba(39, 174, 96, 0.1); padding: 20px; border-radius: 8px; text-align: center;">
+                <h3>🎯 条件限制</h3>
+                <p style="margin-top: 10px;">特定条件触发</p>
+                <p style="color: #888; margin-top: 10px;">站位要求<br/>状态要求<br/>时机要求</p>
+            </div>
+        </div>
+        
+        <div class="insight-box" style="margin-top: 30px;">
+            <h3>限制设计黄金比例</h3>
+            <p><strong>效果强度 ∝ 限制强度</strong></p>
+            <p style="margin-top: 10px;">越强的计策应该有越严格的限制，形成<span class="highlight">风险-收益</span>平衡。</p>
+        </div>
+    </div>
+</div>
+
+<!-- 第10-12页：关卡对应表（简化） -->
+<div class="slide">
+    <h2>🎮 关卡×计策对应设计</h2>
+    <div class="content">
+        <p style="font-size: 1.2rem; margin-bottom: 25px;">不同关卡场景应该推荐不同的计策策略，形成<span class="highlight">教学-应用</span>闭环。</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>关卡类型</th>
+                    <th>核心挑战</th>
+                    <th>推荐计策类型</th>
+                    <th>教学目的</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>BOSS战</strong></td>
+                    <td>高血量/高伤害/阶段转换</td>
+                    <td><span class="tag tag-red">数值型爆发</span> + <span class="tag tag-blue">时机控制</span></td>
+                    <td>学习资源管理与时机把握</td>
+                </tr>
+                <tr>
+                    <td><strong>防守关</strong></td>
+                    <td>保护目标/多波次敌人</td>
+                    <td><span class="tag tag-green">环境控制</span> + <span class="tag tag-orange">区域增益</span></td>
+                    <td>学习地形利用与布局</td>
+                </tr>
+                <tr>
+                    <td><strong>限时关</strong></td>
+                    <td>回合限制/速战速决</td>
+                    <td><span class="tag tag-red">先攻/再动</span> + <span class="tag tag-orange">群体增益</span></td>
+                    <td>学习效率最大化</td>
+                </tr>
+                <tr>
+                    <td><strong>突围关</strong></td>
+                    <td>从起点到达终点</td>
+                    <td><span class="tag tag-blue">位移/机动</span> + <span class="tag tag-green">控制</span></td>
+                    <td>学习机动与控场</td>
+                </tr>
+                <tr>
+                    <td><strong>群殴关</strong></td>
+                    <td>大量杂兵</td>
+                    <td><span class="tag tag-red">AOE伤害</span> + <span class="tag tag-orange">连锁反应</span></td>
+                    <td>学习群体控制</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 第13页：关键设计原则 -->
+<div class="slide">
+    <h2>⚠️ 关键设计原则</h2>
+    <div class="content">
+        <div class="two-col">
+            <div class="col-box">
+                <h3>✅ 应该做</h3>
+                <ul style="margin-top: 15px;">
+                    <li><strong>让玩家每回合都有选择</strong><br/>保持决策频率和参与感</li>
+                    <li style="margin-top: 15px;"><strong>提供多种解题思路</strong><br/>鼓励创造性策略</li>
+                    <li style="margin-top: 15px;"><strong>建立清晰的反馈回路</strong><br/>让玩家知道计策生效了</li>
+                    <li style="margin-top: 15px;"><strong>平衡风险与收益</strong><br/>强效果配强限制</li>
+                </ul>
+            </div>
+            
+            <div class="col-box" style="border: 1px solid #e74c3c;">
+                <h3>❌ 不要做</h3>
+                <ul style="margin-top: 15px;">
+                    <li><strong>设计"必带"计策</strong><br/>破坏多样性</li>
+                    <li style="margin-top: 15px;"><strong>让计策替代基础战斗</strong><br/>计策是补充不是替代</li>
+                    <li style="margin-top: 15px;"><strong>设计过于复杂的效果</strong><br/>玩家记不住就不会用</li>
+                    <li style="margin-top: 15px;"><strong>忽视PVE与PVP的平衡</strong><br/>两种模式需要不同设计</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="warning-box" style="margin-top: 25px;">
+            <h3>🚨 数值红线（基于338位英雄数据分析）</h3>
+            <div class="formula">
+                • 单体计策倍率 ≤ 1.8倍基础伤害<br/>
+                • AOE计策倍率 ≤ 0.7倍基础伤害<br/>
+                • 再动机制：每回合最多1次或击杀触发<br/>
+                • 控制时长：眩晕/冰冻 ≤ 2回合<br/>
+                • 增益上限：单项属性提升 ≤ 50%
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 第14页：总结 -->
+<div class="slide end">
+    <h1>🎯 核心结论</h1>
+    <div style="margin-top: 40px; font-size: 1.5rem; line-height: 2;">
+        <p>计策系统的设计核心是<span class="highlight">"战中成长"</span></p>
+        <p>通过时机、环境、数值三个维度</p>
+        <p>让玩家在战斗中持续积累优势</p>
+        <p style="margin-top: 30px; color: #888;">让每一回合都充满期待</p>
+        <p style="color: #888;">让每一场战斗都独一无二</p>
+    </div>    
+    
+    <div style="margin-top: 80px; color: #666; font-size: 1rem;">
+        <p>基于梦幻模拟战208位 + 天地劫150+位 + 铃兰之剑82位 + 三国志战棋版126位英雄数据</p>
+        <p style="margin-top: 10px;">2026年3月14日</p>
+    </div>
+</div>
+
+<!-- 导航 -->
+<div class="nav">
+    <button onclick="prevSlide()">← 上一页</button>
+    <button onclick="nextSlide()">下一页 →</button>
+</div>
+<div class="slide-counter"><span id="current">1</span> / 14</div>
+
+<script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    
+    function showSlide(n) {
+        slides.forEach(slide => slide.classList.remove('active'));
+        currentSlide = (n + totalSlides) % totalSlides;
+        slides[currentSlide].classList.add('active');
+        document.getElementById('current').textContent = currentSlide + 1;
+    }
+    
+    function nextSlide() { showSlide(currentSlide + 1); }
+    function prevSlide() { showSlide(currentSlide - 1); }
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+        if (e.key === 'ArrowLeft') prevSlide();
+    });
+</script>
+
+</body>
+</html>

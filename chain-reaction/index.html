@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>链式反应 - Chain Reaction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3), 0 0 100px rgba(255, 0, 255, 0.1);
+            border: 2px solid #333;
+            border-radius: 8px;
+        }
+        
+        canvas {
+            display: block;
+            border-radius: 6px;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+        
+        .ui-panel {
+            background: rgba(10, 10, 15, 0.85);
+            border: 1px solid #0ff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            pointer-events: auto;
+        }
+        
+        .ui-title {
+            color: #0ff;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        
+        .ui-value {
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .ui-value.warning {
+            color: #ff0;
+            text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+        }
+        
+        .ui-value.danger {
+            color: #f0f;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+        }
+        
+        #controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 2px solid #0ff;
+            color: #0ff;
+            padding: 12px 28px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #16213e, #0f3460);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            border-color: #444;
+            color: #666;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        
+        #detonateBtn {
+            border-color: #f0f;
+            color: #f0f;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.2);
+        }
+        
+        #detonateBtn:hover:not(:disabled) {
+            box-shadow: 0 0 25px rgba(255, 0, 255, 0.4);
+        }
+        
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        
+        #message.show {
+            opacity: 1;
+        }
+        
+        .message-title {
+            font-size: 48px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .message-subtitle {
+            font-size: 18px;
+            color: #888;
+        }
+        
+        .win .message-title {
+            color: #0f0;
+            text-shadow: 0 0 30px rgba(0, 255, 0, 0.8), 0 0 60px rgba(0, 255, 0, 0.4);
+        }
+        
+        .lose .message-title {
+            color: #f00;
+            text-shadow: 0 0 30px rgba(255, 0, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4);
+        }
+        
+        #instructions {
+            margin-top: 15px;
+            color: #666;
+            font-size: 12px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+        
+        #instructions span {
+            color: #0ff;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div class="ui-panel">
+                <div class="ui-title">Level</div>
+                <div class="ui-value" id="levelDisplay">1</div>
+            </div>
+            <div class="ui-panel">
+                <div class="ui-title">Bombs</div>
+                <div class="ui-value" id="bombsDisplay">2</div>
+            </div>
+            <div class="ui-panel">
+                <div class="ui-title">Targets</div>
+                <div class="ui-value" id="targetsDisplay">3</div>
+            </div>
+        </div>
+        <div id="message">
+            <div class="message-title"></div>
+            <div class="message-subtitle">Press R to restart</div>
+        </div>
+    </div>
+    <div id="controls">
+        <button id="detonateBtn">引爆 (Detonate)</button>
+        <button id="resetBtn">重置 (R)</button>
+    </div>
+    <div id="instructions">
+        <span>点击</span>放置炸弹 <span>•</span> <span>引爆</span>开始连锁反应 <span>•</span> <span>R键</span>重置关卡
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const bombsDisplay = document.getElementById('bombsDisplay');
+        const targetsDisplay = document.getElementById('targetsDisplay');
+        const messageEl = document.getElementById('message');
+        const detonateBtn = document.getElementById('detonateBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // 游戏状态
+        let currentLevel = 1;
+        let bombs = [];
+        let targets = [];
+        let shockwaves = [];
+        let particles = [];
+        let gameState = 'playing'; // playing, detonating, won, lost
+        let animationId = null;
+
+        // 关卡配置
+        const levels = [
+            {
+                id: 1,
+                maxBombs: 2,
+                targets: [
+                    { x: 200, y: 300, type: 'square', color: '#0ff' },
+                    { x: 400, y: 300, type: 'circle', color: '#f0f' },
+                    { x: 600, y: 300, type: 'square', color: '#0ff' }
+                ]
+            },
+            {
+                id: 2,
+                maxBombs: 3,
+                targets: [
+                    { x: 150, y: 200, type: 'circle', color: '#0ff' },
+                    { x: 650, y: 200, type: 'square', color: '#f0f' },
+                    { x: 200, y: 450, type: 'square', color: '#ff0' },
+                    { x: 600, y: 450, type: 'circle', color: '#0ff' },
+                    { x: 400, y: 300, type: 'diamond', color: '#f0f' }
+                ]
+            },
+            {
+                id: 3,
+                maxBombs: 4,
+                targets: [
+                    { x: 100, y: 150, type: 'circle', color: '#0ff' },
+                    { x: 400, y: 100, type: 'square', color: '#f0f' },
+                    { x: 700, y: 150, type: 'diamond', color: '#ff0' },
+                    { x: 150, y: 300, type: 'diamond', color: '#f0f' },
+                    { x: 650, y: 300, type: 'circle', color: '#0ff' },
+                    { x: 100, y: 500, type: 'square', color: '#ff0' },
+                    { x: 400, y: 550, type: 'diamond', color: '#0ff' },
+                    { x: 700, y: 500, type: 'circle', color: '#f0f' }
+                ]
+            }
+        ];
+
+        // 炸弹类
+        class Bomb {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 12;
+                this.pulsePhase = 0;
+                this.exploded = false;
+                this.countdown = 3; // 倒计时秒数
+                this.countdownStart = null;
+            }
+
+            startCountdown() {
+                this.countdownStart = Date.now();
+            }
+
+            update() {
+                if (this.exploded) return;
+                
+                this.pulsePhase += 0.1;
+                
+                if (this.countdownStart) {
+                    const elapsed = (Date.now() - this.countdownStart) / 1000;
+                    this.countdown = Math.max(0, 3 - elapsed);
+                    
+                    if (this.countdown <= 0) {
+                        this.explode();
+                    }
+                }
+            }
+
+            explode() {
+                if (this.exploded) return;
+                this.exploded = true;
+                
+                // 创建冲击波
+                shockwaves.push(new Shockwave(this.x, this.y));
+                
+                // 创建粒子
+                for (let i = 0; i < 30; i++) {
+                    particles.push(new Particle(this.x, this.y, '#f0f'));
+                }
+                
+                // 引爆范围内的其他炸弹
+                bombs.forEach(bomb => {
+                    if (!bomb.exploded && bomb !== this) {
+                        const dist = Math.hypot(bomb.x - this.x, bomb.y - this.y);
+                        if (dist < 150) {
+                            setTimeout(() => bomb.explode(), 100);
+                        }
+                    }
+                });
+                
+                // 检测目标
+                targets.forEach(target => {
+                    if (!target.destroyed) {
+                        const dist = Math.hypot(target.x - this.x, target.y - this.y);
+                        if (dist < 120) {
+                            target.destroy();
+                        }
+                    }
+                });
+            }
+
+            draw() {
+                if (this.exploded) return;
+                
+                const pulse = Math.sin(this.pulsePhase) * 3;
+                
+                // 外发光
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius + 15 + pulse);
+                gradient.addColorStop(0, 'rgba(255, 0, 255, 0.8)');
+                gradient.addColorStop(0.5, 'rgba(255, 0, 255, 0.3)');
+                gradient.addColorStop(1, 'rgba(255, 0, 255, 0)');
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + 15 + pulse, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // 炸弹本体
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#f0f';
+                ctx.fill();
+                
+                // 高光
+                ctx.beginPath();
+                ctx.arc(this.x - 4, this.y - 4, 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.fill();
+                
+                // 倒计时
+                if (this.countdownStart) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(Math.ceil(this.countdown).toString(), this.x, this.y);
+                }
+            }
+        }
+
+        // 目标类
+        class Target {
+            constructor(x, y, type, color) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.color = color;
+                this.size = 25;
+                this.destroyed = false;
+                this.destructionProgress = 0;
+                this.rotation = 0;
+            }
+
+            destroy() {
+                if (this.destroyed) return;
+                this.destroyed = true;
+                
+                // 创建爆炸粒子
+                for (let i = 0; i < 20; i++) {
+                    particles.push(new Particle(this.x, this.y, this.color));
+                }
+            }
+
+            update() {
+                this.rotation += 0.02;
+                
+                if (this.destroyed && this.destructionProgress < 1) {
+                    this.destructionProgress += 0.05;
+                }
+            }
+
+            draw() {
+                if (this.destroyed && this.destructionProgress >= 1) return;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                const alpha = this.destroyed ? 1 - this.destructionProgress : 1;
+                const scale = this.destroyed ? 1 + this.destructionProgress : 1;
+                
+                ctx.scale(scale, scale);
+                ctx.globalAlpha = alpha;
+                
+                // 发光效果
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 20;
+                
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                
+                switch (this.type) {
+                    case 'square':
+                        ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+                        ctx.strokeRect(-this.size/2, -this.size/2, this.size, this.size);
+                        break;
+                    case 'circle':
+                        ctx.beginPath();
+                        ctx.arc(0, 0, this.size/2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                        break;
+                    case 'diamond':
+                        ctx.beginPath();
+                        ctx.moveTo(0, -this.size/2);
+                        ctx.lineTo(this.size/2, 0);
+                        ctx.lineTo(0, this.size/2);
+                        ctx.lineTo(-this.size/2, 0);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                        break;
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        // 冲击波类
+        class Shockwave {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 0;
+                this.maxRadius = 150;
+                this.alpha = 1;
+                this.speed = 8;
+            }
+
+            update() {
+                this.radius += this.speed;
+                this.alpha = 1 - (this.radius / this.maxRadius);
+                
+                return this.radius < this.maxRadius;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 0, 255, ${this.alpha})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // 内圈
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.7, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 0, 255, ${this.alpha * 0.5})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }
+
+        // 粒子类
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 4;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.life = 1;
+                this.decay = 0.02 + Math.random() * 0.02;
+                this.size = 2 + Math.random() * 4;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+                this.life -= this.decay;
+                
+                return this.life > 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 初始化关卡
+        function initLevel(levelNum) {
+            currentLevel = levelNum;
+            const levelConfig = levels[currentLevel - 1];
+            
+            bombs = [];
+            targets = [];
+            shockwaves = [];
+            particles = [];
+            gameState = 'playing';
+            
+            // 创建目标
+            levelConfig.targets.forEach(t => {
+                targets.push(new Target(t.x, t.y, t.type, t.color));
+            });
+            
+            updateUI();
+            hideMessage();
+        }
+
+        // 更新UI
+        function updateUI() {
+            const levelConfig = levels[currentLevel - 1];
+            levelDisplay.textContent = currentLevel;
+            
+            const remainingBombs = levelConfig.maxBombs - bombs.length;
+            bombsDisplay.textContent = remainingBombs;
+            
+            if (remainingBombs === 0) {
+                bombsDisplay.classList.add('danger');
+                bombsDisplay.classList.remove('warning');
+            } else if (remainingBombs === 1) {
+                bombsDisplay.classList.add('warning');
+                bombsDisplay.classList.remove('danger');
+            } else {
+                bombsDisplay.classList.remove('warning', 'danger');
+            }
+            
+            const remainingTargets = targets.filter(t => !t.destroyed).length;
+            targetsDisplay.textContent = remainingTargets;
+            
+            detonateBtn.disabled = bombs.length === 0 || gameState !== 'playing';
+        }
+
+        // 显示消息
+        function showMessage(title, isWin) {
+            messageEl.querySelector('.message-title').textContent = title;
+            messageEl.className = isWin ? 'win show' : 'lose show';
+        }
+
+        // 隐藏消息
+        function hideMessage() {
+            messageEl.classList.remove('show');
+        }
+
+        // 检查游戏状态
+        function checkGameState() {
+            const remainingTargets = targets.filter(t => !t.destroyed).length;
+            
+            if (remainingTargets === 0) {
+                gameState = 'won';
+                setTimeout(() => {
+                    showMessage('LEVEL CLEARED!', true);
+                    if (currentLevel < levels.length) {
+                        setTimeout(() => initLevel(currentLevel + 1), 2000);
+                    } else {
+                        setTimeout(() => showMessage('ALL LEVELS CLEARED!', true), 2000);
+                    }
+                }, 1000);
+            } else if (gameState === 'detonating' && shockwaves.length === 0 && bombs.every(b => b.exploded)) {
+                // 所有炸弹爆炸完毕，还有目标剩余
+                setTimeout(() => {
+                    if (targets.filter(t => !t.destroyed).length > 0) {
+                        gameState = 'lost';
+                        showMessage('TRY AGAIN', false);
+                    }
+                }, 500);
+            }
+        }
+
+        // 绘制背景网格
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            const gridSize = 40;
+            
+            for (let x = 0; x <= canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y <= canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            // 清空画布
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制网格
+            drawGrid();
+            
+            // 更新和绘制目标
+            targets.forEach(target => {
+                target.update();
+                target.draw();
+            });
+            
+            // 更新和绘制炸弹
+            bombs.forEach(bomb => {
+                bomb.update();
+                bomb.draw();
+            });
+            
+            // 更新和绘制冲击波
+            shockwaves = shockwaves.filter(sw => {
+                const alive = sw.update();
+                if (alive) sw.draw();
+                return alive;
+            });
+            
+            // 更新和绘制粒子
+            particles = particles.filter(p => {
+                const alive = p.update();
+                if (alive) p.draw();
+                return alive;
+            });
+            
+            // 检查游戏状态
+            if (gameState === 'detonating') {
+                checkGameState();
+            }
+            
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // 放置炸弹
+        function placeBomb(x, y) {
+            if (gameState !== 'playing') return;
+            
+            const levelConfig = levels[currentLevel - 1];
+            if (bombs.length >= levelConfig.maxBombs) return;
+            
+            // 检查是否与其他炸弹重叠
+            for (let bomb of bombs) {
+                const dist = Math.hypot(bomb.x - x, bomb.y - y);
+                if (dist < 30) return;
+            }
+            
+            bombs.push(new Bomb(x, y));
+            updateUI();
+        }
+
+        // 引爆所有炸弹
+        function detonate() {
+            if (gameState !== 'playing' || bombs.length === 0) return;
+            
+            gameState = 'detonating';
+            
+            // 依次引爆炸弹
+            bombs.forEach((bomb, index) => {
+                setTimeout(() => {
+                    bomb.startCountdown();
+                }, index * 200);
+            });
+            
+            updateUI();
+        }
+
+        // 重置关卡
+        function resetLevel() {
+            initLevel(currentLevel);
+        }
+
+        // 事件监听
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            placeBomb(x, y);
+        });
+
+        detonateBtn.addEventListener('click', detonate);
+        resetBtn.addEventListener('click', resetLevel);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'r' || e.key === 'R') {
+                resetLevel();
+            } else if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                detonate();
+            }
+        });
+
+        // 初始化并开始游戏
+        initLevel(1);
+        gameLoop();
+    </script>
+</body>
+</html>

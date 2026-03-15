@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重力反转跑酷 - Gravity Flip</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
+        }
+        
+        canvas {
+            display: block;
+            background: linear-gradient(180deg, #1a0a1a 0%, #0a0a1f 50%, #0a1a1a 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 20px;
+            text-shadow: 0 0 10px #0ff;
+            pointer-events: none;
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: none;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border: 2px solid #ff00ff;
+            border-radius: 10px;
+            box-shadow: 0 0 30px #ff00ff;
+        }
+        
+        #gameOver h1 {
+            color: #ff00ff;
+            font-size: 48px;
+            text-shadow: 0 0 20px #ff00ff;
+            margin-bottom: 20px;
+        }
+        
+        #gameOver p {
+            color: #0ff;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        
+        #gameOver .score {
+            color: #ffff00;
+            font-size: 36px;
+            text-shadow: 0 0 15px #ffff00;
+        }
+        
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border: 2px solid #0ff;
+            border-radius: 10px;
+            box-shadow: 0 0 30px #0ff;
+        }
+        
+        #startScreen h1 {
+            color: #0ff;
+            font-size: 42px;
+            text-shadow: 0 0 20px #0ff;
+            margin-bottom: 20px;
+        }
+        
+        #startScreen p {
+            color: #fff;
+            font-size: 18px;
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        
+        #startScreen .controls {
+            color: #ff00ff;
+            margin-top: 20px;
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+        <div id="ui">
+            <div>分数: <span id="score">0</span></div>
+            <div>速度: <span id="speed">1.0</span>x</div>
+        </div>
+        <div id="startScreen">
+            <h1>重力反转跑酷</h1>
+            <p>在赛博朋克世界中穿梭</p>
+            <p class="controls">
+                空格键 / 点击屏幕 / 触摸 - 反转重力<br>
+                R键 - 重新开始
+            </p>
+            <p class="blink" style="color: #0ff; margin-top: 20px;">按空格键开始游戏</p>
+        </div>
+        <div id="gameOver">
+            <h1>GAME OVER</h1>
+            <p>最终分数</p>
+            <p class="score" id="finalScore">0</p>
+            <p style="color: #0ff; margin-top: 20px;">按 R 键重新开始</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const speedEl = document.getElementById('speed');
+        const gameOverEl = document.getElementById('gameOver');
+        const startScreenEl = document.getElementById('startScreen');
+        const finalScoreEl = document.getElementById('finalScore');
+
+        // 游戏配置
+        const CONFIG = {
+            gravity: 0.6,
+            jumpPower: 12,
+            baseSpeed: 5,
+            maxSpeed: 15,
+            speedIncrement: 0.001,
+            obstacleSpawnRate: 120,
+            floorColor: '#00ffff',
+            ceilingColor: '#ff00ff',
+            playerColor: '#ffff00',
+            playerGlow: '#ffaa00'
+        };
+
+        // 游戏状态
+        let gameState = {
+            isPlaying: false,
+            isGameOver: false,
+            score: 0,
+            speedMultiplier: 1,
+            frame: 0,
+            gravityReversed: false
+        };
+
+        // 玩家对象
+        const player = {
+            x: 150,
+            y: 450,
+            width: 40,
+            height: 40,
+            vy: 0,
+            isGrounded: true,
+            trail: [],
+            
+            reset() {
+                this.y = 450;
+                this.vy = 0;
+                this.trail = [];
+                gameState.gravityReversed = false;
+            },
+            
+            flip() {
+                gameState.gravityReversed = !gameState.gravityReversed;
+                this.vy = gameState.gravityReversed ? -CONFIG.jumpPower : CONFIG.jumpPower;
+            },
+            
+            update() {
+                // 保存轨迹
+                this.trail.push({ x: this.x, y: this.y, alpha: 1 });
+                if (this.trail.length > 8) this.trail.shift();
+                
+                // 更新轨迹透明度
+                this.trail.forEach((t, i) => {
+                    t.alpha = (i + 1) / this.trail.length * 0.6;
+                });
+                
+                // 应用重力
+                if (gameState.gravityReversed) {
+                    // 重力向上：玩家上升
+                    this.vy -= CONFIG.gravity;
+                    this.y += this.vy;
+                    
+                    // 天花板碰撞 (y=110是天花板)
+                    if (this.y <= 110) {
+                        this.y = 110;
+                        this.vy = 0;
+                        this.isGrounded = true;
+                    }
+                } else {
+                    // 重力向下：玩家下落
+                    this.vy += CONFIG.gravity;
+                    this.y += this.vy;
+                    
+                    // 地板碰撞 (y=450是地板)
+                    if (this.y >= 450) {
+                        this.y = 450;
+                        this.vy = 0;
+                        this.isGrounded = true;
+                    }
+                }
+            },
+            
+            draw() {
+                // 绘制轨迹
+                this.trail.forEach(t => {
+                    ctx.save();
+                    ctx.globalAlpha = t.alpha;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = CONFIG.playerGlow;
+                    ctx.fillStyle = CONFIG.playerColor;
+                    ctx.fillRect(t.x, t.y, this.width, this.height);
+                    ctx.restore();
+                });
+                
+                // 绘制玩家
+                ctx.save();
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = CONFIG.playerGlow;
+                ctx.fillStyle = CONFIG.playerColor;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // 内部发光效果
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ffffff';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(this.x + 10, this.y + 10, this.width - 20, this.height - 20);
+                ctx.restore();
+            }
+        };
+
+        // 障碍物管理
+        let obstacles = [];
+        
+        class Obstacle {
+            constructor() {
+                this.width = 40;
+                this.height = 60;
+                this.x = canvas.width;
+                this.isTop = Math.random() > 0.5;
+                this.passed = false;
+                
+                if (this.isTop) {
+                    // 天花板障碍物
+                    this.y = 150;
+                    this.color = '#ff00ff';
+                    this.glow = '#ff66ff';
+                } else {
+                    // 地板障碍物
+                    this.y = 390;
+                    this.color = '#00ffff';
+                    this.glow = '#66ffff';
+                }
+            }
+            
+            update(speed) {
+                this.x -= speed;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.glow;
+                ctx.fillStyle = this.color;
+                
+                // 绘制霓虹几何形状
+                ctx.beginPath();
+                if (this.isTop) {
+                    // 倒三角形
+                    ctx.moveTo(this.x, this.y + this.height);
+                    ctx.lineTo(this.x + this.width / 2, this.y);
+                    ctx.lineTo(this.x + this.width, this.y + this.height);
+                } else {
+                    // 正三角形
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x + this.width / 2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width, this.y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                
+                // 边框发光
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // 速度线效果
+        let speedLines = [];
+        
+        class SpeedLine {
+            constructor() {
+                this.x = canvas.width + Math.random() * 200;
+                this.y = Math.random() * canvas.height;
+                this.length = 50 + Math.random() * 100;
+                this.speed = 10 + Math.random() * 10;
+                this.opacity = 0.3 + Math.random() * 0.5;
+            }
+            
+            update(gameSpeed) {
+                this.x -= this.speed * gameSpeed;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + this.length, this.y);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // 粒子效果
+        let particles = [];
+        
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+                this.life = 1;
+                this.color = color;
+                this.size = Math.random() * 5 + 2;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= 0.02;
+                this.size *= 0.98;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        // 碰撞检测
+        function checkCollision(player, obstacle) {
+            // 简化的矩形碰撞检测
+            const playerLeft = player.x + 5;
+            const playerRight = player.x + player.width - 5;
+            const playerTop = player.y + 5;
+            const playerBottom = player.y + player.height - 5;
+            
+            const obstacleLeft = obstacle.x + 5;
+            const obstacleRight = obstacle.x + obstacle.width - 5;
+            const obstacleTop = obstacle.y + 5;
+            const obstacleBottom = obstacle.y + obstacle.height - 5;
+            
+            return playerLeft < obstacleRight &&
+                   playerRight > obstacleLeft &&
+                   playerTop < obstacleBottom &&
+                   playerBottom > obstacleTop;
+        }
+
+        // 绘制场景
+        function drawScene() {
+            // 清空画布
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制渐变背景
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(255, 0, 255, 0.1)');
+            gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
+            gradient.addColorStop(1, 'rgba(0, 255, 255, 0.1)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制天花板
+            ctx.save();
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = CONFIG.ceilingColor;
+            ctx.fillStyle = CONFIG.ceilingColor;
+            ctx.fillRect(0, 0, canvas.width, 150);
+            
+            // 天花板网格线
+            ctx.strokeStyle = '#ff66ff';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.5;
+            for (let i = 0; i < canvas.width; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, 150);
+                ctx.stroke();
+            }
+            ctx.restore();
+            
+            // 绘制地板
+            ctx.save();
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = CONFIG.floorColor;
+            ctx.fillStyle = CONFIG.floorColor;
+            ctx.fillRect(0, 450, canvas.width, 150);
+            
+            // 地板网格线
+            ctx.strokeStyle = '#66ffff';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.5;
+            for (let i = 0; i < canvas.width; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 450);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // 游戏主循环
+        function gameLoop() {
+            if (!gameState.isPlaying) return;
+            
+            gameState.frame++;
+            
+            // 更新速度
+            gameState.speedMultiplier = Math.min(
+                1 + gameState.frame * CONFIG.speedIncrement,
+                CONFIG.maxSpeed / CONFIG.baseSpeed
+            );
+            const currentSpeed = CONFIG.baseSpeed * gameState.speedMultiplier;
+            
+            // 更新分数
+            gameState.score += Math.floor(currentSpeed / 5);
+            scoreEl.textContent = gameState.score;
+            speedEl.textContent = gameState.speedMultiplier.toFixed(1);
+            
+            // 生成障碍物
+            const adjustedSpawnRate = Math.max(60, CONFIG.obstacleSpawnRate - gameState.frame * 0.1);
+            if (gameState.frame % Math.floor(adjustedSpawnRate) === 0) {
+                obstacles.push(new Obstacle());
+            }
+            
+            // 生成速度线
+            if (Math.random() < 0.3 * gameState.speedMultiplier) {
+                speedLines.push(new SpeedLine());
+            }
+            
+            // 更新速度线
+            speedLines = speedLines.filter(line => {
+                line.update(gameState.speedMultiplier);
+                return line.x + line.length > 0;
+            });
+            
+            // 更新玩家
+            player.update();
+            
+            // 更新障碍物
+            obstacles = obstacles.filter(obstacle => {
+                obstacle.update(currentSpeed);
+                
+                // 检测碰撞
+                if (checkCollision(player, obstacle)) {
+                    gameOver();
+                    return false;
+                }
+                
+                return obstacle.x + obstacle.width > 0;
+            });
+            
+            // 更新粒子
+            particles = particles.filter(particle => {
+                particle.update();
+                return particle.life > 0;
+            });
+            
+            // 绘制场景
+            drawScene();
+            
+            // 绘制速度线
+            speedLines.forEach(line => line.draw());
+            
+            // 绘制障碍物
+            obstacles.forEach(obstacle => obstacle.draw());
+            
+            // 绘制粒子
+            particles.forEach(particle => particle.draw());
+            
+            // 绘制玩家
+            player.draw();
+            
+            // 继续游戏循环
+            if (!gameState.isGameOver) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // 游戏结束
+        function gameOver() {
+            gameState.isGameOver = true;
+            gameState.isPlaying = false;
+            
+            // 生成爆炸粒子
+            for (let i = 0; i < 30; i++) {
+                particles.push(new Particle(
+                    player.x + player.width / 2,
+                    player.y + player.height / 2,
+                    CONFIG.playerColor
+                ));
+            }
+            
+            finalScoreEl.textContent = gameState.score;
+            gameOverEl.style.display = 'block';
+            
+            // 继续渲染粒子效果
+            function renderParticles() {
+                if (particles.length === 0) return;
+                
+                drawScene();
+                obstacles.forEach(obstacle => obstacle.draw());
+                
+                particles = particles.filter(particle => {
+                    particle.update();
+                    particle.draw();
+                    return particle.life > 0;
+                });
+                
+                requestAnimationFrame(renderParticles);
+            }
+            renderParticles();
+        }
+
+        // 重新开始游戏
+        function restartGame() {
+            gameState.isPlaying = true;
+            gameState.isGameOver = false;
+            gameState.score = 0;
+            gameState.frame = 0;
+            gameState.speedMultiplier = 1;
+            
+            obstacles = [];
+            speedLines = [];
+            particles = [];
+            
+            player.reset();
+            
+            gameOverEl.style.display = 'none';
+            startScreenEl.style.display = 'none';
+            
+            scoreEl.textContent = '0';
+            speedEl.textContent = '1.0';
+            
+            gameLoop();
+        }
+
+        // 输入处理
+        function handleFlip() {
+            if (gameState.isPlaying && !gameState.isGameOver) {
+                player.flip();
+            }
+        }
+
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!gameState.isPlaying && !gameState.isGameOver) {
+                    restartGame();
+                } else if (gameState.isPlaying) {
+                    handleFlip();
+                }
+            } else if (e.code === 'KeyR' && gameState.isGameOver) {
+                restartGame();
+            }
+        });
+
+        // 鼠标/触摸事件
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState.isPlaying && !gameState.isGameOver) {
+                handleFlip();
+            } else if (!gameState.isPlaying && !gameState.isGameOver) {
+                restartGame();
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState.isPlaying && !gameState.isGameOver) {
+                handleFlip();
+            } else if (!gameState.isPlaying && !gameState.isGameOver) {
+                restartGame();
+            }
+        });
+
+        // 初始渲染
+        drawScene();
+    </script>
+</body>
+</html>

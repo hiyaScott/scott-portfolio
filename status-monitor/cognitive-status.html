@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shrimp Jetton 认知负载监控</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 700px; margin: 0 auto; }
+        
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid #222;
+            margin-bottom: 24px;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header .subtitle { color: #666; font-size: 14px; }
+        .header .version {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+            padding: 4px 12px;
+            background: rgba(34, 197, 94, 0.1);
+            border-radius: 12px;
+            font-size: 12px;
+            color: #22c55e;
+            white-space: nowrap;
+            flex-wrap: nowrap;
+        }
+        .header .version #versionText {
+            font-family: 'SF Mono', monospace;
+            font-weight: 600;
+        }
+        
+        /* 倒计时 */
+        .countdown-simple {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: rgba(0, 255, 255, 0.15);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            font-family: 'SF Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #00ffff;
+        }
+        .countdown-simple .num { font-size: 14px; min-width: 20px; text-align: center; }
+        
+        /* 紧凑状态栏 */
+        .compact-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 20px;
+            border: 1px solid #222;
+            gap: 20px;
+            flex-wrap: nowrap;
+        }
+        .compact-status-item { display: flex; flex-direction: column; align-items: flex-start; white-space: nowrap; }
+        .compact-status-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; }
+        .compact-status-value { font-size: 12px; font-weight: 500; color: #fff; font-family: 'SF Mono', monospace; }
+        .compact-status-value.online { color: #22c55e; }
+        .compact-status-value.busy { color: #eab308; }
+        .compact-status-value.high { color: #ef4444; }
+        
+        /* 收音机调频仪表盘 - v5.15 左右结构 */
+        .radio-gauge {
+            background: linear-gradient(180deg, rgba(35,35,45,0.98) 0%, rgba(25,25,35,0.99) 100%);
+            border-radius: 20px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            border: 2px solid rgba(255,255,255,0.1);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.05), 0 10px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .radio-gauge::before {
+            content: '';
+            position: absolute;
+            top: 8px; left: 8px; right: 8px; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        }
+        
+        /* 标题行 */
+        .radio-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .radio-title { display: flex; align-items: center; gap: 14px; }
+        .radio-title .icon { font-size: 2rem; }
+        .radio-title .text { font-size: 1.4rem; font-weight: 800; letter-spacing: 3px; color: rgba(255,255,255,0.9); text-shadow: 0 0 20px rgba(255,255,255,0.2); }
+        
+        /* 状态屏幕 */
+        .radio-screen {
+            background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(10,10,15,0.8) 100%);
+            border-radius: 8px;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .radio-screen-text {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .radio-screen-text::before {
+            content: '';
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 15px currentColor, 0 0 30px currentColor;
+            flex-shrink: 0;
+        }
+        
+        /* 主显示区 - 左右分割 */
+        .radio-main {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        /* 左边 - 大数字 */
+        .radio-left {
+            min-width: 100px;
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .radio-left {
+                min-width: 70px;
+            }
+        }
+        .radio-percent {
+            font-family: 'SF Mono', 'JetBrains Mono', monospace;
+            font-size: 4.5rem;
+            font-weight: 900;
+            text-shadow: none;
+            filter: drop-shadow(0 0 20px currentColor);
+            line-height: 1;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .radio-percent .percent-number {
+            font-size: inherit;
+            font-weight: inherit;
+            line-height: 0.9;
+            background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .radio-percent .percent-label {
+            font-size: 0.18em;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            margin-top: 0.2em;
+            opacity: 0.7;
+            text-transform: uppercase;
+            color: #aaa;
+        }
+        @media (max-width: 600px) {
+            .radio-percent {
+                font-size: 3rem;
+            }
+        }
+        .radio-percent.idle .percent-number {
+            background: linear-gradient(180deg, #4ade80 0%, #22c55e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 25px rgba(34,197,94,0.6));
+        }
+        .radio-percent.low .percent-number {
+            background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 25px rgba(59,130,246,0.6));
+        }
+        .radio-percent.medium .percent-number {
+            background: linear-gradient(180deg, #facc15 0%, #eab308 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 25px rgba(234,179,8,0.6));
+        }
+        .radio-percent.high .percent-number {
+            background: linear-gradient(180deg, #f87171 0%, #ef4444 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 25px rgba(239,68,68,0.6));
+        }
+        
+        /* 右边 - 图形区 */
+        .radio-right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        /* 上部 - 刻度尺 */
+        .radio-scale-container { position: relative; }
+        .radio-track {
+            position: relative;
+            height: 36px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.7) 100%);
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        /* 刻度线 - 匹配状态定义: 0-20/20-40/40-60/60-80/80-100 */
+        .radio-ticks { position: absolute; top: 0; left: 0; right: 0; height: 100%; }
+        .tick-major { position: absolute; top: 0; width: 2px; height: 100%; }
+        .tick-major:nth-child(1) { left: 0%; background: rgba(255,255,255,0.2); }
+        .tick-major:nth-child(2) { left: 20%; background: rgba(34,197,94,0.5); }
+        .tick-major:nth-child(3) { left: 40%; background: rgba(59,130,246,0.5); }
+        .tick-major:nth-child(4) { left: 60%; background: rgba(234,179,8,0.5); }
+        .tick-major:nth-child(5) { left: 80%; background: rgba(239,68,68,0.5); }
+        .tick-major:nth-child(6) { left: 100%; background: rgba(255,255,255,0.2); }
+        .tick-minor { position: absolute; top: 30%; width: 1px; height: 40%; background: rgba(255,255,255,0.1); }
+        
+        /* 彩色渐变条 - 匹配状态定义 */
+        .radio-gradient {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, 
+                #22c55e 0%, #22c55e 20%,     /* 绿色 0-20% (IDLE) */
+                #3b82f6 20%, #3b82f6 40%,     /* 蓝色 20-40% (LOW) */
+                #eab308 40%, #eab308 60%,     /* 黄色 40-60% (MID) */
+                #f97316 60%, #f97316 80%,     /* 橙色 60-80% (HIGH) */
+                #ef4444 80%, #ef4444 100%     /* 红色 80-100% (CRITICAL) */
+            );
+            border-radius: 0 0 6px 6px;
+        }
+        
+        /* 指针 */
+        .radio-pointer {
+            position: absolute;
+            top: 3px;
+            left: 0%;
+            width: 4px;
+            height: 75%;
+            border-radius: 2px;
+            transform: translateX(-50%);
+            transition: left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease;
+            z-index: 10;
+            animation: pointerJitter 0.8s ease-in-out infinite;
+        }
+        @keyframes pointerJitter {
+            0%, 100% { transform: translateX(-50%) translateX(0); }
+            25% { transform: translateX(-50%) translateX(-1px); }
+            50% { transform: translateX(-50%) translateX(1px); }
+            75% { transform: translateX(-50%) translateX(-2px); }
+        }
+        .radio-pointer.idle { background: linear-gradient(180deg, #4ade80 0%, #22c55e 100%); box-shadow: 0 0 15px #22c55e, 0 0 30px rgba(34,197,94,0.5); }
+        .radio-pointer.low { background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%); box-shadow: 0 0 15px #3b82f6, 0 0 30px rgba(59,130,246,0.5); }
+        .radio-pointer.medium { background: linear-gradient(180deg, #facc15 0%, #eab308 100%); box-shadow: 0 0 15px #eab308, 0 0 30px rgba(234,179,8,0.5); }
+        .radio-pointer.high { background: linear-gradient(180deg, #f87171 0%, #ef4444 100%); box-shadow: 0 0 15px #ef4444, 0 0 30px rgba(239,68,68,0.5); }
+        .radio-pointer::before {
+            content: ''; position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+            border-left: 8px solid transparent; border-right: 8px solid transparent;
+            border-top: 14px solid currentColor; filter: drop-shadow(0 0 8px currentColor);
+        }
+        
+        /* 刻度数字 - 匹配新的分区 */
+        .radio-numbers {
+            display: flex; justify-content: space-between; margin-top: 6px;
+            font-family: 'SF Mono', monospace; font-size: 0.65rem; padding: 0 2px;
+        }
+        .radio-numbers span { color: rgba(255,255,255,0.3); }
+        .radio-numbers span:nth-child(1) { color: rgba(255,255,255,0.4); }   /* 0 */
+        .radio-numbers span:nth-child(2) { color: rgba(34,197,94,0.5); }     /* 20 */
+        .radio-numbers span:nth-child(3) { color: rgba(59,130,246,0.5); }    /* 40 */
+        .radio-numbers span:nth-child(4) { color: rgba(234,179,8,0.5); }     /* 60 */
+        .radio-numbers span:nth-child(5) { color: rgba(239,68,68,0.5); }     /* 80 */
+        .radio-numbers span:nth-child(6) { color: rgba(255,255,255,0.4); }   /* 100 */
+        
+        /* 下部 - 区域标识 */
+        .radio-zones {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .radio-zone {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+            padding: 6px 12px;
+            border-radius: 20px;
+            text-align: center;
+            flex: 1;
+            margin: 0 4px;
+        }
+        .radio-zone.active {
+            font-size: 0.9rem;
+            font-weight: 700;
+            transform: scale(1.05);
+        }
+        .radio-zone.idle.active {
+            color: #4ade80;
+            text-shadow: 0 0 15px rgba(74,222,128,0.6);
+            background: rgba(34,197,94,0.15);
+        }
+        .radio-zone.low.active {
+            color: #60a5fa;
+            text-shadow: 0 0 15px rgba(96,165,250,0.6);
+            background: rgba(59,130,246,0.15);
+        }
+        .radio-zone.medium.active {
+            color: #facc15;
+            text-shadow: 0 0 15px rgba(250,204,21,0.6);
+            background: rgba(234,179,8,0.15);
+        }
+        .radio-zone.high.active {
+            color: #f87171;
+            text-shadow: 0 0 15px rgba(248,113,113,0.6);
+            background: rgba(239,68,68,0.15);
+        }
+        
+        /* 指标网格 - 5个标签 紧凑布局 */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .metric-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 12px 8px;
+            border: 1px solid #222;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .metric-card:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: #444;
+            transform: translateY(-2px);
+        }
+        .metric-card:active {
+            transform: translateY(0);
+        }
+        .metric-label {
+            font-size: 10px;
+            color: #666;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+        }
+        .metric-value {
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'SF Mono', monospace;
+        }
+        
+        /* 趋势图样式 */
+        .metric-card.trend-card { padding: 8px 4px; }
+        .trend-chart { width: 60px; height: 24px; margin: 2px auto 0; }
+        .trend-chart canvas { display: block; }
+        
+        /* 提示弹窗 */
+        .metric-tooltip {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .metric-tooltip.active {
+            display: flex;
+        }
+        .tooltip-content {
+            background: linear-gradient(180deg, rgba(40,40,50,0.98) 0%, rgba(30,30,40,0.99) 100%);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 320px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            animation: tooltipIn 0.3s ease;
+        }
+        @keyframes tooltipIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .tooltip-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        .tooltip-desc {
+            font-size: 0.9rem;
+            color: #aaa;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .tooltip-formula {
+            background: rgba(0,255,255,0.1);
+            border-left: 3px solid #00ffff;
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.85rem;
+            color: #00ffff;
+            margin-bottom: 16px;
+        }
+        .tooltip-close {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        .tooltip-close:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        /* 任务队列 */
+        .task-queue {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #222;
+            margin-bottom: 24px;
+        }
+        .task-queue h3 {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.2s ease;
+        }
+        .task-item:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.1);
+        }
+        .task-item:last-child { margin-bottom: 0; }
+        .task-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .task-name { font-weight: 500; font-size: 14px; color: #fff; }
+        .task-detail { font-size: 11px; color: #666; }
+        .task-status { 
+            font-size: 12px; 
+            color: #888; 
+            white-space: nowrap;
+            padding: 4px 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+        }
+        .task-status.processing { color: #60a5fa; background: rgba(59,130,246,0.15); }
+        .task-status.waiting { color: #facc15; background: rgba(234,179,8,0.15); }
+        .task-status.idle { color: #22c55e; background: rgba(34,197,94,0.15); }
+        
+        /* 股票走势图 */
+        .stock-chart-container {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #222;
+            margin-bottom: 24px;
+        }
+        .stock-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .stock-chart-title {
+            font-size: 14px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .time-range-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .time-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid #333;
+            background: transparent;
+            color: #666;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .time-btn:hover {
+            border-color: #555;
+            color: #999;
+        }
+        .time-btn.active {
+            background: rgba(0,255,255,0.1);
+            border-color: #00ffff;
+            color: #00ffff;
+        }
+        .stock-chart-wrapper {
+            position: relative;
+            height: 200px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .stock-chart-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .stock-legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 12px;
+            font-size: 11px;
+            color: #666;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend-color {
+            width: 12px;
+            height: 3px;
+            border-radius: 2px;
+        }
+        
+        /* Radio Tab */
+        .info-tabs-container {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            border: 1px solid #222;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .info-tabs {
+            display: flex;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid #222;
+        }
+        .info-tab { flex: 1; cursor: pointer; }
+        .info-tab input { display: none; }
+        .tab-btn {
+            display: block;
+            padding: 14px 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #666;
+            background: transparent;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+            user-select: none;
+        }
+        .info-tab:hover .tab-btn { color: #999; background: rgba(255,255,255,0.02); }
+        .info-tab input:checked + .tab-btn {
+            color: #fff;
+            background: rgba(255,255,255,0.05);
+            border-bottom-color: #00ffff;
+        }
+        .info-content { padding: 20px; min-height: 120px; }
+        .info-panel { display: none; animation: fadeIn 0.3s ease; }
+        .info-panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .update-time { text-align: center; color: #444; font-size: 12px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Shrimp Jetton</h1>
+            <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
+            <div class="version">
+                <span id="versionText">v5.22.0</span> | <span class="countdown-simple">⏱️ <span class="num" id="countdownSec">30</span>s</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
+            </div>
+        </div>
+        
+        <!-- 紧凑状态栏 -->
+        <div class="compact-status">
+            <div class="compact-status-item"><span class="compact-status-label">● 连接</span><span class="compact-status-value online" id="connectionValue">实时</span></div>
+            <div class="compact-status-item"><span class="compact-status-label">频道</span><span class="compact-status-value" id="channelValue">feishu</span></div>
+            <div class="compact-status-item"><span class="compact-status-label">模型</span><span class="compact-status-value" id="modelValue">k2p5</span></div>
+            <div class="compact-status-item"><span class="compact-status-label">状态</span><span class="compact-status-value online" id="agentStatusValue">active</span></div>
+            <div class="compact-status-item"><span class="compact-status-label">CPU</span><span class="compact-status-value" id="cpuValue">--%</span></div>
+            <div class="compact-status-item"><span class="compact-status-label">内存</span><span class="compact-status-value" id="memoryValue">--%</span></div>
+        </div>
+        
+        <!-- 收音机调频仪表盘 v5.15 左右结构 -->
+        <div class="radio-gauge">
+            <!-- 标题行 -->
+            <div class="radio-header">
+                <div class="radio-title">
+                    <span class="icon">📻</span>
+                    <span class="text">STATUS TUNER</span>
+                </div>
+                <div class="radio-screen">
+                    <span class="radio-screen-text" id="radioStatusText">检测中...</span>
+                </div>
+            </div>
+            
+            <!-- 主显示区 - 左右分割 -->
+            <div class="radio-main">
+                <!-- 左边 - 大数字 -->
+                <div class="radio-left">
+                    <div class="radio-percent" id="radioPercent">
+                        <span class="percent-number">--</span>
+                        <span class="percent-label">PERCENT</span>
+                    </div>
+                </div>
+                
+                <!-- 右边 - 图形区 -->
+                <div class="radio-right">
+                    <!-- 上部 - 刻度尺 -->
+                    <div class="radio-scale-container">
+                        <div class="radio-track">
+                            <div class="radio-ticks">
+                                <div class="tick-major"></div><div class="tick-major"></div><div class="tick-major"></div><div class="tick-major"></div><div class="tick-major"></div><div class="tick-major"></div>
+                                <div class="tick-minor" style="left: 10%"></div><div class="tick-minor" style="left: 30%"></div><div class="tick-minor" style="left: 50%"></div><div class="tick-minor" style="left: 70%"></div><div class="tick-minor" style="left: 90%"></div>
+                            </div>
+                            <div class="radio-gradient"></div>
+                            <div class="radio-pointer" id="radioPointer"></div>
+                        </div>
+                        <div class="radio-numbers">
+                            <span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 下部 - 区域标识 - 匹配状态定义 -->
+                    <div class="radio-zones">
+                        <div class="radio-zone idle" id="zoneIdle">🟢 IDLE</div>
+                        <div class="radio-zone low" id="zoneLow">🔵 LOW</div>
+                        <div class="radio-zone medium" id="zoneMedium">🟡 MID</div>
+                        <div class="radio-zone high" id="zoneHigh">🔴 BUSY</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 指标网格 - 5个标签 -->
+        <div class="metrics-grid">
+            <div class="metric-card" onclick="showMetricTip('sessions')"><div class="metric-label">Sessions</div><div class="metric-value" id="sessionsValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('pending')"><div class="metric-label">Pending</div><div class="metric-value" id="pendingValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('processing')"><div class="metric-label">Processing</div><div class="metric-value" id="processingValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('tokens')"><div class="metric-label">Tokens</div><div class="metric-value" id="tokensValue">--</div></div>
+            <div class="metric-card" onclick="showMetricTip('estimated')"><div class="metric-label">Est.Wait</div><div class="metric-value" id="estimatedValue">--</div></div>
+        </div>
+        
+        <!-- 指标提示弹窗 -->
+        <div class="metric-tooltip" id="metricTooltip" onclick="hideMetricTip()">
+            <div class="tooltip-content" onclick="event.stopPropagation()">
+                <div class="tooltip-title" id="tooltipTitle">指标说明</div>
+                <div class="tooltip-desc" id="tooltipDesc">点击任意指标查看详细说明</div>
+                <div class="tooltip-formula" id="tooltipFormula"></div>
+                <button class="tooltip-close" onclick="hideMetricTip()">知道了</button>
+            </div>
+        </div>
+        
+        <!-- 任务队列 -->
+        <div class="task-queue"><h3>📋 当前任务队列</h3><div id="taskList">加载中...</div></div>
+        
+        <!-- 股票走势图 -->
+        <div class="stock-chart-container">
+            <div class="stock-chart-header">
+                <span class="stock-chart-title">📈 认知负载走势</span>
+                <div class="time-range-buttons">
+                    <button class="time-btn active" data-range="5m" onclick="switchTimeRange('5m')">5分</button>
+                    <button class="time-btn" data-range="15m" onclick="switchTimeRange('15m')">15分</button>
+                    <button class="time-btn" data-range="1h" onclick="switchTimeRange('1h')">1小时</button>
+                </div>
+            </div>
+            <div class="stock-chart-wrapper">
+                <canvas id="stockChartCanvas" class="stock-chart-canvas"></canvas>
+            </div>
+            <div class="stock-legend">
+                <div class="legend-item"><div class="legend-color" style="background:#00ffff"></div><span>评分范围</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#666"></div><span>平均线</span></div>
+                <div class="legend-item"><span id="chartStats">最高:-- 最低:-- 平均:--</span></div>
+            </div>
+        </div>
+        
+        <!-- 说明区 -->
+        <div class="info-tabs-container">
+            <div class="info-tabs">
+                <label class="info-tab"><input type="radio" name="infoTab" value="labels" checked onchange="switchInfoTab('labels')"><span class="tab-btn">🏷️ 标签</span></label>
+                <label class="info-tab"><input type="radio" name="infoTab" value="metrics" onchange="switchInfoTab('metrics')"><span class="tab-btn">📊 指标</span></label>
+                <label class="info-tab"><input type="radio" name="infoTab" value="trend" onchange="switchInfoTab('trend')"><span class="tab-btn">📈 走势</span></label>
+                <label class="info-tab"><input type="radio" name="infoTab" value="tips" onchange="switchInfoTab('tips')"><span class="tab-btn">💡 建议</span></label>
+                <label class="info-tab"><input type="radio" name="infoTab" value="status" onchange="switchInfoTab('status')"><span class="tab-btn">📋 状态</span></label>
+            </div>
+            <div class="info-content" id="infoContent">
+                <div class="info-panel active" id="panel-labels">
+                    <div style="font-size:12px;color:#888;margin-bottom:12px;">任务分类示例：</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; font-size: 0.8rem;">
+                        <span style="color: #22c55e;">🟢 SRPG: 天地劫数据分析</span>
+                        <span style="color: #22c55e;">🟢 SRPG: 梦幻模拟战研究</span>
+                        <span style="color: #22c55e;">🟢 SRPG: 计策系统设计</span>
+                        <span style="color: #3b82f6;">🔵 编钟: 烧绳子动画修复</span>
+                        <span style="color: #3b82f6;">🔵 编钟: 和弦系统开发</span>
+                        <span style="color: #3b82f6;">🔵 音频: Wwise集成研究</span>
+                        <span style="color: #3b82f6;">🔵 开发: 游戏导出打包</span>
+                        <span style="color: #eab308;">🟡 设计: 编钟设计案</span>
+                        <span style="color: #eab308;">🟡 飞书: 文档处理</span>
+                        <span style="color: #ef4444;">🔴 Git: 代码推送发布</span>
+                        <span style="color: #22c55e;">🟢 系统: 认知监控优化</span>
+                        <span style="color: #22c55e;">🟢 对话: 一般对话</span>
+                    </div>
+                </div>
+                <div class="info-panel" id="panel-metrics">
+                    <div style="color:#888;margin-bottom:12px;font-size:12px;">📊 评分规则 (混合算法) - v5.17</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:12px;"><b style="color:#00ffff">最终评分</b> = 基础评分 + max(等待评分, Token评分)</div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">状态阈值 (新)</div>
+                        <div style="font-size:10px;color:#888;">
+                            <span style="color:#22c55e">0-25%</span> 空闲 · 
+                            <span style="color:#3b82f6">25-45%</span> 轻载 · 
+                            <span style="color:#eab308">45-65%</span> 中等 · 
+                            <span style="color:#ef4444">65%+</span> 高载
+                        </div>
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">等待评分 (0-30)</div>
+                        <div style="font-size:10px;color:#888;">
+                            <span style="color:#22c55e">0-10s</span> → 0-5% · 
+                            <span style="color:#3b82f6">10-30s</span> → 5-15% · 
+                            <span style="color:#eab308">30-60s</span> → 15-25% · 
+                            <span style="color:#ef4444">60s+</span> → 25-30%
+                        </div>
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">Token评分 (0-20) - 只算处理中任务</div>
+                        <div style="font-size:10px;color:#888;">
+                            <span style="color:#22c55e">10k</span> → 2% · 
+                            <span style="color:#3b82f6">50k</span> → 10% · 
+                            <span style="color:#eab308">100k</span> → 20%
+                        </div>
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">基础评分 + 处理中加成</div>
+                        <div style="font-size:10px;color:#888;">活跃会话×10 + 工具调用×2 + 每个处理中任务×3 (最多+15)</div>
+                    </div>
+                </div>
+                <div class="info-panel" id="panel-trend">
+                    <div style="color:#888;margin-bottom:12px;font-size:12px;">📈 认知负载走势图说明</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:12px;">
+                        <b style="color:#00ffff">这是什么？</b><br>
+                        认知评分的时序变化图，每30秒采集一个数据点，反映系统负载的实时趋势。
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">颜色含义</div>
+                        <div style="font-size:10px;color:#888;">
+                            <span style="color:#22c55e">● 绿色(0-25%)</span> 空闲状态，可立即响应<br>
+                            <span style="color:#3b82f6">● 蓝色(25-45%)</span> 轻负载，30秒内响应<br>
+                            <span style="color:#eab308">● 黄色(45-65%)</span> 中等负载，建议简单任务<br>
+                            <span style="color:#ef4444">● 红色(65%+)</span> 高负载，建议等待
+                        </div>
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">时间范围</div>
+                        <div style="font-size:10px;color:#888;">
+                            <b>5分钟</b>：最近10个数据点，适合观察短期波动<br>
+                            <b>15分钟</b>：最近30个数据点，适合观察中期趋势<br>
+                            <b>1小时</b>：最近120个数据点，适合观察长期模式
+                        </div>
+                    </div>
+                    <div style="margin:12px 0;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <div style="font-size:11px;color:#666;margin-bottom:8px;">如何阅读</div>
+                        <div style="font-size:10px;color:#888;">
+                            • <b>曲线上升</b>：负载增加，可能有新任务启动<br>
+                            • <b>曲线下降</b>：负载减轻，任务正在完成<br>
+                            • <b>平稳期</b>：系统运行稳定<br>
+                            • <b>尖峰</b>：突发高负载，通常是多任务并发
+                        </div>
+                    </div>
+                    <div style="font-size:12px;color:#666;margin-top:12px;">
+                        💡 数据存储在本地SQLite数据库，不占用Redis空间
+                    </div>
+                </div>
+                <div class="info-panel" id="panel-tips">
+                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🟢 <b style="color:#22c55e">空闲(0-25%)</b>：可立即响应</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🔵 <b style="color:#3b82f6">轻载(25-45%)</b>：30秒内响应</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;">🟡 <b style="color:#eab308">中等(45-65%)</b>：建议简单任务</div>
+                    <div style="font-size:13px;color:#aaa;">🔴 <b style="color:#ef4444">高载(65%+)</b>：建议等待</div>
+                </div>
+                <div class="info-panel" id="panel-status">
+                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;"><span style="color:#eab308;">⏳</span> <b>等待中</b>：用户发了消息，我还没开始处理</div>
+                    <div style="font-size:13px;color:#aaa;margin-bottom:8px;"><span style="color:#3b82f6;">🔄</span> <b>处理中</b>：正在执行任务</div>
+                    <div style="font-size:13px;color:#aaa;"><span style="color:#22c55e;">✅</span> <b>已回复</b>：任务已完成</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="update-time" id="updateTime">--</div>
+    </div>
+
+    <script>
+        // Tab切换
+        function switchInfoTab(tabName) {
+            document.querySelectorAll('.info-panel').forEach(p => p.classList.remove('active'));
+            const selected = document.getElementById('panel-' + tabName);
+            if (selected) selected.classList.add('active');
+        }
+        
+        // 指标提示数据
+        const metricTips = {
+            sessions: {
+                title: '📊 活跃会话',
+                desc: '最近10分钟内有活动（发送/接收消息）的会话数量。包括群聊、私聊和后台任务。',
+                formula: '活跃标准：文件修改时间 < 10分钟。为其他指标提供上下文参考。'
+            },
+            pending: {
+                title: '⏳ 待处理',
+                desc: '用户已发送消息但我尚未开始处理的数量。反映等待队列的长度。',
+                formula: '参与方式：直接贡献「等待评分」。等待时间越长 → 评分越高。\n0-10s: 20-30% | 10-30s: 30-55% | 30-60s: 55-80% | 60s+: 80-95%'
+            },
+            processing: {
+                title: '🔄 处理中',
+                desc: '当前正在执行任务的数量。检测到thinking消息或工具调用视为处理中。',
+                formula: '参与方式：每个处理中任务 +3% 评分加成（最多+15%）。\n反映系统正在进行的实际工作量。'
+            },
+            tokens: {
+                title: '🔤 Token负载',
+                desc: '当前处理中任务的上下文Token总量。代表AI需要处理的内容复杂度。',
+                formula: '参与方式：直接贡献「Token评分」。只统计处理中任务的Tokens。\n10k: 10% | 50k: 30% | 100k: 50% | 200k+: 75-80%'
+            },
+            estimated: {
+                title: '⏱️ 预计响应时间',
+                desc: '基于当前处理任务数量和Token量估算的响应时间。让你知道大概要等多久。',
+                formula: '计算方式：\n• 每个处理中任务：+30秒基础时间\n• 每50k tokens：+最多30秒\n• 每个排队任务：+15秒\n\n示例：2个处理中任务 + 100k tokens = 约60-90秒'
+            }
+        };
+        
+        // 显示指标提示
+        function showMetricTip(metricKey) {
+            const tip = metricTips[metricKey];
+            if (!tip) return;
+            
+            document.getElementById('tooltipTitle').textContent = tip.title;
+            document.getElementById('tooltipDesc').textContent = tip.desc;
+            document.getElementById('tooltipFormula').textContent = tip.formula;
+            document.getElementById('metricTooltip').classList.add('active');
+        }
+        
+        // 隐藏指标提示
+        function hideMetricTip() {
+            document.getElementById('metricTooltip').classList.remove('active');
+        }
+        
+        // GitHub Pages API 数据源（无服务器方案 - Token安全隐藏）
+        // 数据通过监控脚本自动推送到 GitHub Pages
+        const DATA_URL = 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json';
+        
+        async function fetchData() {
+            try {
+                // 添加时间戳防止缓存
+                const cacheBuster = `?t=${Date.now()}`;
+                const response = await fetch(DATA_URL + cacheBuster, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+                
+                const metrics = await response.json();
+                
+                updateUI(metrics);
+                
+                // 更新连接状态为正常
+                const connEl = document.getElementById('connectionValue');
+                if (connEl) {
+                    connEl.textContent = '实时';
+                    connEl.className = 'compact-status-value online';
+                }
+            } catch (e) {
+                console.error('Error:', e);
+                // 显示连接失败状态
+                document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
+                document.getElementById('radioStatusText').style.color = '#ef4444';
+                
+                const connEl = document.getElementById('connectionValue');
+                if (connEl) {
+                    connEl.textContent = '离线';
+                    connEl.className = 'compact-status-value high';
+                }
+            }
+        }
+        
+        function updateUI(data) {
+            const score = data.cognitive_score || 0;
+            
+            // 更新心跳时间
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', {hour12: false});
+            document.getElementById('lastHeartbeat').textContent = timeStr;
+            
+            // 更新CPU和内存
+            const cpuEl = document.getElementById('cpuValue');
+            const memEl = document.getElementById('memoryValue');
+            if (cpuEl) cpuEl.textContent = (data.cpu_percent || 0) + '%';
+            if (memEl) memEl.textContent = (data.memory_percent || 0) + '%';
+            
+            // 更新连接状态
+            const connStatus = score >= 65 ? '高负载' : score >= 45 ? '中等' : score >= 25 ? '轻负载' : '空闲';
+            const connColor = score >= 65 ? 'high' : score >= 45 ? 'busy' : 'online';
+            const connEl = document.getElementById('connectionValue');
+            if (connEl) {
+                connEl.textContent = '实时 (' + connStatus + ')';
+                connEl.className = 'compact-status-value ' + connColor;
+            }
+            
+            // 更新agent状态
+            const agentStatusEl = document.getElementById('agentStatusValue');
+            if (agentStatusEl) {
+                agentStatusEl.textContent = data.pending_count > 0 ? 'busy' : 'active';
+                agentStatusEl.className = 'compact-status-value ' + (data.pending_count > 0 ? 'busy' : 'online');
+            }
+            
+            // 更新收音机调频仪表盘 - 左边大数字
+            const radioPercent = document.getElementById('radioPercent');
+            const radioPointer = document.getElementById('radioPointer');
+            const radioStatusText = document.getElementById('radioStatusText');
+            
+            const zoneIdle = document.getElementById('zoneIdle');
+            const zoneLow = document.getElementById('zoneLow');
+            const zoneMedium = document.getElementById('zoneMedium');
+            const zoneHigh = document.getElementById('zoneHigh');
+            
+            // 清除所有zone的active类
+            [zoneIdle, zoneLow, zoneMedium, zoneHigh].forEach(z => {
+                if (z) z.classList.remove('active');
+            });
+            
+            if (radioPercent && radioPointer) {
+                const numSpan = radioPercent.querySelector('.percent-number');
+                if (numSpan) numSpan.textContent = score;
+                radioPointer.style.left = score + '%';
+                
+                let statusText = '🟢 空闲 - 立即响应';
+                let pointerClass = 'idle';
+                let percentClass = 'idle';
+                let activeZone = zoneIdle;
+                let statusColor = '#4ade80';
+                
+                if (score >= 65) {
+                    statusText = '高负载 - 建议等待';
+                    pointerClass = 'high';
+                    percentClass = 'high';
+                    activeZone = zoneHigh;
+                    statusColor = '#f87171';
+                } else if (score >= 45) {
+                    statusText = '中等负载 - 建议简单任务';
+                    pointerClass = 'medium';
+                    percentClass = 'medium';
+                    activeZone = zoneMedium;
+                    statusColor = '#facc15';
+                } else if (score >= 25) {
+                    statusText = '轻负载 - 30秒内响应';
+                    pointerClass = 'low';
+                    percentClass = 'low';
+                    activeZone = zoneLow;
+                    statusColor = '#60a5fa';
+                } else {
+                    statusText = '空闲 - 立即响应';
+                    pointerClass = 'idle';
+                    percentClass = 'idle';
+                    activeZone = zoneIdle;
+                    statusColor = '#4ade80';
+                }
+                
+                radioPointer.className = 'radio-pointer ' + pointerClass;
+                radioPercent.className = 'radio-percent ' + percentClass;
+                
+                if (radioStatusText) {
+                    radioStatusText.textContent = statusText;
+                    radioStatusText.style.color = statusColor;
+                }
+                if (activeZone) activeZone.classList.add('active');
+            }
+            
+            // 更新指标 - 5个标签
+            document.getElementById('sessionsValue').textContent = data.active_sessions || 0;
+            document.getElementById('pendingValue').textContent = data.pending_count || 0;
+            document.getElementById('processingValue').textContent = data.processing_count || 0;
+            document.getElementById('tokensValue').textContent = data.total_tokens_formatted || '0';
+            document.getElementById('estimatedValue').textContent = data.estimated_response_formatted || 'Now';
+            
+            // 获取历史数据并绘制走势图
+            const historyData = data['history_' + currentTimeRange] || [];
+            drawStockChart(historyData);
+            
+            // 更新任务队列 - 显示具体任务描述
+            const taskList = document.getElementById('taskList');
+            if (data.task_queue && data.task_queue.length > 0) {
+                taskList.innerHTML = data.task_queue.map(task => {
+                    // 显示具体任务名
+                    const displayName = task.label || task.name || '💭 未知任务';
+                    const statusText = task.status || '✅ 空闲';
+                    
+                    // 判断状态样式
+                    let statusClass = 'idle';
+                    if (statusText.includes('🔄') || statusText.includes('processing')) {
+                        statusClass = 'processing';
+                    } else if (statusText.includes('⏳') || statusText.includes('wait')) {
+                        statusClass = 'waiting';
+                    }
+                    
+                    // 格式化tokens显示
+                    const tokens = task.tokens || 0;
+                    const tokensText = tokens > 1000 ? `${(tokens/1000).toFixed(1)}k tokens` : `${tokens} tokens`;
+                    
+                    return `
+                        <div class="task-item">
+                            <div class="task-info">
+                                <span class="task-name">${displayName}</span>
+                                <span class="task-detail">${tokensText} · ${task.last_role === 'user' ? '等待中' : task.last_role === 'tool' ? '工具执行' : '已回复'}</span>
+                            </div>
+                            <span class="task-status ${statusClass}">${statusText}</span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                taskList.innerHTML = '<div class="task-item"><span class="task-name">🟢 无活跃任务 - 系统空闲</span></div>';
+            }
+            
+            document.getElementById('updateTime').textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
+        }
+        
+        // 当前时间范围
+        let currentTimeRange = '5m';
+        
+        // 切换时间范围
+        function switchTimeRange(range) {
+            currentTimeRange = range;
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.range === range);
+            });
+            fetchData();
+        }
+        
+        // 绘制平滑曲线走势图
+        function drawStockChart(history) {
+            const canvas = document.getElementById('stockChartCanvas');
+            if (!canvas || !history || history.length < 2) {
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#444';
+                    ctx.font = '14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('暂无数据', canvas.width/2, canvas.height/2);
+                }
+                document.getElementById('chartStats').textContent = '最高:-- 最低:-- 平均:--';
+                return;
+            }
+            
+            // 设置canvas尺寸
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const padding = { top: 20, right: 50, bottom: 30, left: 10 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, width, height);
+            
+            // 计算范围
+            const scores = history.map(h => h.score);
+            const minScore = Math.min(...scores, 0);
+            const maxScore = Math.max(...scores, 100);
+            const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+            const range = maxScore - minScore || 100;
+            
+            // 更新统计
+            document.getElementById('chartStats').textContent = `最高:${maxScore}% 最低:${minScore}% 平均:${avgScore}%`;
+            
+            // 绘制网格线
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding.top + (chartHeight / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(width - padding.right, y);
+                ctx.stroke();
+                
+                // Y轴标签
+                const scoreLabel = Math.round(maxScore - (range / 4) * i);
+                ctx.fillStyle = '#666';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(scoreLabel + '%', width - padding.right + 5, y + 3);
+            }
+            
+            // 绘制平均线
+            const avgY = padding.top + chartHeight - ((avgScore - minScore) / range) * chartHeight;
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, avgY);
+            ctx.lineTo(width - padding.right, avgY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 根据评分范围确定线条颜色
+            function getScoreColor(score) {
+                if (score >= 65) return '#ef4444'; // 红色 - 高负载
+                if (score >= 45) return '#eab308'; // 黄色 - 中等
+                if (score >= 25) return '#3b82f6'; // 蓝色 - 轻负载
+                return '#22c55e'; // 绿色 - 空闲
+            }
+            
+            // 计算点的坐标
+            const points = history.map((point, i) => ({
+                x: padding.left + (i / (history.length - 1)) * chartWidth,
+                y: padding.top + chartHeight - ((point.score - minScore) / range) * chartHeight,
+                score: point.score
+            }));
+            
+            // 绘制平滑曲线
+            if (points.length >= 2) {
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                // 绘制渐变填充区域
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, padding.top + chartHeight);
+                for (let i = 0; i < points.length; i++) {
+                    if (i === 0) {
+                        ctx.lineTo(points[i].x, points[i].y);
+                    } else {
+                        const prev = points[i - 1];
+                        const curr = points[i];
+                        const cpX = (prev.x + curr.x) / 2;
+                        ctx.bezierCurveTo(cpX, prev.y, cpX, curr.y, curr.x, curr.y);
+                    }
+                }
+                ctx.lineTo(points[points.length - 1].x, padding.top + chartHeight);
+                ctx.closePath();
+                const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
+                gradient.addColorStop(0, 'rgba(0, 255, 255, 0.15)');
+                gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.restore();
+                
+                // 绘制主曲线（分段着色）
+                for (let i = 1; i < points.length; i++) {
+                    const prev = points[i - 1];
+                    const curr = points[i];
+                    const avgScore = (prev.score + curr.score) / 2;
+                    
+                    ctx.strokeStyle = getScoreColor(avgScore);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(prev.x, prev.y);
+                    const cpX = (prev.x + curr.x) / 2;
+                    ctx.bezierCurveTo(cpX, prev.y, cpX, curr.y, curr.x, curr.y);
+                    ctx.stroke();
+                }
+                
+                // 绘制当前点高亮
+                const lastPoint = points[points.length - 1];
+                ctx.fillStyle = getScoreColor(lastPoint.score);
+                ctx.beginPath();
+                ctx.arc(lastPoint.x, lastPoint.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 绘制当前点数值
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(lastPoint.score + '%', lastPoint.x, lastPoint.y - 12);
+            }
+            
+            // X轴时间标签（显示首尾）
+            if (history.length > 0) {
+                ctx.fillStyle = '#666';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(history[0].timestamp, padding.left, height - 10);
+                ctx.textAlign = 'right';
+                ctx.fillText(history[history.length - 1].timestamp, width - padding.right, height - 10);
+            }
+        }
+        
+        // 初始加载
+        fetchData();
+        
+        // 倒计时刷新
+        const UPDATE_INTERVAL = 30;
+        let countdown = UPDATE_INTERVAL;
+        
+        setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                countdown = UPDATE_INTERVAL;
+                fetchData();
+            }
+            const el = document.getElementById('countdownSec');
+            if (el) el.textContent = countdown;
+        }, 1000);
+    </script>
+</body>
+</html>

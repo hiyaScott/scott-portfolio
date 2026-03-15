@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>监控测试</title>
+    <style>
+        body { background: #0a0a0f; color: #fff; font-family: sans-serif; padding: 20px; }
+        .log { background: #1a1a2e; padding: 10px; margin: 10px 0; border-radius: 8px; font-family: monospace; font-size: 12px; }
+        .error { color: #ef4444; }
+        .success { color: #22c55e; }
+    </style>
+</head>
+<body>
+    <h2>认知监控测试页面</h2>
+    <div id="logs"></div>
+    
+    <script>
+        const logs = document.getElementById('logs');
+        function log(msg, isError) {
+            const div = document.createElement('div');
+            div.className = 'log ' + (isError ? 'error' : 'success');
+            div.textContent = new Date().toLocaleTimeString() + ' - ' + msg;
+            logs.appendChild(div);
+        }
+        
+        log('页面加载完成');
+        
+        const config = {
+            url: 'https://singular-snake-71209.upstash.io',
+            token: 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk'
+        };
+        
+        log('尝试连接 Redis...');
+        
+        fetch(`${config.url}/get/cognitive.json`, {
+            headers: { 'Authorization': `Bearer ${config.token}` }
+        })
+        .then(r => {
+            log('响应状态: ' + r.status + ' ' + r.statusText);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(data => {
+            log('数据获取成功');
+            log('结果长度: ' + (data.result ? data.result.length : 0));
+        })
+        .catch(e => {
+            log('错误: ' + e.message, true);
+            if (e.message.includes('CORS')) {
+                log('CORS 跨域错误 - 需要代理服务器', true);
+            }
+        });
+    </script>
+</body>
+</html>

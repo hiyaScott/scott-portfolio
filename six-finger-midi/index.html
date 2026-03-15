@@ -1,0 +1,2652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>六指迷笛 v2.2.7 - 音乐听辨训练</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 15px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 标题 */
+        .header {
+            text-align: center;
+            padding: 15px 0;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(90deg, #e94560, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .level-info {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+        }
+
+        /* 阶段指示器 */
+        .stage-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .stage-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .stage-dot.active {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border-color: #e94560;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+
+        .stage-dot.completed {
+            background: #48dbfb;
+            border-color: #48dbfb;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        /* 系统对话框 */
+        .dialog-box {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 600px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+
+        .dialog-box::before {
+            content: '💬';
+            position: absolute;
+            top: -12px;
+            left: 15px;
+            font-size: 1.8rem;
+        }
+
+        .dialog-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #fff;
+            margin-top: 8px;
+        }
+
+        .dialog-hint {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .dialog-hint {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 15px;
+        }
+
+        /* 音频可视化 */
+        .audio-visualizer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 4px;
+            height: 80px;
+            margin: 20px 0;
+            padding: 10px;
+        }
+
+        .visualizer-bar {
+            width: 6px;
+            background: linear-gradient(to top, #e94560, #ff6b6b, #feca57);
+            border-radius: 3px;
+            transition: height 0.1s ease;
+            opacity: 0.3;
+        }
+
+        .visualizer-bar.active {
+            opacity: 1;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(233, 69, 96, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00d2d3, #48dbfb);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 210, 211, 0.4);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 210, 211, 0.6);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #feca57, #ff9f43);
+            color: #1a1a2e;
+            box-shadow: 0 4px 15px rgba(254, 202, 87, 0.4);
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(254, 202, 87, 0.6);
+        }
+
+        .btn-large {
+            padding: 18px 50px;
+            font-size: 1.2rem;
+        }
+
+        .btn-small {
+            padding: 10px 25px;
+            font-size: 0.95rem;
+        }
+
+        /* 声部选择网格 - 垂直排列 */
+        .parts-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 700px;
+            margin: 15px 0;
+        }
+
+        .part-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 15px;
+            border: 2px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .part-section.active {
+            border-color: #e94560;
+            background: rgba(233, 69, 96, 0.1);
+            box-shadow: 0 0 15px rgba(233, 69, 96, 0.2);
+        }
+
+        .part-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .track-controls {
+            display: flex;
+            gap: 4px;
+            margin-left: auto;
+            margin-right: 8px;
+        }
+
+        .track-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: #888;
+            font-size: 0.7rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+        }
+
+        .track-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        .track-btn.active {
+            background: #e94560;
+            border-color: #e94560;
+            color: #fff;
+        }
+
+        .track-btn.solo-active {
+            background: #feca57;
+            border-color: #feca57;
+            color: #1a1a2e;
+        }
+
+        .part-icon {
+            font-size: 1.5rem;
+        }
+
+        .part-name {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .part-status {
+            margin-left: auto;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #444;
+        }
+
+        .part-status.playing {
+            background: #00d2d3;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .part-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .part-option {
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .part-option:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .part-option.selected {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border-color: #ff6b6b;
+            transform: scale(1.05);
+        }
+
+        /* 确认区域 */
+        .confirm-area {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .selection-summary {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .summary-item {
+            text-align: center;
+        }
+
+        .summary-item .label {
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+
+        .summary-item .value {
+            font-size: 1.1rem;
+            color: #fff;
+        }
+
+        .summary-item .value.selected {
+            color: #00d2d3;
+        }
+
+        .summary-item .value.correct {
+            color: #00d2d3;
+        }
+
+        .summary-item .value.wrong {
+            color: #ff6b6b;
+            text-decoration: line-through;
+        }
+
+        /* 结果展示 */
+        .result-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+        }
+
+        .result-overlay.show {
+            display: flex;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .result-icon {
+            font-size: 6rem;
+            margin-bottom: 20px;
+            animation: bounce 0.6s ease;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .result-text {
+            font-size: 2rem;
+            margin-bottom: 30px;
+        }
+
+        .result-text.success {
+            color: #00d2d3;
+        }
+
+        .result-text.fail {
+            color: #ff6b6b;
+        }
+
+        /* 混音控制器 */
+        .mixer-info {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 12px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .mixer-info .playing-parts {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .mixer-info .part-badge {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+        }
+
+        /* 验证对比区域 */
+        .verify-comparison {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 25px;
+            margin: 20px 0;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        .comparison-header {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            color: #feca57;
+        }
+
+        .comparison-sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .comparison-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .comparison-box.target {
+            border: 2px solid #00d2d3;
+        }
+
+        .comparison-box.user {
+            border: 2px solid #e94560;
+        }
+
+        .comparison-box h4 {
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        .comparison-box.target h4 {
+            color: #00d2d3;
+        }
+
+        .comparison-box.user h4 {
+            color: #e94560;
+        }
+
+        .comparison-parts {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .comparison-part {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .comparison-part.correct {
+            background: rgba(0, 210, 211, 0.2);
+        }
+
+        .comparison-part.wrong {
+            background: rgba(233, 69, 96, 0.2);
+        }
+
+        .comparison-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .comparison-status {
+            text-align: center;
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+        }
+
+        .comparison-status.correct {
+            background: rgba(0, 210, 211, 0.2);
+            color: #00d2d3;
+        }
+
+        .comparison-status.wrong {
+            background: rgba(233, 69, 96, 0.2);
+            color: #ff6b6b;
+        }
+
+        .comparison-status .hint {
+            font-size: 0.9rem;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        /* 差异提示 */
+        .difference-hint {
+            background: rgba(233, 69, 96, 0.15);
+            border: 1px solid rgba(233, 69, 96, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .difference-hint h4 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+        }
+
+        .difference-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .difference-item {
+            background: rgba(233, 69, 96, 0.3);
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+        }
+
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .btn {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
+
+            .comparison-sections {
+                grid-template-columns: 1fr;
+            }
+            
+            /* 手机紧凑布局 */
+            .container {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 10px 0;
+            }
+            
+            .stage-indicator {
+                margin: 10px 0;
+                gap: 8px;
+            }
+            
+            .stage-dot {
+                width: 35px;
+                height: 35px;
+                font-size: 1rem;
+            }
+            
+            .part-section {
+                padding: 12px;
+            }
+            
+            .part-header {
+                margin-bottom: 10px;
+                padding-bottom: 8px;
+            }
+            
+            .part-icon {
+                font-size: 1.4rem;
+            }
+            
+            .part-name {
+                font-size: 0.95rem;
+            }
+            
+            .part-option {
+                padding: 8px 15px;
+                font-size: 0.85rem;
+            }
+            
+            .dialog-box {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+            
+            .dialog-box::before {
+                font-size: 1.5rem;
+                top: -10px;
+            }
+            
+            .dialog-text {
+                font-size: 1rem;
+                margin-top: 5px;
+            }
+            
+            .mixer-info {
+                padding: 10px;
+                margin: 10px 0;
+            }
+            
+            .confirm-area {
+                padding: 15px;
+            }
+            
+            .selection-summary {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .summary-item {
+                padding: 8px;
+            }
+            
+            .verify-comparison {
+                padding: 15px;
+            }
+        }
+        
+        /* 紧凑布局优化 */
+        .action-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 10px 0;
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .tips-inline {
+            color: #888;
+            font-size: 0.85rem;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        @media (max-width: 600px) {
+            .action-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .tips-inline {
+                text-align: center;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 提示信息 */
+        .tips {
+            background: rgba(254, 202, 87, 0.1);
+            border-left: 4px solid #feca57;
+            padding: 15px 20px;
+            border-radius: 0 10px 10px 0;
+            margin: 20px 0;
+            color: #feca57;
+            font-size: 0.95rem;
+        }
+
+        /* 正在播放标签 */
+        .playing-label {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #00d2d3;
+            color: #1a1a2e;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-left: 8px;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* 进度条样式 */
+        .original-playback-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 180px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 24px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #ff6b6b, #feca57);
+            width: 0%;
+            transition: width 0.05s linear;
+            border-radius: 12px;
+        }
+
+        .progress-bar-container .progress-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.7rem;
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            white-space: nowrap;
+        }
+
+        #userProgressContainer .progress-bar {
+            background: linear-gradient(90deg, #00d2d3, #48dbfb, #1dd1a1);
+        }
+
+        #userProgressContainer {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 音频启用提示覆盖层 -->
+    <div id="audioOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; cursor: pointer;">
+        <div style="font-size: 4rem; margin-bottom: 20px;">🔊</div>
+        <div style="font-size: 1.5rem; color: #fff; margin-bottom: 10px;">点击任意位置启用音频</div>
+        <div style="font-size: 1rem; color: #888;">Web Audio 需要用户交互后才能播放</div>
+        <div style="margin-top: 30px; padding: 15px 40px; background: linear-gradient(135deg, #e94560, #ff6b6b); border-radius: 30px; color: #fff; font-size: 1.2rem;">点击开始</div>
+    </div>
+
+    <!-- 关卡预热 Loading 界面 -->
+    <div id="levelLoadingOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9998;">
+        <div style="font-size: 3rem; margin-bottom: 20px;">🎵</div>
+        <div style="font-size: 1.5rem; color: #fff; margin-bottom: 10px;">正在准备音频...</div>
+        <div style="font-size: 1rem; color: #888; margin-bottom: 30px;">第 <span id="loadingLevelNum">1</span> 关</div>
+        
+        <div style="width: 300px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+            <div id="loadingProgress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #e94560, #ff6b6b, #feca57); transition: width 0.3s ease;"></div>
+        </div>
+        
+        <div id="loadingStatus" style="margin-top: 15px; font-size: 0.9rem; color: #666; font-family: monospace;">初始化音频上下文...</div>
+    </div>
+
+    <div class="container">
+        <!-- 标题 -->
+        <header class="header">
+            <h1>🎵 六指迷笛 <span style="font-size: 0.5em; color: #888;">v2.2.7</span></h1>
+            <div style="font-size: 0.7rem; color: #666; margin-top: 5px; font-family: monospace;">
+                🎧 Wwise Style: Switch Container | Vertical Remixing | Voice Limit=1
+            </div>
+            <div class="level-info">第 <span id="currentLevel">1</span> 关</div>
+        </header>
+
+        <!-- 阶段指示器 -->
+        <div class="stage-indicator">
+            <div class="stage-dot active" id="stage1" title="聆听">👂</div>
+            <div class="stage-dot" id="stage2" title="选择">🎹</div>
+            <div class="stage-dot" id="stage3" title="验证">✅</div>
+        </div>
+
+        <!-- 主内容 -->
+        <main class="main-content">
+            <!-- 阶段1：聆听 -->
+            <div id="phase1" class="phase-content">
+                <div class="dialog-box">
+                    <div class="dialog-text">请仔细听听这段曲子 👂</div>
+                    <div class="dialog-hint">目标音乐正在循环播放，记住每个声部的组合</div>
+                </div>
+
+                <div class="audio-visualizer" id="targetVisualizer">
+                    <!-- 动态生成 -->
+                </div>
+
+                <div class="mixer-info">
+                    <div>🎵 正在播放：目标音乐 <span class="playing-label">循环中</span></div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary btn-large" onclick="startSelection()">
+                        🎹 可以开始做题了
+                    </button>
+                </div>
+            </div>
+
+            <!-- 阶段2：选择 -->
+            <div id="phase2" class="phase-content" style="display: none;">
+                <div class="action-bar">
+                    <div class="original-playback-container">
+                        <button class="btn btn-secondary btn-small" onclick="playTargetPreview(this)" id="originalPlayBtn">
+                            🎯 再听原曲
+                        </button>
+                        <div class="progress-bar-container" id="originalProgressContainer" style="display: none;">
+                            <div class="progress-bar" id="originalProgressBar"></div>
+                            <span class="progress-label">原曲循环中</span>
+                        </div>
+                    </div>
+                    <span class="tips-inline">💡 点击片段试听，四个声部会同时播放</span>
+                </div>
+
+                <div class="mixer-info">
+                    <div>🎧 当前播放组合</div>
+                    <div class="playing-parts" id="playingParts">
+                        <span style="color: #888;">请选择声部...</span>
+                    </div>
+                    <div class="progress-bar-container" id="userProgressContainer" style="display: none;">
+                        <div class="progress-bar" id="userProgressBar"></div>
+                        <span class="progress-label">你的组合循环中</span>
+                    </div>
+                </div>
+
+                <div class="parts-grid">
+                    <!-- 旋律 -->
+                    <div class="part-section" id="melodySection">
+                        <div class="part-header">
+                            <span class="part-icon">🎺</span>
+                            <span class="part-name">旋律</span>
+                            <div class="track-controls">
+                                <button class="track-btn" id="melodyMute" onclick="toggleMute('melody')">M</button>
+                                <button class="track-btn" id="melodySolo" onclick="toggleSolo('melody')">S</button>
+                            </div>
+                            <span class="part-status" id="melodyStatus"></span>
+                        </div>
+                        <div class="part-options" id="melodyOptions">
+                            <div class="part-option" data-part="melody" data-option="A" onclick="selectOption('melody', 'A')">旋律 A</div>
+                            <div class="part-option" data-part="melody" data-option="B" onclick="selectOption('melody', 'B')">旋律 B</div>
+                            <div class="part-option" data-part="melody" data-option="C" onclick="selectOption('melody', 'C')">旋律 C</div>
+                        </div>
+                    </div>
+
+                    <!-- 和声 -->
+                    <div class="part-section" id="harmonySection">
+                        <div class="part-header">
+                            <span class="part-icon">🎹</span>
+                            <span class="part-name">和声</span>
+                            <div class="track-controls">
+                                <button class="track-btn" id="harmonyMute" onclick="toggleMute('harmony')">M</button>
+                                <button class="track-btn" id="harmonySolo" onclick="toggleSolo('harmony')">S</button>
+                            </div>
+                            <span class="part-status" id="harmonyStatus"></span>
+                        </div>
+                        <div class="part-options" id="harmonyOptions">
+                            <div class="part-option" data-part="harmony" data-option="A" onclick="selectOption('harmony', 'A')">和声 A</div>
+                            <div class="part-option" data-part="harmony" data-option="B" onclick="selectOption('harmony', 'B')">和声 B</div>
+                            <div class="part-option" data-part="harmony" data-option="C" onclick="selectOption('harmony', 'C')">和声 C</div>
+                        </div>
+                    </div>
+
+                    <!-- 贝斯 -->
+                    <div class="part-section" id="bassSection">
+                        <div class="part-header">
+                            <span class="part-icon">🎸</span>
+                            <span class="part-name">贝斯</span>
+                            <div class="track-controls">
+                                <button class="track-btn" id="bassMute" onclick="toggleMute('bass')">M</button>
+                                <button class="track-btn" id="bassSolo" onclick="toggleSolo('bass')">S</button>
+                            </div>
+                            <span class="part-status" id="bassStatus"></span>
+                        </div>
+                        <div class="part-options" id="bassOptions">
+                            <div class="part-option" data-part="bass" data-option="A" onclick="selectOption('bass', 'A')">低音 A</div>
+                            <div class="part-option" data-part="bass" data-option="B" onclick="selectOption('bass', 'B')">低音 B</div>
+                            <div class="part-option" data-part="bass" data-option="C" onclick="selectOption('bass', 'C')">低音 C</div>
+                        </div>
+                    </div>
+
+                    <!-- 鼓组 -->
+                    <div class="part-section" id="drumsSection">
+                        <div class="part-header">
+                            <span class="part-icon">🥁</span>
+                            <span class="part-name">鼓组</span>
+                            <div class="track-controls">
+                                <button class="track-btn" id="drumsMute" onclick="toggleMute('drums')">M</button>
+                                <button class="track-btn" id="drumsSolo" onclick="toggleSolo('drums')">S</button>
+                            </div>
+                            <span class="part-status" id="drumsStatus"></span>
+                        </div>
+                        <div class="part-options" id="drumsOptions">
+                            <div class="part-option" data-part="drums" data-option="A" onclick="selectOption('drums', 'A')">节奏 A</div>
+                            <div class="part-option" data-part="drums" data-option="B" onclick="selectOption('drums', 'B')">节奏 B</div>
+                            <div class="part-option" data-part="drums" data-option="C" onclick="selectOption('drums', 'C')">节奏 C</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="confirm-area">
+                    <div class="selection-summary">
+                        <div class="summary-item">
+                            <div class="label">🎺 旋律</div>
+                            <div class="value" id="summaryMelody">未选择</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="label">🎹 和声</div>
+                            <div class="value" id="summaryHarmony">未选择</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="label">🎸 贝斯</div>
+                            <div class="value" id="summaryBass">未选择</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="label">🥁 鼓组</div>
+                            <div class="value" id="summaryDrums">未选择</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-success btn-large" onclick="confirmSelection()">
+                        ✅ 确定
+                    </button>
+                </div>
+            </div>
+
+            <!-- 阶段3：验证 -->
+            <div id="phase3" class="phase-content" style="display: none;">
+                <div class="dialog-box">
+                    <div class="dialog-text">来对比一下你的选择 🔍</div>
+                    <div class="dialog-hint">点击按钮播放，听听哪里不一样</div>
+                </div>
+
+                <div class="verify-comparison">
+                    <div class="comparison-header">
+                        🎵 对比播放控制
+                    </div>
+
+                    <div class="comparison-sections">
+                        <div class="comparison-box target">
+                            <h4>🎯 目标音乐</h4>
+                            <div class="progress-bar-container" id="compareTargetProgress" style="display: none; margin-bottom: 10px;">
+                                <div class="progress-bar" id="compareTargetProgressBar"></div>
+                                <span class="progress-label">正在播放</span>
+                            </div>
+                            <div class="comparison-parts" id="targetParts">
+                                <!-- 动态填充 -->
+                            </div>
+                        </div>
+                        <div class="comparison-box user">
+                            <h4>🎹 你的选择</h4>
+                            <div class="progress-bar-container" id="compareUserProgress" style="display: none; margin-bottom: 10px;">
+                                <div class="progress-bar" id="compareUserProgressBar"></div>
+                                <span class="progress-label">正在播放</span>
+                            </div>
+                            <div class="comparison-parts" id="userParts">
+                                <!-- 动态填充 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="comparison-controls">
+                        <button class="btn btn-secondary btn-small" onclick="playComparison('target')">
+                            🎯 播放目标
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="playComparison('user')">
+                            🎹 播放你的
+                        </button>
+                        <button class="btn btn-warning btn-small" onclick="playComparison('alternate')">
+                            🔄 交替对比
+                        </button>
+                        <button class="btn btn-success btn-small" onclick="stopComparison()">
+                            ⏹ 停止
+                        </button>
+                    </div>
+
+                    <div class="audio-visualizer" id="compareVisualizer" style="height: 60px; margin-top: 15px;">
+                        <!-- 动态生成 -->
+                    </div>
+
+                    <div id="comparisonResult" class="comparison-status" style="display: none;">
+                        <!-- 动态填充 -->
+                    </div>
+                </div>
+
+                <div id="verifyActions" style="margin-top: 30px; display: none;">
+                    <button class="btn btn-primary btn-large" id="verifyBtn" onclick="handleVerifyResult()">
+                        <!-- 动态填充 -->
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ==================== 游戏状态 ====================
+        const gameState = {
+            currentLevel: 1,
+            currentPhase: 1,
+            targetCombination: {},
+            userSelection: {
+                melody: null,
+                harmony: null,
+                bass: null,
+                drums: null
+            },
+            isPlaying: false,
+            audioContext: null,
+            activeSources: {},
+            loopIntervals: [],
+            targetLoopInterval: null,
+            isComparing: false,
+            compareMode: null,
+            isPlayingOriginal: false,
+            originalProgressInterval: null,
+            userProgressInterval: null,
+            compareTargetProgressInterval: null,
+            compareUserProgressInterval: null,
+            mutedTracks: { melody: false, harmony: false, bass: false, drums: false },
+            soloTrack: null
+        };
+
+        // AudioBuffer 缓存系统（根治延迟）
+        const audioBufferCache = {
+            buffers: {}, // 格式: { 'melody-A': AudioBuffer }
+            isReady: false
+        };
+
+        // ==================== 音频预合成系统（根治延迟）====================
+        
+        // 用 OfflineAudioContext 预合成一个声部变体
+        async function renderPartBuffer(part, option) {
+            const duration = 4; // 4秒 loop
+            const sampleRate = 44100;
+            const ctx = new OfflineAudioContext(1, duration * sampleRate, sampleRate);
+            
+            const beatDur = 0.5;
+            const volume = MUSIC_TRACKS[part].volume;
+            
+            // 获取 pattern
+            let pattern;
+            switch(part) {
+                case 'melody': pattern = generateMelodyPattern(option); break;
+                case 'harmony': pattern = generateHarmonyPattern(option); break;
+                case 'bass': pattern = generateBassPattern(option); break;
+                case 'drums': pattern = generateDrumsPattern(option); break;
+                default: pattern = [];
+            }
+            
+            // 合成到 offline context
+            pattern.forEach((note, i) => {
+                if (!note) return;
+                const startTime = i * beatDur;
+                
+                if (part === 'drums') {
+                    renderDrumToOffline(ctx, note, startTime, volume);
+                } else {
+                    const freq = noteFrequencies[note] || 440;
+                    const type = part === 'melody' ? 'sine' : 'triangle';
+                    const noteDur = beatDur * (part === 'melody' ? 0.8 : 0.9);
+                    
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.value = freq;
+                    
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+                    gain.gain.setValueAtTime(volume, startTime + noteDur - 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + noteDur);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + noteDur);
+                }
+            });
+            
+            return await ctx.startRendering();
+        }
+        
+        // 离线鼓点合成
+        function renderDrumToOffline(ctx, drum, startTime, volume) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            switch(drum) {
+                case 'kick':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150, startTime);
+                    osc.frequency.exponentialRampToValueAtTime(0.01, startTime + 0.5);
+                    gain.gain.setValueAtTime(volume, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.5);
+                    break;
+                case 'snare':
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(200, startTime);
+                    gain.gain.setValueAtTime(volume * 0.8, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.15);
+                    break;
+                case 'hihat':
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, startTime);
+                    gain.gain.setValueAtTime(volume * 0.3, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.05);
+                    break;
+            }
+            
+            // 连接到离线上下文
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+        }
+
+        // ==================== 关卡预热系统 ====================
+        
+        // 显示关卡加载界面并预热音频
+        async function warmupLevelAudio() {
+            const loadingOverlay = document.getElementById('levelLoadingOverlay');
+            const loadingProgress = document.getElementById('loadingProgress');
+            const loadingStatus = document.getElementById('loadingStatus');
+            const loadingLevelNum = document.getElementById('loadingLevelNum');
+            
+            loadingLevelNum.textContent = gameState.currentLevel;
+            loadingOverlay.style.display = 'flex';
+            
+            // 步骤1: 确保音频上下文就绪 (20%)
+            loadingStatus.textContent = '初始化音频上下文...';
+            initAudioContext();
+            if (gameState.audioContext.state === 'suspended') {
+                await gameState.audioContext.resume();
+            }
+            loadingProgress.style.width = '20%';
+            await sleep(50);
+            
+            // 步骤2: 预合成所有 12 种音频 (20% -> 90%)
+            loadingStatus.textContent = '合成音频素材...';
+            audioBufferCache.buffers = {};
+            
+            const combinations = [];
+            for (const part of parts) {
+                for (const option of options) {
+                    combinations.push({ part, option });
+                }
+            }
+            
+            const total = combinations.length;
+            for (let i = 0; i < total; i++) {
+                const { part, option } = combinations[i];
+                const buffer = await renderPartBuffer(part, option);
+                audioBufferCache.buffers[`${part}-${option}`] = buffer;
+                
+                const progress = 20 + Math.floor((i + 1) / total * 70);
+                loadingProgress.style.width = progress + '%';
+                loadingStatus.textContent = `合成: ${partNames[part]} ${option} (${i + 1}/${total})`;
+            }
+            
+            // 步骤3: 初始化混音器 (90% -> 100%)
+            loadingStatus.textContent = '初始化混音器...';
+            initMasterMixer();
+            loadingProgress.style.width = '100%';
+            await sleep(100);
+            
+            // 隐藏加载界面
+            loadingOverlay.style.display = 'none';
+            audioBufferCache.isReady = true;
+            
+            console.log('音频预合成完成，缓存了', Object.keys(audioBufferCache.buffers).length, '个buffer');
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // 声部顺序：旋律、和声、贝斯、鼓组
+        const parts = ['melody', 'harmony', 'bass', 'drums'];
+        const partNames = { 
+            melody: '🎺 旋律', 
+            harmony: '🎹 和声', 
+            bass: '🎸 贝斯', 
+            drums: '🥁 鼓组' 
+        };
+        const options = ['A', 'B', 'C'];
+
+        // ==================== 音频合成器 ====================
+        const noteFrequencies = {
+            'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
+            'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+            'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00
+        };
+
+        function initAudioContext() {
+            if (!gameState.audioContext) {
+                gameState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (gameState.audioContext.state === 'suspended') {
+                gameState.audioContext.resume();
+            }
+        }
+
+        async function enableAudio() {
+            const overlay = document.getElementById('audioOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+            initAudioContext();
+            if (gameState.audioContext.state === 'suspended') {
+                await gameState.audioContext.resume();
+            }
+            
+            // 预热音频系统 - 创建并立即释放一个无声节点
+            warmupAudioSystem();
+            
+            console.log('Audio enabled, state:', gameState.audioContext.state);
+        }
+        
+        // 预热音频系统，消除首次播放延迟
+        function warmupAudioSystem() {
+            if (!gameState.audioContext) return;
+            
+            const now = gameState.audioContext.currentTime;
+            
+            // 预热：创建一个极短的无声音符来激活音频管线
+            const osc = gameState.audioContext.createOscillator();
+            const gain = gameState.audioContext.createGain();
+            gain.gain.value = 0.001; // 几乎无声
+            osc.connect(gain);
+            gain.connect(gameState.audioContext.destination);
+            osc.start(now);
+            osc.stop(now + 0.001);
+            
+            // 预热所有轨道增益节点
+            initMasterMixer();
+            
+            // 预生成一个音符来初始化合成器
+            parts.forEach(part => {
+                const state = gameState.targetCombination[part] || 'A';
+                const frequencies = part === 'drums' ? null : getWarmupFrequencies(part, state);
+            });
+        }
+        
+        // 获取预热用的频率
+        function getWarmupFrequencies(part, state) {
+            // 简单的频率映射，用于预热
+            const warmupNotes = {
+                melody: { A: 440, B: 523.25, C: 659.25 },
+                harmony: { A: 329.63, B: 392, C: 493.88 },
+                bass: { A: 130.81, B: 146.83, C: 164.81 }
+            };
+            return warmupNotes[part]?.[state] || 440;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = document.getElementById('audioOverlay');
+            if (overlay) {
+                overlay.addEventListener('click', enableAudio);
+            }
+        });
+
+        // ==================== Wwise 风格交互音乐系统 ====================
+        
+        // Wwise Switch 状态定义
+        const SWITCH_STATES = {
+            NONE: 'none',
+            A: 'A',
+            B: 'B', 
+            C: 'C'
+        };
+        
+        // Music Track 定义 (4个轨道)
+        const MUSIC_TRACKS = {
+            melody: { name: 'Melody', volume: 0.25, currentState: SWITCH_STATES.NONE },
+            harmony: { name: 'Harmony', volume: 0.15, currentState: SWITCH_STATES.NONE },
+            bass: { name: 'Bass', volume: 0.35, currentState: SWITCH_STATES.NONE },
+            drums: { name: 'Drums', volume: 0.40, currentState: SWITCH_STATES.NONE }
+        };
+        
+        // 活跃的音乐实例 (Voice Limiting - 每个轨道限制为1)
+        const activeMusicVoices = {
+            melody: null,
+            harmony: null,
+            bass: null,
+            drums: null
+        };
+        
+        // 主混音器 (Master Mixer)
+        let masterGainNode = null;
+        let trackGainNodes = {};
+        
+        function initMasterMixer() {
+            if (!gameState.audioContext) return;
+            
+            if (!masterGainNode) {
+                masterGainNode = gameState.audioContext.createGain();
+                masterGainNode.gain.value = 0.8;
+                masterGainNode.connect(gameState.audioContext.destination);
+            }
+            
+            // 为每个 Music Track 创建 Gain Node (垂直混音控制)
+            parts.forEach(part => {
+                if (!trackGainNodes[part]) {
+                    trackGainNodes[part] = gameState.audioContext.createGain();
+                    trackGainNodes[part].gain.value = MUSIC_TRACKS[part].volume;
+                    trackGainNodes[part].connect(masterGainNode);
+                }
+            });
+        }
+        
+        // Wwise SetSwitch - 切换 Music Track 状态
+        function setSwitch(part, state, immediate = false) {
+            initAudioContext();
+            initMasterMixer();
+            
+            // 更新 Switch 状态
+            MUSIC_TRACKS[part].currentState = state;
+            
+            // 实例限制：立即停止该轨道的旧实例 (Voice Limiting = 1)
+            if (activeMusicVoices[part]) {
+                stopMusicVoice(part);
+            }
+            
+            // 如果状态不是 NONE，开始新实例
+            if (state !== SWITCH_STATES.NONE) {
+                if (immediate) {
+                    // 立即播放（用于"再听原曲"等功能）
+                    startMusicVoice(part, state, gameState.audioContext.currentTime);
+                } else {
+                    // 等待下一个乐句边界开始 (节拍同步)
+                    const nextPhraseTime = getNextPhraseTime();
+                    const waitTime = Math.max(0, (nextPhraseTime - gameState.audioContext.currentTime) * 1000);
+                    
+                    setTimeout(() => {
+                        startMusicVoice(part, state, nextPhraseTime);
+                    }, waitTime);
+                }
+            }
+        }
+        
+        // 停止音乐实例 (立即打断)
+        function stopMusicVoice(part) {
+            const voice = activeMusicVoices[part];
+            if (voice) {
+                // 停止 buffer source
+                if (voice.source) {
+                    try {
+                        voice.source.stop();
+                        voice.source.disconnect();
+                    } catch(e) {}
+                }
+                activeMusicVoices[part] = null;
+            }
+        }
+        
+        // 开始音乐实例（使用预合成 buffer，相位锁定）
+        function startMusicVoice(part, state, startTime) {
+            const ctx = gameState.audioContext;
+            const bufferKey = `${part}-${state}`;
+            const buffer = audioBufferCache.buffers[bufferKey];
+            
+            if (!buffer) {
+                console.error('Buffer not found:', bufferKey);
+                return;
+            }
+            
+            // 计算相位锁定偏移：找出当前播放中的声部，获取其播放位置
+            let offset = 0;
+            const loopDuration = 4;
+            
+            // 查找当前正在播放的其他声部
+            for (const p of parts) {
+                if (p !== part && activeMusicVoices[p] && activeMusicVoices[p].startTime) {
+                    // 计算该声部已经播放了多久
+                    const elapsed = ctx.currentTime - activeMusicVoices[p].startTime;
+                    // 对 loop 时长取模，得到当前在 loop 中的位置
+                    offset = elapsed % loopDuration;
+                    break; // 找到一个参考即可
+                }
+            }
+            
+            // 创建 BufferSource
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+            
+            // 连接到轨道增益
+            const trackGain = trackGainNodes[part] || masterGainNode;
+            source.connect(trackGain);
+            
+            // 应用 mute/solo 状态
+            if (gameState.mutedTracks[part] || isSoloExcluding(part)) {
+                trackGain.gain.setValueAtTime(0, startTime);
+            } else {
+                trackGain.gain.setValueAtTime(MUSIC_TRACKS[part].volume, startTime);
+            }
+            
+            // 在指定时间开始，从偏移位置播放（相位锁定）
+            source.start(startTime, offset);
+            
+            // 保存引用（记录实际开始时间用于后续相位计算）
+            activeMusicVoices[part] = {
+                source: source,
+                part: part,
+                state: state,
+                startTime: startTime - offset // 虚拟开始时间，用于计算相位
+            };
+        }
+        
+        // 获取下一个乐句边界时间
+        function getNextPhraseTime() {
+            const currentTime = gameState.audioContext.currentTime;
+            const phraseDuration = 4;
+            return Math.ceil(currentTime / phraseDuration) * phraseDuration;
+        }
+        
+        // 停止所有音乐
+        function stopAllMusic() {
+            parts.forEach(part => stopMusicVoice(part));
+        }
+        
+        // ==================== Stinger 音效系统 ====================
+        
+        // Stinger 音效 - 选择声部
+        function playSelectStinger() {
+            initAudioContext();
+            const ctx = gameState.audioContext;
+            const now = ctx.currentTime;
+            playTone(880, 0.1, now, 0.2, 'sine');
+            playTone(1100, 0.08, now + 0.05, 0.15, 'sine');
+        }
+        
+        // Stinger 音效 - 正确
+        function playCorrectStinger() {
+            initAudioContext();
+            const ctx = gameState.audioContext;
+            const now = ctx.currentTime;
+            playTone(523.25, 0.15, now, 0.3, 'sine');
+            playTone(659.25, 0.15, now + 0.1, 0.3, 'sine'); // E5
+            playTone(783.99, 0.2, now + 0.2, 0.35, 'sine'); // G5
+            playTone(1046.50, 0.4, now + 0.35, 0.4, 'sine'); // C6
+        }
+        
+        // Stinger 音效 - 错误
+        function playWrongStinger() {
+            initAudioContext();
+            const ctx = gameState.audioContext;
+            const now = ctx.currentTime;
+            
+            // 错误音效 - 下降音阶
+            playTone(392.00, 0.15, now, 0.3, 'triangle'); // G4
+            playTone(349.23, 0.15, now + 0.1, 0.3, 'triangle'); // F4
+            playTone(329.63, 0.2, now + 0.2, 0.35, 'triangle'); // E4
+            playTone(261.63, 0.3, now + 0.35, 0.4, 'triangle'); // C4
+        }
+        
+        // 阶段切换音效
+        function playPhaseTransitionStinger(phase) {
+            initAudioContext();
+            const ctx = gameState.audioContext;
+            const now = ctx.currentTime;
+            
+            if (phase === 2) {
+                // 进入选择阶段
+                playTone(440, 0.1, now, 0.25, 'sine');
+                playTone(554, 0.1, now + 0.1, 0.25, 'sine');
+                playTone(659, 0.15, now + 0.2, 0.3, 'sine');
+            } else if (phase === 3) {
+                // 进入验证阶段
+                playTone(392, 0.1, now, 0.25, 'sine');
+                playTone(523, 0.1, now + 0.1, 0.25, 'sine');
+                playTone(659, 0.1, now + 0.2, 0.25, 'sine');
+                playTone(784, 0.2, now + 0.3, 0.3, 'sine');
+            }
+        }
+        
+        // 带淡入淡出的播放（Wwise 风格）
+        function playToneWithFade(frequency, duration, startTime, volume = 0.3, type = 'sine', attack = 0.05, release = 0.1) {
+            const ctx = gameState.audioContext;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.type = type;
+            osc.frequency.value = frequency;
+            
+            // ADSR 包络
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(volume, startTime + attack);
+            gain.gain.setValueAtTime(volume, startTime + duration - release);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+            
+            return { osc, gain };
+        }
+        
+        // 改进的鼓声合成（更有力的打击感）
+        function playDrumSoundEnhanced(type, startTime, velocity = 1.0) {
+            const ctx = gameState.audioContext;
+            
+            if (type === 'kick') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.frequency.setValueAtTime(150, startTime);
+                osc.frequency.exponentialRampToValueAtTime(40, startTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.8 * velocity, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(startTime);
+                osc.stop(startTime + 0.5);
+                
+                // 添加低频增强
+                const subOsc = ctx.createOscillator();
+                const subGain = ctx.createGain();
+                subOsc.frequency.setValueAtTime(60, startTime);
+                subOsc.frequency.exponentialRampToValueAtTime(20, startTime + 0.1);
+                subGain.gain.setValueAtTime(0.4 * velocity, startTime);
+                subGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
+                subOsc.connect(subGain);
+                subGain.connect(ctx.destination);
+                subOsc.start(startTime);
+                subOsc.stop(startTime + 0.3);
+                
+            } else if (type === 'snare') {
+                // 噪声部分
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                noise.buffer = buffer;
+                
+                // 高通滤波器使声音更尖锐
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 2000;
+                
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.5 * velocity, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+                
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                noise.start(startTime);
+                
+                // 添加音调部分（鼓身共鸣）
+                const toneOsc = ctx.createOscillator();
+                const toneGain = ctx.createGain();
+                toneOsc.type = 'triangle';
+                toneOsc.frequency.setValueAtTime(200, startTime);
+                toneGain.gain.setValueAtTime(0.2 * velocity, startTime);
+                toneGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.1);
+                toneOsc.connect(toneGain);
+                toneGain.connect(ctx.destination);
+                toneOsc.start(startTime);
+                toneOsc.stop(startTime + 0.1);
+                
+            } else if (type === 'hihat') {
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                noise.buffer = buffer;
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 10000;
+                
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.3 * velocity, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+                
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                noise.start(startTime);
+            }
+        }
+        
+        // 垂直混音参数（Wwise RTPC 风格）
+        const partVolumes = {
+            melody: 0.25,
+            harmony: 0.15,
+            bass: 0.35,
+            drums: 0.40
+        };
+        
+        // 更新声部音量（垂直混音控制）
+        function updatePartVolume(part, volume) {
+            partVolumes[part] = volume;
+        }
+
+        // 播放单个音符
+        function playTone(frequency, duration, startTime, volume = 0.3, type = 'sine') {
+            const ctx = gameState.audioContext;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.type = type;
+            osc.frequency.value = frequency;
+
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(volume, startTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration - 0.05);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+
+            return { osc, gain };
+        }
+
+        // 鼓声合成
+        function playDrumSound(type, startTime) {
+            const ctx = gameState.audioContext;
+            
+            if (type === 'kick') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.frequency.setValueAtTime(150, startTime);
+                osc.frequency.exponentialRampToValueAtTime(0.01, startTime + 0.5);
+                gain.gain.setValueAtTime(0.8, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.5);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + 0.5);
+            } else if (type === 'snare') {
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                noise.buffer = buffer;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.5, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+                noise.connect(gain);
+                gain.connect(ctx.destination);
+                noise.start(startTime);
+            } else if (type === 'hihat') {
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                noise.buffer = buffer;
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 8000;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.3, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.05);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                noise.start(startTime);
+            }
+        }
+
+        // 生成鼓组片段
+        function generateDrumsPattern(variant) {
+            const patterns = {
+                'A': ['kick', null, 'snare', null, 'kick', 'kick', 'snare', null],
+                'B': ['kick', 'hihat', 'kick', 'snare', 'kick', 'hihat', 'snare', 'hihat'],
+                'C': ['kick', 'kick', 'snare', 'kick', 'hihat', 'snare', 'kick', 'hihat']
+            };
+            return patterns[variant] || patterns['A'];
+        }
+
+        // 生成贝斯片段
+        function generateBassPattern(variant) {
+            const patterns = {
+                'A': ['C3', null, 'C3', null, 'G3', null, 'C3', null],
+                'B': ['C3', 'E3', 'G3', null, 'F3', 'A3', 'G3', null],
+                'C': ['C3', 'G3', 'C3', 'E3', 'F3', 'C3', 'G3', 'B3']
+            };
+            return patterns[variant] || patterns['A'];
+        }
+
+        // 生成旋律片段
+        function generateMelodyPattern(variant) {
+            const patterns = {
+                'A': ['C5', 'D5', 'E5', 'C5', null, 'G4', 'A4', 'C5'],
+                'B': ['E5', 'D5', 'C5', 'B4', 'C5', 'D5', 'E5', 'G5'],
+                'C': ['G4', 'A4', 'C5', 'E5', 'D5', 'C5', 'B4', 'G4']
+            };
+            return patterns[variant] || patterns['A'];
+        }
+
+        // 生成和声片段
+        function generateHarmonyPattern(variant) {
+            const patterns = {
+                'A': [['C4', 'E4', 'G4'], null, ['C4', 'E4', 'G4'], null, ['F4', 'A4', 'C5'], null, ['C4', 'E4', 'G4'], null],
+                'B': [['C4', 'E4', 'G4'], ['E4', 'G4', 'B4'], null, ['F4', 'A4', 'C5'], ['G4', 'B4', 'D5'], null, ['C4', 'E4', 'G4'], null],
+                'C': [['A3', 'C4', 'E4'], null, ['G3', 'B3', 'D4'], ['C4', 'E4', 'G4'], ['F3', 'A3', 'C4'], null, ['G3', 'B3', 'D4'], null]
+            };
+            return patterns[variant] || patterns['A'];
+        }
+
+        // 清除所有循环
+        function clearAllLoops() {
+            gameState.loopIntervals.forEach(interval => clearInterval(interval));
+            gameState.loopIntervals = [];
+            if (gameState.targetLoopInterval) {
+                clearInterval(gameState.targetLoopInterval);
+                gameState.targetLoopInterval = null;
+            }
+        }
+
+        // ==================== 节拍对齐系统（类似Blog）====================
+        const BPM = 120;
+        const beatInterval = 60 / BPM; // 0.5秒一拍
+        let globalBeatTime = 0; // 全局节拍时间基准
+        let beatSchedulerId = null;
+
+        // 初始化全局节拍调度器
+        function initBeatScheduler() {
+            if (beatSchedulerId) return;
+            
+            const ctx = gameState.audioContext;
+            globalBeatTime = ctx.currentTime;
+            
+            // 每拍更新全局时间
+            beatSchedulerId = setInterval(() => {
+                globalBeatTime += beatInterval;
+            }, beatInterval * 1000);
+        }
+
+        // 获取下一个节拍点时间
+        function getNextBeatTime() {
+            const ctx = gameState.audioContext;
+            const currentTime = ctx.currentTime;
+            const beatsElapsed = Math.floor((currentTime - globalBeatTime) / beatInterval);
+            return globalBeatTime + (beatsElapsed + 1) * beatInterval;
+        }
+
+        // 播放片段（节拍对齐版本 + Wwise 风格混音）
+        function playPart(part, variant, loop = true, duration = 4000) {
+            initAudioContext();
+            initMasterMixer();
+            initBeatScheduler();
+            
+            const ctx = gameState.audioContext;
+            const beatDur = 0.5;
+            const baseVolume = partVolumes[part] || 0.3;
+
+            function playBeat(startTime) {
+                if (part === 'drums') {
+                    const pattern = generateDrumsPattern(variant);
+                    pattern.forEach((drum, i) => {
+                        if (drum) playDrumSoundEnhanced(drum, startTime + i * beatDur, baseVolume / 0.4);
+                    });
+                } else if (part === 'bass') {
+                    const pattern = generateBassPattern(variant);
+                    pattern.forEach((note, i) => {
+                        if (note) playToneWithFade(noteFrequencies[note], beatDur * 0.9, startTime + i * beatDur, baseVolume, 'triangle', 0.02, 0.1);
+                    });
+                } else if (part === 'melody') {
+                    const pattern = generateMelodyPattern(variant);
+                    pattern.forEach((note, i) => {
+                        if (note) playToneWithFade(noteFrequencies[note], beatDur * 0.8, startTime + i * beatDur, baseVolume, 'sine', 0.05, 0.1);
+                    });
+                } else if (part === 'harmony') {
+                    const pattern = generateHarmonyPattern(variant);
+                    pattern.forEach((chord, i) => {
+                        if (chord) {
+                            chord.forEach(note => {
+                                playToneWithFade(noteFrequencies[note], beatDur * 1.2, startTime + i * beatDur, baseVolume * 0.8, 'sine', 0.1, 0.15);
+                            });
+                        }
+                    });
+                }
+            }
+
+            // 等待下一个节拍点再开始播放
+            const nextBeat = getNextBeatTime();
+            const waitTime = (nextBeat - ctx.currentTime) * 1000;
+            
+            setTimeout(() => {
+                playBeat(ctx.currentTime);
+                
+                if (loop) {
+                    const loopInterval = setInterval(() => {
+                        playBeat(ctx.currentTime);
+                    }, duration);
+                    gameState.loopIntervals.push(loopInterval);
+                    return loopInterval;
+                }
+            }, Math.max(0, waitTime));
+        }
+
+        // 播放目标组合（循环）
+        // Wwise 风格：播放目标组合（使用 SetSwitch）
+        function playTargetCombination(loop = true) {
+            initAudioContext();
+            initMasterMixer();
+            
+            // 清除旧系统循环
+            clearAllLoops();
+            
+            // 使用 Wwise SetSwitch 启动所有轨道
+            parts.forEach(part => {
+                setSwitch(part, gameState.targetCombination[part]);
+            });
+        }
+
+        // Wwise 风格：播放用户选择（使用 SetSwitch）
+        function playUserSelection(loop = true) {
+            initAudioContext();
+            initMasterMixer();
+            
+            // 清除旧系统循环
+            clearAllLoops();
+            
+            // 使用 Wwise SetSwitch 启动已选轨道
+            parts.forEach(part => {
+                if (gameState.userSelection[part]) {
+                    setSwitch(part, gameState.userSelection[part]);
+                } else {
+                    setSwitch(part, SWITCH_STATES.NONE);
+                }
+            });
+        }
+
+        // ==================== 游戏逻辑 ====================
+
+        function initGame() {
+            generateTargetCombination();
+            createVisualizer('targetVisualizer');
+            createVisualizer('compareVisualizer');
+            
+            // 先预热音频，再播放
+            warmupLevelAudio().then(() => {
+                playTargetCombination(true);
+                animateVisualizer('targetVisualizer', true);
+            });
+        }
+
+        function generateTargetCombination() {
+            parts.forEach(part => {
+                gameState.targetCombination[part] = options[Math.floor(Math.random() * options.length)];
+            });
+            console.log('目标组合:', gameState.targetCombination);
+            
+            // 预加载：提前初始化音频系统（如果已启用）
+            if (gameState.audioContext && gameState.audioContext.state === 'running') {
+                initMasterMixer();
+                // 静默初始化所有轨道的增益节点，消除首次播放延迟
+                parts.forEach(part => {
+                    if (trackGainNodes[part]) {
+                        trackGainNodes[part].gain.value = MUSIC_TRACKS[part].volume;
+                    }
+                });
+            }
+        }
+
+        function createVisualizer(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'visualizer-bar';
+                bar.style.height = '10px';
+                bar.style.animationDelay = `${i * 0.05}s`;
+                container.appendChild(bar);
+            }
+        }
+
+        function animateVisualizer(containerId, active) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const bars = container.querySelectorAll('.visualizer-bar');
+            
+            if (active) {
+                bars.forEach((bar, i) => {
+                    bar.classList.add('active');
+                    setInterval(() => {
+                        if (bar.classList.contains('active')) {
+                            bar.style.height = `${Math.random() * 60 + 10}px`;
+                        }
+                    }, 100 + i * 20);
+                });
+            } else {
+                bars.forEach(bar => {
+                    bar.classList.remove('active');
+                    bar.style.height = '10px';
+                });
+            }
+        }
+
+        // 开始选择（阶段1 → 阶段2）
+        function startSelection() {
+            // 初始化状态
+            initPhase2State();
+            
+            // 播放阶段切换音效
+            playPhaseTransitionStinger(2);
+            
+            gameState.currentPhase = 2;
+            updateStageIndicator();
+            
+            document.getElementById('phase1').style.display = 'none';
+            document.getElementById('phase2').style.display = 'block';
+            
+            initAudioContext();
+        }
+        
+        // 初始化阶段2状态
+        function initPhase2State() {
+            // 停止所有音乐
+            stopAllMusic();
+            clearAllLoops();
+            animateVisualizer('targetVisualizer', false);
+            
+            // 重置原曲状态
+            gameState.isPlayingOriginal = false;
+            const previewBtn = document.getElementById('originalPlayBtn');
+            if (previewBtn) {
+                previewBtn.innerHTML = '🎯 再听原曲';
+                previewBtn.classList.remove('btn-warning');
+                previewBtn.classList.add('btn-secondary');
+            }
+            
+            // 停止所有进度条
+            stopOriginalProgressBar();
+            stopUserProgressBar();
+            
+            // 重置 Mute/Solo 状态
+            gameState.mutedTracks = { melody: false, harmony: false, bass: false, drums: false };
+            gameState.soloTrack = null;
+            parts.forEach(part => {
+                const muteBtn = document.getElementById(part + 'Mute');
+                const soloBtn = document.getElementById(part + 'Solo');
+                if (muteBtn) muteBtn.classList.remove('active');
+                if (soloBtn) soloBtn.classList.remove('solo-active');
+            });
+        }
+
+        // 选择片段
+        // 在演奏阶段预览原曲（Toggle 模式）
+        function playTargetPreview(btn) {
+            initAudioContext();
+            initMasterMixer();
+            
+            if (!gameState.isPlayingOriginal) {
+                // ===== 第一次点击：开始循环播放原曲 =====
+                gameState.isPlayingOriginal = true;
+                
+                // 停止当前用户选择
+                stopAllMusic();
+                stopUserProgressBar(); // 停止用户进度条
+                
+                // 立即播放目标组合（不等待乐句边界）
+                parts.forEach(part => {
+                    setSwitch(part, gameState.targetCombination[part], true);
+                });
+                
+                // 更新按钮状态为"关闭"
+                btn.innerHTML = '🔊 关闭原曲';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-warning');
+                
+                // 显示并启动原曲进度条
+                startOriginalProgressBar();
+                
+            } else {
+                // ===== 第二次点击：停止原曲，恢复用户选择 =====
+                gameState.isPlayingOriginal = false;
+                
+                // 停止原曲
+                stopAllMusic();
+                stopOriginalProgressBar(); // 停止原曲进度条
+                
+                // 恢复用户的选择
+                const hasSelection = parts.some(p => gameState.userSelection[p]);
+                if (hasSelection) {
+                    parts.forEach(p => {
+                        if (gameState.userSelection[p]) {
+                            setSwitch(p, gameState.userSelection[p], true);
+                        }
+                    });
+                    // 启动用户进度条
+                    startUserProgressBar();
+                }
+                
+                // 恢复按钮状态
+                btn.innerHTML = '🎯 再听原曲';
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-secondary');
+            }
+        }
+
+        // ===== 原曲进度条控制 =====
+        function startOriginalProgressBar() {
+            const container = document.getElementById('originalProgressContainer');
+            const bar = document.getElementById('originalProgressBar');
+            container.style.display = 'block';
+            
+            const loopDuration = 4000; // 4秒一个loop
+            let startTime = Date.now();
+            
+            gameState.originalProgressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = (elapsed % loopDuration) / loopDuration * 100;
+                bar.style.width = progress + '%';
+            }, 50); // 50ms更新一次
+        }
+        
+        function stopOriginalProgressBar() {
+            if (gameState.originalProgressInterval) {
+                clearInterval(gameState.originalProgressInterval);
+                gameState.originalProgressInterval = null;
+            }
+            const container = document.getElementById('originalProgressContainer');
+            const bar = document.getElementById('originalProgressBar');
+            container.style.display = 'none';
+            bar.style.width = '0%';
+        }
+        
+        // ===== 用户组合进度条控制 =====
+        function startUserProgressBar() {
+            const container = document.getElementById('userProgressContainer');
+            const bar = document.getElementById('userProgressBar');
+            container.style.display = 'block';
+            
+            const loopDuration = 4000; // 4秒一个loop
+            let startTime = Date.now();
+            
+            gameState.userProgressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = (elapsed % loopDuration) / loopDuration * 100;
+                bar.style.width = progress + '%';
+            }, 50);
+        }
+        
+        function stopUserProgressBar() {
+            if (gameState.userProgressInterval) {
+                clearInterval(gameState.userProgressInterval);
+                gameState.userProgressInterval = null;
+            }
+            const container = document.getElementById('userProgressContainer');
+            const bar = document.getElementById('userProgressBar');
+            container.style.display = 'none';
+            bar.style.width = '0%';
+        }
+
+        // ===== 对比页面进度条控制 =====
+        function startCompareTargetProgressBar() {
+            const container = document.getElementById('compareTargetProgress');
+            const bar = document.getElementById('compareTargetProgressBar');
+            container.style.display = 'block';
+            
+            const loopDuration = 4000;
+            let startTime = Date.now();
+            
+            gameState.compareTargetProgressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = (elapsed % loopDuration) / loopDuration * 100;
+                bar.style.width = progress + '%';
+            }, 50);
+        }
+
+        function stopCompareTargetProgressBar() {
+            if (gameState.compareTargetProgressInterval) {
+                clearInterval(gameState.compareTargetProgressInterval);
+                gameState.compareTargetProgressInterval = null;
+            }
+            const container = document.getElementById('compareTargetProgress');
+            const bar = document.getElementById('compareTargetProgressBar');
+            container.style.display = 'none';
+            bar.style.width = '0%';
+        }
+
+        function startCompareUserProgressBar() {
+            const container = document.getElementById('compareUserProgress');
+            const bar = document.getElementById('compareUserProgressBar');
+            container.style.display = 'block';
+            
+            const loopDuration = 4000;
+            let startTime = Date.now();
+            
+            gameState.compareUserProgressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = (elapsed % loopDuration) / loopDuration * 100;
+                bar.style.width = progress + '%';
+            }, 50);
+        }
+
+        function stopCompareUserProgressBar() {
+            if (gameState.compareUserProgressInterval) {
+                clearInterval(gameState.compareUserProgressInterval);
+                gameState.compareUserProgressInterval = null;
+            }
+            const container = document.getElementById('compareUserProgress');
+            const bar = document.getElementById('compareUserProgressBar');
+            container.style.display = 'none';
+            bar.style.width = '0%';
+        }
+        function selectOption(part, option) {
+            initAudioContext();
+            initMasterMixer();
+            
+            // 如果正在播放原曲，先停止原曲并切换到用户选择模式
+            if (gameState.isPlayingOriginal) {
+                gameState.isPlayingOriginal = false;
+                
+                // 停止原曲
+                stopAllMusic();
+                stopOriginalProgressBar();
+                
+                // 重置"再听原曲"按钮状态
+                const previewBtn = document.getElementById('originalPlayBtn');
+                if (previewBtn) {
+                    previewBtn.innerHTML = '🎯 再听原曲';
+                    previewBtn.classList.remove('btn-warning');
+                    previewBtn.classList.add('btn-secondary');
+                }
+                
+                // 启动用户进度条（如果已有其他选择）
+                const hasSelection = parts.some(p => gameState.userSelection[p]);
+                if (hasSelection) {
+                    startUserProgressBar();
+                }
+            }
+            
+            // 更新选择状态
+            gameState.userSelection[part] = option;
+            
+            // 更新UI
+            const optionsContainer = document.getElementById(part + 'Options');
+            optionsContainer.querySelectorAll('.part-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            
+            const selectedOption = optionsContainer.querySelector(`[data-option="${option}"]`);
+            selectedOption.classList.add('selected');
+            
+            // 更新状态标签
+            document.getElementById(part + 'Status').textContent = option + ' ✓';
+            document.getElementById(part + 'Section').classList.add('active');
+            
+            // 更新摘要
+            document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).textContent = 
+                option + ' ✓';
+            document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).classList.add('selected');
+            
+            // 更新混音器显示
+            updateMixerDisplay();
+            
+            // === Wwise 风格：SetSwitch 切换 ===
+            // 该轨道实例限制为1，新选择立即打断旧实例
+            // 立即切换（不在乐句边界等待）
+            setSwitch(part, option, true);
+        }
+
+        function updateMixerDisplay() {
+            const container = document.getElementById('playingParts');
+            const activeParts = [];
+            
+            parts.forEach(part => {
+                if (gameState.userSelection[part]) {
+                    activeParts.push(`${partNames[part]} ${gameState.userSelection[part]}`);
+                }
+            });
+            
+            if (activeParts.length === 0) {
+                container.innerHTML = '<span style="color: #888;">请选择声部...</span>';
+            } else {
+                container.innerHTML = activeParts.map(p => `<span class="part-badge">${p}</span>`).join('');
+            }
+        }
+
+        // ==================== Mute / Solo 控制 ====================
+        
+        function toggleMute(part) {
+            gameState.mutedTracks[part] = !gameState.mutedTracks[part];
+            
+            const btn = document.getElementById(part + 'Mute');
+            if (gameState.mutedTracks[part]) {
+                btn.classList.add('active');
+                // 如果该轨道正在播放，立即静音
+                if (trackGainNodes[part]) {
+                    trackGainNodes[part].gain.setValueAtTime(0, gameState.audioContext.currentTime);
+                }
+            } else {
+                btn.classList.remove('active');
+                // 恢复音量（如果不是被 solo 排除）
+                if (trackGainNodes[part] && !isSoloExcluding(part)) {
+                    trackGainNodes[part].gain.setValueAtTime(MUSIC_TRACKS[part].volume, gameState.audioContext.currentTime);
+                }
+            }
+            
+            // 如果开启 mute，关闭 solo
+            if (gameState.mutedTracks[part] && gameState.soloTrack === part) {
+                toggleSolo(part);
+            }
+        }
+        
+        function toggleSolo(part) {
+            if (gameState.soloTrack === part) {
+                // 关闭 solo
+                gameState.soloTrack = null;
+                document.getElementById(part + 'Solo').classList.remove('solo-active');
+                
+                // 恢复所有非 mute 轨道的音量
+                parts.forEach(p => {
+                    if (trackGainNodes[p] && !gameState.mutedTracks[p]) {
+                        trackGainNodes[p].gain.setValueAtTime(MUSIC_TRACKS[p].volume, gameState.audioContext.currentTime);
+                    }
+                });
+            } else {
+                // 关闭之前的 solo
+                if (gameState.soloTrack) {
+                    document.getElementById(gameState.soloTrack + 'Solo').classList.remove('solo-active');
+                }
+                
+                // 开启新的 solo
+                gameState.soloTrack = part;
+                document.getElementById(part + 'Solo').classList.add('solo-active');
+                
+                // 只有 solo 轨道有音量，其他轨道静音（除了被 mute 的）
+                parts.forEach(p => {
+                    if (trackGainNodes[p]) {
+                        if (p === part && !gameState.mutedTracks[p]) {
+                            trackGainNodes[p].gain.setValueAtTime(MUSIC_TRACKS[p].volume, gameState.audioContext.currentTime);
+                        } else {
+                            trackGainNodes[p].gain.setValueAtTime(0, gameState.audioContext.currentTime);
+                        }
+                    }
+                });
+                
+                // 如果该轨道被 mute，取消 mute
+                if (gameState.mutedTracks[part]) {
+                    toggleMute(part);
+                }
+            }
+        }
+        
+        function isSoloExcluding(part) {
+            return gameState.soloTrack && gameState.soloTrack !== part;
+        }
+
+        // 确认选择（阶段2 → 阶段3）
+        function confirmSelection() {
+            // 检查是否所有声部都已选择
+            const missing = parts.filter(p => !gameState.userSelection[p]);
+            if (missing.length > 0) {
+                alert('请先选择：' + missing.map(p => partNames[p]).join('、'));
+                return;
+            }
+            
+            // 初始化阶段3状态
+            initPhase3State();
+            
+            // 播放阶段切换音效
+            playPhaseTransitionStinger(3);
+            
+            gameState.currentPhase = 3;
+            updateStageIndicator();
+            
+            document.getElementById('phase2').style.display = 'none';
+            document.getElementById('phase3').style.display = 'block';
+            
+            // 填充对比区域
+            fillComparisonArea();
+            
+            // 显示验证按钮
+            document.getElementById('verifyActions').style.display = 'block';
+            
+            // 自动播放一次用户的组合
+            setTimeout(() => {
+                playComparison('user');
+            }, 300);
+        }
+        
+        // 初始化阶段3状态
+        function initPhase3State() {
+            // 停止所有音乐
+            stopAllMusic();
+            clearAllLoops();
+            
+            // 停止所有进度条
+            stopOriginalProgressBar();
+            stopUserProgressBar();
+            stopCompareTargetProgressBar();
+            stopCompareUserProgressBar();
+            
+            // 重置对比状态
+            gameState.isComparing = false;
+            gameState.compareMode = null;
+        }
+
+        // 填充对比区域
+        function fillComparisonArea() {
+            const targetContainer = document.getElementById('targetParts');
+            const userContainer = document.getElementById('userParts');
+            
+            targetContainer.innerHTML = '';
+            userContainer.innerHTML = '';
+            
+            parts.forEach(part => {
+                const targetValue = gameState.targetCombination[part];
+                const userValue = gameState.userSelection[part];
+                const isCorrect = targetValue === userValue;
+                
+                // 目标部分
+                const targetPart = document.createElement('div');
+                targetPart.className = 'comparison-part';
+                targetPart.innerHTML = `<span>${partNames[part]}</span><span>${targetValue}</span>`;
+                targetContainer.appendChild(targetPart);
+                
+                // 用户部分
+                const userPart = document.createElement('div');
+                userPart.className = 'comparison-part ' + (isCorrect ? 'correct' : 'wrong');
+                userPart.innerHTML = `<span>${partNames[part]}</span><span>${userValue}</span>`;
+                userContainer.appendChild(userPart);
+            });
+        }
+
+        // 播放对比
+        function playComparison(mode) {
+            initAudioContext();
+            stopComparison();
+            
+            gameState.isComparing = true;
+            gameState.compareMode = mode;
+            
+            const resultDiv = document.getElementById('comparisonResult');
+            resultDiv.style.display = 'block';
+            
+            if (mode === 'target') {
+                // 播放目标
+                playTargetCombination(true);
+                animateVisualizer('compareVisualizer', true);
+                resultDiv.className = 'comparison-status correct';
+                resultDiv.innerHTML = '🎯 正在播放：目标音乐';
+                
+                // 显示目标进度条，隐藏用户进度条
+                startCompareTargetProgressBar();
+                stopCompareUserProgressBar();
+                
+            } else if (mode === 'user') {
+                // 播放用户选择
+                playUserSelection(true);
+                animateVisualizer('compareVisualizer', true);
+                const isCorrect = checkCorrect();
+                resultDiv.className = 'comparison-status ' + (isCorrect ? 'correct' : 'wrong');
+                resultDiv.innerHTML = '🎹 正在播放：你的选择';
+                
+                // 显示用户进度条，隐藏目标进度条
+                startCompareUserProgressBar();
+                stopCompareTargetProgressBar();
+                
+            } else if (mode === 'alternate') {
+                // 交替对比
+                resultDiv.className = 'comparison-status';
+                resultDiv.innerHTML = '🔄 正在交替播放...';
+                animateVisualizer('compareVisualizer', true);
+                
+                let isPlayingTarget = true;
+                const loopDuration = 4000; // 4秒
+                
+                // 先播放目标
+                playTargetCombination(false);
+                
+                // 启动目标进度条
+                startCompareTargetProgressBar();
+                
+                // 设置交替
+                const alternateInterval = setInterval(() => {
+                    if (!gameState.isComparing) {
+                        clearInterval(alternateInterval);
+                        stopCompareTargetProgressBar();
+                        stopCompareUserProgressBar();
+                        return;
+                    }
+                    
+                    clearAllLoops();
+                    isPlayingTarget = !isPlayingTarget;
+                    
+                    if (isPlayingTarget) {
+                        playTargetCombination(false);
+                        stopCompareUserProgressBar();
+                        startCompareTargetProgressBar();
+                        resultDiv.innerHTML = '🎯 目标音乐<br><span class="hint">这是目标组合</span>';
+                    } else {
+                        playUserSelection(false);
+                        stopCompareTargetProgressBar();
+                        startCompareUserProgressBar();
+                        resultDiv.innerHTML = '🎹 你的选择<br><span class="hint">这是你的组合</span>';
+                    }
+                }, loopDuration);
+                
+                gameState.loopIntervals.push(alternateInterval);
+            }
+            
+            // 更新验证按钮
+            updateVerifyButton();
+        }
+
+        function stopComparison() {
+            clearAllLoops();
+            stopAllMusic(); // 确保音乐完全停止
+            gameState.isComparing = false;
+            gameState.compareMode = null;
+            animateVisualizer('compareVisualizer', false);
+            
+            const resultDiv = document.getElementById('comparisonResult');
+            resultDiv.style.display = 'none';
+            
+            // 停止对比进度条
+            stopCompareTargetProgressBar();
+            stopCompareUserProgressBar();
+        }
+
+        function checkCorrect() {
+            return parts.every(part => 
+                gameState.userSelection[part] === gameState.targetCombination[part]
+            );
+        }
+
+        function updateVerifyButton() {
+            const isCorrect = checkCorrect();
+            const btn = document.getElementById('verifyBtn');
+            
+            // 播放验证结果音效
+            if (isCorrect) {
+                playCorrectStinger();
+            } else {
+                playWrongStinger();
+            }
+            
+            if (isCorrect) {
+                btn.className = 'btn btn-success btn-large';
+                btn.innerHTML = '✅ 完全正确！下一关';
+                btn.onclick = nextLevel;
+            } else {
+                btn.className = 'btn btn-primary btn-large';
+                btn.innerHTML = '🔁 听到差异了，返回重选';
+                btn.onclick = backToSelection;
+            }
+        }
+
+        function handleVerifyResult() {
+            if (checkCorrect()) {
+                nextLevel();
+            } else {
+                backToSelection();
+            }
+        }
+
+        function backToSelection() {
+            // 初始化阶段2状态
+            initPhase2State();
+            
+            gameState.currentPhase = 2;
+            updateStageIndicator();
+            
+            document.getElementById('phase3').style.display = 'none';
+            document.getElementById('phase2').style.display = 'block';
+            document.getElementById('verifyActions').style.display = 'none';
+            
+            // 使用 Wwise SetSwitch 继续播放用户的选择
+            parts.forEach(p => {
+                if (gameState.userSelection[p]) {
+                    setSwitch(p, gameState.userSelection[p], true);
+                }
+            });
+        }
+
+        function nextLevel() {
+            stopComparison();
+            
+            gameState.currentLevel++;
+            document.getElementById('currentLevel').textContent = gameState.currentLevel;
+            
+            resetLevel();
+        }
+
+        function resetLevel() {
+            // 先停止所有音乐和循环
+            stopAllMusic();
+            clearAllLoops();
+            
+            // 停止所有进度条
+            stopOriginalProgressBar();
+            stopUserProgressBar();
+            
+            // 重置选择
+            gameState.userSelection = { melody: null, harmony: null, bass: null, drums: null };
+            
+            // 重置"再听原曲"按钮状态
+            gameState.isPlayingOriginal = false;
+            const previewBtn = document.getElementById('originalPlayBtn');
+            if (previewBtn) {
+                previewBtn.innerHTML = '🎯 再听原曲';
+                previewBtn.classList.remove('btn-warning');
+                previewBtn.classList.add('btn-secondary');
+            }
+            
+            // 重置UI
+            parts.forEach(part => {
+                document.getElementById(part + 'Status').classList.remove('playing');
+                document.getElementById(part + 'Section').classList.remove('active');
+                document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).textContent = '未选择';
+                document.getElementById('summary' + part.charAt(0).toUpperCase() + part.slice(1)).classList.remove('selected');
+                
+                const optionsContainer = document.getElementById(part + 'Options');
+                optionsContainer.querySelectorAll('.part-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+            });
+            
+            updateMixerDisplay();
+            
+            // 返回第一阶段
+            gameState.currentPhase = 1;
+            updateStageIndicator();
+            
+            document.getElementById('phase3').style.display = 'none';
+            document.getElementById('phase2').style.display = 'none';
+            document.getElementById('phase1').style.display = 'block';
+            document.getElementById('verifyActions').style.display = 'none';
+            
+            // 生成新目标
+            generateTargetCombination();
+            
+            // 先预热音频，再播放
+            warmupLevelAudio().then(() => {
+                playTargetCombination(true);
+                animateVisualizer('targetVisualizer', true);
+            });
+        }
+
+        function updateStageIndicator() {
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById('stage' + i);
+                dot.classList.remove('active', 'completed');
+                
+                if (i < gameState.currentPhase) {
+                    dot.classList.add('completed');
+                } else if (i === gameState.currentPhase) {
+                    dot.classList.add('active');
+                }
+            }
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>

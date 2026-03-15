@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>磁力吸附 Magnetic Snap</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.2);
+            border: 2px solid #1a1a2e;
+            border-radius: 8px;
+        }
+        
+        canvas {
+            display: block;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+            border-radius: 6px;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            pointer-events: none;
+        }
+        
+        #ui h1 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #00ffff;
+        }
+        
+        #ui .controls {
+            font-size: 12px;
+            color: #aaa;
+            line-height: 1.6;
+        }
+        
+        #ui .controls span {
+            color: #ff00ff;
+            font-weight: bold;
+        }
+        
+        #levelInfo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #00ff00;
+            font-size: 16px;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+        
+        #magnetStatus {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        #magnetStatus.positive {
+            background: rgba(255, 0, 80, 0.3);
+            color: #ff0050;
+            box-shadow: 0 0 20px rgba(255, 0, 80, 0.5);
+            border: 1px solid #ff0050;
+        }
+        
+        #magnetStatus.negative {
+            background: rgba(0, 150, 255, 0.3);
+            color: #0096ff;
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.5);
+            border: 1px solid #0096ff;
+        }
+        
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 24px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        
+        #message.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="900" height="600"></canvas>
+        <div id="ui">
+            <h1>⚡ 磁力吸附 MAGNETIC SNAP</h1>
+            <div class="controls">
+                <span>WASD / ↑↓←→</span> 移动<br>
+                <span>SPACE</span> 切换磁极<br>
+                <span>R</span> 重置关卡
+            </div>
+        </div>
+        <div id="levelInfo">关卡 1</div>
+        <div id="magnetStatus" class="positive">正极 (+) NORTH</div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const magnetStatus = document.getElementById('magnetStatus');
+        const levelInfo = document.getElementById('levelInfo');
+        const message = document.getElementById('message');
+
+        // 游戏常量
+        const GRAVITY = 0.5;
+        const FRICTION = 0.85;
+        const MOVE_SPEED = 0.5;
+        const MAX_SPEED = 8;
+        const JUMP_FORCE = -12;
+        const MAGNET_FORCE = 0.8;
+        const MAGNET_RANGE = 200;
+
+        // 输入状态
+        const keys = {};
+
+        // 粒子系统
+        class Particle {
+            constructor(x, y, color, type = 'spark') {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.life = 1;
+                this.decay = 0.02 + Math.random() * 0.03;
+                this.color = color;
+                this.type = type;
+                this.size = 2 + Math.random() * 3;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                this.size *= 0.98;
+                
+                if (this.type === 'magnetic') {
+                    this.vx *= 0.95;
+                    this.vy *= 0.95;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 玩家类
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.radius = 15;
+                this.polarity = 1; // 1 = 正极(红), -1 = 负极(蓝)
+                this.grounded = false;
+                this.pulsePhase = 0;
+            }
+
+            update() {
+                // 移动输入
+                if (keys['ArrowLeft'] || keys['KeyA']) {
+                    this.vx -= MOVE_SPEED;
+                }
+                if (keys['ArrowRight'] || keys['KeyD']) {
+                    this.vx += MOVE_SPEED;
+                }
+                if ((keys['ArrowUp'] || keys['KeyW']) && this.grounded) {
+                    this.vy = JUMP_FORCE;
+                    this.grounded = false;
+                }
+
+                // 限制速度
+                this.vx = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, this.vx));
+                
+                // 重力和摩擦
+                this.vy += GRAVITY;
+                this.vx *= FRICTION;
+
+                // 更新位置
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 脉冲动画
+                this.pulsePhase += 0.1;
+
+                // 生成磁场粒子
+                if (Math.random() < 0.3) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = this.radius + 10 + Math.random() * 20;
+                    particles.push(new Particle(
+                        this.x + Math.cos(angle) * dist,
+                        this.y + Math.sin(angle) * dist,
+                        this.polarity > 0 ? '#ff0050' : '#0096ff',
+                        'field'
+                    ));
+                }
+            }
+
+            draw(ctx) {
+                const color = this.polarity > 0 ? '#ff0050' : '#0096ff';
+                const glowColor = this.polarity > 0 ? 'rgba(255, 0, 80, 0.5)' : 'rgba(0, 150, 255, 0.5)';
+                const pulse = 1 + Math.sin(this.pulsePhase) * 0.1;
+
+                // 外发光
+                ctx.save();
+                ctx.shadowBlur = 30 * pulse;
+                ctx.shadowColor = color;
+                
+                // 主体
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 内核
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 磁极符号
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.polarity > 0 ? '+' : '-', this.x, this.y);
+                
+                ctx.restore();
+
+                // 绘制磁场线
+                this.drawMagneticField(ctx, color);
+            }
+
+            drawMagneticField(ctx, color) {
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.3;
+                
+                const fieldRadius = MAGNET_RANGE * 0.8;
+                const lines = 8;
+                
+                for (let i = 0; i < lines; i++) {
+                    const angle = (i / lines) * Math.PI * 2 + this.pulsePhase * 0.5;
+                    const wave = Math.sin(this.pulsePhase + i) * 5;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        this.x + Math.cos(angle) * (this.radius + 5),
+                        this.y + Math.sin(angle) * (this.radius + 5)
+                    );
+                    
+                    for (let r = this.radius + 10; r < fieldRadius; r += 10) {
+                        const curve = Math.sin(r * 0.1 + this.pulsePhase) * wave;
+                        ctx.lineTo(
+                            this.x + Math.cos(angle) * r + Math.cos(angle + Math.PI/2) * curve,
+                            this.y + Math.sin(angle) * r + Math.sin(angle + Math.PI/2) * curve
+                        );
+                    }
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            togglePolarity() {
+                this.polarity *= -1;
+                magnetStatus.className = this.polarity > 0 ? 'positive' : 'negative';
+                magnetStatus.textContent = this.polarity > 0 ? '正极 (+) NORTH' : '负极 (-) SOUTH';
+                
+                // 切换粒子效果
+                for (let i = 0; i < 20; i++) {
+                    particles.push(new Particle(
+                        this.x, this.y,
+                        this.polarity > 0 ? '#ff0050' : '#0096ff',
+                        'spark'
+                    ));
+                }
+            }
+        }
+
+        // 磁性物体基类
+        class MagneticObject {
+            constructor(x, y, width, height, polarity = 0, type = 'block') {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.polarity = polarity; // 0 = 中性, 1 = 正, -1 = 负
+                this.type = type;
+                this.vx = 0;
+                this.vy = 0;
+                this.mass = type === 'ball' ? 0.5 : 2;
+                this.grounded = false;
+                this.pulsePhase = Math.random() * Math.PI * 2;
+            }
+
+            applyMagneticForce(player) {
+                const dx = this.x + this.width/2 - player.x;
+                const dy = this.y + this.height/2 - player.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < MAGNET_RANGE && dist > 10) {
+                    let force = MAGNET_FORCE * 1000 / (dist * dist);
+                    force = Math.min(force, 2);
+
+                    // 同性相斥，异性相吸
+                    if (this.polarity === 0) {
+                        // 中性物体被吸引
+                        force *= 0.5;
+                    } else if (player.polarity === this.polarity) {
+                        // 同性相斥
+                        force = -force;
+                    }
+                    // 异性相吸 (force 保持正)
+
+                    const fx = (dx / dist) * force / this.mass;
+                    const fy = (dy / dist) * force / this.mass;
+
+                    this.vx += fx;
+                    this.vy += fy;
+
+                    // 磁力粒子效果
+                    if (Math.random() < 0.2) {
+                        const midX = (player.x + this.x + this.width/2) / 2;
+                        const midY = (player.y + this.y + this.height/2) / 2;
+                        particles.push(new Particle(
+                            midX + (Math.random() - 0.5) * 20,
+                            midY + (Math.random() - 0.5) * 20,
+                            force > 0 ? '#00ff88' : '#ff6600',
+                            'magnetic'
+                        ));
+                    }
+                }
+            }
+
+            update() {
+                this.vy += GRAVITY * 0.5;
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                this.pulsePhase += 0.05;
+
+                // 边界限制
+                if (this.x < 0) { this.x = 0; this.vx *= -0.5; }
+                if (this.x + this.width > canvas.width) { 
+                    this.x = canvas.width - this.width; 
+                    this.vx *= -0.5; 
+                }
+                if (this.y + this.height > canvas.height - 20) {
+                    this.y = canvas.height - 20 - this.height;
+                    this.vy = 0;
+                    this.grounded = true;
+                }
+            }
+
+            draw(ctx) {
+                this.pulsePhase += 0.05;
+                
+                if (this.type === 'ball') {
+                    this.drawBall(ctx);
+                } else if (this.type === 'platform') {
+                    this.drawPlatform(ctx);
+                } else if (this.type === 'door') {
+                    this.drawDoor(ctx);
+                } else {
+                    this.drawBlock(ctx);
+                }
+            }
+
+            drawBlock(ctx) {
+                const color = this.polarity > 0 ? '#ff3366' : this.polarity < 0 ? '#33aaff' : '#888899';
+                const glowColor = this.polarity > 0 ? 'rgba(255, 51, 102, 0.5)' : 
+                                  this.polarity < 0 ? 'rgba(51, 170, 255, 0.5)' : 'rgba(136, 136, 153, 0.3)';
+
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = glowColor;
+                ctx.fillStyle = color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+
+                // 金属质感
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.fillRect(this.x, this.y, this.width, this.height/2);
+                
+                // 边框
+                ctx.strokeStyle = glowColor;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+                // 磁极标记
+                if (this.polarity !== 0) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(
+                        this.polarity > 0 ? '+' : '-',
+                        this.x + this.width/2,
+                        this.y + this.height/2
+                    );
+                }
+                ctx.restore();
+            }
+
+            drawBall(ctx) {
+                const cx = this.x + this.width/2;
+                const cy = this.y + this.height/2;
+                const radius = this.width/2;
+                const color = this.polarity > 0 ? '#ff3366' : this.polarity < 0 ? '#33aaff' : '#aaaaaa';
+
+                ctx.save();
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = color;
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 高光
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.beginPath();
+                ctx.arc(cx - radius/3, cy - radius/3, radius/3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            drawPlatform(ctx) {
+                const color = this.polarity > 0 ? '#ff3366' : '#33aaff';
+                
+                ctx.save();
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = color;
+                ctx.fillStyle = color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+
+                // 科技感线条
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(this.x + 3, this.y + 3, this.width - 6, this.height - 6);
+                ctx.setLineDash([]);
+                ctx.restore();
+            }
+
+            drawDoor(ctx) {
+                const color = '#00ff88';
+                const pulse = 1 + Math.sin(this.pulsePhase) * 0.1;
+                
+                ctx.save();
+                ctx.shadowBlur = 30 * pulse;
+                ctx.shadowColor = color;
+                ctx.fillStyle = `rgba(0, 255, 136, ${0.3 + pulse * 0.1})`;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+                // 能量网格
+                ctx.strokeStyle = `rgba(0, 255, 136, 0.5)`;
+                ctx.lineWidth = 1;
+                for (let i = 10; i < this.width; i += 20) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + i, this.y);
+                    ctx.lineTo(this.x + i, this.y + this.height);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
+        // 墙壁/地面
+        class Wall {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.strokeStyle = '#2a2a3e';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+                // 网格纹理
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < this.width; i += 20) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + i, this.y);
+                    ctx.lineTo(this.x + i, this.y + this.height);
+                    ctx.stroke();
+                }
+                for (let i = 0; i < this.height; i += 20) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + i);
+                    ctx.lineTo(this.x + this.width, this.y + i);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
+        // 终点
+        class Goal {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.pulsePhase = 0;
+            }
+
+            update() {
+                this.pulsePhase += 0.05;
+            }
+
+            draw(ctx) {
+                const pulse = 1 + Math.sin(this.pulsePhase) * 0.15;
+                
+                ctx.save();
+                ctx.shadowBlur = 40 * pulse;
+                ctx.shadowColor = '#00ff00';
+                ctx.fillStyle = `rgba(0, 255, 0, ${0.2 + pulse * 0.1})`;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+                // 目标标记
+                ctx.fillStyle = '#00ff00';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('EXIT', this.x + this.width/2, this.y + this.height/2);
+                ctx.restore();
+            }
+        }
+
+        // 关卡数据
+        const levels = [
+            // 第1关：基础吸附
+            {
+                player: { x: 100, y: 400 },
+                goal: { x: 750, y: 350, width: 60, height: 80 },
+                walls: [
+                    { x: 0, y: 550, width: 900, height: 50 },
+                    { x: 0, y: 0, width: 20, height: 600 },
+                    { x: 880, y: 0, width: 20, height: 600 },
+                    { x: 200, y: 450, width: 100, height: 20 },
+                    { x: 450, y: 380, width: 100, height: 20 },
+                    { x: 0, y: 0, width: 900, height: 20 }
+                ],
+                objects: [
+                    { x: 300, y: 400, width: 60, height: 60, polarity: 0, type: 'block' },
+                    { x: 500, y: 320, width: 60, height: 60, polarity: 0, type: 'block' }
+                ]
+            },
+            // 第2关：相斥跳跃
+            {
+                player: { x: 50, y: 400 },
+                goal: { x: 800, y: 100, width: 60, height: 60 },
+                walls: [
+                    { x: 0, y: 550, width: 900, height: 50 },
+                    { x: 0, y: 0, width: 20, height: 600 },
+                    { x: 880, y: 0, width: 20, height: 600 },
+                    { x: 0, y: 0, width: 900, height: 20 },
+                    { x: 150, y: 300, width: 200, height: 20 },
+                    { x: 400, y: 200, width: 200, height: 20 },
+                    { x: 650, y: 300, width: 230, height: 20 }
+                ],
+                objects: [
+                    { x: 350, y: 450, width: 50, height: 50, polarity: 1, type: 'ball' },
+                    { x: 450, y: 350, width: 50, height: 50, polarity: -1, type: 'ball' },
+                    { x: 600, y: 250, width: 50, height: 50, polarity: 1, type: 'ball' }
+                ]
+            },
+            // 第3关：复杂机关
+            {
+                player: { x: 50, y: 450 },
+                goal: { x: 800, y: 150, width: 60, height: 60 },
+                walls: [
+                    { x: 0, y: 550, width: 900, height: 50 },
+                    { x: 0, y: 0, width: 20, height: 600 },
+                    { x: 880, y: 0, width: 20, height: 600 },
+                    { x: 0, y: 0, width: 900, height: 20 },
+                    { x: 200, y: 400, width: 20, height: 150 },
+                    { x: 400, y: 250, width: 20, height: 300 },
+                    { x: 600, y: 100, width: 20, height: 300 },
+                    { x: 700, y: 350, width: 180, height: 20 }
+                ],
+                objects: [
+                    { x: 250, y: 480, width: 80, height: 30, polarity: -1, type: 'platform' },
+                    { x: 450, y: 480, width: 80, height: 30, polarity: 1, type: 'platform' },
+                    { x: 650, y: 300, width: 50, height: 50, polarity: -1, type: 'block' },
+                    { x: 300, y: 300, width: 40, height: 40, polarity: 1, type: 'ball' },
+                    { x: 500, y: 200, width: 40, height: 40, polarity: -1, type: 'ball' },
+                    { x: 750, y: 250, width: 60, height: 100, polarity: 0, type: 'door' }
+                ]
+            }
+        ];
+
+        // 游戏状态
+        let currentLevel = 0;
+        let player;
+        let goal;
+        let walls = [];
+        let objects = [];
+        let particles = [];
+        let gameWon = false;
+
+        // 初始化关卡
+        function initLevel(levelIndex) {
+            const data = levels[levelIndex];
+            
+            player = new Player(data.player.x, data.player.y);
+            goal = new Goal(data.goal.x, data.goal.y, data.goal.width, data.goal.height);
+            
+            walls = data.walls.map(w => new Wall(w.x, w.y, w.width, w.height));
+            objects = data.objects.map(o => new MagneticObject(o.x, o.y, o.width, o.height, o.polarity, o.type));
+            
+            particles = [];
+            gameWon = false;
+            
+            levelInfo.textContent = `关卡 ${levelIndex + 1}`;
+            showMessage(`关卡 ${levelIndex + 1}`);
+        }
+
+        // 显示消息
+        function showMessage(text, duration = 2000) {
+            message.textContent = text;
+            message.classList.add('show');
+            setTimeout(() => {
+                message.classList.remove('show');
+            }, duration);
+        }
+
+        // 碰撞检测
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // 解决碰撞
+        function resolveCollision(player, wall) {
+            const overlapX = (player.x + player.radius) - (wall.x + wall.width/2);
+            const overlapY = (player.y + player.radius) - (wall.y + wall.height/2);
+            const combinedHalfWidths = player.radius + wall.width/2;
+            const combinedHalfHeights = player.radius + wall.height/2;
+
+            if (Math.abs(overlapX) < combinedHalfWidths && Math.abs(overlapY) < combinedHalfHeights) {
+                const overlapDepthX = combinedHalfWidths - Math.abs(overlapX);
+                const overlapDepthY = combinedHalfHeights - Math.abs(overlapY);
+
+                if (overlapDepthX < overlapDepthY) {
+                    player.x += overlapX > 0 ? overlapDepthX : -overlapDepthX;
+                    player.vx = 0;
+                } else {
+                    player.y += overlapY > 0 ? overlapDepthY : -overlapDepthY;
+                    player.vy = 0;
+                    if (overlapY > 0) player.grounded = true;
+                }
+            }
+        }
+
+        // 解决物体间碰撞
+        function resolveObjectCollision(obj1, obj2) {
+            const dx = (obj1.x + obj1.width/2) - (obj2.x + obj2.width/2);
+            const dy = (obj1.y + obj1.height/2) - (obj2.y + obj2.height/2);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const minDist = (obj1.width + obj2.width) / 2;
+
+            if (dist < minDist && dist > 0) {
+                const pushX = (dx / dist) * (minDist - dist) * 0.5;
+                const pushY = (dy / dist) * (minDist - dist) * 0.5;
+                
+                obj1.x += pushX;
+                obj1.y += pushY;
+                obj2.x -= pushX;
+                obj2.y -= pushY;
+                
+                obj1.vx *= 0.8;
+                obj1.vy *= 0.8;
+                obj2.vx *= 0.8;
+                obj2.vy *= 0.8;
+            }
+        }
+
+        // 游戏更新
+        function update() {
+            if (gameWon) return;
+
+            player.update();
+            goal.update();
+
+            // 应用磁力
+            objects.forEach(obj => {
+                if (obj.type !== 'door') {
+                    obj.applyMagneticForce(player);
+                }
+            });
+
+            // 更新物体
+            objects.forEach(obj => obj.update());
+
+            // 物体间碰撞
+            for (let i = 0; i < objects.length; i++) {
+                for (let j = i + 1; j < objects.length; j++) {
+                    resolveObjectCollision(objects[i], objects[j]);
+                }
+            }
+
+            // 墙壁碰撞检测
+            player.grounded = false;
+            walls.forEach(wall => resolveCollision(player, wall));
+            objects.forEach(obj => {
+                walls.forEach(wall => {
+                    if (checkCollision(obj, wall)) {
+                        const overlapY = (obj.y + obj.height) - wall.y;
+                        if (overlapY > 0 && obj.vy > 0) {
+                            obj.y = wall.y - obj.height;
+                            obj.vy = 0;
+                            obj.grounded = true;
+                        }
+                    }
+                });
+            });
+
+            // 检测玩家到达终点
+            if (player.x > goal.x && player.x < goal.x + goal.width &&
+                player.y > goal.y && player.y < goal.y + goal.height) {
+                gameWon = true;
+                if (currentLevel < levels.length - 1) {
+                    showMessage('关卡完成！', 1500);
+                    setTimeout(() => {
+                        currentLevel++;
+                        initLevel(currentLevel);
+                    }, 1500);
+                } else {
+                    showMessage('🎉 恭喜通关！', 3000);
+                    createWinParticles();
+                }
+            }
+
+            // 更新粒子
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => p.update());
+        }
+
+        // 胜利粒子效果
+        function createWinParticles() {
+            for (let i = 0; i < 100; i++) {
+                particles.push(new Particle(
+                    canvas.width / 2,
+                    canvas.height / 2,
+                    `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    'spark'
+                ));
+            }
+        }
+
+        // 渲染
+        function draw() {
+            // 清空画布
+            ctx.fillStyle = 'rgba(10, 10, 15, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制背景网格
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // 绘制墙壁
+            walls.forEach(wall => wall.draw(ctx));
+
+            // 绘制终点
+            goal.draw(ctx);
+
+            // 绘制物体
+            objects.forEach(obj => obj.draw(ctx));
+
+            // 绘制玩家
+            player.draw(ctx);
+
+            // 绘制粒子
+            particles.forEach(p => p.draw(ctx));
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 输入处理
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            
+            if (e.code === 'Space') {
+                e.preventDefault();
+                player.togglePolarity();
+            }
+            
+            if (e.code === 'KeyR') {
+                initLevel(currentLevel);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // 初始化游戏
+        initLevel(0);
+        gameLoop();
+    </script>
+</body>
+</html>

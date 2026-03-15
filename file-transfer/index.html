@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件传输 | Scott's Portfolio</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);min-height:100vh;color:#fff;padding:20px}
+        .container{max-width:900px;margin:0 auto}
+        .header{text-align:center;padding:40px 0}
+        .header h1{font-size:2.5em;margin-bottom:10px;background:linear-gradient(90deg,#00d4ff,#7b2cbf);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .header p{color:#888;font-size:1.1em}
+        .api-status{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:20px;font-size:0.9em;margin-top:15px;background:rgba(255,0,0,0.1);color:#ff4444}
+        .api-status.online{background:rgba(0,255,100,0.1);color:#00ff64}
+        .panel{background:rgba(255,255,255,0.05);border-radius:16px;padding:30px;margin-bottom:20px;border:1px solid rgba(255,255,255,0.1)}
+        .panel h2{margin-bottom:20px;color:#00d4ff;font-size:1.3em}
+        .sender-select{display:flex;gap:15px;margin-bottom:20px}
+        .sender-option{flex:1;padding:15px;border:2px solid rgba(255,255,255,0.1);border-radius:12px;cursor:pointer;text-align:center;transition:all 0.3s}
+        .sender-option:hover{border-color:rgba(255,255,255,0.3)}
+        .sender-option.active{border-color:#00d4ff;background:rgba(0,212,255,0.1)}
+        .sender-option .avatar{font-size:2em;margin-bottom:8px}
+        .upload-zone{border:2px dashed rgba(255,255,255,0.2);border-radius:12px;padding:50px 40px;text-align:center;transition:all 0.3s;cursor:pointer}
+        .upload-zone:hover{border-color:#00d4ff;background:rgba(0,212,255,0.05)}
+        .upload-zone.uploading{pointer-events:none;opacity:0.7}
+        .upload-icon{font-size:3.5em;margin-bottom:15px}
+        .upload-text{color:#aaa;margin-bottom:10px;font-size:1.1em}
+        .upload-hint{color:#666;font-size:0.9em}
+        .progress-bar{width:100%;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin-top:15px}
+        .progress-fill{height:100%;background:linear-gradient(90deg,#00d4ff,#7b2cbf);border-radius:3px;transition:width 0.3s}
+        .file-list{margin-top:20px}
+        .file-item{display:flex;align-items:center;padding:15px;background:rgba(255,255,255,0.03);border-radius:10px;margin-bottom:12px}
+        .file-icon{width:45px;height:45px;background:rgba(0,212,255,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;margin-right:15px;font-size:1.3em}
+        .file-info{flex:1;min-width:0}
+        .file-name{font-weight:500;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .file-meta{color:#666;font-size:0.85em}
+        .file-actions{display:flex;gap:10px}
+        .btn{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-size:0.9em;transition:all 0.2s}
+        .btn-primary{background:linear-gradient(90deg,#00d4ff,#7b2cbf);color:white}
+        .btn-primary:hover{opacity:0.9}
+        .btn-secondary{background:rgba(255,255,255,0.1);color:#fff}
+        .empty-state{text-align:center;padding:60px 20px;color:#666}
+        .back-link{display:inline-flex;align-items:center;gap:8px;color:#888;text-decoration:none;margin-bottom:20px}
+        .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(100px);background:rgba(0,0,0,0.9);color:#fff;padding:15px 25px;border-radius:10px;z-index:1000;opacity:0;transition:all 0.3s}
+        .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../" class="back-link">← 返回首页</a>
+        <div class="header">
+            <h1>📁 文件传输</h1>
+            <p>Scott ↔ Jetton 专属文件中转站</p>
+            <div class="api-status" id="apiStatus">🔴 API 离线</div>
+        </div>
+        
+        <div class="panel">
+            <h2>上传文件</h2>
+            <div class="sender-select">
+                <div class="sender-option active" onclick="selectSender('scott',this)">
+                    <div class="avatar">👤</div>
+                    <div>Scott</div>
+                </div>
+                <div class="sender-option" onclick="selectSender('jetton',this)">
+                    <div class="avatar">🤖</div>
+                    <div>Jetton</div>
+                </div>
+            </div>
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text">点击或拖拽上传文件</div>
+                <div class="upload-hint">最大 100MB</div>
+            </div>
+            <input type="file" id="fileInput" multiple style="display:none">
+        </div>
+        
+        <div class="panel">
+            <h2>文件列表</h2>
+            <div class="file-list" id="fileList">
+                <div class="empty-state">📭 暂无文件</div>
+            </div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_BASE='https://115.191.55.91/api';
+        let currentSender='scott';
+
+        function selectSender(sender,el){
+            currentSender=sender;
+            document.querySelectorAll('.sender-option').forEach(e=>e.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        const uploadZone=document.getElementById('uploadZone');
+        const fileInput=document.getElementById('fileInput');
+
+        uploadZone.addEventListener('click',()=>fileInput.click());
+        uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.style.borderColor='#00d4ff'});
+        uploadZone.addEventListener('dragleave',()=>uploadZone.style.borderColor='');
+        uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.style.borderColor='';handleFiles(e.dataTransfer.files)});
+        fileInput.addEventListener('change',e=>{handleFiles(e.target.files);fileInput.value=''});
+
+        async function handleFiles(files){
+            for(const file of files){
+                if(file.size>100*1024*1024){showToast(file.name+' 超过100MB','error');continue}
+                await uploadFile(file);
+            }
+            loadFiles();
+        }
+
+        async function uploadFile(file){
+            uploadZone.classList.add('uploading');
+            uploadZone.innerHTML=`<div class="upload-icon">⏳</div><div class="upload-text">上传 ${file.name}...</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:50%"></div></div>`;
+
+            const formData=new FormData();
+            formData.append('file',file);
+            formData.append('sender',currentSender);
+
+            try{
+                const res=await fetch(API_BASE+'/upload',{method:'POST',body:formData});
+                const data=await res.json();
+                if(data.success){showToast('上传成功: '+file.name,'success')}
+                else{showToast('失败: '+(data.error||'未知错误'),'error')}
+            }catch(e){showToast('上传出错: '+e.message,'error')}
+
+            uploadZone.classList.remove('uploading');
+            uploadZone.innerHTML='<div class="upload-icon">📤</div><div class="upload-text">点击或拖拽上传文件</div><div class="upload-hint">最大 100MB</div>';
+        }
+
+        async function loadFiles(){
+            try{
+                const res=await fetch(API_BASE+'/list?sender=jetton');
+                const data=await res.json();
+                updateFileList(data.files||[]);
+            }catch(e){console.error(e)}
+        }
+
+        function updateFileList(files){
+            const list=document.getElementById('fileList');
+            if(files.length===0){list.innerHTML='<div class="empty-state">📭 暂无文件</div>';return}
+            
+            list.innerHTML=files.map(f=>`
+                <div class="file-item">
+                    <div class="file-icon">📄</div>
+                    <div class="file-info">
+                        <div class="file-name">${f.name}</div>
+                        <div class="file-meta">${formatSize(f.size)}</div>
+                    </div>
+                    <div class="file-actions">
+                        <a href="${f.download_url}" target="_blank" class="btn btn-primary">下载</a>
+                    </div>
+                </div>`).join('');
+        }
+
+        function formatSize(b){if(b<1024)return b+' B';if(b<1024*1024)return(b/1024).toFixed(1)+' KB';return(b/(1024*1024)).toFixed(1)+' MB'}
+
+        async function checkApi(){
+            try{
+                const res=await fetch(API_BASE+'/health');
+                if(res.ok){
+                    document.getElementById('apiStatus').classList.add('online');
+                    document.getElementById('apiStatus').innerHTML='🟢 API 在线';
+                    loadFiles();
+                }
+            }catch(e){console.log('API offline')}
+        }
+
+        function showToast(msg,type){
+            const t=document.getElementById('toast');
+            t.textContent=msg;t.className='toast show '+type;
+            setTimeout(()=>t.classList.remove('show'),3000);
+        }
+
+        checkApi();
+        setInterval(checkApi,30000);
+    </script>
+</body>
+</html>

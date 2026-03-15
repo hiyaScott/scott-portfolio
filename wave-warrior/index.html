@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>波形战士 Wave Warrior</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a12;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(135deg, #0a0a12 0%, #1a1a2e 100%);
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ffff;
+            font-size: 14px;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+            z-index: 10;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ffff;
+            font-size: 12px;
+            text-align: center;
+            opacity: 0.7;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        .stat {
+            margin: 5px 0;
+        }
+        #startScreen, #gameOverScreen, #levelCompleteScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 18, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ffff;
+            z-index: 100;
+        }
+        .title {
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 60px #0080ff;
+            margin-bottom: 30px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            background: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 10px #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            margin: 10px;
+        }
+        .btn:hover {
+            background: #00ffff;
+            color: #0a0a12;
+            box-shadow: 0 0 40px #00ffff;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .wave-preview {
+            width: 200px;
+            height: 100px;
+            border: 1px solid #00ffff;
+            margin: 20px 0;
+            position: relative;
+            background: rgba(0, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui">
+        <div class="stat">关卡: <span id="level">1</span>/3</div>
+        <div class="stat">分数: <span id="score">0</span></div>
+        <div class="stat">生命: <span id="health">100</span>%</div>
+        <div class="stat">频率: <span id="freq">1.0</span> Hz</div>
+        <div class="stat">振幅: <span id="amp">50</span>%</div>
+        <div class="stat">匹配度: <span id="match">0</span>%</div>
+    </div>
+    
+    <div id="controls">
+        鼠标上下移动: 调整振幅 | 鼠标左右移动: 调整频率 | 点击: 发射攻击
+    </div>
+    
+    <div id="startScreen">
+        <div class="title">波形战士</div>
+        <div style="font-size: 18px; margin-bottom: 30px; text-align: center; max-width: 600px;">
+            调整你的波形频率和振幅，匹配敌人的弱点波形！<br><br>
+            鼠标上下 = 振幅 | 鼠标左右 = 频率 | 点击 = 攻击
+        </div>
+        <button class="btn" onclick="startGame()">开始游戏</button>
+    </div>
+    
+    <div id="gameOverScreen" class="hidden">
+        <div class="title">游戏结束</div>
+        <div style="font-size: 24px; margin-bottom: 30px;">最终分数: <span id="finalScore">0</span></div>
+        <button class="btn" onclick="restartGame()">重新开始</button>
+    </div>
+    
+    <div id="levelCompleteScreen" class="hidden">
+        <div class="title">关卡完成！</div>
+        <div style="font-size: 24px; margin-bottom: 30px;">准备进入下一关...</div>
+        <button class="btn" onclick="nextLevel()">继续</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // 游戏状态
+        let gameState = 'start'; // start, playing, levelComplete, gameOver
+        let level = 1;
+        let score = 0;
+        let health = 100;
+        
+        // 玩家波形参数
+        let playerAmp = 50; // 振幅 (0-100)
+        let playerFreq = 1.0; // 频率 (0.5-5.0)
+        let playerPhase = 0; // 相位
+        
+        // 鼠标位置
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        
+        // 游戏对象
+        let enemies = [];
+        let particles = [];
+        let projectiles = [];
+        let gridOffset = 0;
+        
+        // 粒子类
+        class Particle {
+            constructor(x, y, color, speed, size) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * speed;
+                this.vy = (Math.random() - 0.5) * speed;
+                this.life = 1;
+                this.decay = 0.02 + Math.random() * 0.02;
+                this.size = size || (2 + Math.random() * 4);
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // 投射物类
+        class Projectile {
+            constructor(y, amp, freq) {
+                this.x = 100;
+                this.y = y;
+                this.amp = amp;
+                this.freq = freq;
+                this.speed = 8;
+                this.phase = 0;
+                this.life = 1;
+            }
+            
+            update() {
+                this.x += this.speed;
+                this.phase += this.freq * 0.3;
+                
+                // 创建粒子轨迹
+                if (Math.random() < 0.5) {
+                    particles.push(new Particle(
+                        this.x,
+                        this.y + Math.sin(this.phase) * this.amp,
+                        '#00ffff',
+                        2,
+                        2
+                    ));
+                }
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#00ffff';
+                ctx.beginPath();
+                
+                for (let i = 0; i < 30; i++) {
+                    const px = this.x - i * 3;
+                    const py = this.y + Math.sin(this.phase - i * 0.2) * this.amp * (1 - i / 30);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+        
+        // 敌人类
+        class Enemy {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.size = 40 + Math.random() * 20;
+                this.maxHealth = 100;
+                this.health = 100;
+                this.phase = Math.random() * Math.PI * 2;
+                
+                // 根据类型设置波形弱点
+                switch(type) {
+                    case 1: // 低频率，高振幅
+                        this.targetFreq = 0.8 + Math.random() * 0.4;
+                        this.targetAmp = 70 + Math.random() * 20;
+                        this.color = '#ff00ff';
+                        this.shape = 'triangle';
+                        break;
+                    case 2: // 高频率，低振幅
+                        this.targetFreq = 3.0 + Math.random() * 1.5;
+                        this.targetAmp = 20 + Math.random() * 20;
+                        this.color = '#ffff00';
+                        this.shape = 'square';
+                        break;
+                    case 3: // 中等频率，中等振幅
+                        this.targetFreq = 1.5 + Math.random() * 0.8;
+                        this.targetAmp = 40 + Math.random() * 20;
+                        this.color = '#ff6600';
+                        this.shape = 'pentagon';
+                        break;
+                    default:
+                        this.targetFreq = 1.0 + Math.random() * 2;
+                        this.targetAmp = 30 + Math.random() * 40;
+                        this.color = '#ff0080';
+                        this.shape = 'circle';
+                }
+                
+                this.speedX = -0.5 - Math.random() * 0.5;
+                this.oscillationSpeed = 0.02 + Math.random() * 0.02;
+            }
+            
+            update() {
+                this.x += this.speedX;
+                this.phase += this.oscillationSpeed;
+                this.y += Math.sin(this.phase) * 0.5;
+            }
+            
+            draw() {
+                const matchPercent = calculateMatchPercent(playerFreq, playerAmp, this.targetFreq, this.targetAmp);
+                const isMatched = matchPercent > 80;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // 绘制敌人的弱点波形预览
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                for (let i = 0; i < 60; i++) {
+                    const px = -30 + i;
+                    const py = -40 + Math.sin(i * 0.1 * this.targetFreq + this.phase) * this.targetAmp * 0.3;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                
+                // 绘制敌人形状
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = isMatched ? 30 : 15;
+                ctx.shadowColor = this.color;
+                
+                if (isMatched) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 3;
+                }
+                
+                ctx.beginPath();
+                switch(this.shape) {
+                    case 'triangle':
+                        ctx.moveTo(0, -this.size/2);
+                        ctx.lineTo(this.size/2, this.size/2);
+                        ctx.lineTo(-this.size/2, this.size/2);
+                        ctx.closePath();
+                        break;
+                    case 'square':
+                        ctx.rect(-this.size/2, -this.size/2, this.size, this.size);
+                        break;
+                    case 'pentagon':
+                        for (let i = 0; i < 5; i++) {
+                            const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+                            const px = Math.cos(angle) * this.size / 2;
+                            const py = Math.sin(angle) * this.size / 2;
+                            if (i === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.closePath();
+                        break;
+                    default:
+                        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                if (isMatched) ctx.stroke();
+                
+                // 显示匹配百分比
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText(Math.round(matchPercent) + '%', 0, this.size / 2 + 20);
+                
+                // 血条
+                ctx.fillStyle = '#333';
+                ctx.fillRect(-this.size/2, this.size/2 + 5, this.size, 6);
+                ctx.fillStyle = this.health > 50 ? '#00ff00' : '#ff0000';
+                ctx.fillRect(-this.size/2, this.size/2 + 5, this.size * (this.health / this.maxHealth), 6);
+                
+                ctx.restore();
+            }
+            
+            takeDamage(damage) {
+                this.health -= damage;
+                // 创建伤害粒子
+                for (let i = 0; i < 10; i++) {
+                    particles.push(new Particle(
+                        this.x + (Math.random() - 0.5) * this.size,
+                        this.y + (Math.random() - 0.5) * this.size,
+                        this.color,
+                        5,
+                        4
+                    ));
+                }
+            }
+        }
+        
+        // 计算匹配度
+        function calculateMatchPercent(freq, amp, targetFreq, targetAmp) {
+            const freqDiff = Math.abs(freq - targetFreq) / targetFreq;
+            const ampDiff = Math.abs(amp - targetAmp) / targetAmp;
+            const match = 100 - (freqDiff * 50 + ampDiff * 50);
+            return Math.max(0, Math.min(100, match));
+        }
+        
+        // 绘制背景网格
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            gridOffset = (gridOffset + 0.5) % 40;
+            
+            // 垂直线
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // 水平线（带滚动效果）
+            for (let y = -40; y < canvas.height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y + gridOffset);
+                ctx.lineTo(canvas.width, y + gridOffset);
+                ctx.stroke();
+            }
+        }
+        
+        // 绘制玩家波形
+        function drawPlayerWave() {
+            const centerY = canvas.height / 2;
+            const waveLength = canvas.width - 150;
+            
+            // 计算匹配度（基于最近的敌人）
+            let bestMatch = 0;
+            if (enemies.length > 0) {
+                enemies.forEach(enemy => {
+                    const match = calculateMatchPercent(playerFreq, playerAmp, enemy.targetFreq, enemy.targetAmp);
+                    if (match > bestMatch) bestMatch = match;
+                });
+            }
+            
+            // 绘制波形
+            ctx.save();
+            
+            // 外层发光
+            ctx.strokeStyle = `rgba(0, 255, 255, ${0.3 + bestMatch / 200})`;
+            ctx.lineWidth = 8 + bestMatch / 10;
+            ctx.shadowBlur = 20 + bestMatch / 2;
+            ctx.shadowColor = '#00ffff';
+            ctx.beginPath();
+            
+            for (let x = 50; x < 50 + waveLength; x += 2) {
+                const normalizedX = (x - 50) / 100;
+                const y = centerY + Math.sin(normalizedX * playerFreq * Math.PI + playerPhase) * playerAmp * 2;
+                if (x === 50) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            
+            // 内层核心
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            
+            for (let x = 50; x < 50 + waveLength; x += 2) {
+                const normalizedX = (x - 50) / 100;
+                const y = centerY + Math.sin(normalizedX * playerFreq * Math.PI + playerPhase) * playerAmp * 2;
+                if (x === 50) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            
+            // 绘制起点标记
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(50, centerY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // 更新相位动画
+            playerPhase += playerFreq * 0.05;
+        }
+        
+        // 生成敌人
+        function spawnEnemy() {
+            const types = level === 1 ? [1] : level === 2 ? [1, 2] : [1, 2, 3];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const y = 100 + Math.random() * (canvas.height - 200);
+            enemies.push(new Enemy(canvas.width + 50, y, type));
+        }
+        
+        // 检测碰撞
+        function checkCollisions() {
+            projectiles.forEach((proj, pIdx) => {
+                enemies.forEach((enemy, eIdx) => {
+                    const dx = proj.x - enemy.x;
+                    const dy = proj.y - enemy.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < enemy.size / 2 + 10) {
+                        const matchPercent = calculateMatchPercent(proj.freq, proj.amp, enemy.targetFreq, enemy.targetAmp);
+                        const damage = matchPercent > 80 ? 30 : matchPercent > 50 ? 15 : 5;
+                        
+                        enemy.takeDamage(damage);
+                        score += Math.round(damage * matchPercent / 10);
+                        
+                        // 移除投射物
+                        projectiles.splice(pIdx, 1);
+                        
+                        if (enemy.health <= 0) {
+                            // 敌人死亡
+                            score += 100;
+                            for (let i = 0; i < 20; i++) {
+                                particles.push(new Particle(enemy.x, enemy.y, enemy.color, 8, 6));
+                            }
+                            enemies.splice(eIdx, 1);
+                        }
+                    }
+                });
+            });
+            
+            // 检测敌人是否到达左侧
+            enemies.forEach((enemy, idx) => {
+                if (enemy.x < -50) {
+                    health -= 10;
+                    enemies.splice(idx, 1);
+                    
+                    // 屏幕闪烁红色
+                    const flash = document.createElement('div');
+                    flash.style.position = 'fixed';
+                    flash.style.top = '0';
+                    flash.style.left = '0';
+                    flash.style.width = '100%';
+                    flash.style.height = '100%';
+                    flash.style.background = 'rgba(255, 0, 0, 0.3)';
+                    flash.style.pointerEvents = 'none';
+                    document.body.appendChild(flash);
+                    setTimeout(() => flash.remove(), 200);
+                }
+            });
+        }
+        
+        // 更新UI
+        function updateUI() {
+            document.getElementById('level').textContent = level;
+            document.getElementById('score').textContent = score;
+            document.getElementById('health').textContent = Math.max(0, health);
+            document.getElementById('freq').textContent = playerFreq.toFixed(2);
+            document.getElementById('amp').textContent = Math.round(playerAmp);
+            
+            let bestMatch = 0;
+            if (enemies.length > 0) {
+                enemies.forEach(enemy => {
+                    const match = calculateMatchPercent(playerFreq, playerAmp, enemy.targetFreq, enemy.targetAmp);
+                    if (match > bestMatch) bestMatch = match;
+                });
+            }
+            document.getElementById('match').textContent = Math.round(bestMatch);
+        }
+        
+        // 游戏主循环
+        function gameLoop() {
+            if (gameState !== 'playing') {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+            
+            // 清空画布
+            ctx.fillStyle = '#0a0a12';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制背景网格
+            drawGrid();
+            
+            // 更新玩家参数（基于鼠标位置）
+            playerFreq = 0.5 + (mouseX / canvas.width) * 4.5;
+            playerAmp = 10 + (1 - mouseY / canvas.height) * 90;
+            
+            // 绘制玩家波形
+            drawPlayerWave();
+            
+            // 更新和绘制敌人
+            enemies.forEach(enemy => {
+                enemy.update();
+                enemy.draw();
+            });
+            
+            // 更新和绘制投射物
+            projectiles.forEach((proj, idx) => {
+                proj.update();
+                proj.draw();
+                if (proj.x > canvas.width) {
+                    projectiles.splice(idx, 1);
+                }
+            });
+            
+            // 更新和绘制粒子
+            particles.forEach((p, idx) => {
+                p.update();
+                p.draw();
+                if (p.life <= 0) {
+                    particles.splice(idx, 1);
+                }
+            });
+            
+            // 检测碰撞
+            checkCollisions();
+            
+            // 生成新敌人
+            if (Math.random() < 0.01 + level * 0.005 && enemies.length < 3 + level) {
+                spawnEnemy();
+            }
+            
+            // 更新UI
+            updateUI();
+            
+            // 检查游戏结束
+            if (health <= 0) {
+                gameOver();
+            }
+            
+            // 检查关卡完成
+            const enemiesKilled = score / 100;
+            if (enemiesKilled >= level * 5 && enemies.length === 0 && level < 3) {
+                levelComplete();
+            } else if (enemiesKilled >= 15 && enemies.length === 0 && level === 3) {
+                // 游戏通关
+                gameWin();
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 游戏控制函数
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            gameState = 'playing';
+            resetGame();
+            gameLoop();
+        }
+        
+        function resetGame() {
+            level = 1;
+            score = 0;
+            health = 100;
+            enemies = [];
+            projectiles = [];
+            particles = [];
+            playerFreq = 1.0;
+            playerAmp = 50;
+        }
+        
+        function restartGame() {
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            gameState = 'playing';
+            resetGame();
+        }
+        
+        function levelComplete() {
+            gameState = 'levelComplete';
+            document.getElementById('levelCompleteScreen').classList.remove('hidden');
+        }
+        
+        function nextLevel() {
+            level++;
+            enemies = [];
+            projectiles = [];
+            document.getElementById('levelCompleteScreen').classList.add('hidden');
+            gameState = 'playing';
+        }
+        
+        function gameOver() {
+            gameState = 'gameOver';
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+        
+        function gameWin() {
+            gameState = 'gameOver';
+            document.querySelector('#gameOverScreen .title').textContent = '恭喜通关！';
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+        
+        // 事件监听
+        canvas.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        
+        canvas.addEventListener('mousedown', () => {
+            if (gameState === 'playing') {
+                const centerY = canvas.height / 2;
+                projectiles.push(new Projectile(centerY, playerAmp * 2, playerFreq));
+                
+                // 发射粒子效果
+                for (let i = 0; i < 10; i++) {
+                    particles.push(new Particle(50, centerY, '#00ffff', 5, 3));
+                }
+            }
+        });
+        
+        // 触摸支持
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+        });
+        
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'playing') {
+                const centerY = canvas.height / 2;
+                projectiles.push(new Projectile(centerY, playerAmp * 2, playerFreq));
+                
+                for (let i = 0; i < 10; i++) {
+                    particles.push(new Particle(50, centerY, '#00ffff', 5, 3));
+                }
+            }
+        });
+        
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        
+        // 初始绘制
+        ctx.fillStyle = '#0a0a12';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+    </script>
+</body>
+</html>
