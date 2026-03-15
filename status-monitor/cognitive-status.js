@@ -141,15 +141,15 @@
             }
             
             // 更新agent状态
-            const agentStatusEl = document.getElementById('agentStatusValue');
+            const agentStatusEl = document.getElementById('modelStatusValue');
             if (agentStatusEl) {
                 agentStatusEl.textContent = data.pending_count > 0 ? 'busy' : 'active';
                 agentStatusEl.className = 'compact-status-value ' + (data.pending_count > 0 ? 'busy' : 'online');
             }
             
             // 更新收音机调频仪表盘 - 左边大数字
-            const radioPercent = document.getElementById('radioPercent');
-            const radioPointer = document.getElementById('radioPointer');
+            const radioPercent = document.getElementById('scorePercent');
+            const radioPointer = document.getElementById('gaugePointer');
             const radioStatusText = document.getElementById('radioStatusText');
             
             const zoneIdle = document.getElementById('zoneIdle');
@@ -213,7 +213,7 @@
             document.getElementById('pendingValue').textContent = data.pending_count || 0;
             document.getElementById('processingValue').textContent = data.processing_count || 0;
             document.getElementById('tokensValue').textContent = data.total_tokens_formatted || '0';
-            document.getElementById('estimatedValue').textContent = data.estimated_response_formatted || 'Now';
+            document.getElementById('waitValue').textContent = data.estimated_response_formatted || 'Now';
             
             // 获取历史数据并绘制走势图
             const historyData = data['history_' + currentTimeRange] || [];
@@ -270,7 +270,7 @@
         
         // 绘制平滑曲线走势图
         function drawStockChart(history) {
-            const canvas = document.getElementById('stockChartCanvas');
+            const canvas = document.getElementById('stockChart');
             if (!canvas || !history || history.length < 2) {
                 if (canvas) {
                     const ctx = canvas.getContext('2d');
@@ -280,7 +280,7 @@
                     ctx.textAlign = 'center';
                     ctx.fillText('暂无数据', canvas.width/2, canvas.height/2);
                 }
-                document.getElementById('chartStats').textContent = '最高:-- 最低:-- 平均:--';
+                document.getElementById('stockStats').textContent = '最高:-- 最低:-- 平均:--';
                 return;
             }
             
@@ -307,7 +307,7 @@
             const range = maxScore - minScore || 100;
             
             // 更新统计
-            document.getElementById('chartStats').textContent = `最高:${maxScore}% 最低:${minScore}% 平均:${avgScore}%`;
+            document.getElementById('stockStats').textContent = `最高:${maxScore}% 最低:${minScore}% 平均:${avgScore}%`;
             
             // 绘制网格线
             ctx.strokeStyle = 'rgba(255,255,255,0.05)';
