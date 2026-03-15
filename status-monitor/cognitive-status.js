@@ -54,7 +54,34 @@
         // 数据通过监控脚本自动推送到 GitHub Pages
         const DATA_URL = 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json';
         
-        async function fetchData() {
+        // 指标提示配置
+        const metricTips = {
+            sessions: {
+                title: '活跃会话数',
+                desc: '当前正在进行的对话/任务数量',
+                formula: '统计所有近期有活动的会话文件'
+            },
+            pending: {
+                title: '待处理消息',
+                desc: '等待回复的消息数量',
+                formula: 'pending = 用户发送后等待响应的消息'
+            },
+            processing: {
+                title: '处理中任务',
+                desc: '正在生成响应的任务数',
+                formula: 'processing = 正在调用工具或生成内容的会话'
+            },
+            tokens: {
+                title: 'Token消耗',
+                desc: '当前处理中的任务消耗的Token总量',
+                formula: '仅计算processing状态的Token'
+            },
+            wait: {
+                title: '预计响应时间',
+                desc: '基于当前负载估算的响应等待时间',
+                formula: 'est = processing×30s + min(60, tokens/50000×30) + pending×15s'
+            }
+        };
             try {
                 // 添加时间戳防止缓存
                 const cacheBuster = `?t=${Date.now()}`;
