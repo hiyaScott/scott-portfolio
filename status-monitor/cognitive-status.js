@@ -125,6 +125,13 @@
             const timeStr = now.toLocaleTimeString('zh-CN', {hour12: false});
             document.getElementById('lastHeartbeat').textContent = timeStr;
             
+            // 更新算法版本
+            const algoEl = document.getElementById('algoVersion');
+            if (algoEl && data.algorithm_version) {
+                algoEl.textContent = data.algorithm_version;
+                algoEl.title = data.algorithm_name || 'Mixed Score Algorithm';
+            }
+            
             // 更新CPU和内存
             const cpuEl = document.getElementById('cpuValue');
             const memEl = document.getElementById('memoryValue');
