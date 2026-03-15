@@ -865,28 +865,25 @@
             document.getElementById('metricTooltip').classList.remove('active');
         }
         
-        const config = {
-            url: 'https://singular-snake-71209.upstash.io',
-            token: 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk'
-        };
+        // API 配置 - 调用本地代理服务（Token 不再暴露在客户端）
+        const API_BASE_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8080' 
+            : '';  // 生产环境使用相对路径
         
         async function fetchData() {
             try {
-                const response = await fetch(`${config.url}/get/cognitive.json`, {
-                    headers: { 'Authorization': `Bearer ${config.token}` }
-                });
+                // 使用 API 代理获取数据（不再直接访问 Redis）
+                const response = await fetch(`${API_BASE_URL}/api/status`);
                 
                 if (!response.ok) throw new Error('Fetch failed');
                 
-                const data = await response.json();
-                if (!data.result) return;
-                
-                const outer = JSON.parse(data.result);
-                const metrics = JSON.parse(outer.value);
-                
+                const metrics = await response.json();
                 updateUI(metrics);
             } catch (e) {
                 console.error('Error:', e);
+                // 显示离线状态
+                document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
+                document.getElementById('radioStatusText').style.color = '#ef4444';
             }
         }
         
