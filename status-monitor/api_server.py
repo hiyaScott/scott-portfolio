@@ -57,7 +57,7 @@ class APIHandler(BaseHTTPRequestHandler):
             'Cache-Control': 'no-cache'
         }
         
-        if self.path == '/api/status':
+        if self.path in ['/api/status', '/status']:
             # 获取认知负载状态
             data = fetch_from_redis('cognitive.json')
             if data:
@@ -74,7 +74,18 @@ class APIHandler(BaseHTTPRequestHandler):
                 error = {'error': 'Service Unavailable', 'message': 'Unable to fetch data from Redis'}
                 self.wfile.write(json.dumps(error).encode('utf-8'))
         
-        elif self.path == '/api/health':
+        elif self.path in ['/api/health', '/health']:
+            # 健康检查
+            self.send_response(200)
+            for key, value in headers.items():
+                self.send_header(key, value)
+            self.end_headers()
+            health = {
+                'status': 'ok',
+                'timestamp': datetime.now().isoformat(),
+                'version': '1.0.0'
+            }
+            self.wfile.write(json.dumps(health).encode('utf-8'))
             # 健康检查
             self.send_response(200)
             for key, value in headers.items():
