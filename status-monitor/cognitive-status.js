@@ -50,19 +50,26 @@
             document.getElementById('metricTooltip').classList.remove('active');
         }
         
-        // API 配置 - 调用本地代理服务（Token 不再暴露在客户端）
-        const API_BASE_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:8080' 
-            : '';  // 生产环境使用相对路径
+        // Redis 直接访问配置（方案 A：快速恢复）
+        const config = {
+            url: 'https://singular-snake-71209.upstash.io',
+            token: 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk'
+        };
         
         async function fetchData() {
             try {
-                // 使用 API 代理获取数据（不再直接访问 Redis）
-                const response = await fetch(`${API_BASE_URL}/api/status`);
+                const response = await fetch(`${config.url}/get/cognitive.json`, {
+                    headers: { 'Authorization': `Bearer ${config.token}` }
+                });
                 
                 if (!response.ok) throw new Error('Fetch failed');
                 
-                const metrics = await response.json();
+                const data = await response.json();
+                if (!data.result) return;
+                
+                const outer = JSON.parse(data.result);
+                const metrics = JSON.parse(outer.value);
+                
                 updateUI(metrics);
             } catch (e) {
                 console.error('Error:', e);
