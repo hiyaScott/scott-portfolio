@@ -865,15 +865,15 @@
             document.getElementById('metricTooltip').classList.remove('active');
         }
         
-        // API 代理配置（安全版本 - Token 隐藏在服务器端）
-        // 使用 Nginx HTTPS 代理（解决Mixed Content和防火墙问题）
-        const API_BASE_URL = 'https://115.191.55.91/cognitive-api';
+        // GitHub Pages API 数据源（无服务器方案 - Token安全隐藏）
+        // 数据通过监控脚本自动推送到 GitHub Pages
+        const DATA_URL = 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json';
         
         async function fetchData() {
             try {
-                // 通过 Nginx 代理获取数据（Token 不再暴露在客户端）
-                const response = await fetch(`${API_BASE_URL}/api/status`, {
-                    mode: 'cors',
+                // 添加时间戳防止缓存
+                const cacheBuster = `?t=${Date.now()}`;
+                const response = await fetch(DATA_URL + cacheBuster, {
                     headers: {
                         'Accept': 'application/json'
                     }
@@ -882,11 +882,6 @@
                 if (!response.ok) throw new Error('Fetch failed: ' + response.status);
                 
                 const metrics = await response.json();
-                
-                // 检查是否为错误响应
-                if (metrics.error) {
-                    throw new Error(metrics.error);
-                }
                 
                 updateUI(metrics);
                 
@@ -899,7 +894,7 @@
             } catch (e) {
                 console.error('Error:', e);
                 // 显示连接失败状态
-                document.getElementById('radioStatusText').textContent = '⚠️ ' + e.message;
+                document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
                 document.getElementById('radioStatusText').style.color = '#ef4444';
                 
                 const connEl = document.getElementById('connectionValue');
