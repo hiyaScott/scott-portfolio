@@ -1,7 +1,8 @@
 // 认知监控 v5.25 - 纯手动模式
 // 只在用户点击时获取数据，零后台消耗
+// 修复：直接读取本地 JSON 文件，不依赖外网 API
 
-const API_URL = 'http://115.191.53.127/api/cognitive/status';
+const DATA_URL = 'cognitive-data.json';
 
 async function fetchData() {
     try {
@@ -9,7 +10,7 @@ async function fetchData() {
         document.getElementById('lastHeartbeat').textContent = '获取中...';
         
         const cacheBuster = `?t=${Date.now()}`;
-        const response = await fetch(API_URL + cacheBuster, {
+        const response = await fetch(DATA_URL + cacheBuster, {
             headers: { 'Accept': 'application/json' }
         });
         
@@ -19,9 +20,20 @@ async function fetchData() {
         updateUI(data);
         updateTimeDisplay(data.timestamp);
         
+        // 成功提示
+        document.getElementById('radioStatusText').textContent = '✅ 数据已更新';
+        setTimeout(() => {
+            const score = data.cognitive_score || 0;
+            let statusText = '🟢 空闲 - 立即响应';
+            if (score >= 65) statusText = '🔴 高负载 - 建议等待';
+            else if (score >= 45) statusText = '🟡 中等负载 - 简单任务';
+            else if (score >= 25) statusText = '🔵 轻负载 - 30秒内响应';
+            document.getElementById('radioStatusText').textContent = statusText;
+        }, 1000);
+        
     } catch (e) {
         console.error('[Cognitive Monitor] 获取失败:', e.message);
-        document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
+        document.getElementById('radioStatusText').textContent = '⚠️ 读取失败';
         document.getElementById('radioStatusText').style.color = '#ef4444';
         document.getElementById('lastHeartbeat').textContent = '失败';
     }
