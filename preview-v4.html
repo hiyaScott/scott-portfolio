@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虾折腾 v4 - 测试版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg: #0a0a0f;
+            --text: #e0e0e0;
+            --text-dim: #666;
+            --accent: #00d4ff;
+            --accent-warm: #ff6b35;
+            --border: rgba(255,255,255,0.1);
+        }
+        
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'SF Mono', 'Consolas', monospace;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        /* ========== CRT 扫描线效果 ========== */
+        .crt-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0,0,0,0.15),
+                rgba(0,0,0,0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+        }
+        
+        /* ========== ASCII ART - SHRIMP ========== */
+        .ascii-header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+        
+        .ascii-art {
+            font-size: 10px;
+            line-height: 1.2;
+            color: var(--accent);
+            white-space: pre;
+            text-shadow: 0 0 10px rgba(0,212,255,0.5);
+            display: inline-block;
+        }
+        
+        /* 偶尔闪烁故障动画 */
+        @keyframes glitch {
+            0%, 90%, 100% { opacity: 1; transform: translate(0); }
+            91% { opacity: 0.8; transform: translate(-2px, 1px); }
+            92% { opacity: 1; transform: translate(2px, -1px); }
+            93% { opacity: 0.9; transform: translate(-1px, 0); }
+            94% { opacity: 1; transform: translate(0); }
+        }
+        
+        .ascii-art {
+            animation: glitch 8s infinite;
+        }
+        
+        /* 偶尔的强烈闪烁 */
+        @keyframes flicker {
+            0%, 95%, 100% { opacity: 1; }
+            96% { opacity: 0.3; }
+            97% { opacity: 0.8; }
+            98% { opacity: 0.2; }
+            99% { opacity: 1; }
+        }
+        
+        .ascii-art::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--accent);
+            opacity: 0;
+            mix-blend-mode: overlay;
+            animation: flicker 12s infinite;
+            pointer-events: none;
+        }
+        
+        /* ========== 简化版收音机仪表盘 ========== */
+        .mini-tuner {
+            width: 280px;
+            height: 100px;
+            margin: 0 auto 40px;
+            background: linear-gradient(180deg, #1a1a24 0%, #121218 100%);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .tuner-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .tuner-icon {
+            font-size: 14px;
+        }
+        
+        .tuner-label {
+            flex: 1;
+        }
+        
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        
+        .tuner-body {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .gauge-container {
+            flex: 1;
+            height: 32px;
+            position: relative;
+        }
+        
+        .gauge-bg {
+            position: absolute;
+            top: 50%;
+            left: 0; right: 0;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            transform: translateY(-50%);
+        }
+        
+        .gauge-bar {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #22c55e 0%, #22c55e 30%, #eab308 55%, #ef4444 80%);
+            border-radius: 2px;
+            transform: translateY(-50%);
+            width: 35%;
+            transition: width 0.5s ease;
+        }
+        
+        .gauge-marks {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: var(--text-dim);
+        }
+        
+        .gauge-marks span {
+            position: relative;
+        }
+        
+        .gauge-marks span::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 1px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .tuner-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            min-width: 50px;
+            text-align: right;
+        }
+        
+        .tuner-value span {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-left: 2px;
+        }
+        
+        .tuner-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 10px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #22c55e;
+        }
+        
+        .status-text {
+            color: var(--text-dim);
+        }
+        
+        /* ========== 测试内容 ========== */
+        .test-content {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 14px;
+            margin-top: 60px;
+            padding: 40px;
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+        }
+        
+        .test-title {
+            color: var(--accent);
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- CRT 扫描线覆盖层 -->
+    <div class="crt-overlay"></div>
+    
+    <div class="container">
+        <!-- ASCII ART - SHRIMP -->
+        <div class="ascii-header">
+            <div class="ascii-art">
+███████╗██╗  ██╗██████╗ ██╗███╗   ███╗██████╗ 
+██╔════╝██║  ██║██╔══██╗██║████╗ ████║██╔══██╗
+███████╗███████║██████╔╝██║██╔████╔██║██████╔╝
+╚════██║██╔══██║██╔══██╗██║██║╚██╔╝██║██╔═══╝ 
+███████║██║  ██║██║  ██║██║██║ ╚═╝ ██║██║     
+╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚═╝     
+                                               
+       ██╗███████╗████████╗████████╗ ██████╗ ███╗   ██╗
+       ██║██╔════╝╚══██╔══╝╚══██╔══╝██╔═══██╗████╗  ██║
+       ██║█████╗     ██║      ██║   ██║   ██║██╔██╗ ██║
+  ██   ██║██╔══╝     ██║      ██║   ██║   ██║██║╚██╗██║
+  ╚█████╔╝███████╗   ██║      ██║   ╚██████╔╝██║ ╚████║
+   ╚════╝ ╚══════╝   ╚═╝      ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
+            </div>
+        </div>
+        
+        <!-- 简化版收音机仪表盘 -->
+        <div class="mini-tuner">
+            <div class="tuner-header">
+                <span class="tuner-icon">📻</span>
+                <span class="tuner-label">Jetton Status</span>
+                <span class="live-dot"></span>
+            </div>
+            <div class="tuner-body">
+                <div class="gauge-container">
+                    <div class="gauge-bg"></div>
+                    <div class="gauge-bar" id="gaugeBar"></div>
+                    <div class="gauge-marks">
+                        <span>0</span>
+                        <span>30</span>
+                        <span>55</span>
+                        <span>80</span>
+                        <span>100</span>
+                    </div>
+                </div>
+                <div class="tuner-value" id="tunerValue">35<span>%</span></div>
+            </div>
+            <div class="tuner-footer">
+                <div class="status-indicator">
+                    <span>●</span>
+                    <span>就绪</span>
+                </div>
+                <div class="status-text" id="statusText">等待指令</div>
+            </div>
+        </div>
+        
+        <!-- 测试占位区 -->
+        <div class="test-content">
+            <div class="test-title">v4 测试页面</div>
+            <p>ASCII ART + 简化仪表盘布局测试</p>
+            <p style="margin-top: 20px; font-size: 12px;">CRT扫描线效果已启用 | 故障动画每8秒触发一次</p>
+        </div>
+    </div>
+    
+    <script>
+        // 模拟数据更新
+        function updateTuner() {
+            const value = Math.floor(Math.random() * 60) + 20; // 20-80%
+            const bar = document.getElementById('gaugeBar');
+            const valueEl = document.getElementById('tunerValue');
+            const statusText = document.getElementById('statusText');
+            const indicator = document.querySelector('.status-indicator');
+            
+            bar.style.width = value + '%';
+            valueEl.innerHTML = value + '<span>%</span>';
+            
+            // 根据值更新状态和颜色
+            let status, color, text;
+            if (value < 30) {
+                status = '● 就绪';
+                color = '#22c55e';
+                text = '等待指令';
+            } else if (value < 55) {
+                status = '● 轻负载';
+                color = '#3b82f6';
+                text = '处理中';
+            } else if (value < 80) {
+                status = '● 中等负载';
+                color = '#eab308';
+                text = '30秒内响应';
+            } else {
+                status = '● 忙碌';
+                color = '#ef4444';
+                text = '稍后重试';
+            }
+            
+            indicator.innerHTML = `<span style="color: ${color}">●</span><span style="color: ${color}">${status.replace('● ', '')}</span>`;
+            statusText.textContent = text;
+        }
+        
+        // 每3秒更新一次模拟数据
+        setInterval(updateTuner, 3000);
+        updateTuner();
+    </script>
+</body>
+</html>
