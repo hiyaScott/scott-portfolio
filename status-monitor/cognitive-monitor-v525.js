@@ -1,7 +1,7 @@
 // 认知监控 v5.25 - 纯手动模式
 // 只在用户点击时获取数据，零后台消耗
 
-const API_URL = 'http://101.126.54.134/api/cognitive/status';
+const API_URL = 'http://115.191.53.127/api/cognitive/status';
 
 async function fetchData() {
     try {
