@@ -131,5 +131,6 @@ function updateUI(data) {
     }
 }
 
-// 页面加载时获取一次
-fetchData();
+// v5.25 - 纯手动模式，无自动加载
+// 用户点击「刷新数据」按钮时才调用 fetchData()
+console.log('[Cognitive Monitor] 手动模式已启用，点击按钮获取数据');
