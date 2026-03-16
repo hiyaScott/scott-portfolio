@@ -20,6 +20,7 @@ from urllib import request
 UPSTASH_REDIS_REST_URL = "https://singular-snake-71209.upstash.io"
 UPSTASH_REDIS_REST_TOKEN = "gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk"
 WORKSPACE = "/root/.openclaw/agents/main/sessions"
+DATA_FILE = "/root/.openclaw/workspace/portfolio-blog/status-monitor/cognitive-data.json"
 
 # ============================================================================
 # 扩展的关键词到标签映射 - v5.23
@@ -641,6 +642,63 @@ def update_redis(data):
     except:
         return False
 
+def update_data_file(data):
+    """更新 cognitive-data.json 文件供前端读取"""
+    try:
+        # 转换 task_queue 格式以兼容前端
+        formatted_tasks = []
+        for task in data.get('task_queue', []):
+            formatted_tasks.append({
+                'label': task.get('name', '💭 未知任务'),
+                'name': task.get('name', '💭 未知任务').split()[1] if ' ' in task.get('name', '') else task.get('name', 'unknown'),
+                'status': task.get('status', '✅ 空闲'),
+                'tokens': task.get('tokens', 0),
+                'type': task.get('type', 'session')
+            })
+        
+        # 构建前端兼容的数据格式
+        output = {
+            "timestamp": data.get('timestamp'),
+            "cognitive_score": data.get('cognitive_score'),
+            "score_breakdown": {
+                "wait_score": 0,
+                "token_score": 0,
+                "base_score": data.get('cognitive_score', 0),
+                "active_sessions": data.get('active_sessions', 0),
+                "recent_active": data.get('active_sessions', 0),
+                "tool_calls": 0,
+                "pending": data.get('pending_count', 0),
+                "processing": data.get('processing_count', 0),
+                "estimated_response": 30
+            },
+            "status_code": data.get('status_code'),
+            "status_text": data.get('status_text'),
+            "suggestion": data.get('suggestion'),
+            "active_sessions": data.get('active_sessions', 0),
+            "recent_active_count": data.get('active_sessions', 0),
+            "total_tool_calls": 0,
+            "pending_count": data.get('pending_count', 0),
+            "processing_count": data.get('processing_count', 0),
+            "github_workflows": data.get('github_workflows', 0),
+            "local_builds": data.get('local_builds', 0),
+            "total_tokens": data.get('total_tokens', 0),
+            "total_tokens_formatted": f"{(data.get('total_tokens', 0) / 1000):.1f}k",
+            "estimated_response": 30,
+            "estimated_response_formatted": f"{30}s",
+            "task_queue": formatted_tasks,
+            "cpu_percent": data.get('cpu_percent', 0),
+            "memory_percent": data.get('memory_percent', 0),
+            "workflow_details": data.get('workflow_details', []),
+            "build_details": data.get('build_details', [])
+        }
+        
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(output, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"[DATA_FILE ERROR] {e}")
+        return False
+
 def main():
     print("🧠 Shrimp Jetton v5.23 - GitHub CI监控 + 扩展标签")
     print(f"📊 监控仓库: {', '.join(GITHUB_REPOS)}")
@@ -678,6 +736,9 @@ def main():
                 wf_info = f" | {load['github_workflows']} CI" if load['github_workflows'] > 0 else ""
                 build_info = f" | {load['local_builds']} Build" if load['local_builds'] > 0 else ""
                 print(f"[{ts}] {text} | {tasks}{wf_info}{build_info}")
+            
+            # 同时更新 cognitive-data.json
+            update_data_file(data)
         except Exception as e:
             print(f"[ERR] {e}")
         
