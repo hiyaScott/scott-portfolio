@@ -969,34 +969,95 @@
             document.getElementById('metricTooltip').classList.remove('active');
         }
         
-        // GitHub Pages API 数据源（无服务器方案 - Token安全隐藏）
-        // 数据通过监控脚本自动推送到 GitHub Pages
-        const DATA_URL = 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json';
+        // 数据源配置 - v5.24: 优先本地 API，回退 GitHub Pages
+        const API_SOURCES = [
+            // 主数据源：本地 API（实时，无延迟）
+            {
+                url: 'http://101.126.54.134/api/cognitive/status',
+                type: 'api',
+                timeout: 3000  // 3秒超时
+            },
+            // 备用数据源：GitHub Pages（延迟 1-2 分钟）
+            {
+                url: 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json',
+                type: 'github',
+                timeout: 5000
+            }
+        ];
+        
+        let currentSourceIndex = 0;
+        let isUsingFallback = false;
+        
+        async function fetchWithTimeout(url, timeout) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            try {
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' }
+                });
+                clearTimeout(timeoutId);
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
+            }
+        }
         
         async function fetchData() {
-            try {
-                // 添加时间戳防止缓存
+            let lastError = null;
+            
+            // 尝试所有数据源
+            for (let i = 0; i < API_SOURCES.length; i++) {
+                const source = API_SOURCES[i];
                 const cacheBuster = `?t=${Date.now()}`;
-                const response = await fetch(DATA_URL + cacheBuster, {
-                    headers: {
-                        'Accept': 'application/json'
+                
+                try {
+                    console.log(`[Cognitive Monitor] 尝试数据源 ${i + 1}/${API_SOURCES.length}: ${source.type}`);
+                    const response = await fetchWithTimeout(source.url + cacheBuster, source.timeout);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
                     }
-                });
-                
-                if (!response.ok) throw new Error('Fetch failed: ' + response.status);
-                
-                const metrics = await response.json();
-                
-                updateUI(metrics);
-                
-                // 更新连接状态为正常
-                const connEl = document.getElementById('connectionValue');
-                if (connEl) {
-                    connEl.textContent = '实时';
-                    connEl.className = 'compact-status-value online';
+                    
+                    const metrics = await response.json();
+                    updateUI(metrics);
+                    
+                    // 更新连接状态
+                    const connEl = document.getElementById('connectionValue');
+                    if (connEl) {
+                        if (source.type === 'api') {
+                            connEl.textContent = '实时 (API)';
+                            connEl.className = 'compact-status-value online';
+                            isUsingFallback = false;
+                        } else {
+                            connEl.textContent = '延迟 (GitHub)';
+                            connEl.className = 'compact-status-value busy';
+                            isUsingFallback = true;
+                        }
+                    }
+                    
+                    // 成功获取数据，记录当前源
+                    currentSourceIndex = i;
+                    return;  // 成功，退出函数
+                    
+                } catch (e) {
+                    console.warn(`[Cognitive Monitor] 数据源 ${source.type} 失败:`, e.message);
+                    lastError = e;
                 }
-            } catch (e) {
-                console.error('Error:', e);
+            }
+            
+            // 所有数据源都失败
+            console.error('[Cognitive Monitor] 所有数据源都失败:', lastError);
+            document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
+            document.getElementById('radioStatusText').style.color = '#ef4444';
+            
+            const connEl = document.getElementById('connectionValue');
+            if (connEl) {
+                connEl.textContent = '离线';
+                connEl.className = 'compact-status-value high';
+            }
                 // 显示连接失败状态
                 document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
                 document.getElementById('radioStatusText').style.color = '#ef4444';
