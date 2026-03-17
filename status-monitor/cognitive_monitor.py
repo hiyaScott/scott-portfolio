@@ -569,13 +569,17 @@ def get_cognitive_load():
             else:
                 status = "✅ 已回复"
             
+            # 标记系统监控任务 - v5.34: 特殊处理
+            is_system_monitor = '系统监控' in a['full_type']
+            
             all_tasks.append({
                 'name': a['full_type'],
                 'status': status,
                 'tokens': a['estimated_tokens'],
                 'type': 'session',
                 'file_key': file_key,
-                'user_ts': a.get('user_ts', 0)  # 新增：用户消息时间戳
+                'user_ts': a.get('user_ts', 0),  # 用户消息时间戳
+                'is_system_monitor': is_system_monitor  # 标记系统监控
             })
     else:
         total_tokens = 0
