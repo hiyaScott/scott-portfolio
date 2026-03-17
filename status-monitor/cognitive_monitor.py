@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v5.28.0 - 优化评分算法和数据格式
+Shrimp Jetton 认知负载监控 v5.31.1 - 优化评分算法
 更新：
-- 降低等待时间评分权重（等待4分钟不再高负载）
-- 修复任务名称重复显示问题
-- 优化任务状态判断逻辑
+- v5.31.1: 更严格的处理中判断(10秒)，降低token评分权重，空闲状态(max 10%)
+- v5.31.0: 优化空闲状态评分，无任务时负载不超过15%
+- v5.28: 降低等待时间评分权重（等待4分钟不再高负载）
+- v5.28: 修复任务名称重复显示问题
+- v5.28: 优化任务状态判断逻辑
 """
 
 import json
@@ -395,16 +397,21 @@ def analyze_session(file_path):
                     # 记录助手消息时间
                     elif role == 'assistant':
                         content_list = msg_data.get('content', [])
-                        is_thinking_only = True
+                        has_tool_result = False
+                        has_text_output = False
+                        
                         if isinstance(content_list, list):
                             for item in content_list:
-                                if isinstance(item, dict) and item.get('type') != 'thinking':
-                                    is_thinking_only = False
-                                    break
-                                if isinstance(item, dict) and item.get('type') == 'thinking':
-                                    has_recent_thinking = True
+                                if isinstance(item, dict):
+                                    if item.get('type') == 'toolResult':
+                                        has_tool_result = True
+                                    elif item.get('type') == 'text' and len(item.get('text', '')) > 50:
+                                        has_text_output = True
+                                    elif item.get('type') == 'thinking':
+                                        has_recent_thinking = True
                         
-                        if not is_thinking_only:
+                        # 只有有实际输出时才更新最后助手时间
+                        if has_tool_result or has_text_output:
                             last_assistant_time = timestamp
                     
                     # 检测工具调用
@@ -444,7 +451,7 @@ def analyze_session(file_path):
         except:
             user_ts = assistant_ts = 0
         
-        # 三种状态判断
+        # 三种状态判断 - v5.31: 更严格的处理中判断
         is_waiting = False
         is_processing = False
         wait_time = 0
@@ -452,7 +459,7 @@ def analyze_session(file_path):
         if user_ts > assistant_ts:
             is_waiting = True
             wait_time = int(time.time() - user_ts)
-        elif last_activity < 30 and has_recent_thinking:
+        elif last_activity < 10 and has_recent_thinking:  # 从30秒缩短到10秒，更严格
             is_processing = True
         
         return {
@@ -555,49 +562,60 @@ def get_cognitive_load():
     
     last_active = int(time.time() - recent_mtime) if recent_mtime > 0 else 999
     
-    # 评分算法 v5.23
-    # 基础分 + 等待/Token评分 + GitHub构建加成
+    # 评分算法 v5.31 - 优化：降低空闲状态分数，提高响应性
+    # 只有真正有待处理或处理中的任务时才计分
+    
+    # 基础分：只基于待处理和处理中的任务 - v5.31: 大幅降低基础分
     base_score = 0
     
-    # 活跃会话基础分
-    if len(sessions) > 0:
-        base_score += min(len(sessions) * 5, 15)
+    # 活跃会话基础分 - 空闲会话不应产生明显负载
+    if pending_count > 0 or processing_count > 0:
+        # 有实际工作时，会话数才有意义
+        base_score += min(len(sessions) * 2, 8)
+    else:
+        # 空闲状态，只有非常低的背景分
+        base_score = min(len(sessions), 3)
     
     # GitHub构建加成
     github_bonus = len(github_workflows) * 10
     
-    # 本地构建加成
+    # 本地构建加成  
     build_bonus = len(local_builds) * 8
     
-    # 等待评分 - 降低权重，避免等待几分钟就高负载
+    # 等待评分 - 根据等待时间和待处理数量
+    wait_score = 0
     if pending_count > 0:
-        if max_wait < 60:
-            wait_score = 10
-        elif max_wait < 180:
-            wait_score = 20
-        elif max_wait < 300:
-            wait_score = 30
-        else:
-            wait_score = 40
-    else:
-        wait_score = 0
+        # 基础等待分
+        wait_score = min(pending_count * 8, 20)
+        # 长时间等待加成
+        if max_wait > 300:  # 5分钟以上
+            wait_score += 15
+        elif max_wait > 120:  # 2分钟以上
+            wait_score += 8
+        elif max_wait > 60:  # 1分钟以上
+            wait_score += 3
     
-    # Token评分（只算处理中）
+    # Token评分（只算处理中）- v5.31: 降低权重，避免token数过高导致分数虚高
+    token_score = 0
     if processing_count > 0 and total_tokens > 0:
         tokens_per_task = total_tokens / processing_count
-        if tokens_per_task > 100000:
-            token_score = 25
-        elif tokens_per_task > 50000:
+        if tokens_per_task > 200000:  # 提高阈值
             token_score = 15
+        elif tokens_per_task > 100000:
+            token_score = 10
+        elif tokens_per_task > 50000:
+            token_score = 6
         elif tokens_per_task > 10000:
-            token_score = 8
-        else:
             token_score = 3
-    else:
-        token_score = 0
+        else:
+            token_score = 1
     
-    # 最终评分
-    score = min(base_score + wait_score + token_score + github_bonus + build_bonus, 100)
+    # 最终评分 - v5.31: 空闲状态(max 10%)，有工作时正常计算
+    if pending_count == 0 and processing_count == 0 and len(github_workflows) == 0 and len(local_builds) == 0:
+        # 真正的空闲状态 - 只显示非常低的背景分
+        score = min(base_score, 10)
+    else:
+        score = min(base_score + wait_score + token_score + github_bonus + build_bonus, 100)
     
     return {
         'active_sessions': len(sessions),
