@@ -649,26 +649,54 @@ def get_cognitive_load():
         elif max_wait > 60:  # 1分钟以上
             wait_score += 3
     
-    # 处理中任务评分 - v5.34: 区分当前对话和后台任务
+    # 处理中任务评分 - v5.34: 区分当前对话、后台任务、系统监控
     processing_score = 0
     
     # 识别当前对话：检查每个处理中任务的最后用户消息时间
-    # 如果用户消息在300秒内（5分钟），认为是当前对话
     current_session_count = 0
+    system_monitor_count = 0
+    normal_processing_count = 0
+    
     for t in all_tasks:
         if '🔄' in t.get('status', ''):
-            user_ts = t.get('user_ts', 0)
-            # 如果用户消息在600秒内（10分钟），标记为当前对话
-            if user_ts > 0 and time.time() - user_ts < 600:
-                t['is_current_session'] = True
-                current_session_count += 1
+            if t.get('is_system_monitor'):
+                # 系统监控：单独计数
+                system_monitor_count += 1
+            else:
+                user_ts = t.get('user_ts', 0)
+                # 如果用户消息在600秒内（10分钟），标记为当前对话
+                if user_ts > 0 and time.time() - user_ts < 600:
+                    t['is_current_session'] = True
+                    current_session_count += 1
+                else:
+                    normal_processing_count += 1
     
-    background_processing = processing_count - current_session_count
-    
-    # 后台任务：正常加分（15分/个）
-    processing_score += background_processing * 15
-    # 当前对话：减半加分（7分/个）
+    # 普通后台任务：15分/个
+    processing_score += normal_processing_count * 15
+    # 当前对话：7分/个
     processing_score += current_session_count * 7
+    # 系统监控：4分/个
+    processing_score += system_monitor_count * 4
+    
+    # 任务排序：系统监控排最后，超过4个任务时隐藏
+    # 排序优先级：等待中 > 处理中(非系统监控) > 已回复 > 系统监控
+    def task_priority(t):
+        if '等待' in t.get('status', ''):
+            return (0, 0, t.get('wait_time', 0))  # 等待时间长的排前面
+        elif '🔄' in t.get('status', '') and not t.get('is_system_monitor'):
+            return (1, 0, 0)
+        elif '✅' in t.get('status', ''):
+            return (2, 0, 0)
+        else:
+            return (3, 0, 0)  # 系统监控排最后
+    
+    all_tasks.sort(key=task_priority)
+    
+    # 如果任务超过4个，隐藏系统监控任务
+    if len(all_tasks) > 4:
+        all_tasks = [t for t in all_tasks if not t.get('is_system_monitor', False)]
+        # 重新计算processing_count（排除系统监控）
+        processing_count = sum(1 for t in all_tasks if '🔄' in t.get('status', '') or '等待' in t.get('status', ''))
     
     # 最终评分
     if pending_count == 0 and processing_count == 0 and len(github_workflows) == 0 and len(local_builds) == 0:
