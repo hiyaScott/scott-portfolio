@@ -287,27 +287,13 @@ def get_session_files():
             mtime = stat.st_mtime
             age = now - mtime
             
-            # 检查是否是子代理任务（通过文件名前缀或内容）
-            is_subagent = False
-            if age < 3600:  # 1小时内修改的文件
-                try:
-                    with open(f, 'r', encoding='utf-8') as fp:
-                        first_line = fp.readline()
-                        if first_line:
-                            data = json.loads(first_line)
-                            # 检查会话类型
-                            if data.get('type') == 'session':
-                                # 读取更多行来检测是否是子代理
-                                content = fp.read(5000)
-                                if 'subagent' in content.lower() or 'sessions_spawn' in content:
-                                    is_subagent = True
-                except:
-                    pass
-            
-            # 普通会话：10分钟内活跃
-            # 子代理任务：1小时内活跃（因为子代理可能运行时间较长）
-            if age < 600 or (is_subagent and age < 3600):
-                sessions.append({'file': f, 'name': os.path.basename(f), 'mtime': mtime, 'is_subagent': is_subagent})
+            # 策略调整：
+            # 1. 10分钟内修改的文件 -> 活跃会话
+            # 2. 10-60分钟内修改的文件 -> 可能是子代理任务，也包含进来
+            if age < 600:  # 10分钟内
+                sessions.append({'file': f, 'name': os.path.basename(f), 'mtime': mtime, 'is_subagent': False})
+            elif age < 3600:  # 10-60分钟内，可能是子代理任务
+                sessions.append({'file': f, 'name': os.path.basename(f), 'mtime': mtime, 'is_subagent': True})
         except:
             pass
     return sessions
@@ -529,13 +515,14 @@ def analyze_session(file_path):
                 'session_type': "💭", 'session_name': "未知", 'full_type': "💭 未知", 'has_lock': False}
 
 def get_cognitive_load():
-    """获取认知负载 - v5.23: 添加 GitHub CI 和本地构建监控"""
+    """获取认知负载 - v5.33: 修复任务去重问题"""
     sessions = get_session_files()
     github_workflows = get_github_workflow_status()
     local_builds = get_local_build_processes()
     
     # 合并所有任务
     all_tasks = []
+    seen_sessions = set()  # 用于去重
     
     # 1. 会话任务
     if sessions:
@@ -546,6 +533,11 @@ def get_cognitive_load():
         recent_mtime = 0
         
         for sess in sessions:
+            file_key = os.path.basename(sess['file'])  # 用于去重的key
+            if file_key in seen_sessions:
+                continue  # 跳过重复
+            seen_sessions.add(file_key)
+            
             a = analyze_session(sess['file'])
             total_tokens += a['estimated_tokens']
             recent_mtime = max(recent_mtime, a['last_mtime'])
@@ -573,7 +565,8 @@ def get_cognitive_load():
                 'name': a['full_type'],
                 'status': status,
                 'tokens': a['estimated_tokens'],
-                'type': 'session'
+                'type': 'session',
+                'file_key': file_key  # 保留用于调试
             })
     else:
         total_tokens = 0
