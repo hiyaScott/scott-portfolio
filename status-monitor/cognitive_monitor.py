@@ -451,15 +451,24 @@ def analyze_session(file_path):
         except:
             user_ts = assistant_ts = 0
         
-        # 三种状态判断 - v5.31: 更严格的处理中判断
+        # 三种状态判断 - v5.32: 修复processing检测逻辑
         is_waiting = False
         is_processing = False
         wait_time = 0
         
+        # 检测是否有lock文件（表示正在被写入/处理中）
+        lock_file = file_path + '.lock'
+        has_lock = os.path.exists(lock_file)
+        
         if user_ts > assistant_ts:
             is_waiting = True
             wait_time = int(time.time() - user_ts)
-        elif last_activity < 10 and has_recent_thinking:  # 从30秒缩短到10秒，更严格
+            # 如果waiting时间短且有lock文件，说明正在处理中
+            if wait_time < 300 and has_lock:  # 5分钟内且有lock = 正在处理
+                is_processing = True
+                is_waiting = False  # 优先显示为处理中
+        elif has_lock or (last_activity < 60 and has_recent_thinking):
+            # 有lock文件，或60秒内有thinking消息 = 处理中
             is_processing = True
         
         return {
@@ -472,13 +481,14 @@ def analyze_session(file_path):
             'last_mtime': file_mtime,
             'session_type': session_type,
             'session_name': session_name,
-            'full_type': f"{session_type} {session_name}"
+            'full_type': f"{session_type} {session_name}",
+            'has_lock': has_lock  # 新增：返回lock状态
         }
     except Exception as e:
         print(f"[analyze_session error] {e}")
         return {'messages': 0, 'estimated_tokens': 0, 'tool_calls': 0, 
                 'is_waiting': False, 'is_processing': False, 'wait_time': 0, 'last_mtime': 0,
-                'session_type': "💭", 'session_name': "未知", 'full_type': "💭 未知"}
+                'session_type': "💭", 'session_name': "未知", 'full_type': "💭 未知", 'has_lock': False}
 
 def get_cognitive_load():
     """获取认知负载 - v5.23: 添加 GitHub CI 和本地构建监控"""
