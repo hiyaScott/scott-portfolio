@@ -761,8 +761,10 @@ def update_data_file(data):
         return False
 
 def main():
-    print("🧠 Shrimp Jetton v5.23 - GitHub CI监控 + 扩展标签")
+    """主循环 - v5.33: 简化架构，去掉Redis，只用文件"""
+    print("🧠 Shrimp Jetton v5.33 - 简化架构，文件单源")
     print(f"📊 监控仓库: {', '.join(GITHUB_REPOS)}")
+    print("⏱️  更新频率: 每60秒")
     
     while True:
         try:
@@ -790,7 +792,8 @@ def main():
                 "build_details": load['build_details']
             }
             
-            if update_redis(data):
+            # v5.33: 只更新文件，去掉Redis双写
+            if update_data_file(data):
                 ts = datetime.now().strftime("%H:%M:%S")
                 tasks = ", ".join([d['name'].split()[1] if ' ' in d['name'] else d['name'] 
                                    for d in load['task_queue'][:3]])
@@ -798,12 +801,10 @@ def main():
                 build_info = f" | {load['local_builds']} Build" if load['local_builds'] > 0 else ""
                 print(f"[{ts}] {text} | {tasks}{wf_info}{build_info}")
             
-            # 同时更新 cognitive-data.json
-            update_data_file(data)
         except Exception as e:
-            print(f"[ERR] {e}")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] [ERR] {e}")
         
-        time.sleep(60)
+        time.sleep(60)  # 每60秒更新一次
 
 if __name__ == "__main__":
     main()

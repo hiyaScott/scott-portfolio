@@ -729,7 +729,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.32.0</span>
+                <span id="versionText">v5.33.0</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -942,7 +942,14 @@
         
         // GitHub Pages 数据源 - 自动推送模式
         // 数据通过监控脚本自动推送到 GitHub Pages
+        // 
+        // 时间配置（一致性优化 v5.33）：
+        // - 监控脚本：每1分钟执行（crontab）
+        // - 前端轮询：每30秒
+        // - 数据有效期：2分钟（超过显示"可能过期"）
         const DATA_URL = 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json';
+        const REFRESH_INTERVAL = 30000; // 30秒轮询
+        const DATA_MAX_AGE_MS = 120000; // 2分钟数据有效期
         
         async function fetchData() {
             try {
@@ -1118,22 +1125,22 @@
             document.getElementById('updateTime').textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
         }
         
-        // v5.26 - 实时监控模式
-        // 15秒轮询 + 60秒刷新倒计时
+        // v5.33 - 优化时间一致性
+        // 监控脚本每1分钟执行，前端每30秒轮询
         
-        let refreshCountdown = 60;
+        let refreshCountdown = 30;
         let countdownInterval;
         
         function startCountdown() {
-            refreshCountdown = 60;
+            refreshCountdown = 30;
             const timerEl = document.getElementById('refreshTimer');
-            if (timerEl) timerEl.textContent = `⏱️ ${refreshCountdown}s后刷新`;
+            if (timerEl) timerEl.textContent = `⏱️ ${refreshCountdown}s`;
             
             if (countdownInterval) clearInterval(countdownInterval);
             countdownInterval = setInterval(() => {
                 refreshCountdown--;
                 if (refreshCountdown <= 0) {
-                    refreshCountdown = 60;
+                    refreshCountdown = 30;
                     fetchData();
                 }
                 const timerEl = document.getElementById('refreshTimer');
@@ -1141,14 +1148,14 @@
             }, 1000);
         }
         
-        // 自动轮询模式
+        // 自动轮询模式 - 30秒间隔
         function startAutoRefresh() {
             fetchData(); // 立即执行一次
-            startCountdown(); // 启动60秒倒计时
+            startCountdown(); // 启动30秒倒计时
             setInterval(() => {
                 fetchData();
                 startCountdown(); // 重置倒计时
-            }, 60000); // 每60秒刷新数据
+            }, REFRESH_INTERVAL); // 30秒轮询
         }
         
         // 页面加载完成后启动
