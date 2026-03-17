@@ -276,7 +276,7 @@ def get_local_build_processes():
     return builds
 
 def get_session_files():
-    """获取会话文件 - v5.32: 扩展时间窗口以检测子代理任务""
+    """获取会话文件 - v5.32: 扩展时间窗口以检测子代理任务"""
     pattern = os.path.join(WORKSPACE, "*.jsonl")
     files = glob.glob(pattern)
     sessions = []
