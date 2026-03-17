@@ -778,33 +778,29 @@
         updateUptime();
         setInterval(updateUptime, 60000);
         
-        // 实时负载监控
-        const REDIS_URL = 'https://singular-snake-71209.upstash.io';
-        const REDIS_TOKEN = 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk';
+        // 实时负载监控 - v5.34: 改为从 JSON 文件获取（Redis 已移除）
+        const DATA_URL = 'https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-data.json';
         
         async function fetchLoad() {
             try {
-                const response = await fetch(`${REDIS_URL}/get/cognitive.json`, {
-                    headers: { 'Authorization': `Bearer ${REDIS_TOKEN}` }
+                // 添加时间戳防止缓存
+                const cacheBuster = '?t=' + Date.now();
+                const response = await fetch(DATA_URL + cacheBuster, {
+                    cache: 'no-store'
                 });
                 
                 if (!response.ok) return;
                 
                 const data = await response.json();
-                if (!data.result) return;
-                
-                const outer = JSON.parse(data.result);
-                const metrics = JSON.parse(outer.value);
-                
-                updateLoadUI(metrics);
+                updateLoadUI(data);
             } catch (e) {
                 console.error('Load fetch error:', e);
             }
         }
         
-        function updateLoadUI(metrics) {
-            const score = metrics.cognitive_score || metrics.busyness_score || 0;
-            const statusCode = metrics.status_code || 'low';
+        function updateLoadUI(data) {
+            const score = data.cognitive_score || 0;
+            const statusCode = data.status_code || 'low';
             
             // 更新简洁显示
             const loadEl = document.getElementById('cognitiveLoad');
