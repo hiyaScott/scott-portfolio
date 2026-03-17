@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v5.23.0 - GitHub CI监控 + 扩展标签系统
+Shrimp Jetton 认知负载监控 v5.28.0 - 优化评分算法和数据格式
 更新：
-- 新增 GitHub Actions Workflow 监控
-- 扩展标签系统覆盖更多任务类型
-- 优化标签显示逻辑
+- 降低等待时间评分权重（等待4分钟不再高负载）
+- 修复任务名称重复显示问题
+- 优化任务状态判断逻辑
 """
 
 import json
@@ -569,16 +569,16 @@ def get_cognitive_load():
     # 本地构建加成
     build_bonus = len(local_builds) * 8
     
-    # 等待评分
+    # 等待评分 - 降低权重，避免等待几分钟就高负载
     if pending_count > 0:
-        if max_wait < 30:
-            wait_score = 20
-        elif max_wait < 90:
-            wait_score = 35
+        if max_wait < 60:
+            wait_score = 10
         elif max_wait < 180:
-            wait_score = 50
+            wait_score = 20
+        elif max_wait < 300:
+            wait_score = 30
         else:
-            wait_score = 65
+            wait_score = 40
     else:
         wait_score = 0
     
@@ -648,12 +648,14 @@ def update_data_file(data):
         # 转换 task_queue 格式以兼容前端
         formatted_tasks = []
         for task in data.get('task_queue', []):
+            # 修复：只保留一个名称，避免重复显示
+            task_name = task.get('name', '💭 未知任务')
             formatted_tasks.append({
-                'label': task.get('name', '💭 未知任务'),
-                'name': task.get('name', '💭 未知任务').split()[1] if ' ' in task.get('name', '') else task.get('name', 'unknown'),
+                'label': task_name,
                 'status': task.get('status', '✅ 空闲'),
                 'tokens': task.get('tokens', 0),
-                'type': task.get('type', 'session')
+                'type': task.get('type', 'session'),
+                'last_role': 'user' if '等待' in task.get('status', '') else 'assistant'
             })
         
         # 构建前端兼容的数据格式
