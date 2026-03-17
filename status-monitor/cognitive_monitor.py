@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v5.31.1 - 优化评分算法
+Shrimp Jetton 认知负载监控 v5.32 - 修复子代理任务检测
 更新：
+- v5.32: 扩展时间窗口检测子代理任务(1小时)，添加勘误相关关键词
 - v5.31.1: 更严格的处理中判断(10秒)，降低token评分权重，空闲状态(max 10%)
 - v5.31.0: 优化空闲状态评分，无任务时负载不超过15%
 - v5.28: 降低等待时间评分权重（等待4分钟不再高负载）
@@ -126,6 +127,19 @@ KEYWORD_TAGS = {
     'fix': 'Bug修复',
     'debug': '调试排查',
     '排查': '调试排查',
+    
+    # 数据勘误/校对
+    '勘误': '数据勘误',
+    'correction': '数据勘误',
+    '数据库勘误': '数据勘误',
+    '数据勘误': '数据勘误',
+    '数据核对': '数据勘误',
+    '数据对比': '数据勘误',
+    '数据验证': '数据勘误',
+    '数据校对': '数据勘误',
+    '数据纠错': '数据勘误',
+    '错误修正': '数据勘误',
+    '数据质量': '数据勘误',
     
     # 定时任务/系统
     '定时任务': '任务调度',
@@ -262,14 +276,38 @@ def get_local_build_processes():
     return builds
 
 def get_session_files():
+    """获取会话文件 - v5.32: 扩展时间窗口以检测子代理任务""
     pattern = os.path.join(WORKSPACE, "*.jsonl")
     files = glob.glob(pattern)
     sessions = []
+    now = time.time()
     for f in files:
         try:
             stat = os.stat(f)
-            if time.time() - stat.st_mtime < 600:  # 10分钟内活跃
-                sessions.append({'file': f, 'name': os.path.basename(f), 'mtime': stat.st_mtime})
+            mtime = stat.st_mtime
+            age = now - mtime
+            
+            # 检查是否是子代理任务（通过文件名前缀或内容）
+            is_subagent = False
+            if age < 3600:  # 1小时内修改的文件
+                try:
+                    with open(f, 'r', encoding='utf-8') as fp:
+                        first_line = fp.readline()
+                        if first_line:
+                            data = json.loads(first_line)
+                            # 检查会话类型
+                            if data.get('type') == 'session':
+                                # 读取更多行来检测是否是子代理
+                                content = fp.read(5000)
+                                if 'subagent' in content.lower() or 'sessions_spawn' in content:
+                                    is_subagent = True
+                except:
+                    pass
+            
+            # 普通会话：10分钟内活跃
+            # 子代理任务：1小时内活跃（因为子代理可能运行时间较长）
+            if age < 600 or (is_subagent and age < 3600):
+                sessions.append({'file': f, 'name': os.path.basename(f), 'mtime': mtime, 'is_subagent': is_subagent})
         except:
             pass
     return sessions
