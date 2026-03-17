@@ -536,9 +536,13 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.25.0</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
+                <span id="versionText">v5.26.0</span> | 💓 <span id="lastHeartbeat">--:--:--</span>
             </div>
-            <button onclick="fetchData()" style="margin-top: 12px; padding: 8px 20px; background: rgba(0,255,255,0.1); border: 1px solid rgba(0,255,255,0.3); color: #00ffff; border-radius: 8px; cursor: pointer; font-size: 14px;">🔄 刷新数据</button>
+            <div style="margin-top: 12px; font-size: 12px; color: #888;">
+                <span id="refreshTimer">⏱️ 60s后刷新</span>
+                <span style="margin: 0 10px; color: #444;">|</span>
+                <span id="lastSyncTime">🔄 同步于: --:--:--</span>
+            </div>
         </div>
         
         <!-- 紧凑状态栏 -->
@@ -774,6 +778,14 @@
                 
                 updateUI(metrics);
                 
+                // 更新最新同步时间
+                const syncTimeEl = document.getElementById('lastSyncTime');
+                if (syncTimeEl) {
+                    const now = new Date();
+                    const timeStr = now.toLocaleTimeString('zh-CN', {hour12: false});
+                    syncTimeEl.textContent = `🔄 同步于: ${timeStr}`;
+                }
+                
                 // 更新连接状态为正常
                 const connEl = document.getElementById('connectionValue');
                 if (connEl) {
@@ -930,9 +942,43 @@
             document.getElementById('updateTime').textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
         }
         
-        // v5.25 - 纯手动模式，无自动刷新
-        // 用户点击「刷新数据」按钮时才调用 fetchData()
-        console.log('[Cognitive Monitor] 手动模式已启用');
+        // v5.26 - 实时监控模式
+        // 15秒轮询 + 60秒刷新倒计时
+        
+        let refreshCountdown = 60;
+        let countdownInterval;
+        
+        function startCountdown() {
+            refreshCountdown = 60;
+            const timerEl = document.getElementById('refreshTimer');
+            if (timerEl) timerEl.textContent = `⏱️ ${refreshCountdown}s后刷新`;
+            
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                refreshCountdown--;
+                if (refreshCountdown <= 0) {
+                    refreshCountdown = 60;
+                    fetchData();
+                }
+                const timerEl = document.getElementById('refreshTimer');
+                if (timerEl) timerEl.textContent = `⏱️ ${refreshCountdown}s后刷新`;
+            }, 1000);
+        }
+        
+        // 自动轮询模式
+        function startAutoRefresh() {
+            fetchData(); // 立即执行一次
+            startCountdown(); // 启动60秒倒计时
+            setInterval(() => {
+                fetchData();
+                startCountdown(); // 重置倒计时
+            }, 60000); // 每60秒刷新数据
+        }
+        
+        // 页面加载完成后启动
+        document.addEventListener('DOMContentLoaded', startAutoRefresh);
+        
+        console.log('[Cognitive Monitor] v5.26 实时监控模式已启动');
     </script>
 </body>
 </html>
