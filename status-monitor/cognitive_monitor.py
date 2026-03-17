@@ -475,20 +475,27 @@ def analyze_session(file_path):
         except:
             user_ts = assistant_ts = 0
         
-        # 三种状态判断 - v5.32: 修复processing检测逻辑
+        # 三种状态判断 - v5.34: 区分当前对话和后台任务
         is_waiting = False
         is_processing = False
+        is_current_session = False  # 新增：是否是当前正在进行的对话
         wait_time = 0
         
         # 检测是否有lock文件（表示正在被写入/处理中）
         lock_file = file_path + '.lock'
         has_lock = os.path.exists(lock_file)
         
+        # 判断是否是"当前对话"（用户消息在30秒内且lock存在）
+        if has_lock and user_ts > 0:
+            time_since_user_msg = time.time() - user_ts
+            if time_since_user_msg < 30:  # 30秒内的用户消息 = 当前对话
+                is_current_session = True
+        
         if user_ts > assistant_ts:
             is_waiting = True
             wait_time = int(time.time() - user_ts)
             # 如果waiting时间短且有lock文件，说明正在处理中
-            if wait_time < 300 and has_lock:  # 5分钟内且有lock = 正在处理
+            if wait_time < 300 and has_lock:
                 is_processing = True
                 is_waiting = False  # 优先显示为处理中
         elif has_lock or (last_activity < 60 and has_recent_thinking):
@@ -501,17 +508,18 @@ def analyze_session(file_path):
             'tool_calls': tool_calls,
             'is_waiting': is_waiting,
             'is_processing': is_processing,
+            'user_ts': user_ts,  # 新增：返回用户消息时间戳
             'wait_time': max(0, wait_time),
             'last_mtime': file_mtime,
             'session_type': session_type,
             'session_name': session_name,
             'full_type': f"{session_type} {session_name}",
-            'has_lock': has_lock  # 新增：返回lock状态
+            'has_lock': has_lock
         }
     except Exception as e:
         print(f"[analyze_session error] {e}")
         return {'messages': 0, 'estimated_tokens': 0, 'tool_calls': 0, 
-                'is_waiting': False, 'is_processing': False, 'wait_time': 0, 'last_mtime': 0,
+                'is_waiting': False, 'is_processing': False, 'user_ts': 0, 'wait_time': 0, 'last_mtime': 0,
                 'session_type': "💭", 'session_name': "未知", 'full_type': "💭 未知", 'has_lock': False}
 
 def get_cognitive_load():
@@ -566,7 +574,8 @@ def get_cognitive_load():
                 'status': status,
                 'tokens': a['estimated_tokens'],
                 'type': 'session',
-                'file_key': file_key  # 保留用于调试
+                'file_key': file_key,
+                'user_ts': a.get('user_ts', 0)  # 新增：用户消息时间戳
             })
     else:
         total_tokens = 0
@@ -603,19 +612,19 @@ def get_cognitive_load():
     
     last_active = int(time.time() - recent_mtime) if recent_mtime > 0 else 999
     
-    # 评分算法 v5.31 - 优化：降低空闲状态分数，提高响应性
-    # 只有真正有待处理或处理中的任务时才计分
+    # 评分算法 v5.34 - 当前对话特殊处理
+    # 当前对话的处理中加分减半（7分而不是15分）
     
-    # 基础分：只基于待处理和处理中的任务 - v5.31: 大幅降低基础分
+    # 基础分：只基于待处理和处理中的任务
     base_score = 0
     
     # 活跃会话基础分 - 空闲会话不应产生明显负载
     if pending_count > 0 or processing_count > 0:
         # 有实际工作时，会话数才有意义
-        base_score += min(len(sessions) * 2, 8)
+        base_score += min(len(sessions) * 1, 4)  # v5.34: 降低为1分/个，最高4分
     else:
         # 空闲状态，只有非常低的背景分
-        base_score = min(len(sessions), 3)
+        base_score = min(len(sessions), 2)
     
     # GitHub构建加成
     github_bonus = len(github_workflows) * 10
@@ -636,27 +645,33 @@ def get_cognitive_load():
         elif max_wait > 60:  # 1分钟以上
             wait_score += 3
     
-    # Token评分（只算处理中）- v5.31: 降低权重，避免token数过高导致分数虚高
-    token_score = 0
-    if processing_count > 0 and total_tokens > 0:
-        tokens_per_task = total_tokens / processing_count
-        if tokens_per_task > 200000:  # 提高阈值
-            token_score = 15
-        elif tokens_per_task > 100000:
-            token_score = 10
-        elif tokens_per_task > 50000:
-            token_score = 6
-        elif tokens_per_task > 10000:
-            token_score = 3
-        else:
-            token_score = 1
+    # 处理中任务评分 - v5.34: 区分当前对话和后台任务
+    processing_score = 0
     
-    # 最终评分 - v5.31: 空闲状态(max 10%)，有工作时正常计算
+    # 识别当前对话：检查每个处理中任务的最后用户消息时间
+    # 如果用户消息在300秒内（5分钟），认为是当前对话
+    current_session_count = 0
+    for t in all_tasks:
+        if '🔄' in t.get('status', ''):
+            user_ts = t.get('user_ts', 0)
+            # 如果用户消息在600秒内（10分钟），标记为当前对话
+            if user_ts > 0 and time.time() - user_ts < 600:
+                t['is_current_session'] = True
+                current_session_count += 1
+    
+    background_processing = processing_count - current_session_count
+    
+    # 后台任务：正常加分（15分/个）
+    processing_score += background_processing * 15
+    # 当前对话：减半加分（7分/个）
+    processing_score += current_session_count * 7
+    
+    # 最终评分
     if pending_count == 0 and processing_count == 0 and len(github_workflows) == 0 and len(local_builds) == 0:
-        # 真正的空闲状态 - 只显示非常低的背景分
-        score = min(base_score, 10)
+        # 真正的空闲状态
+        score = min(base_score, 8)
     else:
-        score = min(base_score + wait_score + token_score + github_bonus + build_bonus, 100)
+        score = min(base_score + wait_score + processing_score + github_bonus + build_bonus, 100)
     
     return {
         'active_sessions': len(sessions),
