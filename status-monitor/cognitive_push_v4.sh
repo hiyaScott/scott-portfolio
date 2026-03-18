@@ -1,0 +1,114 @@
+#!/bin/bash
+# Cognitive Monitor 推送脚本 v4.0 - 带防护机制
+# 更新: 添加构建健康检查和熔断机制
+
+REPO_DIR="/root/.openclaw/workspace/portfolio-blog"
+DATA_FILE="status-monitor/cognitive-data.json"
+HISTORY_FILE="status-monitor/cognitive-history.jsonl"
+FAIL_COUNT_FILE="/tmp/cognitive_push_fail_count"
+LAST_HASH_FILE="/tmp/cognitive_last_hash"
+HEALTH_LOG="/var/log/cognitive_health.log"
+
+# ============ 熔断机制 ============
+MAX_CONSECUTIVE_FAILURES=5
+CIRCUIT_BREAKER_FILE="/tmp/cognitive_circuit_breaker"
+
+# 检查熔断器
+if [ -f "$CIRCUIT_BREAKER_FILE" ]; then
+    breaker_time=$(cat "$CIRCUIT_BREAKER_FILE")
+    now=$(date +%s)
+    elapsed=$((now - breaker_time))
+    
+    # 熔断30分钟后自动恢复
+    if [ "$elapsed" -lt 1800 ]; then
+        echo "[$(date)] ⚠️ 熔断器开启，跳过推送 ($((1800-elapsed))秒后恢复)" >> "$HEALTH_LOG"
+        exit 0
+    else
+        echo "[$(date)] ✅ 熔断器自动关闭" >> "$HEALTH_LOG"
+        rm -f "$CIRCUIT_BREAKER_FILE"
+    fi
+fi
+
+# 检查数据文件
+if [ ! -f "$REPO_DIR/$DATA_FILE" ]; then
+    echo "[$(date)] ❌ 错误: 数据文件不存在" >> "$HEALTH_LOG"
+    exit 1
+fi
+
+cd "$REPO_DIR" || exit 1
+
+# 计算文件hash检查是否有实质变化
+current_hash=$(md5sum "$DATA_FILE" | awk '{print $1}')
+last_hash=$(cat "$LAST_HASH_FILE" 2>/dev/null || echo "")
+
+if [ "$current_hash" = "$last_hash" ]; then
+    exit 0
+fi
+
+# 失败退避机制
+if [ -f "$FAIL_COUNT_FILE" ]; then
+    fail_count=$(cat "$FAIL_COUNT_FILE")
+    if [ "$fail_count" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
+        echo "[$(date)] 🔴 连续失败$fail_count次，触发熔断器！" >> "$HEALTH_LOG"
+        date +%s > "$CIRCUIT_BREAKER_FILE"
+        
+        # 发送告警（可选）
+        # echo "认知监控推送连续失败，已触发熔断" | mail -s "Cognitive Monitor Alert" admin@example.com
+        
+        exit 1
+    fi
+    
+    if [ "$fail_count" -gt 3 ]; then
+        delay=$(( (fail_count - 3) * 60 ))
+        [ "$delay" -gt 300 ] && delay=300
+        echo "[$(date)] ⏳ 退避延迟: ${delay}秒" >> "$HEALTH_LOG"
+        sleep "$delay"
+    fi
+fi
+
+# 读取当前评分
+score=$(grep -o '"cognitive_score":[0-9]*' "$DATA_FILE" | head -1 | cut -d: -f2)
+processing=$(grep -o '"processing_count":[0-9]*' "$DATA_FILE" | head -1 | cut -d: -f2)
+
+# 提交前检查
+# 1. 检查是否有符号链接
+if find . -type l ! -path './.git/*' | grep -q .; then
+    echo "[$(date)] ⚠️ 警告: 发现符号链接" >> "$HEALTH_LOG"
+    find . -type l ! -path './.git/*' >> "$HEALTH_LOG"
+fi
+
+# 2. 检查文件大小
+large_files=$(find . -type f -size +5M ! -path './.git/*' 2>/dev/null)
+if [ -n "$large_files" ]; then
+    echo "[$(date)] ⚠️ 警告: 发现大文件" >> "$HEALTH_LOG"
+    echo "$large_files" >> "$HEALTH_LOG"
+fi
+
+git add "$DATA_FILE" "$HISTORY_FILE"
+
+commit_msg="data: $(date '+%H:%M')"
+if [ -n "$score" ]; then
+    commit_msg="${commit_msg} score:${score}%"
+fi
+
+git commit -m "$commit_msg"
+
+# 推送（使用 HTTP/1.1 避免超时）
+git config http.version HTTP/1.1
+if git push origin main; then
+    # 推送成功
+    rm -f "$FAIL_COUNT_FILE"
+    echo "$current_hash" > "$LAST_HASH_FILE"
+    echo "[$(date)] ✅ 推送成功 score=${score}%" >> "$HEALTH_LOG"
+else
+    # 推送失败
+    fail_count=$(cat "$FAIL_COUNT_FILE" 2>/dev/null || echo "0")
+    new_count=$((fail_count + 1))
+    echo "$new_count" > "$FAIL_COUNT_FILE"
+    echo "[$(date)] ❌ 推送失败 (第${new_count}次)" >> "$HEALTH_LOG"
+    
+    # 如果达到熔断阈值，提醒用户
+    if [ "$new_count" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
+        echo "[$(date)] 🔴 即将触发熔断器！请检查GitHub Pages状态" >> "$HEALTH_LOG"
+    fi
+fi
