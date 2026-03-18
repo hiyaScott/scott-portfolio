@@ -1,9 +1,10 @@
 #!/bin/bash
-# Cognitive Monitor 数据同步脚本 v3.0
-# 修复：统一数据格式，确保前后端一致
+# Cognitive Monitor 数据同步脚本 v3.1
+# 修复：同时推送实时数据和历史数据
 
 REPO_DIR="/root/.openclaw/workspace/portfolio-blog"
 DATA_FILE="status-monitor/cognitive-data.json"
+HISTORY_FILE="status-monitor/cognitive-history.jsonl"
 FAIL_COUNT_FILE="/tmp/cognitive_push_fail_count"
 LAST_HASH_FILE="/tmp/cognitive_last_hash"
 
@@ -38,8 +39,8 @@ fi
 score=$(grep -o '"cognitive_score":[0-9]*' "$DATA_FILE" | head -1 | cut -d: -f2)
 processing=$(grep -o '"processing_count":[0-9]*' "$DATA_FILE" | head -1 | cut -d: -f2)
 
-# 添加文件
-git add "$DATA_FILE"
+# v3.1: 同时添加实时数据和历史数据
+git add "$DATA_FILE" "$HISTORY_FILE"
 
 # 提交（带时间戳和评分）
 commit_msg="data: $(date '+%H:%M')"
