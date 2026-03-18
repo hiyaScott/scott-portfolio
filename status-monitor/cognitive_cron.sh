@@ -1,15 +1,18 @@
 #!/bin/bash
-# Cognitive Monitor 定时任务脚本 v5.33
-# 由crontab每分钟调用，生成数据文件
+# Cognitive Monitor 定时任务脚本 v5.34
+# 由crontab每分钟调用，生成数据文件和历史记录
 
 cd /root/.openclaw/workspace/portfolio-blog/status-monitor || exit 1
 
 python3 << 'PYTHON'
 import sys
+import os
 sys.path.insert(0, '.')
-from cognitive_monitor import get_cognitive_load, determine_status
+from cognitive_monitor import get_cognitive_load, determine_status, update_history_file
 import json
 from datetime import datetime
+
+HISTORY_FILE = "/root/.openclaw/workspace/portfolio-blog/status-monitor/cognitive-history.jsonl"
 
 try:
     load = get_cognitive_load()
@@ -39,8 +42,26 @@ try:
         "build_details": load['build_details']
     }
     
+    # 写入主数据文件
     with open('cognitive-data.json', 'w') as f:
         json.dump(data, f, indent=2)
+    
+    # v5.34: 追加历史数据到 JSON Lines
+    try:
+        history_record = {
+            "timestamp": data['timestamp'],
+            "score": data['cognitive_score'],
+            "sessions": data['active_sessions'],
+            "pending": data['pending_count'],
+            "processing": data['processing_count'],
+            "tokens": data['total_tokens'],
+            "cpu": data['cpu_percent'],
+            "memory": data['memory_percent']
+        }
+        with open(HISTORY_FILE, 'a') as f:
+            f.write(json.dumps(history_record) + '\n')
+    except Exception as he:
+        print(f"[HISTORY WARN] {he}")
     
     print(f"[{datetime.now().strftime('%H:%M:%S')}] 数据已更新 score={data['cognitive_score']}%")
 except Exception as e:

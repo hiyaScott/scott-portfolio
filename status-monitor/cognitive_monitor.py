@@ -24,6 +24,12 @@ UPSTASH_REDIS_REST_URL = "https://singular-snake-71209.upstash.io"
 UPSTASH_REDIS_REST_TOKEN = "gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk"
 WORKSPACE = "/root/.openclaw/agents/main/sessions"
 DATA_FILE = "/root/.openclaw/workspace/portfolio-blog/status-monitor/cognitive-data.json"
+HISTORY_FILE = "/root/.openclaw/workspace/portfolio-blog/status-monitor/cognitive-history.jsonl"
+ARCHIVE_DIR = "/root/.openclaw/workspace/portfolio-blog/status-monitor/archives"
+
+# v5.34: 历史数据保留配置
+HISTORY_RETENTION_DAYS = 7  # 7天热数据
+ARCHIVE_RETENTION_MONTHS = 12  # 保留12个月归档
 
 # ============================================================================
 # 扩展的关键词到标签映射 - v5.23
@@ -807,14 +813,165 @@ def update_data_file(data):
         print(f"[DATA_FILE ERROR] {e}")
         return False
 
+def update_history_file(data):
+    """v5.34: 追加历史数据到 JSON Lines 文件"""
+    try:
+        # 精简数据，只存储必要的走势数据
+        history_record = {
+            "timestamp": data.get('timestamp'),
+            "score": data.get('cognitive_score', 0),
+            "sessions": data.get('active_sessions', 0),
+            "pending": data.get('pending_count', 0),
+            "processing": data.get('processing_count', 0),
+            "tokens": data.get('total_tokens', 0),
+            "cpu": data.get('cpu_percent', 0),
+            "memory": data.get('memory_percent', 0)
+        }
+        
+        # 追加写入 JSON Lines
+        with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(history_record, ensure_ascii=False) + '\n')
+        
+        return True
+    except Exception as e:
+        print(f"[HISTORY_FILE ERROR] {e}")
+        return False
+
+def cleanup_history_file():
+    """v5.34: 清理过期历史数据（7天前的数据归档）"""
+    try:
+        if not os.path.exists(HISTORY_FILE):
+            return
+        
+        cutoff_time = time.time() - (HISTORY_RETENTION_DAYS * 24 * 3600)
+        current_month = datetime.now().strftime("%Y-%m")
+        archive_file = os.path.join(ARCHIVE_DIR, f"cognitive-{current_month}.jsonl")
+        
+        # 确保归档目录存在
+        os.makedirs(ARCHIVE_DIR, exist_ok=True)
+        
+        # 读取所有记录
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        recent_lines = []
+        old_lines = []
+        
+        for line in lines:
+            try:
+                record = json.loads(line.strip())
+                record_ts = datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')).timestamp()
+                
+                if record_ts > cutoff_time:
+                    recent_lines.append(line)
+                else:
+                    old_lines.append(line)
+            except:
+                continue
+        
+        # 将过期数据归档
+        if old_lines:
+            with open(archive_file, 'a', encoding='utf-8') as f:
+                f.writelines(old_lines)
+            print(f"[HISTORY] 归档 {len(old_lines)} 条记录到 {archive_file}")
+        
+        # 重写历史文件（只保留最近7天）
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            f.writelines(recent_lines)
+        
+        return True
+    except Exception as e:
+        print(f"[HISTORY_CLEANUP ERROR] {e}")
+        return False
+
+def compress_old_archives():
+    """v5.34: 压缩上月及更早的归档文件"""
+    try:
+        if not os.path.exists(ARCHIVE_DIR):
+            return
+        
+        current_month = datetime.now().strftime("%Y-%m")
+        import gzip
+        
+        for filename in os.listdir(ARCHIVE_DIR):
+            if filename.endswith('.jsonl') and not filename.startswith(current_month):
+                filepath = os.path.join(ARCHIVE_DIR, filename)
+                gz_path = filepath + '.gz'
+                
+                # 如果已压缩则跳过
+                if os.path.exists(gz_path):
+                    continue
+                
+                # 压缩文件
+                with open(filepath, 'rb') as f_in:
+                    with gzip.open(gz_path, 'wb') as f_out:
+                        f_out.writelines(f_in)
+                
+                # 删除原文件
+                os.remove(filepath)
+                print(f"[ARCHIVE] 压缩 {filename} -> {filename}.gz")
+        
+        return True
+    except Exception as e:
+        print(f"[ARCHIVE_COMPRESS ERROR] {e}")
+        return False
+
+def get_history_data(hours=1, max_points=200):
+    """v5.34: 获取指定时间范围的历史数据供前端使用"""
+    try:
+        if not os.path.exists(HISTORY_FILE):
+            return []
+        
+        cutoff_time = time.time() - (hours * 3600)
+        records = []
+        
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    record = json.loads(line.strip())
+                    record_ts = datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')).timestamp()
+                    
+                    if record_ts > cutoff_time:
+                        records.append(record)
+                except:
+                    continue
+        
+        # 如果数据点太多，进行采样
+        if len(records) > max_points:
+            step = len(records) // max_points
+            records = records[::step]
+        
+        return records
+    except Exception as e:
+        print(f"[GET_HISTORY ERROR] {e}")
+        return []
+
 def main():
-    """主循环 - v5.33: 简化架构，去掉Redis，只用文件"""
-    print("🧠 Shrimp Jetton v5.33 - 简化架构，文件单源")
+    """主循环 - v5.34: 添加历史数据存储和自动归档"""
+    print("🧠 Shrimp Jetton v5.34 - 本地历史数据 + 自动归档")
     print(f"📊 监控仓库: {', '.join(GITHUB_REPOS)}")
+    print(f"📈 历史数据: {HISTORY_FILE}")
+    print(f"📦 归档目录: {ARCHIVE_DIR}")
     print("⏱️  更新频率: 每60秒")
+    
+    last_cleanup_hour = -1
+    last_compress_day = -1
     
     while True:
         try:
+            current_hour = datetime.now().hour
+            current_day = datetime.now().day
+            
+            # 每小时整点执行清理
+            if current_hour != last_cleanup_hour:
+                cleanup_history_file()
+                last_cleanup_hour = current_hour
+            
+            # 每天凌晨3点执行压缩归档
+            if current_day != last_compress_day and current_hour == 3:
+                compress_old_archives()
+                last_compress_day = current_day
+            
             load = get_cognitive_load()
             code, text, sug = determine_status(load['cognitive_score'])
             
@@ -839,8 +996,9 @@ def main():
                 "build_details": load['build_details']
             }
             
-            # v5.33: 只更新文件，去掉Redis双写
+            # v5.34: 更新数据文件 + 历史数据
             if update_data_file(data):
+                update_history_file(data)
                 ts = datetime.now().strftime("%H:%M:%S")
                 tasks = ", ".join([d['name'].split()[1] if ' ' in d['name'] else d['name'] 
                                    for d in load['task_queue'][:3]])

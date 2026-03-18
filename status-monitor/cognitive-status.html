@@ -682,6 +682,82 @@
         .task-status-badge.waiting { color: #facc15; background: rgba(234,179,8,0.15); }
         .task-status-badge.idle { color: #22c55e; background: rgba(34,197,94,0.15); }
         
+        /* v5.34: 认知负载走势图 */
+        .trend-container {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #222;
+            margin-bottom: 24px;
+        }
+        .trend-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .trend-title {
+            font-size: 14px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .trend-range-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .trend-range-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #333;
+            color: #888;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .trend-range-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .trend-range-btn.active {
+            background: rgba(0,255,255,0.1);
+            border-color: #00ffff;
+            color: #00ffff;
+        }
+        .trend-chart-wrapper {
+            position: relative;
+            height: 200px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .trend-chart-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .trend-legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #666;
+        }
+        .trend-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .trend-legend-color {
+            width: 12px;
+            height: 3px;
+            border-radius: 2px;
+        }
+        .trend-stats {
+            color: #888;
+        }
+        
         /* Radio Tab */
         .info-tabs-container {
             background: rgba(255,255,255,0.02);
@@ -820,6 +896,34 @@
         
         <!-- 任务队列 -->
         <div class="task-queue"><h3>📋 当前任务队列</h3><div id="taskList">加载中...</div></div>
+        
+        <!-- v5.34: 认知负载走势图 -->
+        <div class="trend-container">
+            <div class="trend-header">
+                <span class="trend-title">📈 认知负载走势</span>
+                <div class="trend-range-buttons">
+                    <button class="trend-range-btn active" data-range="1h" onclick="switchTrendRange('1h')">1小时</button>
+                    <button class="trend-range-btn" data-range="6h" onclick="switchTrendRange('6h')">6小时</button>
+                    <button class="trend-range-btn" data-range="24h" onclick="switchTrendRange('24h')">24小时</button>
+                </div>
+            </div>
+            <div class="trend-chart-wrapper">
+                <canvas id="trendChartCanvas" class="trend-chart-canvas"></canvas>
+            </div>
+            <div class="trend-legend">
+                <div class="trend-legend-item">
+                    <div class="trend-legend-color" style="background: linear-gradient(90deg, #22c55e, #facc15, #ef4444);"></div>
+                    <span>负载评分</span>
+                </div>
+                <div class="trend-legend-item">
+                    <div class="trend-legend-color" style="background: #666;"></div>
+                    <span>平均线</span>
+                </div>
+                <div class="trend-legend-item trend-stats" id="trendStats">
+                    <span>最高:-- 最低:-- 平均:--</span>
+                </div>
+            </div>
+        </div>
         
         <!-- 说明区 -->
         <div class="info-tabs-container">
@@ -1159,9 +1263,258 @@
         }
         
         // 页面加载完成后启动
-        document.addEventListener('DOMContentLoaded', startAutoRefresh);
+        document.addEventListener('DOMContentLoaded', () => {
+            startAutoRefresh();
+            fetchTrendData(); // 加载走势图数据
+        });
         
-        console.log('[Cognitive Monitor] v5.26 实时监控模式已启动');
+        // v5.34: 走势图功能
+        let currentTrendRange = '1h';
+        let trendData = [];
+        
+        // 时间范围切换
+        function switchTrendRange(range) {
+            currentTrendRange = range;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.trend-range-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.range === range) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            fetchTrendData();
+        }
+        
+        // 获取历史数据
+        async function fetchTrendData() {
+            try {
+                // 从 JSON Lines 文件读取历史数据
+                const hours = currentTrendRange === '1h' ? 1 : currentTrendRange === '6h' ? 6 : 24;
+                const cacheBuster = `?t=${Date.now()}`;
+                const historyUrl = `https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-history.jsonl${cacheBuster}`;
+                
+                const response = await fetch(historyUrl);
+                if (!response.ok) throw new Error('History fetch failed');
+                
+                const text = await response.text();
+                const lines = text.trim().split('\n');
+                
+                // 解析 JSON Lines
+                const cutoffTime = Date.now() - (hours * 3600 * 1000);
+                trendData = lines
+                    .map(line => {
+                        try {
+                            const record = JSON.parse(line);
+                            record.timestamp_ms = new Date(record.timestamp).getTime();
+                            return record;
+                        } catch {
+                            return null;
+                        }
+                    })
+                    .filter(r => r && r.timestamp_ms > cutoffTime)
+                    .sort((a, b) => a.timestamp_ms - b.timestamp_ms);
+                
+                renderTrendChart();
+            } catch (e) {
+                console.error('Trend data error:', e);
+                // 显示空图表
+                renderEmptyChart();
+            }
+        }
+        
+        // 渲染走势图
+        function renderTrendChart() {
+            const canvas = document.getElementById('trendChartCanvas');
+            if (!canvas || trendData.length === 0) {
+                renderEmptyChart();
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            
+            const width = rect.width;
+            const height = rect.height;
+            const padding = { top: 20, right: 40, bottom: 30, left: 10 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, width, height);
+            
+            // 计算统计数据
+            const scores = trendData.map(d => d.score);
+            const maxScore = Math.max(...scores, 100);
+            const minScore = Math.min(...scores, 0);
+            const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+            
+            // 更新统计显示
+            const statsEl = document.getElementById('trendStats');
+            if (statsEl) {
+                statsEl.innerHTML = `<span>最高:${maxScore} 最低:${minScore} 平均:${avgScore}</span>`;
+            }
+            
+            // 绘制背景网格
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            
+            // 横向网格线 (0, 25, 50, 75, 100)
+            [0, 0.25, 0.5, 0.75, 1].forEach(ratio => {
+                const y = padding.top + chartHeight * (1 - ratio);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(padding.left + chartWidth, y);
+                ctx.stroke();
+            });
+            
+            // 绘制阈值参考线
+            ctx.setLineDash([5, 5]);
+            // 30% 线 (空闲/轻负载)
+            ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+            const y30 = padding.top + chartHeight * 0.7;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y30);
+            ctx.lineTo(padding.left + chartWidth, y30);
+            ctx.stroke();
+            
+            // 55% 线 (轻负载/中负载)
+            ctx.strokeStyle = 'rgba(250, 204, 21, 0.3)';
+            const y55 = padding.top + chartHeight * 0.45;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y55);
+            ctx.lineTo(padding.left + chartWidth, y55);
+            ctx.stroke();
+            
+            // 80% 线 (中负载/高负载)
+            ctx.strokeStyle = 'rgba(248, 113, 113, 0.3)';
+            const y80 = padding.top + chartHeight * 0.2;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y80);
+            ctx.lineTo(padding.left + chartWidth, y80);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 绘制渐变区域
+            if (trendData.length > 1) {
+                const timeRange = trendData[trendData.length - 1].timestamp_ms - trendData[0].timestamp_ms;
+                
+                // 创建渐变
+                const gradient = ctx.createLinearGradient(padding.left, 0, padding.left + chartWidth, 0);
+                gradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)');   // 绿
+                gradient.addColorStop(0.3, 'rgba(96, 165, 250, 0.3)'); // 蓝
+                gradient.addColorStop(0.55, 'rgba(250, 204, 21, 0.3)');// 黄
+                gradient.addColorStop(0.8, 'rgba(248, 113, 113, 0.3)');// 红
+                gradient.addColorStop(1, 'rgba(239, 68, 68, 0.3)');    // 深红
+                
+                ctx.beginPath();
+                ctx.moveTo(padding.left, padding.top + chartHeight);
+                
+                trendData.forEach((d, i) => {
+                    const x = padding.left + ((d.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+                    const y = padding.top + chartHeight * (1 - d.score / 100);
+                    if (i === 0) {
+                        ctx.lineTo(x, y);
+                    } else {
+                        // 使用贝塞尔曲线平滑连接
+                        const prev = trendData[i - 1];
+                        const prevX = padding.left + ((prev.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+                        const prevY = padding.top + chartHeight * (1 - prev.score / 100);
+                        const cpX = (prevX + x) / 2;
+                        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
+                        ctx.quadraticCurveTo(cpX, (prevY + y) / 2, x, y);
+                    }
+                });
+                
+                ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+                ctx.closePath();
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // 绘制数据线
+                ctx.beginPath();
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 2;
+                
+                trendData.forEach((d, i) => {
+                    const x = padding.left + ((d.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+                    const y = padding.top + chartHeight * (1 - d.score / 100);
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        const prev = trendData[i - 1];
+                        const prevX = padding.left + ((prev.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+                        const prevY = padding.top + chartHeight * (1 - prev.score / 100);
+                        const cpX = (prevX + x) / 2;
+                        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
+                        ctx.quadraticCurveTo(cpX, (prevY + y) / 2, x, y);
+                    }
+                });
+                ctx.stroke();
+                
+                // 绘制平均参考线
+                const avgY = padding.top + chartHeight * (1 - avgScore / 100);
+                ctx.beginPath();
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.moveTo(padding.left, avgY);
+                ctx.lineTo(padding.left + chartWidth, avgY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            // 绘制Y轴标签
+            ctx.fillStyle = '#666';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'right';
+            [0, 25, 50, 75, 100].forEach(val => {
+                const y = padding.top + chartHeight * (1 - val / 100);
+                ctx.fillText(val, width - 5, y + 3);
+            });
+            
+            // 绘制X轴时间标签
+            ctx.textAlign = 'center';
+            const timeCount = currentTrendRange === '1h' ? 4 : currentTrendRange === '6h' ? 6 : 8;
+            for (let i = 0; i <= timeCount; i++) {
+                const ratio = i / timeCount;
+                const x = padding.left + chartWidth * ratio;
+                const time = new Date(trendData[0].timestamp_ms + (trendData[trendData.length - 1].timestamp_ms - trendData[0].timestamp_ms) * ratio);
+                const timeStr = currentTrendRange === '24h' 
+                    ? `${time.getHours()}:00`
+                    : `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+                ctx.fillText(timeStr, x, height - 8);
+            }
+        }
+        
+        // 绘制空图表
+        function renderEmptyChart() {
+            const canvas = document.getElementById('trendChartCanvas');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            ctx.clearRect(0, 0, rect.width, rect.height);
+            
+            ctx.fillStyle = '#444';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('暂无历史数据', rect.width / 2, rect.height / 2);
+            
+            document.getElementById('trendStats').innerHTML = '<span>最高:-- 最低:-- 平均:--</span>';
+        }
+        
+        // 每5分钟刷新走势图数据
+        setInterval(fetchTrendData, 300000);
+        
+        console.log('[Cognitive Monitor] v5.34 本地历史数据模式已启动');
     </script>
 </body>
 </html>
