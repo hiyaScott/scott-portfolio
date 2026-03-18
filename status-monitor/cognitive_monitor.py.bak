@@ -562,14 +562,14 @@ def get_cognitive_load():
             elif a['is_processing']:
                 processing_count += 1
             
-            # 状态显示 - v5.35: 改为"最后活跃"而非"等待"，更准确
+            # 状态显示
             if a['is_waiting']:
                 if a['wait_time'] > 120:
-                    status = f"💤 {a['wait_time']//60}分钟前活跃"
+                    status = f"🔴 等待{a['wait_time']//60}分钟"
                 elif a['wait_time'] > 60:
-                    status = f"💤 {a['wait_time']//60}分钟前活跃"
+                    status = f"🟡 等待{a['wait_time']//60}分钟"
                 else:
-                    status = f"💤 {a['wait_time']}秒前活跃"
+                    status = f"⏳ 等待{a['wait_time']}秒"
             elif a['is_processing']:
                 status = "🔄 处理中"
             else:
@@ -685,9 +685,9 @@ def get_cognitive_load():
     processing_score += system_monitor_count * 4
     
     # 任务排序：系统监控排最后，超过4个任务时隐藏
-    # 排序优先级：最近活跃 > 处理中(非系统监控) > 已回复 > 系统监控
+    # 排序优先级：等待中 > 处理中(非系统监控) > 已回复 > 系统监控
     def task_priority(t):
-        if '前活跃' in t.get('status', ''):
+        if '等待' in t.get('status', ''):
             return (0, 0, t.get('wait_time', 0))  # 等待时间长的排前面
         elif '🔄' in t.get('status', '') and not t.get('is_system_monitor'):
             return (1, 0, 0)
@@ -702,7 +702,7 @@ def get_cognitive_load():
     if len(all_tasks) > 4:
         all_tasks = [t for t in all_tasks if not t.get('is_system_monitor', False)]
         # 重新计算processing_count（排除系统监控）
-        processing_count = sum(1 for t in all_tasks if '🔄' in t.get('status', '') or '前活跃' in t.get('status', ''))
+        processing_count = sum(1 for t in all_tasks if '🔄' in t.get('status', '') or '等待' in t.get('status', ''))
     
     # 最终评分
     if pending_count == 0 and processing_count == 0 and len(github_workflows) == 0 and len(local_builds) == 0:
@@ -767,7 +767,7 @@ def update_data_file(data):
                 'status': task.get('status', '✅ 空闲'),
                 'tokens': task.get('tokens', 0),
                 'type': task.get('type', 'session'),
-                'last_role': 'user' if '前活跃' in task.get('status', '') else 'assistant'
+                'last_role': 'user' if '等待' in task.get('status', '') else 'assistant'
             })
         
         # 构建前端兼容的数据格式
