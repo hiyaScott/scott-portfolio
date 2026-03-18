@@ -1291,7 +1291,16 @@
         async function fetchTrendData() {
             try {
                 // 从 JSON Lines 文件读取历史数据
-                const minutes = currentTrendRange === '1m' ? 1 : currentTrendRange === '5m' ? 5 : 60;
+                // v5.34.2: 1分钟视图显示最近3分钟数据（保证有足够数据点）
+                let minutes;
+                if (currentTrendRange === '1m') {
+                    minutes = 3; // 实际取3分钟数据，但标注为1分钟视图
+                } else if (currentTrendRange === '5m') {
+                    minutes = 5;
+                } else {
+                    minutes = 60;
+                }
+                
                 const cacheBuster = `?t=${Date.now()}`;
                 const historyUrl = `https://hiyascott.github.io/scott-portfolio/status-monitor/cognitive-history.jsonl${cacheBuster}`;
                 
@@ -1319,7 +1328,6 @@
                 renderTrendChart();
             } catch (e) {
                 console.error('Trend data error:', e);
-                // 显示空图表
                 renderEmptyChart();
             }
         }
@@ -1327,10 +1335,7 @@
         // 渲染走势图
         function renderTrendChart() {
             const canvas = document.getElementById('trendChartCanvas');
-            if (!canvas || trendData.length === 0) {
-                renderEmptyChart();
-                return;
-            }
+            if (!canvas) return;
             
             const ctx = canvas.getContext('2d');
             const rect = canvas.getBoundingClientRect();
@@ -1340,12 +1345,37 @@
             
             const width = rect.width;
             const height = rect.height;
-            const padding = { top: 20, right: 40, bottom: 30, left: 10 };
-            const chartWidth = width - padding.left - padding.right;
-            const chartHeight = height - padding.top - padding.bottom;
             
             // 清空画布
             ctx.clearRect(0, 0, width, height);
+            
+            // 数据不足提示
+            if (!trendData || trendData.length === 0) {
+                ctx.fillStyle = '#666';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('暂无历史数据', width / 2, height / 2);
+                document.getElementById('trendStats').innerHTML = '<span style="color:#666">数据积累中...</span>';
+                return;
+            }
+            
+            // 只有1个点时显示提示
+            if (trendData.length === 1) {
+                const score = trendData[0].score;
+                ctx.fillStyle = change >= 0 ? '#f87171' : '#4ade80';
+                ctx.font = 'bold 24px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(score.toString(), width / 2, height / 2 - 10);
+                ctx.fillStyle = '#666';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('数据点不足，切换至5分钟视图', width / 2, height / 2 + 20);
+                document.getElementById('trendStats').innerHTML = `<span style="color:#888">当前: ${score} | 需要更多数据点</span>`;
+                return;
+            }
+            
+            const padding = { top: 25, right: 50, bottom: 30, left: 10 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
             
             // 计算统计数据
             const scores = trendData.map(d => d.score);
