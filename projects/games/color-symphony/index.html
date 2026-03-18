@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>颜色交响曲 - Color Symphony</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            color: #fff;
+            font-family: 'Noto Sans SC', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px;
+            width: 100%;
+        }
+        
+        h1 {
+            font-size: 32px;
+            background: linear-gradient(90deg, #ff0040, #ff8000, #ffff00, #00ff00, #0080ff, #8000ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255,255,255,0.3);
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        /* 游戏容器 */
+        .game-container {
+            position: relative;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        
+        /* 游戏画布 */
+        #gameCanvas {
+            border: 2px solid #333;
+            box-shadow: 0 0 40px rgba(255,255,255,0.1);
+        }
+        
+        /* 侧边信息面板 */
+        .side-panel {
+            width: 200px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        
+        .stat {
+            margin-bottom: 20px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .combo {
+            font-size: 48px;
+            color: #ffff00;
+            text-shadow: 0 0 20px #ffff00;
+            animation: pulse 0.5s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+        
+        /* 颜色轨道指示 */
+        .track-info {
+            margin-top: 30px;
+        }
+        
+        .track {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(0,0,0,0.3);
+        }
+        
+        .track-key {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .track-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        
+        /* 底部控制 */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #333, #222);
+            border: 2px solid #555;
+            color: #fff;
+            padding: 12px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 25px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        
+        .btn:hover {
+            border-color: #fff;
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+        }
+        
+        .btn.primary {
+            background: linear-gradient(135deg, #ff0040, #ff8000);
+            border-color: #ff0040;
+        }
+        
+        .btn.primary:hover {
+            box-shadow: 0 0 30px rgba(255,0,64,0.5);
+        }
+        
+        /* 歌曲选择 */
+        .song-select {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .song-select h3 {
+            color: #888;
+            margin-bottom: 10px;
+        }
+        
+        .song-list {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .song-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #444;
+            color: #aaa;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .song-btn:hover, .song-btn.active {
+            background: rgba(0,255,255,0.2);
+            border-color: #00ffff;
+            color: #fff;
+        }
+        
+        /* 游戏结束画面 */
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .game-over.show {
+            display: flex;
+        }
+        
+        .game-over h2 {
+            font-size: 48px;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #ff0040, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .final-score {
+            font-size: 72px;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        
+        .grade {
+            font-size: 96px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        
+        .grade.S { color: #ffff00; text-shadow: 0 0 30px #ffff00; }
+        .grade.A { color: #ff8000; text-shadow: 0 0 20px #ff8000; }
+        .grade.B { color: #00ff00; text-shadow: 0 0 20px #00ff00; }
+        .grade.C { color: #0080ff; }
+        .grade.D { color: #888; }
+        
+        /* 移动端适配 */
+        @media (max-width: 900px) {
+            .game-container {
+                flex-direction: column;
+            }
+            .side-panel {
+                width: 100%;
+                max-width: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎵 颜色交响曲</h1>
+        <p class="subtitle">在正确的时机按下对应颜色的按键</p>
+    </header>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        
+        <div class="side-panel">
+            <div class="stat">
+                <div class="stat-label">得分</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            
+            <div class="stat">
+                <div class="stat-label">连击</div>
+                <div class="combo" id="combo">0</div>
+            </div>
+            
+            <div class="stat">
+                <div class="stat-label">准确率</div>
+                <div class="stat-value" id="accuracy">100%</div>
+            </div>
+            
+            <div class="track-info">
+                <div class="track">
+                    <div class="track-key" style="background: #ff0040;">D</div>
+                    <span>红色轨道</span>
+                </div>
+                <div class="track">
+                    <div class="track-key" style="background: #00ff00;">F</div>
+                    <span>绿色轨道</span>
+                </div>
+                <div class="track">
+                    <div class="track-key" style="background: #0080ff;">J</div>
+                    <span>蓝色轨道</span>
+                </div>
+                <div class="track">
+                    <div class="track-key" style="background: #ff00ff;">K</div>
+                    <span>紫色轨道</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button class="btn primary" id="startBtn" onclick="startGame()">▶ 开始游戏 (空格)</button>
+        <button class="btn" onclick="toggleAuto()">🎹 自动演奏: <span id="autoStatus">关</span></button>
+    </div>
+    
+    <div class="song-select">
+        <h3>选择曲目</h3>
+        <div class="song-list">
+            <button class="song-btn active" onclick="selectSong(0)">霓虹漫步</button>
+            <button class="song-btn" onclick="selectSong(1)">电子脉冲</button>
+            <button class="song-btn" onclick="selectSong(2)">彩虹狂想</button>
+        </div>
+    </div>
+    
+    <!-- 游戏结束画面 -->
+    <div class="game-over" id="gameOver">
+        <h2>演奏完成!</h2>
+        <div class="final-score" id="finalScore">0</div>
+        <div class="grade" id="grade">S</div>
+        <p id="rankText">完美演奏!</p>
+        <div class="controls" style="margin-top: 30px;">
+            <button class="btn primary" onclick="restartGame()">🔄 再次挑战</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 游戏配置
+        const TRACKS = 4;
+        const TRACK_WIDTH = canvas.width / TRACKS;
+        const HIT_LINE_Y = canvas.height - 100;
+        const NOTE_SPEED = 300; // 像素/秒
+        const PERFECT_WINDOW = 30;
+        const GOOD_WINDOW = 60;
+        const MISS_WINDOW = 100;
+        
+        // 颜色配置
+        const COLORS = [
+            { name: '红', hex: '#ff0040', key: 'd' },
+            { name: '绿', hex: '#00ff00', key: 'f' },
+            { name: '蓝', hex: '#0080ff', key: 'j' },
+            { name: '紫', hex: '#ff00ff', key: 'k' }
+        ];
+        
+        // 游戏状态
+        let gameState = 'menu'; // menu, playing, paused, ended
+        let notes = [];
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let hits = { perfect: 0, good: 0, miss: 0 };
+        let startTime = 0;
+        let autoPlay = false;
+        let currentSong = 0;
+        let animationId = null;
+        
+        // 音频上下文
+        let audioCtx = null;
+        
+        // 曲目数据
+        const SONGS = [
+            {
+                name: '霓虹漫步',
+                bpm: 120,
+                notes: generateNotes(120, 60)
+            },
+            {
+                name: '电子脉冲',
+                bpm: 140,
+                notes: generateNotes(140, 90)
+            },
+            {
+                name: '彩虹狂想',
+                bpm: 100,
+                notes: generateNotes(100, 120)
+            }
+        ];
+        
+        // 生成音符
+        function generateNotes(bpm, duration) {
+            const notes = [];
+            const beatTime = 60 / bpm;
+            const totalBeats = Math.floor(duration / beatTime);
+            
+            for (let i = 0; i < totalBeats; i++) {
+                // 随机决定是否生成音符
+                if (Math.random() > 0.3) {
+                    const track = Math.floor(Math.random() * TRACKS);
+                    notes.push({
+                        track: track,
+                        time: i * beatTime + 2, // 延迟2秒开始
+                        hit: false,
+                        missed: false
+                    });
+                }
+                
+                // 偶尔生成双音符
+                if (Math.random() > 0.8) {
+                    const track = Math.floor(Math.random() * TRACKS);
+                    notes.push({
+                        track: track,
+                        time: i * beatTime + 2,
+                        hit: false,
+                        missed: false
+                    });
+                }
+            }
+            
+            return notes.sort((a, b) => a.time - b.time);
+        }
+        
+        // 播放音效
+        function playSound(frequency, duration, type = 'sine') {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+        
+        // 播放击中音效
+        function playHitSound(quality) {
+            const freqs = {
+                perfect: 880, // A5
+                good: 659,    // E5
+                miss: 220     // A3
+            };
+            playSound(freqs[quality], 0.1, quality === 'miss' ? 'sawtooth' : 'sine');
+        }
+        
+        // 开始游戏
+        function startGame() {
+            if (gameState === 'playing') return;
+            
+            gameState = 'playing';
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            hits = { perfect: 0, good: 0, miss: 0 };
+            startTime = Date.now();
+            
+            // 重置音符
+            notes = SONGS[currentSong].notes.map(n => ({ ...n, hit: false, missed: false }));
+            
+            document.getElementById('startBtn').textContent = '⏸ 暂停 (空格)';
+            document.getElementById('gameOver').classList.remove('show');
+            
+            if (audioCtx) audioCtx.resume();
+            
+            gameLoop();
+        }
+        
+        // 重新开始
+        function restartGame() {
+            document.getElementById('gameOver').classList.remove('show');
+            startGame();
+        }
+        
+        // 游戏结束
+        function endGame() {
+            gameState = 'ended';
+            cancelAnimationFrame(animationId);
+            
+            const totalHits = hits.perfect + hits.good + hits.miss;
+            const accuracy = totalHits > 0 ? Math.round((hits.perfect * 100 + hits.good * 50) / totalHits) : 0;
+            
+            // 计算评级
+            let grade = 'D';
+            let rankText = '还需要练习';
+            if (accuracy >= 95) { grade = 'S'; rankText = '完美演奏!'; }
+            else if (accuracy >= 85) { grade = 'A'; rankText = '精彩表演!'; }
+            else if (accuracy >= 70) { grade = 'B'; rankText = '不错的成绩'; }
+            else if (accuracy >= 50) { grade = 'C'; rankText = '继续加油'; }
+            
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('grade').textContent = grade;
+            document.getElementById('grade').className = 'grade ' + grade;
+            document.getElementById('rankText').textContent = rankText;
+            document.getElementById('gameOver').classList.add('show');
+            
+            document.getElementById('startBtn').textContent = '▶ 开始游戏 (空格)';
+        }
+        
+        // 自动演奏
+        function toggleAuto() {
+            autoPlay = !autoPlay;
+            document.getElementById('autoStatus').textContent = autoPlay ? '开' : '关';
+        }
+        
+        // 选择歌曲
+        function selectSong(index) {
+            if (gameState === 'playing') return;
+            currentSong = index;
+            
+            document.querySelectorAll('.song-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', i === index);
+            });
+        }
+        
+        // 击中检测
+        function hitTrack(trackIndex) {
+            if (gameState !== 'playing') return;
+            
+            const currentTime = (Date.now() - startTime) / 1000;
+            
+            // 找到该轨道上最近的音符
+            let closestNote = null;
+            let closestDistance = Infinity;
+            
+            notes.forEach(note => {
+                if (note.track === trackIndex && !note.hit && !note.missed) {
+                    const distance = Math.abs(note.time - currentTime);
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestNote = note;
+                    }
+                }
+            });
+            
+            if (closestNote && closestDistance < MISS_WINDOW / 1000) {
+                closestNote.hit = true;
+                
+                let quality = 'miss';
+                let points = 0;
+                
+                if (closestDistance < PERFECT_WINDOW / 1000) {
+                    quality = 'perfect';
+                    points = 100;
+                    combo++;
+                    hits.perfect++;
+                } else if (closestDistance < GOOD_WINDOW / 1000) {
+                    quality = 'good';
+                    points = 50;
+                    combo++;
+                    hits.good++;
+                } else {
+                    combo = 0;
+                    hits.miss++;
+                }
+                
+                score += points * (1 + combo * 0.1);
+                maxCombo = Math.max(maxCombo, combo);
+                
+                playHitSound(quality);
+                updateUI();
+                
+                // 显示击中效果
+                showHitEffect(trackIndex, quality);
+            }
+        }
+        
+        // 显示击中效果
+        let hitEffects = [];
+        function showHitEffect(track, quality) {
+            hitEffects.push({
+                track: track,
+                quality: quality,
+                time: Date.now(),
+                opacity: 1
+            });
+        }
+        
+        // 更新UI
+        function updateUI() {
+            document.getElementById('score').textContent = Math.floor(score);
+            document.getElementById('combo').textContent = combo;
+            
+            const totalHits = hits.perfect + hits.good + hits.miss;
+            const accuracy = totalHits > 0 ? Math.round((hits.perfect + hits.good * 0.5) / totalHits * 100) : 100;
+            document.getElementById('accuracy').textContent = accuracy + '%';
+        }
+        
+        // 游戏主循环
+        function gameLoop() {
+            if (gameState !== 'playing') return;
+            
+            const currentTime = (Date.now() - startTime) / 1000;
+            
+            // 清空画布
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制轨道线
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= TRACKS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * TRACK_WIDTH, 0);
+                ctx.lineTo(i * TRACK_WIDTH, canvas.height);
+                ctx.stroke();
+            }
+            
+            // 绘制击打线
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, HIT_LINE_Y);
+            ctx.lineTo(canvas.width, HIT_LINE_Y);
+            ctx.stroke();
+            
+            // 绘制轨道底部按键区域
+            COLORS.forEach((color, i) => {
+                const x = i * TRACK_WIDTH;
+                ctx.fillStyle = color.hex + '20';
+                ctx.fillRect(x, HIT_LINE_Y, TRACK_WIDTH, canvas.height - HIT_LINE_Y);
+                
+                ctx.fillStyle = color.hex;
+                ctx.font = 'bold 20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(color.key.toUpperCase(), x + TRACK_WIDTH/2, canvas.height - 30);
+            });
+            
+            // 自动演奏
+            if (autoPlay) {
+                notes.forEach(note => {
+                    if (!note.hit && !note.missed && note.time - currentTime < 0.05) {
+                        hitTrack(note.track);
+                    }
+                });
+            }
+            
+            // 绘制和更新音符
+            notes.forEach(note => {
+                if (note.hit || note.missed) return;
+                
+                // 检查是否错过
+                if (currentTime > note.time + MISS_WINDOW / 1000 && !note.missed) {
+                    note.missed = true;
+                    combo = 0;
+                    hits.miss++;
+                    playHitSound('miss');
+                    updateUI();
+                }
+                
+                // 计算音符位置
+                const timeDiff = note.time - currentTime;
+                const y = HIT_LINE_Y - timeDiff * NOTE_SPEED;
+                
+                // 绘制音符
+                if (y > -50 && y < canvas.height + 50) {
+                    const x = note.track * TRACK_WIDTH + TRACK_WIDTH/2;
+                    const color = COLORS[note.track].hex;
+                    
+                    // 音符发光效果
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 20;
+                    
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.shadowBlur = 0;
+                    
+                    // 内部白色
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(x, y, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            
+            // 绘制击中效果
+            hitEffects = hitEffects.filter(effect => {
+                const age = Date.now() - effect.time;
+                if (age > 500) return false;
+                
+                const x = effect.track * TRACK_WIDTH + TRACK_WIDTH/2;
+                const opacity = 1 - age / 500;
+                
+                ctx.globalAlpha = opacity;
+                ctx.strokeStyle = effect.quality === 'perfect' ? '#ffff00' : 
+                                  effect.quality === 'good' ? '#00ff00' : '#ff0000';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(x, HIT_LINE_Y, 30 + age/10, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+                
+                // 绘制评价文字
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    effect.quality === 'perfect' ? 'PERFECT!' : 
+                    effect.quality === 'good' ? 'GOOD!' : 'MISS',
+                    x, HIT_LINE_Y - 40 - age/20
+                );
+                
+                return true;
+            });
+            
+            // 检查游戏是否结束
+            const allNotesProcessed = notes.every(n => n.hit || n.missed);
+            const lastNoteTime = Math.max(...notes.map(n => n.time));
+            
+            if (allNotesProcessed || currentTime > lastNoteTime + 3) {
+                endGame();
+                return;
+            }
+            
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            const keyMap = { 'd': 0, 'f': 1, 'j': 2, 'k': 3, 'D': 0, 'F': 1, 'J': 2, 'K': 3 };
+            
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (gameState === 'playing') {
+                    gameState = 'paused';
+                    document.getElementById('startBtn').textContent = '▶ 继续 (空格)';
+                } else if (gameState === 'menu' || gameState === 'ended') {
+                    startGame();
+                } else if (gameState === 'paused') {
+                    gameState = 'playing';
+                    document.getElementById('startBtn').textContent = '⏸ 暂停 (空格)';
+                    gameLoop();
+                }
+            } else if (keyMap.hasOwnProperty(e.key) && gameState === 'playing') {
+                hitTrack(keyMap[e.key]);
+            }
+        });
+        
+        // 触摸/点击支持
+        canvas.addEventListener('click', (e) => {
+            if (gameState !== 'playing') return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const track = Math.floor(x / TRACK_WIDTH);
+            
+            if (track >= 0 && track < TRACKS) {
+                hitTrack(track);
+            }
+        });
+        
+        // 初始绘制
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#333';
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('点击"开始游戏"或按空格键', canvas.width/2, canvas.height/2);
+    </script>
+</body>
+</html>
