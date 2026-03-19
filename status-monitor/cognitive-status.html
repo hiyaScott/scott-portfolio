@@ -808,7 +808,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.35.0</span>
+                <span id="versionText">v5.35.1</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1313,7 +1313,17 @@
                     .map(line => {
                         try {
                             const record = JSON.parse(line);
-                            record.timestamp_ms = new Date(record.timestamp).getTime();
+                            // v5.35: 修复时区问题 - Python旧数据使用无时区本地时间
+                            // 如果timestamp没有时区信息，假设为北京时间(CST=UTC+8)
+                            let ts = record.timestamp;
+                            if (ts && !ts.match(/[Zz]|[+-]\d{2}:\d{2}/)) {
+                                // 无时区信息，假设为北京时间，减去8小时转换为UTC
+                                const localDate = new Date(ts.replace(' ', 'T'));
+                                record.timestamp_ms = localDate.getTime() - (8 * 60 * 60 * 1000);
+                            } else {
+                                // 带时区信息，直接解析
+                                record.timestamp_ms = new Date(ts).getTime();
+                            }
                             return record;
                         } catch {
                             return null;

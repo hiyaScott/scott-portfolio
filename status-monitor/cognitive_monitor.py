@@ -19,7 +19,7 @@ import glob
 import psutil
 import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib import request
 
 UPSTASH_REDIS_REST_URL = "https://singular-snake-71209.upstash.io"
@@ -978,7 +978,7 @@ def main():
             code, text, sug = determine_status(load['cognitive_score'])
             
             data = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "cognitive_score": load['cognitive_score'],
                 "status_code": code,
                 "status_text": text,
