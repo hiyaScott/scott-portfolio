@@ -1073,17 +1073,21 @@
                 if (!response.ok) throw new Error('Redis fetch failed: ' + response.status);
                 
                 const result = await response.json();
-                // Upstash 返回格式: {"result": "{\\\"value\\\": \\\"{...实际数据...}\\\"}"}
+                console.log('[Redis] Raw response:', result);
+                
+                // Upstash 返回格式: {"result": "{\"value\": \"{...实际数据...}\"}"}
                 // 需要多层解析
                 if (result.result) {
                     const outer = JSON.parse(result.result);  // 解析 {"value": "..."}
                     if (outer.value) {
-                        return JSON.parse(outer.value);  // 解析实际数据
+                        const data = JSON.parse(outer.value);  // 解析实际数据
+                        console.log('[Redis] Parsed data:', data);
+                        return data;
                     }
                 }
-                throw new Error('Invalid Redis response');
+                throw new Error('Invalid Redis response structure');
             } catch (e) {
-                console.warn('[Redis] 失败，回退到 CDN:', e.message);
+                console.error('[Redis] 失败:', e.message);
                 return null;
             }
         }
