@@ -969,80 +969,53 @@ def get_history_data(hours=1, max_points=200):
         print(f"[GET_HISTORY ERROR] {e}")
         return []
 
+
 def main():
-    """主循环 - v5.38: 使用 Redis 实时存储，30秒更新"""
-    print("🧠 Shrimp Jetton v5.38 - Redis 实时存储 + 30秒更新")
-    print(f"📊 监控仓库: {', '.join(GITHUB_REPOS)}")
-    print(f"📈 历史数据: {HISTORY_FILE}")
-    print(f"📦 归档目录: {ARCHIVE_DIR}")
-    print("⏱️  更新频率: 每30秒")
-    print("🔄 Redis 实时推送")
+    """v6.0: 单次执行模式 - crontab 每分钟调用一次"""
+    print("🧠 Shrimp Jetton v6.0 - 单次执行模式")
     
-    last_cleanup_hour = -1
-    last_compress_day = -1
-    
-    while True:
-        try:
-            current_hour = datetime.now().hour
-            current_day = datetime.now().day
-            
-            # 每小时整点执行清理
-            if current_hour != last_cleanup_hour:
-                cleanup_history_file()
-                last_cleanup_hour = current_hour
-            
-            # 每天凌晨3点执行压缩归档
-            if current_day != last_compress_day and current_hour == 3:
-                compress_old_archives()
-                last_compress_day = current_day
-            
-            load = get_cognitive_load()
-            code, text, sug = determine_status(load['cognitive_score'])
-            
-            data = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "cognitive_score": load['cognitive_score'],
-                "status_code": code,
-                "status_text": text,
-                "suggestion": sug,
-                "active_sessions": load['active_sessions'],
-                "pending_count": load['pending_count'],
-                "processing_count": load['processing_count'],
-                "github_workflows": load['github_workflows'],
-                "local_builds": load['local_builds'],
-                "max_wait_sec": load['max_wait_sec'],
-                "total_tokens": load['total_tokens'],
-                "last_active_sec": load['last_active_sec'],
-                "task_queue": load['task_queue'],
-                "cpu_percent": load['system']['cpu_percent'],
-                "memory_percent": load['system']['memory_percent'],
-                "workflow_details": load['workflow_details'],
-                "build_details": load['build_details']
-            }
-            
-            # v5.38: 使用 Redis 实时存储，更新频率改为30秒
-            redis_success = update_redis(data)
-            if redis_success:
-                # 同时保存到本地作为备份
-                update_data_file(data)
-                update_history_file(data)
-                ts = datetime.now().strftime("%H:%M:%S")
-                tasks = ", ".join([d['name'].split()[1] if ' ' in d['name'] else d['name'] 
-                                   for d in load['task_queue'][:3]])
-                wf_info = f" | {load['github_workflows']} CI" if load['github_workflows'] > 0 else ""
-                build_info = f" | {load['local_builds']} Build" if load['local_builds'] > 0 else ""
-                print(f"[{ts}] {text} | {tasks}{wf_info}{build_info} | Redis OK")
-            else:
-                ts = datetime.now().strftime("%H:%M:%S")
-                print(f"[{ts}] {text} | Redis Failed, using local backup")
-                # Redis失败时使用本地存储
-                update_data_file(data)
-                update_history_file(data)
-            
-        except Exception as e:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] [ERR] {e}")
+    try:
+        load = get_cognitive_load()
+        code, text, sug = determine_status(load['cognitive_score'])
         
-        time.sleep(30)  # v5.38: 30秒更新一次
+        data = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "cognitive_score": load['cognitive_score'],
+            "status_code": code,
+            "status_text": text,
+            "suggestion": sug,
+            "active_sessions": load['active_sessions'],
+            "pending_count": load['pending_count'],
+            "processing_count": load['processing_count'],
+            "github_workflows": load['github_workflows'],
+            "local_builds": load['local_builds'],
+            "max_wait_sec": load['max_wait_sec'],
+            "total_tokens": load['total_tokens'],
+            "total_tokens_formatted": f"{load['total_tokens']/1000:.1f}k" if load['total_tokens'] >= 1000 else str(load['total_tokens']),
+            "last_active_sec": load['last_active_sec'],
+            "task_queue": load['task_queue'],
+            "cpu_percent": load['system']['cpu_percent'],
+            "memory_percent": load['system']['memory_percent'],
+            "estimated_wait": load.get('estimated_wait', {"text": "立即", "detail": "可立即响应"}),
+            "workflow_details": load['workflow_details'],
+            "build_details": load['build_details']
+        }
+        
+        # v6.0: 写入数据仓库
+        update_data_file(data)
+        update_history_file(data)
+        
+        ts = datetime.now().strftime("%H:%M:%S")
+        tasks = ", ".join([d['name'].split()[1] if ' ' in d['name'] else d['name'] 
+                           for d in load['task_queue'][:3]])
+        wf_info = f" | {load['github_workflows']} CI" if load['github_workflows'] > 0 else ""
+        build_info = f" | {load['local_builds']} Build" if load['local_builds'] > 0 else ""
+        print(f"[{ts}] {text} | Score:{load['cognitive_score']} | Queue:{load['processing_count']+load['pending_count']} | {tasks}{wf_info}{build_info}")
+        
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] [ERR] {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
