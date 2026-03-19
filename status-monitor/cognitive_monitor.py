@@ -741,11 +741,34 @@ def determine_status(score):
         return "low", "🟢 空闲", "可立即响应"
 
 def update_redis(data):
+    """v5.40: 更新 Redis，添加格式化字段"""
     try:
+        # 添加格式化字段
+        redis_data = dict(data)
+        redis_data['total_tokens_formatted'] = f"{(redis_data.get('total_tokens', 0) / 1000):.1f}k" if redis_data.get('total_tokens', 0) > 1000 else str(redis_data.get('total_tokens', 0))
+        
+        # 添加状态文本
+        score = redis_data.get('cognitive_score', 0)
+        code, text, sug = determine_status(score)
+        redis_data['status_code'] = code
+        redis_data['status_text'] = text
+        redis_data['suggestion'] = sug
+        
+        # 格式化任务队列
+        formatted_tasks = []
+        for task in redis_data.get('task_queue', []):
+            formatted_tasks.append({
+                'label': task.get('name', '💭 未知任务'),
+                'status': task.get('status', '✅ 空闲'),
+                'tokens': task.get('tokens', 0),
+                'type': task.get('type', 'session')
+            })
+        redis_data['task_queue'] = formatted_tasks
+        
         url = f"{UPSTASH_REDIS_REST_URL}/set/cognitive.json"
         req = request.Request(
             url,
-            data=json.dumps({"value": json.dumps(data)}).encode('utf-8'),
+            data=json.dumps({"value": json.dumps(redis_data)}).encode('utf-8'),
             headers={
                 "Authorization": f"Bearer {UPSTASH_REDIS_REST_TOKEN}",
                 "Content-Type": "application/json"
@@ -754,7 +777,8 @@ def update_redis(data):
         )
         with request.urlopen(req, timeout=5) as resp:
             return resp.status == 200
-    except:
+    except Exception as e:
+        print(f"[Redis Error] {e}")
         return False
 
 def update_data_file(data):
