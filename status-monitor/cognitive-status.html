@@ -1297,33 +1297,58 @@
                 // 从 JSON Lines 文件读取历史数据
                 const minutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
                 const cacheBuster = `?t=${Date.now()}`;
-                const historyUrl = `https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-history.jsonl${cacheBuster}`;
                 
-                const response = await fetch(historyUrl, {
-                    method: 'GET',
-                    mode: 'cors',
-                    cache: 'no-cache'
-                });
-                if (!response.ok) throw new Error('History fetch failed');
+                // 尝试多个数据源：jsdelivr CDN -> GitHub raw
+                let response = null;
+                let errorMsg = '';
+                
+                // 尝试 jsdelivr CDN
+                try {
+                    const cdnUrl = `https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-history.jsonl${cacheBuster}`;
+                    response = await fetch(cdnUrl, {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache'
+                    });
+                    if (!response.ok) throw new Error('CDN fetch failed: ' + response.status);
+                } catch (cdnError) {
+                    errorMsg += 'CDN: ' + cdnError.message + '; ';
+                    // 尝试 GitHub raw
+                    try {
+                        const rawUrl = `https://raw.githubusercontent.com/hiyaScott/scott-portfolio-data/main/status-monitor/cognitive-history.jsonl${cacheBuster}`;
+                        response = await fetch(rawUrl, {
+                            method: 'GET',
+                            mode: 'cors',
+                            cache: 'no-cache'
+                        });
+                        if (!response.ok) throw new Error('Raw fetch failed: ' + response.status);
+                    } catch (rawError) {
+                        errorMsg += 'Raw: ' + rawError.message;
+                        throw new Error(errorMsg);
+                    }
+                }
                 
                 const text = await response.text();
+                if (!text || text.trim().length === 0) {
+                    throw new Error('Empty response');
+                }
+                
                 const lines = text.trim().split('\n');
                 
                 // 解析 JSON Lines
                 const cutoffTime = Date.now() - (minutes * 60 * 1000);
+                const now = Date.now();
+                
                 trendData = lines
                     .map(line => {
                         try {
                             const record = JSON.parse(line);
-                            // v5.35: 修复时区问题 - Python旧数据使用无时区本地时间
-                            // 如果timestamp没有时区信息，假设为北京时间(CST=UTC+8)
+                            // v5.35: 修复时区问题
                             let ts = record.timestamp;
                             if (ts && !ts.match(/[Zz]|[+-]\d{2}:\d{2}/)) {
-                                // 无时区信息，假设为北京时间，减去8小时转换为UTC
                                 const localDate = new Date(ts.replace(' ', 'T'));
                                 record.timestamp_ms = localDate.getTime() - (8 * 60 * 60 * 1000);
                             } else {
-                                // 带时区信息，直接解析
                                 record.timestamp_ms = new Date(ts).getTime();
                             }
                             return record;
@@ -1331,13 +1356,20 @@
                             return null;
                         }
                     })
-                    .filter(r => r && r.timestamp_ms > cutoffTime)
+                    .filter(r => r && r.timestamp_ms > cutoffTime && r.timestamp_ms <= now)
                     .sort((a, b) => a.timestamp_ms - b.timestamp_ms);
                 
-                renderTrendChart();
+                // 调试信息
+                console.log('Trend data loaded:', trendData.length, 'records');
+                
+                if (trendData.length === 0) {
+                    renderEmptyChart('暂无数据');
+                } else {
+                    renderTrendChart();
+                }
             } catch (e) {
                 console.error('Trend data error:', e);
-                renderEmptyChart();
+                renderEmptyChart('加载失败: ' + e.message);
             }
         }
         
@@ -1563,7 +1595,7 @@
         }
         
         // 绘制空图表
-        function renderEmptyChart() {
+        function renderEmptyChart(message) {
             const canvas = document.getElementById('trendChartCanvas');
             if (!canvas) return;
             
@@ -1577,7 +1609,7 @@
             ctx.fillStyle = '#444';
             ctx.font = '14px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('暂无历史数据', rect.width / 2, rect.height / 2);
+            ctx.fillText(message || '暂无历史数据', rect.width / 2, rect.height / 2);
             
             document.getElementById('trendStats').innerHTML = '<span>最高:-- 最低:-- 平均:--</span>';
         }
