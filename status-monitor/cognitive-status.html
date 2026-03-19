@@ -1355,23 +1355,26 @@
             
             // 调试日志
             console.log('[Trend] Display range:', minutes, 'minutes');
-            console.log('[Trend] Cutoff time:', new Date(cutoffTime).toISOString());
-            console.log('[Trend] Now:', new Date(now).toISOString());
             console.log('[Trend] Total points:', trend.length);
-            if (trend.length > 0) {
-                console.log('[Trend] First point:', new Date(trend[0].timestamp_ms).toISOString());
-                console.log('[Trend] Last point:', new Date(trend[trend.length-1].timestamp_ms).toISOString());
-            }
             
-            // 过滤当前时间范围的数据
-            trendData = trend
+            // v6.2: 过滤当前时间范围的数据
+            let filtered = trend
                 .filter(r => r.timestamp_ms > cutoffTime && r.timestamp_ms <= now)
                 .sort((a, b) => a.timestamp_ms - b.timestamp_ms);
             
-            console.log('[Trend] Filtered points:', trendData.length);
+            console.log('[Trend] Filtered points:', filtered.length);
+            
+            // v6.2: 如果过滤后为空但有历史数据，显示最近的数据（至少1个点）
+            if (filtered.length === 0 && trend.length > 0) {
+                // 取最近的数据点（最多10个）
+                filtered = trend.slice(-10);
+                console.log('[Trend] 使用最近数据点:', filtered.length);
+            }
+            
+            trendData = filtered;
             
             if (trendData.length === 0) {
-                renderEmptyChart('暂无数据 - 正在累积中...');
+                renderEmptyChart('暂无历史数据');
             } else {
                 renderTrendChart();
             }
@@ -1446,17 +1449,73 @@
                 return;
             }
             
-            // 只有1个点时显示提示
+            // v6.2: 只有1个点时，显示该点并在左侧留白表示"之前为空"
             if (trendData.length === 1) {
+                const padding = { top: 25, right: 50, bottom: 30, left: 60 }; // 增加左侧留白
+                const chartWidth = width - padding.left - padding.right;
+                const chartHeight = height - padding.top - padding.bottom;
                 const score = trendData[0].score;
-                ctx.fillStyle = '#00ffff'; // 使用主题色
-                ctx.font = 'bold 24px sans-serif';
+                
+                // 绘制背景网格
+                ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                ctx.lineWidth = 1;
+                [0, 0.25, 0.5, 0.75, 1].forEach(ratio => {
+                    const y = padding.top + chartHeight * (1 - ratio);
+                    ctx.beginPath();
+                    ctx.moveTo(padding.left, y);
+                    ctx.lineTo(padding.left + chartWidth, y);
+                    ctx.stroke();
+                });
+                
+                // 绘制单点（在右侧）
+                const x = padding.left + chartWidth * 0.8; // 放在右侧80%位置
+                const y = padding.top + chartHeight * (1 - score / 100);
+                
+                // 绘制点
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = score > 50 ? '#ef4444' : '#22c55e';
+                ctx.fill();
+                
+                // 外圈光晕
+                ctx.beginPath();
+                ctx.arc(x, y, 12, 0, Math.PI * 2);
+                ctx.strokeStyle = score > 50 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(34, 197, 94, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 绘制左侧虚线表示"之前为空"
+                ctx.beginPath();
+                ctx.setLineDash([3, 3]);
+                ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(x - 15, y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // 显示评分
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText(score.toString(), width / 2, height / 2 - 10);
+                ctx.fillText(score.toString(), x, y - 15);
+                
+                // 显示提示
+                ctx.fillStyle = '#888';
+                ctx.font = '11px sans-serif';
+                ctx.fillText('(历史数据较少)', width / 2, height - 10);
+                
+                // 更新统计
+                document.getElementById('trendStats').innerHTML = `<span style="color:#fff;font-weight:bold">${score}</span> <span style="color:#666;margin-left:8px">当前评分</span>`;
+                
+                // 绘制Y轴标签
                 ctx.fillStyle = '#666';
-                ctx.font = '12px sans-serif';
-                ctx.fillText('数据点不足，切换至1分钟视图', width / 2, height / 2 + 20);
-                document.getElementById('trendStats').innerHTML = `<span style="color:#888">当前: ${score} | 需要更多数据点</span>`;
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'right';
+                [0, 25, 50, 75, 100].forEach(val => {
+                    const y = padding.top + chartHeight * (1 - val / 100);
+                    ctx.fillText(val, padding.left - 8, y + 3);
+                });
                 return;
             }
             
