@@ -2,7 +2,7 @@
 # Cognitive Monitor 推送脚本 v5.0 - 数据仓库分离版
 # 更新: 使用独立数据仓库 scott-portfolio-data，通过GitHub API推送
 
-REPO_DIR="/root/.openclaw/workspace/scott-portfolio-data"
+REPO_DIR="/root/.openclaw/workspace/portfolio-blog"
 DATA_FILE="status-monitor/cognitive-data.json"
 HISTORY_FILE="status-monitor/cognitive-history.jsonl"
 FAIL_COUNT_FILE="/tmp/cognitive_push_fail_count"
@@ -91,58 +91,15 @@ get_file_sha() {
     local filepath=$1
     curl -s -H "Authorization: token $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github.v3+json" \
-        "$GITHUB_API/contents/$filepath" | grep -o '"sha":"[^"]*"' | head -1 | cut -d'"' -f4
+        "$GITHUB_API/contents/$filepath" 2>/dev/null | grep -o '"sha":"[^"]*"' | head -1 | cut -d'"' -f4
 }
 
-# 上传文件到GitHub
+# 上传文件到GitHub (使用Python工具避免参数过长)
 upload_file() {
     local filepath=$1
     local message=$2
     
-    # 获取文件当前SHA
-    local sha=$(get_file_sha "$filepath")
-    
-    # 准备内容（base64编码）
-    local content=$(base64 -w0 "$REPO_DIR/$filepath")
-    
-    # 构建JSON payload
-    if [ -n "$sha" ]; then
-        # 更新现有文件
-        local payload=$(python3 -c "
-import json
-import sys
-payload = {
-    'message': '$message',
-    'content': '$content',
-    'sha': '$sha'
-}
-print(json.dumps(payload))
-" 2>/dev/null || echo "{\"message\":\"$message\",\"content\":\"$content\",\"sha\":\"$sha\"}")
-    else
-        # 创建新文件
-        local payload=$(python3 -c "
-import json
-payload = {
-    'message': '$message',
-    'content': '$content'
-}
-print(json.dumps(payload))
-" 2>/dev/null || echo "{\"message\":\"$message\",\"content\":\"$content\"}")
-    fi
-    
-    # 上传
-    local response=$(curl -s -X PUT \
-        -H "Authorization: token $GITHUB_TOKEN" \
-        -H "Accept: application/vnd.github.v3+json" \
-        -H "Content-Type: application/json" \
-        "$GITHUB_API/contents/$filepath" \
-        -d "$payload")
-    
-    if echo "$response" | grep -q '"content"'; then
-        echo "success"
-    else
-        echo "failed: $response"
-    fi
+    python3 "$REPO_DIR/status-monitor/github_upload.py" "$filepath" "$message" "$GITHUB_TOKEN" "$REPO_DIR"
 }
 
 # 上传数据文件
