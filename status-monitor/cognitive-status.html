@@ -1368,48 +1368,29 @@
             fetchTrendData();
         }
         
-        // v5.37: 趋势数据管理 - LocalStorage 累积模式
+        // v5.39: 趋势数据管理 - 使用 API 数据累积，不依赖 CDN
         const TREND_STORAGE_KEY = 'cognitive_trend_v5';
         const TREND_MAX_POINTS = 60; // 保留最近60个点（约1小时）
         
-        // 初始化趋势数据（首次加载从服务器获取，之后本地累积）
+        // 初始化趋势数据
         async function initTrendData() {
             try {
                 // 检查 LocalStorage 是否已有数据
                 let localTrend = JSON.parse(localStorage.getItem(TREND_STORAGE_KEY) || '[]');
                 
                 if (localTrend.length === 0) {
-                    // 首次加载：从 trend-data.json 获取初始化数据
-                    console.log('[Trend] 首次加载，从服务器获取初始化数据...');
-                    const trendUrl = 'https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/trend-data.json?t=' + Date.now();
-                    
-                    const response = await fetch(trendUrl, {
-                        method: 'GET',
-                        mode: 'cors',
-                        cache: 'no-cache'
-                    });
-                    
-                    if (response.ok) {
-                        const trendData = await response.json();
-                        if (trendData.points && trendData.points.length > 0) {
-                            // 转换为本地格式
-                            localTrend = trendData.points.map(p => ({
-                                timestamp_ms: new Date(p.ts).getTime(),
-                                score: p.s,
-                                ts: p.ts
-                            }));
-                            localStorage.setItem(TREND_STORAGE_KEY, JSON.stringify(localTrend));
-                            console.log('[Trend] 初始化完成，载入', localTrend.length, '条记录');
-                        }
-                    }
+                    console.log('[Trend] LocalStorage 为空，等待 API 数据...');
+                    // 首次加载：等待 fetchData 获取 API 数据后自动添加
+                    // 显示空图表提示
+                    renderEmptyChart('数据累积中...');
                 } else {
                     console.log('[Trend] 从 LocalStorage 恢复', localTrend.length, '条记录');
+                    // 立即渲染
+                    updateTrendDisplay(localTrend);
                 }
-                
-                // 立即渲染一次
-                updateTrendDisplay(localTrend);
             } catch (e) {
                 console.error('[Trend] 初始化失败:', e);
+                renderEmptyChart('初始化失败');
             }
         }
         
