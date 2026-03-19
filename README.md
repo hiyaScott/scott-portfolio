@@ -11,19 +11,19 @@
 ### 经典休闲类
 | 游戏 | 类型 | 技术 |
 |------|------|------|
-| [妈妈计数器](https://hiyascott.github.io/scott-portfolio/projects/games/mama-counter/) | 实用工具 | 纯Web |
-| [扫雷](https://hiyascott.github.io/scott-portfolio/projects/games/minesweeper/) | 经典游戏 | 🎮 Godot引擎 |
-| [飞机大战](https://hiyascott.github.io/scott-portfolio/projects/games/aircraft-war/) | 街机射击 | 纯Web |
-| [贪吃蛇](https://hiyascott.github.io/scott-portfolio/projects/games/snake/) | 经典街机 | 纯Web |
+| [妈妈计数器](https://hiyascott.github.io/scott-portfolio/games/mama-counter/) | 实用工具 | 纯Web |
+| [扫雷](https://hiyascott.github.io/scott-portfolio/games/minesweeper/) | 经典游戏 | 🎮 Godot引擎 |
+| [飞机大战](https://hiyascott.github.io/scott-portfolio/games/aircraft-war/) | 街机射击 | 纯Web |
+| [贪吃蛇](https://hiyascott.github.io/scott-portfolio/games/snake/) | 经典街机 | 纯Web |
 
 ### 音乐节奏类
-- [编钟模拟器](https://hiyascott.github.io/scott-portfolio/projects/games/six-finger-midi/) - 15口钟完整音阶，文化体验
-- [节奏指挥官](https://hiyascott.github.io/scott-portfolio/projects/games/rhythm-commander/) - 精准打击节奏游戏
-- [节奏跑酷](https://hiyascott.github.io/scott-portfolio/projects/games/rhythm-parkour/) - 音乐+跑酷
-- [颜色交响曲](https://hiyascott.github.io/scott-portfolio/projects/games/color-symphony/) - 音乐+颜色匹配
+- [编钟模拟器](https://hiyascott.github.io/scott-portfolio/games/six-finger-midi/) - 15口钟完整音阶，文化体验
+- [节奏指挥官](https://hiyascott.github.io/scott-portfolio/games/rhythm-commander/) - 精准打击节奏游戏
+- [节奏跑酷](https://hiyascott.github.io/scott-portfolio/games/rhythm-parkour/) - 音乐+跑酷
+- [颜色交响曲](https://hiyascott.github.io/scott-portfolio/games/color-symphony/) - 音乐+颜色匹配
 
 ### 策略动作类
-- [时间切片](https://hiyascott.github.io/scott-portfolio/projects/games/time-slice/) - 时间冻结策略
+- [时间切片](https://hiyascott.github.io/scott-portfolio/games/time-slice/) - 时间冻结策略
 
 ### 物理解谜类
 - 引力弹弓、完美轨迹、量子迷宫、波函数坍缩
@@ -37,7 +37,7 @@
 ### 编程学习类
 - Bot Coder、霓虹防线
 
-**完整列表**: https://hiyascott.github.io/scott-portfolio/projects/games/
+**完整列表**: https://hiyascott.github.io/scott-portfolio/games/
 
 ---
 
