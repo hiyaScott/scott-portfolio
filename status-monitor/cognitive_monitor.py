@@ -1004,12 +1004,13 @@ def get_history_data(hours=1, max_points=200):
         return []
 
 def main():
-    """主循环 - v5.34: 添加历史数据存储和自动归档"""
-    print("🧠 Shrimp Jetton v5.34 - 本地历史数据 + 自动归档")
+    """主循环 - v5.38: 使用 Redis 实时存储，30秒更新"""
+    print("🧠 Shrimp Jetton v5.38 - Redis 实时存储 + 30秒更新")
     print(f"📊 监控仓库: {', '.join(GITHUB_REPOS)}")
     print(f"📈 历史数据: {HISTORY_FILE}")
     print(f"📦 归档目录: {ARCHIVE_DIR}")
-    print("⏱️  更新频率: 每60秒")
+    print("⏱️  更新频率: 每30秒")
+    print("🔄 Redis 实时推送")
     
     last_cleanup_hour = -1
     last_compress_day = -1
@@ -1053,20 +1054,29 @@ def main():
                 "build_details": load['build_details']
             }
             
-            # v5.34: 更新数据文件 + 历史数据
-            if update_data_file(data):
+            # v5.38: 使用 Redis 实时存储，更新频率改为30秒
+            redis_success = update_redis(data)
+            if redis_success:
+                # 同时保存到本地作为备份
+                update_data_file(data)
                 update_history_file(data)
                 ts = datetime.now().strftime("%H:%M:%S")
                 tasks = ", ".join([d['name'].split()[1] if ' ' in d['name'] else d['name'] 
                                    for d in load['task_queue'][:3]])
                 wf_info = f" | {load['github_workflows']} CI" if load['github_workflows'] > 0 else ""
                 build_info = f" | {load['local_builds']} Build" if load['local_builds'] > 0 else ""
-                print(f"[{ts}] {text} | {tasks}{wf_info}{build_info}")
+                print(f"[{ts}] {text} | {tasks}{wf_info}{build_info} | Redis OK")
+            else:
+                ts = datetime.now().strftime("%H:%M:%S")
+                print(f"[{ts}] {text} | Redis Failed, using local backup")
+                # Redis失败时使用本地存储
+                update_data_file(data)
+                update_history_file(data)
             
         except Exception as e:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] [ERR] {e}")
         
-        time.sleep(60)  # 每60秒更新一次
+        time.sleep(30)  # v5.38: 30秒更新一次
 
 if __name__ == "__main__":
     main()

@@ -810,7 +810,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.37</span>
+                <span id="versionText">v5.38</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1052,26 +1052,60 @@
         // GitHub Pages 数据源 - 自动推送模式
         // 数据通过监控脚本自动推送到 GitHub Pages
         // 
-        // 时间配置（一致性优化 v5.33）：
-        // - 监控脚本：每1分钟执行（crontab）
-        // - 前端轮询：每30秒
-        // - 数据有效期：2分钟（超过显示"可能过期"）
+        // v5.38: Redis 实时存储配置
+        // Upstash Redis REST API
+        const REDIS_URL = 'https://singular-snake-71209.upstash.io/get/cognitive.json';
+        const REDIS_TOKEN = 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk';
         const DATA_URL = 'https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-data.json';
         const REFRESH_INTERVAL = 30000; // 30秒轮询
         const DATA_MAX_AGE_MS = 120000; // 2分钟数据有效期
         
-        async function fetchData() {
+        // v5.38: 从 Redis 获取数据
+        async function fetchFromRedis() {
             try {
-                // 简化 fetch 配置，与主页保持一致
-                const response = await fetch(DATA_URL + '?t=' + Date.now(), {
+                const response = await fetch(REDIS_URL, {
                     method: 'GET',
-                    mode: 'cors',
-                    cache: 'no-cache'
+                    headers: {
+                        'Authorization': `Bearer ${REDIS_TOKEN}`
+                    }
                 });
                 
-                if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+                if (!response.ok) throw new Error('Redis fetch failed: ' + response.status);
                 
-                const metrics = await response.json();
+                const result = await response.json();
+                // Upstash 返回格式: {"result": "json字符串"}
+                if (result.result) {
+                    return JSON.parse(result.result);
+                }
+                throw new Error('Invalid Redis response');
+            } catch (e) {
+                console.warn('[Redis] 失败，回退到 CDN:', e.message);
+                return null;
+            }
+        }
+        
+        // v5.38: 从 CDN 获取数据（Redis 失败时回退）
+        async function fetchFromCDN() {
+            const response = await fetch(DATA_URL + '?t=' + Date.now(), {
+                method: 'GET',
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+            
+            if (!response.ok) throw new Error('CDN fetch failed: ' + response.status);
+            return await response.json();
+        }
+        
+        async function fetchData() {
+            try {
+                // v5.38: 优先从 Redis 读取，失败则回退到 CDN
+                let metrics = await fetchFromRedis();
+                let source = 'Redis';
+                
+                if (!metrics) {
+                    metrics = await fetchFromCDN();
+                    source = 'CDN';
+                }
                 
                 updateUI(metrics);
                 
@@ -1083,13 +1117,13 @@
                 if (syncTimeEl) {
                     const now = new Date();
                     const timeStr = now.toLocaleTimeString('zh-CN', {hour12: false});
-                    syncTimeEl.textContent = `🔄 ${timeStr}`;
+                    syncTimeEl.textContent = `🔄 ${timeStr} (${source})`;
                 }
                 
                 // 更新连接状态为正常
                 const connEl = document.getElementById('connectionValue');
                 if (connEl) {
-                    connEl.textContent = '实时';
+                    connEl.textContent = source === 'Redis' ? '实时' : '缓存';
                     connEl.className = 'compact-status-value online';
                 }
             } catch (e) {
