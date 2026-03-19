@@ -810,7 +810,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.38</span>
+                <span id="versionText">v5.39</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1052,15 +1052,39 @@
         // GitHub Pages 数据源 - 自动推送模式
         // 数据通过监控脚本自动推送到 GitHub Pages
         // 
-        // v5.38: Redis 实时存储配置
-        // Upstash Redis REST API
+        // v5.39: 本地 API 服务器配置 (方案 B)
+        // 实时数据从本地服务器获取，延迟 < 1 秒
+        const API_BASE_URL = 'http://8.210.105.190:8080';  // 服务器公网 IP
+        const API_STATUS_URL = `${API_BASE_URL}/api/status`;
+        const REFRESH_INTERVAL = 5000; // 5 秒轮询（实时性优先）
+        const DATA_MAX_AGE_MS = 30000; // 30 秒数据有效期
+        
+        // 备用数据源（本地 API 失败时使用）
         const REDIS_URL = 'https://singular-snake-71209.upstash.io/get/cognitive.json';
         const REDIS_TOKEN = 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk';
-        const DATA_URL = 'https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-data.json';
-        const REFRESH_INTERVAL = 30000; // 30秒轮询
-        const DATA_MAX_AGE_MS = 120000; // 2分钟数据有效期
+        const CDN_URL = 'https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-data.json';
         
-        // v5.38: 从 Redis 获取数据
+        // v5.39: 从本地 API 获取数据
+        async function fetchFromAPI() {
+            try {
+                const response = await fetch(API_STATUS_URL, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                if (!response.ok) throw new Error('API fetch failed: ' + response.status);
+                
+                const data = await response.json();
+                console.log('[API] 数据获取成功:', data.cognitive_score);
+                return { data, source: 'API' };
+            } catch (e) {
+                console.warn('[API] 失败:', e.message);
+                return null;
+            }
+        }
+        
+        // v5.38: 从 Redis 获取数据（备用）
         async function fetchFromRedis() {
             try {
                 const response = await fetch(REDIS_URL, {
@@ -1073,54 +1097,62 @@
                 if (!response.ok) throw new Error('Redis fetch failed: ' + response.status);
                 
                 const result = await response.json();
-                console.log('[Redis] Raw response:', result);
-                
-                // Upstash 返回格式: {"result": "{\"value\": \"{...实际数据...}\"}"}
-                // 需要多层解析
                 if (result.result) {
-                    const outer = JSON.parse(result.result);  // 解析 {"value": "..."}
+                    const outer = JSON.parse(result.result);
                     if (outer.value) {
-                        const data = JSON.parse(outer.value);  // 解析实际数据
-                        console.log('[Redis] Parsed data:', data);
-                        return data;
+                        const data = JSON.parse(outer.value);
+                        return { data, source: 'Redis' };
                     }
                 }
-                throw new Error('Invalid Redis response structure');
+                throw new Error('Invalid Redis response');
             } catch (e) {
-                console.error('[Redis] 失败:', e.message);
+                console.warn('[Redis] 失败:', e.message);
                 return null;
             }
         }
         
-        // v5.38: 从 CDN 获取数据（Redis 失败时回退）
+        // v5.38: 从 CDN 获取数据（最后备用）
         async function fetchFromCDN() {
-            const response = await fetch(DATA_URL + '?t=' + Date.now(), {
-                method: 'GET',
-                mode: 'cors',
-                cache: 'no-cache'
-            });
-            
-            if (!response.ok) throw new Error('CDN fetch failed: ' + response.status);
-            return await response.json();
+            try {
+                const response = await fetch(CDN_URL + '?t=' + Date.now(), {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                if (!response.ok) throw new Error('CDN fetch failed: ' + response.status);
+                
+                const data = await response.json();
+                return { data, source: 'CDN' };
+            } catch (e) {
+                console.warn('[CDN] 失败:', e.message);
+                return null;
+            }
         }
         
         async function fetchData() {
             try {
-                // v5.38: 优先从 Redis 读取，失败则回退到 CDN
-                let metrics = await fetchFromRedis();
-                let source = 'Redis';
+                // v5.39: 优先从本地 API 读取，依次回退
+                let result = await fetchFromAPI();
                 
-                if (!metrics) {
-                    metrics = await fetchFromCDN();
-                    source = 'CDN';
+                if (!result) {
+                    result = await fetchFromRedis();
                 }
                 
-                updateUI(metrics);
+                if (!result) {
+                    result = await fetchFromCDN();
+                }
                 
-                // v5.37: 添加趋势数据点
-                addTrendPoint(metrics);
+                if (!result) {
+                    throw new Error('所有数据源均失败');
+                }
                 
-                // 更新最新同步时间
+                const { data, source } = result;
+                
+                updateUI(data);
+                addTrendPoint(data);
+                
+                // 更新同步时间和来源
                 const syncTimeEl = document.getElementById('lastSyncTime');
                 if (syncTimeEl) {
                     const now = new Date();
@@ -1128,15 +1160,15 @@
                     syncTimeEl.textContent = `🔄 ${timeStr} (${source})`;
                 }
                 
-                // 更新连接状态为正常
+                // 更新连接状态
                 const connEl = document.getElementById('connectionValue');
                 if (connEl) {
-                    connEl.textContent = source === 'Redis' ? '实时' : '缓存';
-                    connEl.className = 'compact-status-value online';
+                    const isRealtime = source === 'API';
+                    connEl.textContent = isRealtime ? '实时' : (source === 'Redis' ? '近实时' : '缓存');
+                    connEl.className = 'compact-status-value ' + (isRealtime ? 'online' : 'medium');
                 }
             } catch (e) {
                 console.error('Error:', e);
-                // 显示连接失败状态
                 document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
                 document.getElementById('radioStatusText').style.color = '#ef4444';
                 

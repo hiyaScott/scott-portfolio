@@ -2247,32 +2247,27 @@
             }
             
             try {
-                // v5.38: 优先从 Redis 读取，回退到 CDN
+                // v5.39: 优先从本地 API 读取
                 let data = null;
                 let source = 'CDN';
                 
-                // 尝试 Redis
+                // 尝试本地 API
                 try {
-                    const redisUrl = 'https://singular-snake-71209.upstash.io/get/cognitive.json';
-                    const redisToken = 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk';
-                    const redisResp = await fetch(redisUrl, {
-                        headers: { 'Authorization': `Bearer ${redisToken}` }
+                    const apiUrl = 'http://8.210.105.190:8080/api/status';
+                    const apiResp = await fetch(apiUrl, {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache'
                     });
-                    if (redisResp.ok) {
-                        const result = await redisResp.json();
-                        if (result.result) {
-                            const outer = JSON.parse(result.result);
-                            if (outer.value) {
-                                data = JSON.parse(outer.value);
-                                source = 'Redis';
-                            }
-                        }
+                    if (apiResp.ok) {
+                        data = await apiResp.json();
+                        source = 'API';
                     }
-                } catch (redisErr) {
-                    console.log('[Homepage] Redis failed, using CDN');
+                } catch (apiErr) {
+                    console.log('[Homepage] API failed:', apiErr.message);
                 }
                 
-                // 如果 Redis 失败，使用 CDN
+                // 如果 API 失败，使用 CDN
                 if (!data) {
                     const response = await fetch('https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-data.json?t=' + Date.now(), {
                         method: 'GET',
