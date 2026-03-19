@@ -810,7 +810,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v6.2 · 5/15/60分钟趋势 · 30秒延迟可接受</span>
+                <span id="versionText">v6.2.1 · 调试模式 · 检查控制台日志</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1058,9 +1058,12 @@
         
         // v6.0: 简化评分 - 队列长度直接映射
         function calculateSimpleScore(data) {
-            const processing = data.processing_count || 0;
-            const pending = data.pending_count || 0;
+            // v6.2: 确保字段存在且为数字
+            const processing = parseInt(data.processing_count) || 0;
+            const pending = parseInt(data.pending_count) || 0;
             const queue = processing + pending;
+            
+            console.log('[v6.2] calculateSimpleScore:', { processing, pending, queue });
             
             if (queue === 0) return { score: 0, label: '空闲', color: '#22c55e' };
             if (queue === 1) return { score: 25, label: '轻载', color: '#3b82f6' };
@@ -1093,6 +1096,16 @@
                 
                 const rawData = await response.json();
                 
+                // v6.2: 添加详细调试日志
+                console.log('[v6.2] Raw data from GitHub:', {
+                    timestamp: rawData.timestamp,
+                    cognitive_score: rawData.cognitive_score,
+                    processing_count: rawData.processing_count,
+                    pending_count: rawData.pending_count,
+                    active_sessions: rawData.active_sessions,
+                    task_queue: rawData.task_queue?.length || 0
+                });
+                
                 // 使用简化评分
                 const scoreInfo = calculateSimpleScore(rawData);
                 rawData.cognitive_score = scoreInfo.score;
@@ -1102,7 +1115,7 @@
                 const waitInfo = estimateWaitTime(rawData);
                 rawData.estimated_wait = waitInfo;
                 
-                console.log('[v6.0] Score:', scoreInfo.score, 'Queue:', rawData.processing_count + rawData.pending_count, 'Est:', waitInfo.text);
+                console.log('[v6.2] Calculated score:', scoreInfo.score, 'Queue:', (rawData.processing_count || 0) + (rawData.pending_count || 0), 'Est:', waitInfo.text);
                 
                 updateUI(rawData);
                 addTrendPoint(rawData);
