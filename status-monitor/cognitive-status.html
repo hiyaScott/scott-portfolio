@@ -1361,10 +1361,18 @@
                 // 解析时间戳
                 const ts = metrics.timestamp;
                 let timestamp_ms;
+                
+                // 调试日志
+                console.log('[Trend] Adding point, raw timestamp:', ts);
+                
                 if (ts && !ts.match(/[Zz]|[+-]\d{2}:\d{2}/)) {
+                    // 无时区，假设为北京时间，减去8小时转换为UTC
                     timestamp_ms = new Date(ts.replace(' ', 'T')).getTime() - (8 * 60 * 60 * 1000);
+                    console.log('[Trend] Parsed as local time (no timezone), ms:', timestamp_ms);
                 } else {
+                    // 有时区，直接解析
                     timestamp_ms = new Date(ts).getTime();
+                    console.log('[Trend] Parsed as UTC time, ms:', timestamp_ms);
                 }
                 
                 // 检查是否已存在（避免重复）
@@ -1390,7 +1398,7 @@
                 
                 // 保存到 LocalStorage
                 localStorage.setItem(TREND_STORAGE_KEY, JSON.stringify(trend));
-                console.log('[Trend] 添加新点，当前共', trend.length, '条记录');
+                console.log('[Trend] 添加新点成功，当前共', trend.length, '条记录');
                 
                 // 更新显示
                 updateTrendDisplay(trend);
@@ -1403,14 +1411,27 @@
         function updateTrendDisplay(trend) {
             const minutes = currentTrendRange === '1m' ? 1 : currentTrendRange === '5m' ? 5 : 15;
             const cutoffTime = Date.now() - (minutes * 60 * 1000);
+            const now = Date.now();
+            
+            // 调试日志
+            console.log('[Trend] Display range:', minutes, 'minutes');
+            console.log('[Trend] Cutoff time:', new Date(cutoffTime).toISOString());
+            console.log('[Trend] Now:', new Date(now).toISOString());
+            console.log('[Trend] Total points:', trend.length);
+            if (trend.length > 0) {
+                console.log('[Trend] First point:', new Date(trend[0].timestamp_ms).toISOString());
+                console.log('[Trend] Last point:', new Date(trend[trend.length-1].timestamp_ms).toISOString());
+            }
             
             // 过滤当前时间范围的数据
             trendData = trend
-                .filter(r => r.timestamp_ms > cutoffTime && r.timestamp_ms <= Date.now())
+                .filter(r => r.timestamp_ms > cutoffTime && r.timestamp_ms <= now)
                 .sort((a, b) => a.timestamp_ms - b.timestamp_ms);
             
+            console.log('[Trend] Filtered points:', trendData.length);
+            
             if (trendData.length === 0) {
-                renderEmptyChart('暂无数据');
+                renderEmptyChart('暂无数据 - 正在累积中...');
             } else {
                 renderTrendChart();
             }
