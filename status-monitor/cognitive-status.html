@@ -1073,9 +1073,13 @@
                 if (!response.ok) throw new Error('Redis fetch failed: ' + response.status);
                 
                 const result = await response.json();
-                // Upstash 返回格式: {"result": "json字符串"}
+                // Upstash 返回格式: {"result": "{\\\"value\\\": \\\"{...实际数据...}\\\"}"}
+                // 需要多层解析
                 if (result.result) {
-                    return JSON.parse(result.result);
+                    const outer = JSON.parse(result.result);  // 解析 {"value": "..."}
+                    if (outer.value) {
+                        return JSON.parse(outer.value);  // 解析实际数据
+                    }
                 }
                 throw new Error('Invalid Redis response');
             } catch (e) {
