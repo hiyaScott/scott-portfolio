@@ -644,6 +644,9 @@ def get_cognitive_load():
         minutes = (total_queue - 1) // 2 + 1
         estimated_wait = {'text': f'~{minutes}分钟', 'seconds': minutes * 60, 'detail': f'预计{minutes}分钟内回复'}
     
+    # v6.1: 只返回活跃任务到 task_queue（处理中或等待中）
+    active_tasks = [t for t in all_tasks if '🔄' in t.get('status', '') or '前活跃' in t.get('status', '') or '运行中' in t.get('status', '')]
+    
     # 任务排序：最近活跃 > 处理中 > 已回复
     def task_priority(t):
         if '前活跃' in t.get('status', ''):
@@ -653,7 +656,7 @@ def get_cognitive_load():
         else:
             return (2, 0, 0)
     
-    all_tasks.sort(key=task_priority)
+    active_tasks.sort(key=task_priority)
     
     return {
         'active_sessions': len(sessions),
@@ -663,9 +666,9 @@ def get_cognitive_load():
         'local_builds': len(local_builds),
         'max_wait_sec': max_wait,
         'total_tokens': total_tokens,
-        'estimated_wait': estimated_wait,  # v6.0: 添加预估时间
+        'estimated_wait': estimated_wait,
         'last_active_sec': last_active,
-        'task_queue': all_tasks,
+        'task_queue': active_tasks,  # v6.1: 只返回活跃任务
         'cognitive_score': score,
         'system': get_system_metrics(),
         'workflow_details': github_workflows,
