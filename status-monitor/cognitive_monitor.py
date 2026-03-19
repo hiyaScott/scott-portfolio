@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v5.35 - 优化状态显示
+Shrimp Jetton 认知负载监控 v6.0 - 简化方案
 更新：
+- v6.0: 简化评分算法，队列长度直接映射；添加预估回复时间；单一数据源
 - v5.35: 状态显示改为"最后活跃时间"替代"等待时间"，更准确反映会话状态
 - v5.34: 从Redis迁移到本地JSON Lines存储，添加自动归档
-- v5.32: 扩展时间窗口检测子代理任务(1小时)，添加勘误相关关键词
-- v5.31.1: 更严格的处理中判断(10秒)，降低token评分权重，空闲状态(max 10%)
-- v5.31.0: 优化空闲状态评分，无任务时负载不超过15%
-- v5.28: 降低等待时间评分权重（等待4分钟不再高负载）
-- v5.28: 修复任务名称重复显示问题
-- v5.28: 优化任务状态判断逻辑
 """
 
 import json
@@ -625,94 +620,40 @@ def get_cognitive_load():
     
     last_active = int(time.time() - recent_mtime) if recent_mtime > 0 else 999
     
-    # 评分算法 v5.34 - 当前对话特殊处理
-    # 当前对话的处理中加分减半（7分而不是15分）
+    # v6.0: 简化评分算法 - 队列长度直接映射
+    # 计算总队列长度 (处理中 + 等待中)
+    total_queue = processing_count + pending_count
     
-    # 基础分：只基于待处理和处理中的任务
-    base_score = 0
-    
-    # 活跃会话基础分 - 空闲会话不应产生明显负载
-    if pending_count > 0 or processing_count > 0:
-        # 有实际工作时，会话数才有意义
-        base_score += min(len(sessions) * 1, 4)  # v5.34: 降低为1分/个，最高4分
+    if total_queue == 0:
+        score = 0  # 空闲
+    elif total_queue == 1:
+        score = 25  # 轻载
+    elif total_queue == 2:
+        score = 50  # 中等
     else:
-        # 空闲状态，只有非常低的背景分
-        base_score = min(len(sessions), 2)
+        score = min(75 + total_queue * 5, 100)  # 高载
     
-    # GitHub构建加成
-    github_bonus = len(github_workflows) * 10
+    # v6.0: 计算预估回复时间
+    if total_queue == 0:
+        estimated_wait = {'text': '立即', 'seconds': 0, 'detail': '可立即响应'}
+    elif total_queue == 1:
+        estimated_wait = {'text': '~30秒', 'seconds': 30, 'detail': '预计30秒内回复'}
+    elif total_queue == 2:
+        estimated_wait = {'text': '~1分钟', 'seconds': 60, 'detail': '预计1分钟内回复'}
+    else:
+        minutes = (total_queue - 1) // 2 + 1
+        estimated_wait = {'text': f'~{minutes}分钟', 'seconds': minutes * 60, 'detail': f'预计{minutes}分钟内回复'}
     
-    # 本地构建加成  
-    build_bonus = len(local_builds) * 8
-    
-    # 等待评分 - 根据等待时间和待处理数量
-    wait_score = 0
-    if pending_count > 0:
-        # 基础等待分
-        wait_score = min(pending_count * 8, 20)
-        # 长时间等待加成
-        if max_wait > 300:  # 5分钟以上
-            wait_score += 15
-        elif max_wait > 120:  # 2分钟以上
-            wait_score += 8
-        elif max_wait > 60:  # 1分钟以上
-            wait_score += 3
-    
-    # 处理中任务评分 - v5.34: 区分当前对话、后台任务、系统监控
-    processing_score = 0
-    
-    # 识别当前对话：检查每个处理中任务的最后用户消息时间
-    current_session_count = 0
-    system_monitor_count = 0
-    normal_processing_count = 0
-    
-    for t in all_tasks:
-        if '🔄' in t.get('status', ''):
-            if t.get('is_system_monitor'):
-                # 系统监控：单独计数
-                system_monitor_count += 1
-            else:
-                user_ts = t.get('user_ts', 0)
-                # 如果用户消息在600秒内（10分钟），标记为当前对话
-                if user_ts > 0 and time.time() - user_ts < 600:
-                    t['is_current_session'] = True
-                    current_session_count += 1
-                else:
-                    normal_processing_count += 1
-    
-    # 普通后台任务：15分/个
-    processing_score += normal_processing_count * 15
-    # 当前对话：7分/个
-    processing_score += current_session_count * 7
-    # 系统监控：4分/个
-    processing_score += system_monitor_count * 4
-    
-    # 任务排序：系统监控排最后，超过4个任务时隐藏
-    # 排序优先级：最近活跃 > 处理中(非系统监控) > 已回复 > 系统监控
+    # 任务排序：最近活跃 > 处理中 > 已回复
     def task_priority(t):
         if '前活跃' in t.get('status', ''):
-            return (0, 0, t.get('wait_time', 0))  # 等待时间长的排前面
-        elif '🔄' in t.get('status', '') and not t.get('is_system_monitor'):
+            return (0, 0, t.get('wait_time', 0))
+        elif '🔄' in t.get('status', ''):
             return (1, 0, 0)
-        elif '✅' in t.get('status', ''):
-            return (2, 0, 0)
         else:
-            return (3, 0, 0)  # 系统监控排最后
+            return (2, 0, 0)
     
     all_tasks.sort(key=task_priority)
-    
-    # 如果任务超过4个，隐藏系统监控任务
-    if len(all_tasks) > 4:
-        all_tasks = [t for t in all_tasks if not t.get('is_system_monitor', False)]
-        # 重新计算processing_count（排除系统监控）
-        processing_count = sum(1 for t in all_tasks if '🔄' in t.get('status', '') or '前活跃' in t.get('status', ''))
-    
-    # 最终评分
-    if pending_count == 0 and processing_count == 0 and len(github_workflows) == 0 and len(local_builds) == 0:
-        # 真正的空闲状态
-        score = min(base_score, 8)
-    else:
-        score = min(base_score + wait_score + processing_score + github_bonus + build_bonus, 100)
     
     return {
         'active_sessions': len(sessions),
@@ -722,6 +663,7 @@ def get_cognitive_load():
         'local_builds': len(local_builds),
         'max_wait_sec': max_wait,
         'total_tokens': total_tokens,
+        'estimated_wait': estimated_wait,  # v6.0: 添加预估时间
         'last_active_sec': last_active,
         'task_queue': all_tasks,
         'cognitive_score': score,
