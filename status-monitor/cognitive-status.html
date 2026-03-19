@@ -810,7 +810,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.41 · 三级回退 · Redis → CDN → GitHub</span>
+                <span id="versionText">v6.0 · 简化方案 · 30秒延迟可接受</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1052,109 +1052,77 @@
         // GitHub Pages 数据源 - 自动推送模式
         // 数据通过监控脚本自动推送到 GitHub Pages
         // 
-        // v5.41: 三级数据源 - Redis → CDN → GitHub Raw
-        const REDIS_URL = 'https://singular-snake-71209.upstash.io/get/cognitive.json';
-        const REDIS_TOKEN = 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk';
-        const CDN_URL = 'https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-data.json';
-        const RAW_URL = 'https://raw.githubusercontent.com/hiyaScott/scott-portfolio-data/main/status-monitor/cognitive-data.json';
-        const REFRESH_INTERVAL = 10000; // 10秒轮询
+        // v6.0: 简化方案 - 单一数据源 + 简化评分
+        const DATA_URL = 'https://raw.githubusercontent.com/hiyaScott/scott-portfolio-data/main/status-monitor/cognitive-data.json';
+        const REFRESH_INTERVAL = 30000; // 30秒轮询 (符合30-60秒延迟接受范围)
         
-        // v5.40: 从 Redis 获取数据
-        async function fetchFromRedis() {
-            try {
-                const response = await fetch(REDIS_URL, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${REDIS_TOKEN}` }
-                });
-                
-                if (!response.ok) throw new Error('Redis HTTP ' + response.status);
-                
-                const result = await response.json();
-                // Upstash 返回: {"result": "{\"value\": \"{...}\"}"}
-                if (result.result) {
-                    const outer = JSON.parse(result.result);
-                    if (outer.value) {
-                        return { data: JSON.parse(outer.value), source: 'Redis' };
-                    }
-                }
-                throw new Error('Invalid Redis format');
-            } catch (e) {
-                console.warn('[Redis] Failed:', e.message);
-                return null;
-            }
+        // v6.0: 简化评分 - 队列长度直接映射
+        function calculateSimpleScore(data) {
+            const processing = data.processing_count || 0;
+            const pending = data.pending_count || 0;
+            const queue = processing + pending;
+            
+            if (queue === 0) return { score: 0, label: '空闲', color: '#22c55e' };
+            if (queue === 1) return { score: 25, label: '轻载', color: '#3b82f6' };
+            if (queue === 2) return { score: 50, label: '中等', color: '#eab308' };
+            return { score: Math.min(75 + queue * 5, 100), label: '高载', color: '#ef4444' };
         }
         
-        // v5.40: 从 CDN 获取数据
-        async function fetchFromCDN() {
-            try {
-                const response = await fetch(CDN_URL + '?t=' + Date.now(), {
-                    method: 'GET',
-                    mode: 'cors',
-                    cache: 'no-cache'
-                });
-                
-                if (!response.ok) throw new Error('CDN HTTP ' + response.status);
-                return { data: await response.json(), source: 'CDN' };
-            } catch (e) {
-                console.warn('[CDN] Failed:', e.message);
-                return null;
-            }
-        }
-        
-        // v5.41: 从 GitHub Raw 获取数据 (无 CDN 缓存)
-        async function fetchFromRaw() {
-            try {
-                const response = await fetch(RAW_URL + '?t=' + Date.now(), {
-                    method: 'GET',
-                    mode: 'cors',
-                    cache: 'no-cache'
-                });
-                
-                if (!response.ok) throw new Error('Raw HTTP ' + response.status);
-                return { data: await response.json(), source: 'GitHub' };
-            } catch (e) {
-                console.warn('[Raw] Failed:', e.message);
-                return null;
-            }
+        // v6.0: 预估回复时间
+        function estimateWaitTime(data) {
+            const processing = data.processing_count || 0;
+            const pending = data.pending_count || 0;
+            const queue = processing + pending;
+            
+            if (queue === 0) return { text: '立即', seconds: 0, detail: '可立即响应' };
+            if (queue === 1) return { text: '~30秒', seconds: 30, detail: '预计30秒内回复' };
+            if (queue === 2) return { text: '~1分钟', seconds: 60, detail: '预计1分钟内回复' };
+            const minutes = Math.ceil(queue * 0.5);
+            return { text: `~${minutes}分钟`, seconds: minutes * 60, detail: `预计${minutes}分钟内回复` };
         }
         
         async function fetchData() {
             try {
-                // v5.41: 三级回退 - Redis → CDN → GitHub Raw
-                let result = await fetchFromRedis();
-                if (!result) {
-                    result = await fetchFromCDN();
-                }
-                if (!result) {
-                    result = await fetchFromRaw();
-                }
+                const response = await fetch(DATA_URL + '?t=' + Date.now(), {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
                 
-                if (!result) {
-                    throw new Error('All data sources failed');
-                }
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 
-                const { data, source } = result;
-                console.log('[Fetch] Source:', source, 'Score:', data.cognitive_score, 'Active:', data.active_sessions);
+                const rawData = await response.json();
                 
-                updateUI(data);
-                addTrendPoint(data);
+                // 使用简化评分
+                const scoreInfo = calculateSimpleScore(rawData);
+                rawData.cognitive_score = scoreInfo.score;
+                rawData.status_text = scoreInfo.label;
+                
+                // 添加预估时间
+                const waitInfo = estimateWaitTime(rawData);
+                rawData.estimated_wait = waitInfo;
+                
+                console.log('[v6.0] Score:', scoreInfo.score, 'Queue:', rawData.processing_count + rawData.pending_count, 'Est:', waitInfo.text);
+                
+                updateUI(rawData);
+                addTrendPoint(rawData);
                 
                 // 更新同步时间
                 const syncTimeEl = document.getElementById('lastSyncTime');
                 if (syncTimeEl) {
                     const now = new Date();
                     const timeStr = now.toLocaleTimeString('zh-CN', {hour12: false});
-                    syncTimeEl.textContent = `🔄 ${timeStr} (${source})`;
+                    syncTimeEl.textContent = `🔄 ${timeStr}`;
                 }
                 
                 // 更新连接状态
                 const connEl = document.getElementById('connectionValue');
                 if (connEl) {
-                    connEl.textContent = source === 'Redis' ? '实时' : '缓存';
-                    connEl.className = 'compact-status-value ' + (source === 'Redis' ? 'online' : 'medium');
+                    connEl.textContent = '正常';
+                    connEl.className = 'compact-status-value online';
                 }
             } catch (e) {
-                console.error('[Fetch] Error:', e);
+                console.error('[v6.0] Error:', e);
                 document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
                 document.getElementById('radioStatusText').style.color = '#ef4444';
             }
@@ -1252,7 +1220,22 @@
             document.getElementById('pendingValue').textContent = data.pending_count || 0;
             document.getElementById('processingValue').textContent = data.processing_count || 0;
             document.getElementById('tokensValue').textContent = data.total_tokens_formatted || '0';
-            document.getElementById('estimatedValue').textContent = data.estimated_response_formatted || 'Now';
+            
+            // v6.0: 显示预估回复时间
+            const waitInfo = data.estimated_wait || { text: '立即' };
+            const estEl = document.getElementById('estimatedValue');
+            if (estEl) estEl.textContent = waitInfo.text;
+            
+            // v6.0: 更新收音机状态文本为预估时间
+            if (radioStatusText && waitInfo.detail) {
+                const score = data.cognitive_score || 0;
+                let statusColor = '#4ade80';
+                if (score >= 65) statusColor = '#f87171';
+                else if (score >= 45) statusColor = '#facc15';
+                else if (score >= 25) statusColor = '#60a5fa';
+                radioStatusText.textContent = waitInfo.detail;
+                radioStatusText.style.color = statusColor;
+            }
             
             // 更新任务队列 - 显示具体任务描述
             const taskList = document.getElementById('taskList');
@@ -1352,51 +1335,16 @@
         const TREND_DATA_URL = 'https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-history.jsonl';
         const TREND_STORAGE_KEY = 'cognitive_trend_v5'; // 仅作为备份
         
-        // 初始化趋势数据（v5.40: 从 GitHub 仓库读取）
+        // v6.0: 初始化趋势数据 - 简化版本
         async function initTrendData() {
-            console.log('[Trend] 初始化 - 从 GitHub 仓库读取历史数据');
+            console.log('[Trend] 初始化 - 从 GitHub 读取历史数据');
             await fetchTrendData();
         }
-            } catch (e) {
-                console.error('[Trend] 初始化失败:', e);
-                renderEmptyChart('初始化失败');
-            }
-        }
         
-        // 添加新数据点到趋势（可选：用于本地缓存备份）
+        // v6.0: 添加新数据点到趋势
         function addTrendPoint(metrics) {
-            try {
-                let trend = JSON.parse(localStorage.getItem(TREND_STORAGE_KEY) || '[]');
-                
-                // 解析时间戳
-                const ts = metrics.timestamp;
-                let timestamp_ms;
-                
-                if (ts && !ts.match(/[Zz]|[+-]\d{2}:\d{2}/)) {
-                    timestamp_ms = new Date(ts.replace(' ', 'T')).getTime() - (8 * 60 * 60 * 1000);
-                } else {
-                    timestamp_ms = new Date(ts).getTime();
-                }
-                
-                // 检查是否已存在
-                const exists = trend.some(p => p.ts === ts);
-                if (exists) return;
-                
-                trend.push({
-                    timestamp_ms: timestamp_ms,
-                    score: metrics.cognitive_score || 0,
-                    ts: ts
-                });
-                
-                // 只保留最近 60 条
-                if (trend.length > 60) {
-                    trend = trend.slice(-60);
-                }
-                
-                localStorage.setItem(TREND_STORAGE_KEY, JSON.stringify(trend));
-            } catch (e) {
-                console.error('[Trend] 备份失败:', e);
-            }
+            // v6.0: 不再本地存储，直接依赖 GitHub 数据
+            console.log('[Trend] 新数据点 - Score:', metrics.cognitive_score);
         }
         
         // 更新趋势图显示
@@ -1429,68 +1377,30 @@
             }
         }
         
-        // 获取历史数据（v5.41: 从 GitHub 仓库读取静态历史数据，CDN → Raw 回退）
-        const TREND_CDN_URL = 'https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-history.jsonl';
-        const TREND_RAW_URL = 'https://raw.githubusercontent.com/hiyaScott/scott-portfolio-data/main/status-monitor/cognitive-history.jsonl';
+        // v6.0: 获取历史数据 - 单一数据源
+        const TREND_URL = 'https://raw.githubusercontent.com/hiyaScott/scott-portfolio-data/main/status-monitor/cognitive-history.jsonl';
         
         async function fetchTrendData() {
-            let response = null;
-            let source = '';
-            
-            // 尝试 CDN
             try {
-                response = await fetch(TREND_CDN_URL + '?t=' + Date.now(), {
+                console.log('[Trend] 从 GitHub 读取历史数据...');
+                const response = await fetch(TREND_URL + '?t=' + Date.now(), {
                     method: 'GET',
                     mode: 'cors',
                     cache: 'no-cache'
                 });
-                if (response.ok) source = 'CDN';
-            } catch (e) {
-                console.warn('[Trend] CDN failed:', e.message);
-            }
-            
-            // CDN 失败，尝试 Raw
-            if (!response || !response.ok) {
-                try {
-                    response = await fetch(TREND_RAW_URL + '?t=' + Date.now(), {
-                        method: 'GET',
-                        mode: 'cors',
-                        cache: 'no-cache'
-                    });
-                    if (response.ok) source = 'GitHub';
-                } catch (e) {
-                    console.error('[Trend] Raw failed:', e.message);
-                }
-            }
-            
-            if (!response || !response.ok) {
-                console.error('[Trend] 所有数据源失败');
-                // 回退到 LocalStorage
-                const localTrend = JSON.parse(localStorage.getItem(TREND_STORAGE_KEY) || '[]');
-                if (localTrend.length > 0) {
-                    updateTrendDisplay(localTrend);
-                } else {
-                    renderEmptyChart('暂无历史数据');
-                }
-                return;
-            }
-            
-            try {
+                
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                
                 const text = await response.text();
                 const lines = text.trim().split('\n').filter(l => l.trim());
                 
-                // 解析 JSON Lines 格式
+                // 解析 JSON Lines
                 const trend = lines.map(line => {
                     try {
                         const record = JSON.parse(line);
-                        // 转换时间戳
                         const ts = record.timestamp;
-                        let timestamp_ms;
-                        if (ts && !ts.match(/[Zz]|[+-]\d{2}:\d{2}/)) {
-                            timestamp_ms = new Date(ts.replace(' ', 'T')).getTime() - (8 * 60 * 60 * 1000);
-                        } else {
-                            timestamp_ms = new Date(ts).getTime();
-                        }
+                        // 统一使用 UTC 时间
+                        const timestamp_ms = new Date(ts).getTime();
                         return {
                             timestamp_ms: timestamp_ms,
                             score: record.score || 0,
@@ -1501,11 +1411,11 @@
                     }
                 }).filter(r => r !== null);
                 
-                console.log('[Trend] 成功读取', trend.length, '条历史记录 (来源:', source + ')');
+                console.log('[Trend] 成功读取', trend.length, '条历史记录');
                 updateTrendDisplay(trend);
             } catch (e) {
-                console.error('[Trend] 解析失败:', e);
-                renderEmptyChart('数据解析失败');
+                console.error('[Trend] 读取失败:', e);
+                renderEmptyChart('暂无历史数据');
             }
         }
         
