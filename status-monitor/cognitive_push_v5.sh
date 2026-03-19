@@ -49,10 +49,12 @@ fi
 cd "$REPO_DIR" || exit 1
 
 # 计算文件hash检查是否有实质变化
-current_hash=$(md5sum "$DATA_FILE" | awk '{print $1}')
-last_hash=$(cat "$LAST_HASH_FILE" 2>/dev/null || echo "")
+data_hash=$(md5sum "$DATA_FILE" | awk '{print $1}')
+history_hash=$(md5sum "$HISTORY_FILE" 2>/dev/null | awk '{print $1}')
+last_data_hash=$(cat "$LAST_HASH_FILE" 2>/dev/null | head -1 || echo "")
+last_history_hash=$(cat "$LAST_HASH_FILE" 2>/dev/null | tail -1 || echo "")
 
-if [ "$current_hash" = "$last_hash" ]; then
+if [ "$data_hash" = "$last_data_hash" ] && [ "$history_hash" = "$last_history_hash" ]; then
     exit 0
 fi
 
@@ -110,8 +112,9 @@ history_result=$(upload_file "$HISTORY_FILE" "$commit_msg - history")
 if [ "$data_result" = "success" ] && [ "$history_result" = "success" ]; then
     # 推送成功
     rm -f "$FAIL_COUNT_FILE"
-    echo "$current_hash" > "$LAST_HASH_FILE"
-    echo "[$(date)] ✅ 推送成功 score=${score}%" >> "$HEALTH_LOG"
+    echo "$data_hash" > "$LAST_HASH_FILE"
+    echo "$history_hash" >> "$LAST_HASH_FILE"
+    echo "[$(date)] ✅ 推送成功 score=${score}%, records=$(wc -l < "$REPO_DIR/$HISTORY_FILE")" >> "$HEALTH_LOG"
     exit 0
 else
     # 推送失败
