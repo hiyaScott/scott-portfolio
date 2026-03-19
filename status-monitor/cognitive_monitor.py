@@ -835,9 +835,63 @@ def update_history_file(data):
         with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
             f.write(json.dumps(history_record, ensure_ascii=False) + '\n')
         
+        # v5.37: 同时生成轻量趋势文件
+        update_trend_data(history_record)
+        
         return True
     except Exception as e:
         print(f"[HISTORY_FILE ERROR] {e}")
+        return False
+
+def update_trend_data(record):
+    """v5.37: 生成轻量趋势文件，用于前端首次加载"""
+    try:
+        TREND_FILE = "/root/.openclaw/workspace/scott-portfolio-data/status-monitor/trend-data.json"
+        
+        # 读取现有趋势数据
+        trend_data = []
+        if os.path.exists(TREND_FILE):
+            try:
+                with open(TREND_FILE, 'r', encoding='utf-8') as f:
+                    trend_data = json.load(f).get('points', [])
+            except:
+                trend_data = []
+        
+        # 添加新记录（转换时间格式）
+        ts = record['timestamp']
+        if isinstance(ts, str):
+            ts_dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        else:
+            ts_dt = datetime.now(timezone.utc)
+        
+        trend_point = {
+            "t": ts_dt.strftime("%H:%M"),  # 简化时间格式
+            "s": record['score'],
+            "ts": record['timestamp']  # 完整时间戳用于去重
+        }
+        
+        # 避免重复（检查最近一条）
+        if trend_data and trend_data[-1].get('ts') == trend_point['ts']:
+            return True
+        
+        trend_data.append(trend_point)
+        
+        # 只保留最近60条（约1小时数据）
+        trend_data = trend_data[-60:]
+        
+        # 写入文件
+        output = {
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(trend_data),
+            "points": trend_data
+        }
+        
+        with open(TREND_FILE, 'w', encoding='utf-8') as f:
+            json.dump(output, f, ensure_ascii=False)
+        
+        return True
+    except Exception as e:
+        print(f"[TREND_DATA ERROR] {e}")
         return False
 
 def cleanup_history_file():

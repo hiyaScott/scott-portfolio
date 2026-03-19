@@ -810,7 +810,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v5.36</span>
+                <span id="versionText">v5.37</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1075,6 +1075,9 @@
                 
                 updateUI(metrics);
                 
+                // v5.37: 添加趋势数据点
+                addTrendPoint(metrics);
+                
                 // 更新最新同步时间
                 const syncTimeEl = document.getElementById('lastSyncTime');
                 if (syncTimeEl) {
@@ -1269,7 +1272,7 @@
         // 页面加载完成后启动
         document.addEventListener('DOMContentLoaded', () => {
             startAutoRefresh();
-            fetchTrendData(); // 加载走势图数据
+            initTrendData(); // v5.37: 初始化趋势数据（LocalStorage模式）
         });
         
         // v5.34: 走势图功能
@@ -1291,85 +1294,125 @@
             fetchTrendData();
         }
         
-        // 获取历史数据
-        async function fetchTrendData() {
+        // v5.37: 趋势数据管理 - LocalStorage 累积模式
+        const TREND_STORAGE_KEY = 'cognitive_trend_v5';
+        const TREND_MAX_POINTS = 60; // 保留最近60个点（约1小时）
+        
+        // 初始化趋势数据（首次加载从服务器获取，之后本地累积）
+        async function initTrendData() {
             try {
-                // 从 JSON Lines 文件读取历史数据
-                const minutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
-                const cacheBuster = `?t=${Date.now()}`;
+                // 检查 LocalStorage 是否已有数据
+                let localTrend = JSON.parse(localStorage.getItem(TREND_STORAGE_KEY) || '[]');
                 
-                // 尝试多个数据源：jsdelivr CDN -> GitHub raw
-                let response = null;
-                let errorMsg = '';
-                
-                // 尝试 jsdelivr CDN
-                try {
-                    const cdnUrl = `https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/cognitive-history.jsonl${cacheBuster}`;
-                    response = await fetch(cdnUrl, {
+                if (localTrend.length === 0) {
+                    // 首次加载：从 trend-data.json 获取初始化数据
+                    console.log('[Trend] 首次加载，从服务器获取初始化数据...');
+                    const trendUrl = 'https://cdn.jsdelivr.net/gh/hiyaScott/scott-portfolio-data@main/status-monitor/trend-data.json?t=' + Date.now();
+                    
+                    const response = await fetch(trendUrl, {
                         method: 'GET',
                         mode: 'cors',
                         cache: 'no-cache'
                     });
-                    if (!response.ok) throw new Error('CDN fetch failed: ' + response.status);
-                } catch (cdnError) {
-                    errorMsg += 'CDN: ' + cdnError.message + '; ';
-                    // 尝试 GitHub raw
-                    try {
-                        const rawUrl = `https://raw.githubusercontent.com/hiyaScott/scott-portfolio-data/main/status-monitor/cognitive-history.jsonl${cacheBuster}`;
-                        response = await fetch(rawUrl, {
-                            method: 'GET',
-                            mode: 'cors',
-                            cache: 'no-cache'
-                        });
-                        if (!response.ok) throw new Error('Raw fetch failed: ' + response.status);
-                    } catch (rawError) {
-                        errorMsg += 'Raw: ' + rawError.message;
-                        throw new Error(errorMsg);
-                    }
-                }
-                
-                const text = await response.text();
-                if (!text || text.trim().length === 0) {
-                    throw new Error('Empty response');
-                }
-                
-                const lines = text.trim().split('\n');
-                
-                // 解析 JSON Lines
-                const cutoffTime = Date.now() - (minutes * 60 * 1000);
-                const now = Date.now();
-                
-                trendData = lines
-                    .map(line => {
-                        try {
-                            const record = JSON.parse(line);
-                            // v5.35: 修复时区问题
-                            let ts = record.timestamp;
-                            if (ts && !ts.match(/[Zz]|[+-]\d{2}:\d{2}/)) {
-                                const localDate = new Date(ts.replace(' ', 'T'));
-                                record.timestamp_ms = localDate.getTime() - (8 * 60 * 60 * 1000);
-                            } else {
-                                record.timestamp_ms = new Date(ts).getTime();
-                            }
-                            return record;
-                        } catch {
-                            return null;
+                    
+                    if (response.ok) {
+                        const trendData = await response.json();
+                        if (trendData.points && trendData.points.length > 0) {
+                            // 转换为本地格式
+                            localTrend = trendData.points.map(p => ({
+                                timestamp_ms: new Date(p.ts).getTime(),
+                                score: p.s,
+                                ts: p.ts
+                            }));
+                            localStorage.setItem(TREND_STORAGE_KEY, JSON.stringify(localTrend));
+                            console.log('[Trend] 初始化完成，载入', localTrend.length, '条记录');
                         }
-                    })
-                    .filter(r => r && r.timestamp_ms > cutoffTime && r.timestamp_ms <= now)
-                    .sort((a, b) => a.timestamp_ms - b.timestamp_ms);
-                
-                // 调试信息
-                console.log('Trend data loaded:', trendData.length, 'records');
-                
-                if (trendData.length === 0) {
-                    renderEmptyChart('暂无数据');
+                    }
                 } else {
-                    renderTrendChart();
+                    console.log('[Trend] 从 LocalStorage 恢复', localTrend.length, '条记录');
                 }
+                
+                // 立即渲染一次
+                updateTrendDisplay(localTrend);
             } catch (e) {
-                console.error('Trend data error:', e);
-                renderEmptyChart('加载失败: ' + e.message);
+                console.error('[Trend] 初始化失败:', e);
+            }
+        }
+        
+        // 添加新数据点到趋势（由 fetchData 调用）
+        function addTrendPoint(metrics) {
+            try {
+                let trend = JSON.parse(localStorage.getItem(TREND_STORAGE_KEY) || '[]');
+                
+                // 解析时间戳
+                const ts = metrics.timestamp;
+                let timestamp_ms;
+                if (ts && !ts.match(/[Zz]|[+-]\d{2}:\d{2}/)) {
+                    timestamp_ms = new Date(ts.replace(' ', 'T')).getTime() - (8 * 60 * 60 * 1000);
+                } else {
+                    timestamp_ms = new Date(ts).getTime();
+                }
+                
+                // 检查是否已存在（避免重复）
+                const exists = trend.some(p => p.ts === ts);
+                if (exists) {
+                    console.log('[Trend] 数据点已存在，跳过');
+                    return;
+                }
+                
+                // 添加新点
+                const newPoint = {
+                    timestamp_ms: timestamp_ms,
+                    score: metrics.cognitive_score || 0,
+                    ts: ts
+                };
+                
+                trend.push(newPoint);
+                
+                // 只保留最近 N 条
+                if (trend.length > TREND_MAX_POINTS) {
+                    trend = trend.slice(-TREND_MAX_POINTS);
+                }
+                
+                // 保存到 LocalStorage
+                localStorage.setItem(TREND_STORAGE_KEY, JSON.stringify(trend));
+                console.log('[Trend] 添加新点，当前共', trend.length, '条记录');
+                
+                // 更新显示
+                updateTrendDisplay(trend);
+            } catch (e) {
+                console.error('[Trend] 添加数据点失败:', e);
+            }
+        }
+        
+        // 更新趋势图显示
+        function updateTrendDisplay(trend) {
+            const minutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
+            const cutoffTime = Date.now() - (minutes * 60 * 1000);
+            
+            // 过滤当前时间范围的数据
+            trendData = trend
+                .filter(r => r.timestamp_ms > cutoffTime && r.timestamp_ms <= Date.now())
+                .sort((a, b) => a.timestamp_ms - b.timestamp_ms);
+            
+            if (trendData.length === 0) {
+                renderEmptyChart('暂无数据');
+            } else {
+                renderTrendChart();
+            }
+        }
+        
+        // 获取历史数据（v5.37: 从 LocalStorage 读取，不再从服务器下载大文件）
+        async function fetchTrendData() {
+            try {
+                // 直接从 LocalStorage 读取
+                const trend = JSON.parse(localStorage.getItem(TREND_STORAGE_KEY) || '[]');
+                console.log('[Trend] 从 LocalStorage 读取', trend.length, '条记录');
+                
+                updateTrendDisplay(trend);
+            } catch (e) {
+                console.error('[Trend] 读取失败:', e);
+                renderEmptyChart('读取失败: ' + e.message);
             }
         }
         

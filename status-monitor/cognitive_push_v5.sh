@@ -5,6 +5,7 @@
 REPO_DIR="/root/.openclaw/workspace/scott-portfolio-data"
 DATA_FILE="status-monitor/cognitive-data.json"
 HISTORY_FILE="status-monitor/cognitive-history.jsonl"
+TREND_FILE="status-monitor/trend-data.json"
 FAIL_COUNT_FILE="/tmp/cognitive_push_fail_count"
 LAST_HASH_FILE="/tmp/cognitive_last_hash"
 HEALTH_LOG="/var/log/cognitive_health.log"
@@ -50,11 +51,11 @@ cd "$REPO_DIR" || exit 1
 
 # 计算文件hash检查是否有实质变化
 data_hash=$(md5sum "$DATA_FILE" | awk '{print $1}')
-history_hash=$(md5sum "$HISTORY_FILE" 2>/dev/null | awk '{print $1}')
+trend_hash=$(md5sum "$TREND_FILE" 2>/dev/null | awk '{print $1}')
 last_data_hash=$(cat "$LAST_HASH_FILE" 2>/dev/null | head -1 || echo "")
-last_history_hash=$(cat "$LAST_HASH_FILE" 2>/dev/null | tail -1 || echo "")
+last_trend_hash=$(cat "$LAST_HASH_FILE" 2>/dev/null | tail -1 || echo "")
 
-if [ "$data_hash" = "$last_data_hash" ] && [ "$history_hash" = "$last_history_hash" ]; then
+if [ "$data_hash" = "$last_data_hash" ] && [ "$trend_hash" = "$last_trend_hash" ]; then
     exit 0
 fi
 
@@ -106,22 +107,22 @@ upload_file() {
 
 # 上传数据文件
 data_result=$(upload_file "$DATA_FILE" "$commit_msg")
-history_result=$(upload_file "$HISTORY_FILE" "$commit_msg - history")
+trend_result=$(upload_file "$TREND_FILE" "$commit_msg - trend")
 
 # 检查推送结果
-if [ "$data_result" = "success" ] && [ "$history_result" = "success" ]; then
+if [ "$data_result" = "success" ] && [ "$trend_result" = "success" ]; then
     # 推送成功
     rm -f "$FAIL_COUNT_FILE"
     echo "$data_hash" > "$LAST_HASH_FILE"
-    echo "$history_hash" >> "$LAST_HASH_FILE"
-    echo "[$(date)] ✅ 推送成功 score=${score}%, records=$(wc -l < "$REPO_DIR/$HISTORY_FILE")" >> "$HEALTH_LOG"
+    echo "$trend_hash" >> "$LAST_HASH_FILE"
+    echo "[$(date)] ✅ 推送成功 score=${score}%, trend=$(cat "$REPO_DIR/$TREND_FILE" 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2 || echo '0')" >> "$HEALTH_LOG"
     exit 0
 else
     # 推送失败
     fail_count=$(cat "$FAIL_COUNT_FILE" 2>/dev/null || echo "0")
     new_count=$((fail_count + 1))
     echo "$new_count" > "$FAIL_COUNT_FILE"
-    echo "[$(date)] ❌ 推送失败 (第${new_count}次) data:$data_result history:$history_result" >> "$HEALTH_LOG"
+    echo "[$(date)] ❌ 推送失败 (第${new_count}次) data:$data_result trend:$trend_result" >> "$HEALTH_LOG"
     
     if [ "$new_count" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
         echo "[$(date)] 🔴 即将触发熔断器！" >> "$HEALTH_LOG"
