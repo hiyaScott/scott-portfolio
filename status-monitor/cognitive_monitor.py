@@ -25,9 +25,10 @@ from urllib import request
 UPSTASH_REDIS_REST_URL = "https://singular-snake-71209.upstash.io"
 UPSTASH_REDIS_REST_TOKEN = "gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk"
 WORKSPACE = "/root/.openclaw/agents/main/sessions"
-DATA_FILE = "/root/.openclaw/workspace/portfolio-blog/status-monitor/cognitive-data.json"
-HISTORY_FILE = "/root/.openclaw/workspace/portfolio-blog/status-monitor/cognitive-history.jsonl"
-ARCHIVE_DIR = "/root/.openclaw/workspace/portfolio-blog/status-monitor/archives"
+# v5.36: 数据目录迁移到独立仓库
+DATA_FILE = "/root/.openclaw/workspace/scott-portfolio-data/status-monitor/cognitive-data.json"
+HISTORY_FILE = "/root/.openclaw/workspace/scott-portfolio-data/status-monitor/cognitive-history.jsonl"
+ARCHIVE_DIR = "/root/.openclaw/workspace/scott-portfolio-data/status-monitor/archives"
 
 # v5.34: 历史数据保留配置
 HISTORY_RETENTION_DAYS = 7  # 7天热数据

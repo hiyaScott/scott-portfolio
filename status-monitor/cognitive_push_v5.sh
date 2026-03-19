@@ -2,7 +2,7 @@
 # Cognitive Monitor 推送脚本 v5.0 - 数据仓库分离版
 # 更新: 使用独立数据仓库 scott-portfolio-data，通过GitHub API推送
 
-REPO_DIR="/root/.openclaw/workspace/portfolio-blog"
+REPO_DIR="/root/.openclaw/workspace/scott-portfolio-data"
 DATA_FILE="status-monitor/cognitive-data.json"
 HISTORY_FILE="status-monitor/cognitive-history.jsonl"
 FAIL_COUNT_FILE="/tmp/cognitive_push_fail_count"
@@ -99,7 +99,7 @@ upload_file() {
     local filepath=$1
     local message=$2
     
-    python3 "$REPO_DIR/status-monitor/github_upload.py" "$filepath" "$message" "$GITHUB_TOKEN" "$REPO_DIR"
+    python3 "/root/.openclaw/workspace/portfolio-blog/status-monitor/github_upload.py" "$filepath" "$message" "$GITHUB_TOKEN" "$REPO_DIR"
 }
 
 # 上传数据文件
