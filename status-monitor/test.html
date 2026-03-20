@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直接数据测试</title>
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; padding: 20px; }
+        .success { color: #0f0; font-size: 24px; }
+        .error { color: #f00; }
+        pre { background: #222; padding: 10px; margin-top: 20px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h2>🧠 直接数据测试</h2>
+    <div id="status">加载中...</div>
+    <pre id="raw">等待响应...</pre>
+
+<script>
+var output = document.getElementById('status');
+var raw = document.getElementById('raw');
+
+// 方法1: XMLHttpRequest
+var xhr = new XMLHttpRequest();
+xhr.open('GET', './cognitive-data.json?t=' + Date.now(), true);
+xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4) {
+        raw.textContent = 'HTTP状态: ' + xhr.status + '\n\n响应内容:\n' + xhr.responseText.substring(0, 1000);
+        
+        if (xhr.status === 200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                var score = data.cognitive_score || 'N/A';
+                var tasks = data.task_queue ? data.task_queue.length : 0;
+                var taskNames = [];
+                if (data.task_queue) {
+                    for (var i = 0; i < data.task_queue.length; i++) {
+                        taskNames.push(data.task_queue[i].label || '未知');
+                    }
+                }
+                
+                output.innerHTML = '<div class="success">✅ 数据获取成功!</div>' +
+                    '<div><strong>认知分数: ' + score + '%</strong></div>' +
+                    '<div>任务数量: ' + tasks + '</div>' +
+                    '<div>任务列表: ' + taskNames.join(', ') + '</div>';
+            } catch(e) {
+                output.innerHTML = '<div class="error">❌ JSON解析错误: ' + e.message + '</div>';
+            }
+        } else {
+            output.innerHTML = '<div class="error">❌ HTTP错误: ' + xhr.status + '</div>';
+        }
+    }
+};
+xhr.onerror = function() {
+    output.innerHTML = '<div class="error">❌ 网络请求失败</div>';
+    raw.textContent = '请求失败，可能是CORS或网络问题';
+};
+xhr.send();
+</script>
+</body>
+</html>
