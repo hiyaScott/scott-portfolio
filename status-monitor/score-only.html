@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shrimp Jetton 状态</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: linear-gradient(180deg, rgba(35,35,50,0.95) 0%, rgba(25,25,40,0.98) 100%);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+            max-width: 400px;
+            width: 100%;
+        }
+        .brain { font-size: 48px; margin-bottom: 10px; }
+        .title { font-size: 24px; font-weight: bold; margin-bottom: 30px; }
+        
+        .score-display {
+            font-size: 80px;
+            font-weight: bold;
+            line-height: 1;
+            margin: 20px 0;
+        }
+        .score-display.idle { color: #22c55e; }
+        .score-display.low { color: #3b82f6; }
+        .score-display.medium { color: #eab308; }
+        .score-display.high { color: #ef4444; }
+        
+        .status-text {
+            font-size: 16px;
+            color: #888;
+            margin-top: 10px;
+        }
+        
+        .loading {
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        .error {
+            color: #ef4444;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        
+        .refresh-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="brain">🧠</div>
+        <div class="title">Shrimp Jetton</div>
+        
+        <div id="scoreDisplay" class="score-display">--</div>
+        <div id="statusText" class="status-text">加载中...</div>
+        <div id="message" class="loading">获取数据中...</div>
+        <div class="refresh-hint">⏱️ 每30秒自动刷新</div>
+    </div>
+
+<script>
+// 极简实现 - 只获取并显示认知分数
+(function() {
+    'use strict';
+    
+    // 配置 - 直接使用GitHub Raw（无CDN缓存）
+    var DATA_URL = 'https://raw.githubusercontent.com/hiyaScott/scott-portfolio/main/status-monitor/cognitive-data.json';
+    var REFRESH_INTERVAL = 30000; // 30秒
+    
+    var scoreEl = document.getElementById('scoreDisplay');
+    var statusEl = document.getElementById('statusText');
+    var msgEl = document.getElementById('message');
+    
+    // 根据分数获取样式
+    function getScoreStyle(score) {
+        if (score >= 75) return { className: 'high', text: '高负载' };
+        if (score >= 50) return { className: 'medium', text: '中等负载' };
+        if (score >= 25) return { className: 'low', text: '轻负载' };
+        return { className: 'idle', text: '空闲' };
+    }
+    
+    // 更新显示
+    function updateDisplay(score) {
+        var style = getScoreStyle(score);
+        scoreEl.textContent = score + '%';
+        scoreEl.className = 'score-display ' + style.className;
+        statusEl.textContent = style.text;
+        msgEl.textContent = '上次更新: ' + new Date().toLocaleTimeString('zh-CN');
+        msgEl.className = 'loading';
+        msgEl.style.color = '#666';
+    }
+    
+    // 显示错误
+    function showError(msg) {
+        msgEl.textContent = '错误: ' + msg;
+        msgEl.className = 'error';
+    }
+    
+    // 获取数据
+    function fetchScore() {
+        msgEl.textContent = '获取数据中...';
+        
+        var xhr = new XMLHttpRequest();
+        var url = DATA_URL + '?_=' + Date.now(); // 绕过缓存
+        
+        xhr.open('GET', url, true);
+        xhr.timeout = 10000; // 10秒超时
+        
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    var score = data.cognitive_score;
+                    
+                    if (typeof score === 'number') {
+                        updateDisplay(score);
+                        console.log('[Score] Updated:', score + '%');
+                    } else {
+                        showError('分数格式错误');
+                    }
+                } catch (e) {
+                    showError('数据解析失败');
+                }
+            } else {
+                showError('HTTP ' + xhr.status);
+            }
+        };
+        
+        xhr.onerror = function() {
+            showError('网络请求失败');
+        };
+        
+        xhr.ontimeout = function() {
+            showError('请求超时');
+        };
+        
+        xhr.send();
+    }
+    
+    // 启动
+    fetchScore();
+    setInterval(fetchScore, REFRESH_INTERVAL);
+    
+})();
+</script>
+</body>
+</html>
