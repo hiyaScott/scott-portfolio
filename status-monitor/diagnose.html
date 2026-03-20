@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>监控页面诊断</title>
+    <style>
+        body { font-family: monospace; background: #0a0a0f; color: #0f0; padding: 20px; }
+        .log { margin: 5px 0; }
+        .error { color: #f44; }
+        .success { color: #4f4; }
+        .info { color: #ff0; }
+    </style>
+</head>
+<body>
+    <h2>🔍 监控页面诊断工具</h2>
+    <div id="logs"></div>
+
+<script>
+const logs = document.getElementById('logs');
+function log(msg, type = 'info') {
+    const div = document.createElement('div');
+    div.className = 'log ' + type;
+    div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logs.appendChild(div);
+}
+
+async function runDiagnostics() {
+    log('开始诊断...', 'info');
+    
+    // 1. 检查浏览器时间
+    log(`浏览器当前时间: ${new Date().toISOString()}`, 'info');
+    log(`浏览器时区偏移: ${new Date().getTimezoneOffset()} 分钟`, 'info');
+    
+    // 2. 测试主数据获取
+    try {
+        log('测试获取 cognitive-data.json...', 'info');
+        const dataResp = await fetch('./cognitive-data.json?t=' + Date.now(), {
+            cache: 'no-cache'
+        });
+        
+        if (!dataResp.ok) {
+            log(`❌ 主数据获取失败: HTTP ${dataResp.status}`, 'error');
+        } else {
+            const data = await dataResp.json();
+            log(`✅ 主数据获取成功`, 'success');
+            log(`   分数: ${data.cognitive_score}%`, 'info');
+            log(`   任务数: ${data.task_queue?.length || 0}`, 'info');
+            log(`   时间戳: ${data.timestamp}`, 'info');
+        }
+    } catch (e) {
+        log(`❌ 主数据获取异常: ${e.message}`, 'error');
+    }
+    
+    // 3. 测试趋势数据获取
+    try {
+        log('测试获取 cognitive-history.jsonl...', 'info');
+        const trendResp = await fetch('./cognitive-history.jsonl?t=' + Date.now(), {
+            cache: 'no-cache'
+        });
+        
+        if (!trendResp.ok) {
+            log(`❌ 趋势数据获取失败: HTTP ${trendResp.status}`, 'error');
+        } else {
+            const text = await trendResp.text();
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            log(`✅ 趋势数据获取成功: ${lines.length} 行`, 'success');
+            
+            if (lines.length > 0) {
+                // 解析最后一条
+                try {
+                    const lastRecord = JSON.parse(lines[lines.length - 1]);
+                    log(`   最后记录时间: ${lastRecord.timestamp}`, 'info');
+                    
+                    // 测试时间戳解析
+                    const ts = lastRecord.timestamp;
+                    const timestamp_ms = new Date(ts).getTime();
+                    const now = Date.now();
+                    const cutoff5m = now - (5 * 60 * 1000);
+                    
+                    log(`   解析后的时间戳: ${timestamp_ms}`, 'info');
+                    log(`   当前时间戳: ${now}`, 'info');
+                    log(`   5分钟cutoff: ${cutoff5m}`, 'info');
+                    log(`   是否在5分钟内: ${timestamp_ms > cutoff5m}`, timestamp_ms > cutoff5m ? 'success' : 'error');
+                    
+                    // 检查数据点分布
+                    let in5m = 0, in15m = 0, in1h = 0;
+                    lines.forEach(line => {
+                        try {
+                            const r = JSON.parse(line);
+                            const t = new Date(r.timestamp).getTime();
+                            if (t > cutoff5m) in5m++;
+                            if (t > now - (15 * 60 * 1000)) in15m++;
+                            if (t > now - (60 * 60 * 1000)) in1h++;
+                        } catch(e) {}
+                    });
+                    log(`   5分钟内数据点: ${in5m}`, in5m > 0 ? 'success' : 'error');
+                    log(`   15分钟内数据点: ${in15m}`, in15m > 0 ? 'success' : 'error');
+                    log(`   1小时内数据点: ${in1h}`, in1h > 0 ? 'success' : 'error');
+                    
+                } catch (e) {
+                    log(`❌ 解析记录失败: ${e.message}`, 'error');
+                }
+            }
+        }
+    } catch (e) {
+        log(`❌ 趋势数据获取异常: ${e.message}`, 'error');
+    }
+    
+    log('诊断完成', 'info');
+}
+
+runDiagnostics();
+</script>
+</body>
+</html>
