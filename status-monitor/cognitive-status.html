@@ -997,6 +997,21 @@
     </div>
 
     <script>
+        // v6.2.3: 全局错误捕获
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('[Global Error]', msg, 'at', line + ':' + col);
+            const statusText = document.getElementById('radioStatusText');
+            if (statusText) {
+                statusText.textContent = '⚠️ JS错误: ' + msg.substring(0, 15);
+                statusText.style.color = '#ef4444';
+            }
+            const taskList = document.getElementById('taskList');
+            if (taskList) {
+                taskList.innerHTML = '<div style="color:#ef4444;padding:10px;">JS错误: ' + msg + ' (行:' + line + ')</div>';
+            }
+            return false;
+        };
+
         // Tab切换
         function switchInfoTab(tabName) {
             document.querySelectorAll('.info-panel').forEach(p => p.classList.remove('active'));
@@ -1137,12 +1152,16 @@
                 }
             } catch (e) {
                 console.error('[v6.0] Error:', e);
-                document.getElementById('radioStatusText').textContent = '⚠️ 连接失败';
+                console.error('[v6.0] Error stack:', e.stack);
+                const errorMsg = e.message || '未知错误';
+                document.getElementById('radioStatusText').textContent = '⚠️ ' + errorMsg.substring(0, 20);
                 document.getElementById('radioStatusText').style.color = '#ef4444';
+                document.getElementById('taskList').innerHTML = '<div style="color:#ef4444;padding:10px;">错误: ' + errorMsg + '</div>';
             }
         }
         
         function updateUI(data) {
+            try {
             const score = data.cognitive_score || 0;
             
             // 更新CPU和内存
@@ -1286,6 +1305,10 @@
             }
             
             document.getElementById('updateTime').textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
+            } catch (e) {
+                console.error('[updateUI] Error:', e);
+                document.getElementById('taskList').innerHTML = '<div style="color:#ef4444;padding:10px;">UI错误: ' + e.message + '</div>';
+            }
         }
         
         // v5.33 - 优化时间一致性
