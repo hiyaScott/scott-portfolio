@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Shrimp Jetton 认知负载监控</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 700px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid #222;
+            margin-bottom: 24px;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header .subtitle { color: #666; font-size: 14px; }
+        
+        /* 状态卡片 */
+        .status-card {
+            background: linear-gradient(180deg, rgba(35,35,45,0.98) 0%, rgba(25,25,35,0.99) 100%);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 24px;
+            border: 2px solid rgba(255,255,255,0.1);
+            text-align: center;
+        }
+        .score-display {
+            font-size: 72px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .score-display.idle { color: #22c55e; }
+        .score-display.low { color: #3b82f6; }
+        .score-display.medium { color: #eab308; }
+        .score-display.high { color: #ef4444; }
+        
+        .status-text {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        
+        /* 指标网格 */
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .metric {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        /* 任务列表 */
+        .task-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .task-section h3 {
+            margin-bottom: 15px;
+            color: #aaa;
+        }
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+        .task-name { font-weight: 500; }
+        .task-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        .task-status.processing {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+        }
+        .task-status.waiting {
+            background: rgba(234, 179, 8, 0.2);
+            color: #facc15;
+        }
+        .task-status.idle {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+        
+        /* 趋势图 */
+        .trend-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 20px;
+        }
+        .trend-section h3 {
+            margin-bottom: 15px;
+            color: #aaa;
+        }
+        canvas {
+            width: 100%;
+            height: 200px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+        
+        /* 更新时间 */
+        .update-time {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        
+        /* 错误状态 */
+        .error-state {
+            color: #ef4444;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        @media (max-width: 600px) {
+            .metrics { grid-template-columns: repeat(3, 1fr); }
+            .metric:nth-child(4), .metric:nth-child(5) { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Shrimp Jetton</h1>
+            <div class="subtitle">认知负载实时监控</div>
+        </div>
+        
+        <!-- 主状态显示 -->
+        <div class="status-card" id="statusCard">
+            <div id="loadingText">正在获取数据...</div>
+            <div id="mainDisplay" style="display:none;">
+                <div class="status-text" id="statusText">空闲</div>
+                <div class="score-display idle" id="scoreDisplay">0%</div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">活跃会话</div>
+                        <div class="metric-value" id="sessionsVal">--</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">等待中</div>
+                        <div class="metric-value" id="pendingVal">--</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">处理中</div>
+                        <div class="metric-value" id="processingVal">--</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Token数</div>
+                        <div class="metric-value" id="tokensVal">--</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">预估等待</div>
+                        <div class="metric-value" id="estVal">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="error-state" id="errorDisplay" style="display:none;">
+                <div>⚠️ 连接失败</div>
+                <div style="font-size:14px;margin-top:10px;" id="errorText"></div>
+            </div>
+        </div>
+        
+        <!-- 任务列表 -->
+        <div class="task-section">
+            <h3>📋 当前任务队列</h3>
+            <div id="taskList">
+                <div style="color:#666;padding:20px;text-align:center;">加载中...</div>
+            </div>
+        </div>
+        
+        <!-- 趋势图 -->
+        <div class="trend-section">
+            <h3>📈 认知负载走势 (最近1小时)</h3>
+            <canvas id="trendCanvas" width="700" height="200"></canvas>
+            <div style="color:#666;font-size:12px;margin-top:10px;text-align:center;" id="trendInfo"></div>
+        </div>
+        
+        <div class="update-time" id="updateTime"></div>
+    </div>
+
+<script>
+// 配置
+const DATA_URL = './cognitive-data.json';
+const TREND_URL = './cognitive-history.jsonl';
+const REFRESH_INTERVAL = 30000; // 30秒
+
+// 获取DOM元素
+const els = {
+    loading: document.getElementById('loadingText'),
+    main: document.getElementById('mainDisplay'),
+    error: document.getElementById('errorDisplay'),
+    errorText: document.getElementById('errorText'),
+    status: document.getElementById('statusText'),
+    score: document.getElementById('scoreDisplay'),
+    scoreCard: document.getElementById('statusCard'),
+    sessions: document.getElementById('sessionsVal'),
+    pending: document.getElementById('pendingVal'),
+    processing: document.getElementById('processingVal'),
+    tokens: document.getElementById('tokensVal'),
+    est: document.getElementById('estVal'),
+    taskList: document.getElementById('taskList'),
+    trendCanvas: document.getElementById('trendCanvas'),
+    trendInfo: document.getElementById('trendInfo'),
+    updateTime: document.getElementById('updateTime')
+};
+
+// 获取状态文本和颜色
+function getStatusInfo(score) {
+    if (score >= 75) return { text: '高负载 - 建议等待', class: 'high', color: '#ef4444' };
+    if (score >= 50) return { text: '中等负载 - 建议简单任务', class: 'medium', color: '#eab308' };
+    if (score >= 25) return { text: '轻负载 - 30秒内响应', class: 'low', color: '#3b82f6' };
+    return { text: '空闲 - 立即响应', class: 'idle', color: '#22c55e' };
+}
+
+// 更新UI
+function updateUI(data) {
+    // 显示主内容区
+    els.loading.style.display = 'none';
+    els.error.style.display = 'none';
+    els.main.style.display = 'block';
+    
+    // 更新分数和状态
+    const score = data.cognitive_score || 0;
+    const info = getStatusInfo(score);
+    
+    els.score.textContent = score + '%';
+    els.score.className = 'score-display ' + info.class;
+    els.status.textContent = info.text;
+    els.status.style.color = info.color;
+    
+    // 更新指标
+    els.sessions.textContent = data.active_sessions || 0;
+    els.pending.textContent = data.pending_count || 0;
+    els.processing.textContent = data.processing_count || 0;
+    els.tokens.textContent = data.total_tokens_formatted || '0';
+    els.est.textContent = data.estimated_wait?.text || '立即';
+    
+    // 更新任务列表
+    const tasks = data.task_queue || [];
+    if (tasks.length === 0) {
+        els.taskList.innerHTML = '<div style="color:#666;padding:20px;text-align:center;">✅ 无活跃任务</div>';
+    } else {
+        els.taskList.innerHTML = tasks.map(task => {
+            const status = task.status || '';
+            let statusClass = 'idle';
+            let statusText = '已回复';
+            
+            if (status.includes('处理') || status.includes('🔄')) {
+                statusClass = 'processing';
+                statusText = '处理中';
+            } else if (status.includes('等待') || status.includes('⏳')) {
+                statusClass = 'waiting';
+                statusText = '等待中';
+            }
+            
+            return `
+                <div class="task-item">
+                    <span class="task-name">${task.label || '💭 任务'}</span>
+                    <span class="task-status ${statusClass}">${statusText}</span>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // 更新时间
+    els.updateTime.textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
+}
+
+// 显示错误
+function showError(msg) {
+    els.loading.style.display = 'none';
+    els.main.style.display = 'none';
+    els.error.style.display = 'block';
+    els.errorText.textContent = msg;
+}
+
+// 绘制趋势图
+function drawTrend(data) {
+    const canvas = els.trendCanvas;
+    const ctx = canvas.getContext('2d');
+    
+    // 设置画布尺寸
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    
+    const w = canvas.width;
+    const h = canvas.height;
+    const padding = { top: 30, right: 50, bottom: 40, left: 60 };
+    
+    // 清空
+    ctx.clearRect(0, 0, w, h);
+    
+    if (!data || data.length === 0) {
+        ctx.fillStyle = '#666';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('暂无历史数据', w/2, h/2);
+        return;
+    }
+    
+    // 计算范围
+    const scores = data.map(d => d.score);
+    const minScore = Math.min(...scores, 0);
+    const maxScore = Math.max(...scores, 100);
+    const scoreRange = maxScore - minScore || 100;
+    
+    // 绘制网格
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    
+    // 横向网格线
+    for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (h - padding.top - padding.bottom) * i / 4;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(w - padding.right, y);
+        ctx.stroke();
+        
+        // Y轴标签
+        ctx.fillStyle = '#666';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'right';
+        const label = Math.round(maxScore - scoreRange * i / 4);
+        ctx.fillText(label + '%', padding.left - 10, y + 4);
+    }
+    
+    // 绘制数据线
+    if (data.length > 1) {
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        
+        data.forEach((d, i) => {
+            const x = padding.left + (w - padding.left - padding.right) * i / (data.length - 1);
+            const y = padding.top + (h - padding.top - padding.bottom) * (1 - (d.score - minScore) / scoreRange);
+            
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        
+        ctx.stroke();
+    }
+    
+    // 绘制点
+    data.forEach((d, i) => {
+        const x = padding.left + (w - padding.left - padding.right) * i / (data.length - 1 || 1);
+        const y = padding.top + (h - padding.top - padding.bottom) * (1 - (d.score - minScore) / scoreRange);
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = d.score > 50 ? '#ef4444' : '#22c55e';
+        ctx.fill();
+    });
+    
+    // 更新信息
+    els.trendInfo.textContent = `共 ${data.length} 个数据点 | 最新: ${scores[scores.length-1]}%`;
+}
+
+// 获取数据
+async function fetchData() {
+    try {
+        console.log('[Monitor] Fetching data...');
+        const resp = await fetch(DATA_URL + '?t=' + Date.now());
+        
+        if (!resp.ok) {
+            throw new Error('HTTP ' + resp.status);
+        }
+        
+        const data = await resp.json();
+        console.log('[Monitor] Data received:', data);
+        
+        updateUI(data);
+        
+    } catch (err) {
+        console.error('[Monitor] Error:', err);
+        showError(err.message);
+    }
+}
+
+// 获取趋势数据
+async function fetchTrend() {
+    try {
+        console.log('[Monitor] Fetching trend...');
+        const resp = await fetch(TREND_URL + '?t=' + Date.now());
+        
+        if (!resp.ok) {
+            throw new Error('HTTP ' + resp.status);
+        }
+        
+        const text = await resp.text();
+        const lines = text.trim().split('\n').filter(l => l);
+        
+        console.log('[Monitor] Trend lines:', lines.length);
+        
+        // 解析并过滤最近1小时
+        const now = Date.now();
+        const oneHourAgo = now - (60 * 60 * 1000);
+        
+        const points = lines.map(line => {
+            try {
+                const r = JSON.parse(line);
+                return {
+                    ts: new Date(r.timestamp).getTime(),
+                    score: r.score || 0
+                };
+            } catch (e) {
+                return null;
+            }
+        }).filter(p => p && p.ts > oneHourAgo);
+        
+        console.log('[Monitor] Points in 1h:', points.length);
+        
+        drawTrend(points);
+        
+    } catch (err) {
+        console.error('[Monitor] Trend error:', err);
+        els.trendInfo.textContent = '趋势加载失败: ' + err.message;
+    }
+}
+
+// 初始化
+async function init() {
+    console.log('[Monitor] Initializing...');
+    await fetchData();
+    await fetchTrend();
+    
+    // 定时刷新
+    setInterval(fetchData, REFRESH_INTERVAL);
+    setInterval(fetchTrend, 300000); // 5分钟刷新趋势
+}
+
+// 启动
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+</script>
+</body>
+</html>
