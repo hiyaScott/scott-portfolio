@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认知负载监控 - 简化版</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #fff; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .card { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 10px 0; }
+        .score { font-size: 48px; font-weight: bold; color: #22c55e; }
+        .task { background: #2a2a3e; padding: 10px; margin: 5px 0; border-radius: 8px; }
+        .status { color: #888; font-size: 14px; }
+        .error { color: #ef4444; }
+        .success { color: #22c55e; }
+    </style>
+</head>
+<body>
+    <h2>🧠 认知负载监控 - 简化版</h2>
+    
+    <div class="card">
+        <div class="status">状态: <span id="statusText">加载中...</span></div>
+        <div class="score" id="score">--</div>
+        <div id="tasks"></div>
+        <div class="status" id="updateTime"></div>
+    </div>
+
+    <div class="card">
+        <div class="status">趋势图 (最近5分钟)</div>
+        <canvas id="trendCanvas" width="500" height="150"></canvas>
+        <div class="status" id="trendInfo"></div>
+    </div>
+
+<script>
+const DATA_URL = './cognitive-data.json';
+const TREND_URL = './cognitive-history.jsonl';
+
+async function loadData() {
+    const statusText = document.getElementById('statusText');
+    
+    try {
+        console.log('[SIMPLE] 获取主数据...');
+        const resp = await fetch(DATA_URL + '?t=' + Date.now());
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        
+        const data = await resp.json();
+        console.log('[SIMPLE] 数据:', data);
+        
+        document.getElementById('score').textContent = (data.cognitive_score || 0) + '%';
+        statusText.textContent = data.status_text || '未知';
+        statusText.className = 'success';
+        
+        // 显示任务
+        const tasksDiv = document.getElementById('tasks');
+        if (data.task_queue && data.task_queue.length > 0) {
+            tasksDiv.innerHTML = data.task_queue.map(t => 
+                `<div class="task">${t.label || '任务'} - ${t.status || '未知'}</div>`
+            ).join('');
+        } else {
+            tasksDiv.innerHTML = '<div class="task">无活跃任务</div>';
+        }
+        
+        document.getElementById('updateTime').textContent = 
+            '最后更新: ' + new Date().toLocaleString('zh-CN');
+        
+    } catch (e) {
+        console.error('[SIMPLE] 错误:', e);
+        statusText.textContent = '获取失败: ' + e.message;
+        statusText.className = 'error';
+    }
+}
+
+async function loadTrend() {
+    const canvas = document.getElementById('trendCanvas');
+    const ctx = canvas.getContext('2d');
+    const info = document.getElementById('trendInfo');
+    
+    try {
+        console.log('[SIMPLE] 获取趋势数据...');
+        const resp = await fetch(TREND_URL + '?t=' + Date.now());
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        
+        const text = await resp.text();
+        const lines = text.trim().split('\n').filter(l => l.trim());
+        
+        console.log('[SIMPLE] 趋势数据行数:', lines.length);
+        
+        // 解析数据
+        const points = lines.map(line => {
+            try {
+                const r = JSON.parse(line);
+                return {
+                    ts: new Date(r.timestamp).getTime(),
+                    score: r.score || 0
+                };
+            } catch (e) { return null; }
+        }).filter(p => p !== null);
+        
+        // 过滤最近5分钟
+        const now = Date.now();
+        const cutoff = now - (5 * 60 * 1000);
+        const recent = points.filter(p => p.ts > cutoff);
+        
+        console.log('[SIMPLE] 最近5分钟数据点:', recent.length);
+        info.textContent = `共 ${points.length} 条数据，最近5分钟 ${recent.length} 条`;
+        
+        // 绘制
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#666';
+        ctx.font = '14px sans-serif';
+        
+        if (recent.length === 0) {
+            ctx.textAlign = 'center';
+            ctx.fillText('暂无5分钟内数据', canvas.width/2, canvas.height/2);
+        } else {
+            // 简单绘制
+            const w = canvas.width;
+            const h = canvas.height;
+            const padding = 20;
+            
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            recent.forEach((p, i) => {
+                const x = padding + (i / (recent.length - 1 || 1)) * (w - padding * 2);
+                const y = h - padding - (p.score / 100) * (h - padding * 2);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            
+            ctx.stroke();
+            
+            // 显示分数
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`最新: ${recent[recent.length-1].score}%`, 10, 20);
+        }
+        
+    } catch (e) {
+        console.error('[SIMPLE] 趋势错误:', e);
+        info.textContent = '趋势获取失败: ' + e.message;
+        ctx.fillStyle = '#ef4444';
+        ctx.textAlign = 'center';
+        ctx.fillText('趋势加载失败', canvas.width/2, canvas.height/2);
+    }
+}
+
+// 加载
+document.addEventListener('DOMContentLoaded', () => {
+    loadData();
+    loadTrend();
+    setInterval(loadData, 30000);
+});
+</script>
+</body>
+</html>
