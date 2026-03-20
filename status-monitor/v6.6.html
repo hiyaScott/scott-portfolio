@@ -1006,6 +1006,8 @@ var TREND_URL = './cognitive-history.jsonl';
 var REFRESH_INTERVAL = 30000;
 var currentRange = '5m';
 var countdown = 60;
+var trendData = [];
+var currentTrendRange = '5m';
 
 function getEl(id) { return document.getElementById(id); }
 
@@ -1140,82 +1142,11 @@ async function fetchData() {
     }
 }
 
-function drawTrend(data) {
-    var canvas = getEl('trendChartCanvas');
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    var rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    var w = canvas.width, h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
-    if (!data || data.length === 0) {
-        ctx.fillStyle = '#666';
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('暂无历史数据', w / 2, h / 2);
-        return;
-    }
-    var padding = { top: 20, right: 30, bottom: 30, left: 40 };
-    var chartW = w - padding.left - padding.right;
-    var chartH = h - padding.top - padding.bottom;
-    var scores = [];
-    for (var i = 0; i < data.length; i++) scores.push(data[i].score);
-    var minScore = Math.min.apply(null, scores);
-    var maxScore = Math.max.apply(null, scores);
-    var range = maxScore - minScore || 1;
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-    ctx.lineWidth = 1;
-    for (var j = 0; j <= 4; j++) {
-        var y = padding.top + chartH * j / 4;
-        ctx.beginPath();
-        ctx.moveTo(padding.left, y);
-        ctx.lineTo(padding.left + chartW, y);
-        ctx.stroke();
-    }
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (var k = 0; k < data.length; k++) {
-        var x = padding.left + chartW * k / (data.length - 1 || 1);
-        var y = padding.top + chartH * (1 - (data[k].score - minScore) / range);
-        if (k === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-}
 
-async function fetchTrend() {
-    try {
-        var response = await fetch(TREND_URL + '?t=' + Date.now());
-        if (!response.ok) return;
-        var text = await response.text();
-        var lines = text.trim().split("\n");
-        var points = [];
-        var now = Date.now();
-        var cutoff = now - (currentRange === '5m' ? 5 : currentRange === '15m' ? 15 : 60) * 60 * 1000;
-        for (var i = 0; i < lines.length; i++) {
-            try {
-                var r = JSON.parse(lines[i]);
-                var ts = new Date(r.timestamp).getTime();
-                if (ts > cutoff) points.push({ timestamp_ms: ts, score: r.score || 0 });
-            } catch (e) {}
-        }
-        drawTrend(points);
-    } catch (e) {
-        console.error('[Trend] Error:', e);
-    }
-}
 
-function switchTrendRange(range) {
-    currentRange = range;
-    var buttons = document.querySelectorAll('.trend-range-btn');
-    for (var i = 0; i < buttons.length; i++) {
-        buttons[i].classList.remove('active');
-    }
-    event.target.classList.add('active');
-    fetchTrend();
-}
+
+
+
 
 function startCountdown() {
     countdown = 60;
@@ -1238,6 +1169,330 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(fetchData, REFRESH_INTERVAL);
     setInterval(fetchTrend, 300000);
 });
+
+// 全局趋势数据
+var trendData = [];
+var currentTrendRange = '5m';
+
+function renderTrendChart() {
+    var canvas = document.getElementById('trendChartCanvas');
+    if (!canvas) return;
+    
+    var ctx = canvas.getContext('2d');
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    
+    var width = rect.width;
+    var height = rect.height;
+    
+    // 清空画布
+    ctx.clearRect(0, 0, width, height);
+    
+    // 数据不足提示
+    if (!trendData || trendData.length === 0) {
+        ctx.fillStyle = '#666';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('暂无历史数据', width / 2, height / 2);
+        var statsEl = document.getElementById('trendStats');
+        if (statsEl) statsEl.innerHTML = '<span style="color:#666">数据积累中...</span>';
+        return;
+    }
+    
+    // 只有1个点时的特殊处理
+    if (trendData.length === 1) {
+        var padding = { top: 25, right: 50, bottom: 30, left: 60 };
+        var chartWidth = width - padding.left - padding.right;
+        var chartHeight = height - padding.top - padding.bottom;
+        var score = trendData[0].score;
+        
+        // 绘制背景网格
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        [0, 0.25, 0.5, 0.75, 1].forEach(function(ratio) {
+            var y = padding.top + chartHeight * (1 - ratio);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(padding.left + chartWidth, y);
+            ctx.stroke();
+        });
+        
+        // 绘制单点
+        var x = padding.left + chartWidth * 0.8;
+        var y = padding.top + chartHeight * (1 - score / 100);
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = score > 50 ? '#ef4444' : '#22c55e';
+        ctx.fill();
+        
+        // 外圈光晕
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.strokeStyle = score > 50 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(34, 197, 94, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // 显示评分
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(score.toString(), x, y - 15);
+        
+        // 绘制Y轴标签
+        ctx.fillStyle = '#666';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        [0, 25, 50, 75, 100].forEach(function(val) {
+            var y = padding.top + chartHeight * (1 - val / 100);
+            ctx.fillText(val, padding.left - 8, y + 3);
+        });
+        return;
+    }
+    
+    var padding = { top: 25, right: 50, bottom: 30, left: 60 };
+    var chartWidth = width - padding.left - padding.right;
+    var chartHeight = height - padding.top - padding.bottom;
+    
+    // 计算统计数据
+    var scores = trendData.map(function(d) { return d.score; });
+    var maxScore = Math.max.apply(null, scores.concat([100]));
+    var minScore = Math.min.apply(null, scores.concat([0]));
+    var avgScore = Math.round(scores.reduce(function(a, b) { return a + b; }, 0) / scores.length);
+    var latestScore = scores[scores.length - 1];
+    var prevScore = scores.length > 1 ? scores[scores.length - 2] : latestScore;
+    var change = latestScore - prevScore;
+    
+    // 更新统计显示（股票样式）
+    var statsEl = document.getElementById('trendStats');
+    if (statsEl) {
+        var changeColor = change > 0 ? '#f87171' : change < 0 ? '#4ade80' : '#888';
+        var changeSymbol = change > 0 ? '↑' : change < 0 ? '↓' : '-';
+        statsEl.innerHTML = '<span style="color:' + changeColor + ';font-weight:bold">' + latestScore + ' ' + changeSymbol + Math.abs(change) + '</span> <span style="color:#666;margin-left:8px">高:' + maxScore + ' 低:' + minScore + ' 均:' + avgScore + '</span>';
+    }
+    
+    // 绘制背景网格
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    [0, 0.25, 0.5, 0.75, 1].forEach(function(ratio) {
+        var y = padding.top + chartHeight * (1 - ratio);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(padding.left + chartWidth, y);
+        ctx.stroke();
+    });
+    
+    // 绘制阈值参考线
+    ctx.setLineDash([5, 5]);
+    // 30% 线
+    ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+    var y30 = padding.top + chartHeight * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y30);
+    ctx.lineTo(padding.left + chartWidth, y30);
+    ctx.stroke();
+    
+    // 55% 线
+    ctx.strokeStyle = 'rgba(250, 204, 21, 0.3)';
+    var y55 = padding.top + chartHeight * 0.45;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y55);
+    ctx.lineTo(padding.left + chartWidth, y55);
+    ctx.stroke();
+    
+    // 80% 线
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.3)';
+    var y80 = padding.top + chartHeight * 0.2;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y80);
+    ctx.lineTo(padding.left + chartWidth, y80);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // 绘制渐变区域和曲线
+    if (trendData.length > 1) {
+        var timeRange = trendData[trendData.length - 1].timestamp_ms - trendData[0].timestamp_ms;
+        
+        // 创建渐变
+        var gradient = ctx.createLinearGradient(padding.left, 0, padding.left + chartWidth, 0);
+        if (change >= 0) {
+            gradient.addColorStop(0, 'rgba(34, 197, 94, 0.2)');
+            gradient.addColorStop(0.5, 'rgba(250, 204, 21, 0.3)');
+            gradient.addColorStop(1, 'rgba(239, 68, 68, 0.4)');
+        } else {
+            gradient.addColorStop(0, 'rgba(239, 68, 68, 0.2)');
+            gradient.addColorStop(0.5, 'rgba(250, 204, 21, 0.3)');
+            gradient.addColorStop(1, 'rgba(34, 197, 94, 0.4)');
+        }
+        
+        // 绘制填充区域
+        ctx.beginPath();
+        ctx.moveTo(padding.left, padding.top + chartHeight);
+        
+        trendData.forEach(function(d, i) {
+            var x = padding.left + ((d.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+            var y = padding.top + chartHeight * (1 - d.score / 100);
+            if (i === 0) {
+                ctx.lineTo(x, y);
+            } else {
+                var prev = trendData[i - 1];
+                var prevX = padding.left + ((prev.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+                var prevY = padding.top + chartHeight * (1 - prev.score / 100);
+                var cpX = (prevX + x) / 2;
+                ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
+                ctx.quadraticCurveTo(cpX, (prevY + y) / 2, x, y);
+            }
+        });
+        
+        ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        
+        // 绘制数据线
+        ctx.beginPath();
+        ctx.strokeStyle = change >= 0 ? '#f87171' : '#4ade80';
+        ctx.lineWidth = 2.5;
+        
+        trendData.forEach(function(d, i) {
+            var x = padding.left + ((d.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+            var y = padding.top + chartHeight * (1 - d.score / 100);
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                var prev = trendData[i - 1];
+                var prevX = padding.left + ((prev.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+                var prevY = padding.top + chartHeight * (1 - prev.score / 100);
+                var cpX = (prevX + x) / 2;
+                ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
+                ctx.quadraticCurveTo(cpX, (prevY + y) / 2, x, y);
+            }
+        });
+        ctx.stroke();
+        
+        // 绘制最新点高亮
+        var lastX = padding.left + chartWidth;
+        var lastY = padding.top + chartHeight * (1 - latestScore / 100);
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = change >= 0 ? '#ef4444' : '#22c55e';
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, 10, 0, Math.PI * 2);
+        ctx.strokeStyle = change >= 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(34, 197, 94, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // 绘制平均参考线
+        var avgY = padding.top + chartHeight * (1 - avgScore / 100);
+        ctx.beginPath();
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.moveTo(padding.left, avgY);
+        ctx.lineTo(padding.left + chartWidth, avgY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+    
+    // 绘制Y轴标签
+    ctx.fillStyle = '#666';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    [0, 25, 50, 75, 100].forEach(function(val) {
+        var y = padding.top + chartHeight * (1 - val / 100);
+        ctx.fillText(val, padding.left - 8, y + 3);
+    });
+    
+    // 绘制X轴时间标签
+    ctx.textAlign = 'center';
+    var tickCount = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 5 : 6;
+    for (var i = 0; i <= tickCount; i++) {
+        var ratio = i / tickCount;
+        var x = padding.left + chartWidth * ratio;
+        var timeMs = trendData[0].timestamp_ms + (trendData[trendData.length - 1].timestamp_ms - trendData[0].timestamp_ms) * ratio;
+        var time = new Date(timeMs);
+        
+        var timeStr;
+        if (currentTrendRange === '5m') {
+            var mins = time.getMinutes().toString();
+            var secs = time.getSeconds().toString();
+            timeStr = (mins.length < 2 ? '0' + mins : mins) + ':' + (secs.length < 2 ? '0' + secs : secs);
+        } else {
+            var hrs = time.getHours().toString();
+            var mins = time.getMinutes().toString();
+            timeStr = (hrs.length < 2 ? '0' + hrs : hrs) + ':' + (mins.length < 2 ? '0' + mins : mins);
+        }
+        ctx.fillText(timeStr, x, height - 8);
+    }
+}
+
+function renderEmptyChart(message) {
+    var canvas = document.getElementById('trendChartCanvas');
+    if (!canvas) return;
+    
+    var ctx = canvas.getContext('2d');
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    
+    ctx.fillStyle = '#444';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(message || '暂无历史数据', rect.width / 2, rect.height / 2);
+    
+    var statsEl = document.getElementById('trendStats');
+    if (statsEl) statsEl.innerHTML = '<span>最高:-- 最低:-- 平均:--</span>';
+}
+
+// 修改fetchTrend函数来使用新的renderTrendChart
+function fetchTrend() {
+    fetch(TREND_URL + '?t=' + Date.now())
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.text();
+        })
+        .then(function(text) {
+            var lines = text.trim().split('
+');
+            var points = [];
+            var now = Date.now();
+            var cutoffMinutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
+            var cutoff = now - cutoffMinutes * 60 * 1000;
+            
+            for (var i = 0; i < lines.length; i++) {
+                try {
+                    var r = JSON.parse(lines[i]);
+                    var ts = new Date(r.timestamp).getTime();
+                    if (ts > cutoff) {
+                        points.push({ timestamp_ms: ts, score: r.score || 0 });
+                    }
+                } catch (e) {}
+            }
+            
+            trendData = points;
+            renderTrendChart();
+        })
+        .catch(function(e) {
+            console.error('[Trend] Error:', e);
+            renderEmptyChart('加载失败');
+        });
+}
+
+function switchTrendRange(range) {
+    currentTrendRange = range;
+    var buttons = document.querySelectorAll('.trend-range-btn');
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove('active');
+    }
+    if (event && event.target) event.target.classList.add('active');
+    fetchTrend();
+}
 </script>
 
 </body>
