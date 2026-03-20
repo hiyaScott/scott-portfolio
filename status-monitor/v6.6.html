@@ -1245,6 +1245,21 @@ function renderTrendChart() {
             var y = padding.top + chartHeight * (1 - val / 100);
             ctx.fillText(val, padding.left - 8, y + 3);
         });
+        
+        // 绘制X轴时间标签
+        ctx.textAlign = 'center';
+        var time = new Date(trendData[0].timestamp_ms);
+        var timeStr;
+        if (currentTrendRange === '5m') {
+            var mins = time.getMinutes().toString();
+            var secs = time.getSeconds().toString();
+            timeStr = (mins.length < 2 ? '0' + mins : mins) + ':' + (secs.length < 2 ? '0' + secs : secs);
+        } else {
+            var hrs = time.getHours().toString();
+            var mins = time.getMinutes().toString();
+            timeStr = (hrs.length < 2 ? '0' + hrs : hrs) + ':' + (mins.length < 2 ? '0' + mins : mins);
+        }
+        ctx.fillText(timeStr, padding.left + chartWidth * 0.8, height - 8);
         return;
     }
     
@@ -1456,13 +1471,16 @@ function fetchTrend() {
         .then(function(text) {
             var lines = text.trim().split("\n");
             var points = [];
-            var now = Date.now();
+            // 使用UTC时间进行过滤，避免时区问题
+            var nowUTC = new Date().toISOString();
+            var now = new Date(nowUTC).getTime();
             var cutoffMinutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
             var cutoff = now - cutoffMinutes * 60 * 1000;
             
             for (var i = 0; i < lines.length; i++) {
                 try {
                     var r = JSON.parse(lines[i]);
+                    // 确保时间戳按UTC解析
                     var ts = new Date(r.timestamp).getTime();
                     if (ts > cutoff) {
                         points.push({ timestamp_ms: ts, score: r.score || 0 });
