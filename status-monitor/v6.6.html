@@ -1008,6 +1008,7 @@ var currentRange = '5m';
 var countdown = 60;
 var trendData = [];
 var currentTrendRange = '5m';
+var trendTimeRange = { start: 0, end: 0 };
 
 function getEl(id) { return document.getElementById(id); }
 
@@ -1324,7 +1325,8 @@ function renderTrendChart() {
     
     // 绘制渐变区域和曲线
     if (trendData.length > 1) {
-        var timeRange = trendData[trendData.length - 1].timestamp_ms - trendData[0].timestamp_ms;
+        // 使用完整时间范围计算位置，不是数据点范围
+        var fullTimeRange = trendTimeRange.end - trendTimeRange.start;
         
         // 创建渐变
         var gradient = ctx.createLinearGradient(padding.left, 0, padding.left + chartWidth, 0);
@@ -1343,13 +1345,13 @@ function renderTrendChart() {
         ctx.moveTo(padding.left, padding.top + chartHeight);
         
         trendData.forEach(function(d, i) {
-            var x = padding.left + ((d.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+            var x = padding.left + ((d.timestamp_ms - trendTimeRange.start) / fullTimeRange) * chartWidth;
             var y = padding.top + chartHeight * (1 - d.score / 100);
             if (i === 0) {
                 ctx.lineTo(x, y);
             } else {
                 var prev = trendData[i - 1];
-                var prevX = padding.left + ((prev.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+                var prevX = padding.left + ((prev.timestamp_ms - trendTimeRange.start) / fullTimeRange) * chartWidth;
                 var prevY = padding.top + chartHeight * (1 - prev.score / 100);
                 var cpX = (prevX + x) / 2;
                 ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
@@ -1368,13 +1370,13 @@ function renderTrendChart() {
         ctx.lineWidth = 2.5;
         
         trendData.forEach(function(d, i) {
-            var x = padding.left + ((d.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+            var x = padding.left + ((d.timestamp_ms - trendTimeRange.start) / fullTimeRange) * chartWidth;
             var y = padding.top + chartHeight * (1 - d.score / 100);
             if (i === 0) {
                 ctx.moveTo(x, y);
             } else {
                 var prev = trendData[i - 1];
-                var prevX = padding.left + ((prev.timestamp_ms - trendData[0].timestamp_ms) / timeRange) * chartWidth;
+                var prevX = padding.left + ((prev.timestamp_ms - trendTimeRange.start) / fullTimeRange) * chartWidth;
                 var prevY = padding.top + chartHeight * (1 - prev.score / 100);
                 var cpX = (prevX + x) / 2;
                 ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
@@ -1418,13 +1420,14 @@ function renderTrendChart() {
         ctx.fillText(val, padding.left - 8, y + 3);
     });
     
-    // 绘制X轴时间标签
+    // 绘制X轴时间标签（使用完整时间范围，不是数据点范围）
     ctx.textAlign = 'center';
     var tickCount = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 5 : 6;
+    var timeRange = trendTimeRange.end - trendTimeRange.start;
     for (var i = 0; i <= tickCount; i++) {
         var ratio = i / tickCount;
         var x = padding.left + chartWidth * ratio;
-        var timeMs = trendData[0].timestamp_ms + (trendData[trendData.length - 1].timestamp_ms - trendData[0].timestamp_ms) * ratio;
+        var timeMs = trendTimeRange.start + timeRange * ratio;
         var time = new Date(timeMs);
         
         var timeStr;
@@ -1498,6 +1501,10 @@ function fetchTrend() {
                     } catch (e) {}
                 }
             }
+            
+            // 设置X轴显示的时间范围（完整时间范围，不是数据点范围）
+            trendTimeRange.end = now;
+            trendTimeRange.start = now - cutoffMinutes * 60 * 1000;
             
             trendData = points;
             renderTrendChart();
