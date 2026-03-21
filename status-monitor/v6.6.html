@@ -813,7 +813,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v6.6.2 · 5分钟视图修复 · 实时刷新</span>
+                <span id="versionText">v6.6.3 · 三面板逻辑统一 · 心跳同步</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1184,7 +1184,7 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchTrend();
     startCountdown();
     setInterval(fetchData, REFRESH_INTERVAL);
-    setInterval(fetchTrend, 30000);  // 趋势图每30秒刷新一次
+    setInterval(fetchTrend, 60000);  // 趋势图每60秒刷新一次，与心跳同步
 });
 
 function renderTrendChart() {
@@ -1474,7 +1474,7 @@ function renderEmptyChart(message) {
     if (statsEl) statsEl.innerHTML = '<span>最高:-- 最低:-- 平均:--</span>';
 }
 
-// 修改fetchTrend函数来使用新的renderTrendChart
+// 修改fetchTrend函数来使用新的renderTrendChart - v6.6.3: 统一三面板逻辑，修复时区问题
 function fetchTrend() {
     fetch(TREND_URL + '?t=' + Date.now())
         .then(function(response) {
@@ -1482,42 +1482,47 @@ function fetchTrend() {
             return response.text();
         })
         .then(function(text) {
-            var lines = text.trim().split("\n");
+            var lines = text.trim().split("\n").filter(function(l) { return l.trim(); });
             var points = [];
-            // 使用UTC时间计算，避免时区问题
+            
+            // 获取当前时间（本地时间戳）
+            var now = Date.now();
             var cutoffMinutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
-            var now = new Date().getTime();
             var cutoff = now - cutoffMinutes * 60 * 1000;
             
+            // 解析所有数据点
             for (var i = 0; i < lines.length; i++) {
                 try {
                     var r = JSON.parse(lines[i]);
-                    // 数据时间戳已经是UTC格式
+                    // 正确解析带时区的ISO时间戳
                     var ts = new Date(r.timestamp).getTime();
-                    if (ts > cutoff) {
+                    if (ts && ts > 0) {
                         points.push({ timestamp_ms: ts, score: r.score || 0 });
                     }
                 } catch (e) {}
             }
             
-            // 5m视图如果数据点少于2个，显示最近10个点形成折线
-            if (currentTrendRange === '5m' && points.length < 2) {
-                points = [];
-                for (var i = Math.max(0, lines.length - 10); i < lines.length; i++) {
-                    try {
-                        var r = JSON.parse(lines[i]);
-                        points.push({ timestamp_ms: new Date(r.timestamp).getTime(), score: r.score || 0 });
-                    } catch (e) {}
-                }
+            // 按时间排序
+            points.sort(function(a, b) { return a.timestamp_ms - b.timestamp_ms; });
+            
+            // 过滤当前时间范围内的数据
+            var filteredPoints = points.filter(function(p) { return p.timestamp_ms >= cutoff; });
+            
+            // 如果过滤后数据点太少（5m视图少于2个），显示最近N个数据点
+            var minPoints = currentTrendRange === '5m' ? 2 : currentTrendRange === '15m' ? 3 : 5;
+            if (filteredPoints.length < minPoints && points.length > 0) {
+                // 取最近的 N 个点
+                var takeCount = Math.max(minPoints, Math.floor(points.length * 0.1));
+                filteredPoints = points.slice(-takeCount);
             }
             
-            // 设置X轴显示的时间范围（完整时间范围，不是数据点范围）
+            // 设置X轴显示的时间范围（固定区间，不是数据点范围）
             trendTimeRange.end = now;
             trendTimeRange.start = now - cutoffMinutes * 60 * 1000;
             
-            console.log('[Trend] Range:', currentTrendRange, 'Points:', points.length, 'Start:', new Date(trendTimeRange.start).toISOString());
+            console.log('[Trend] Range:', currentTrendRange, 'Total:', points.length, 'Filtered:', filteredPoints.length);
             
-            trendData = points;
+            trendData = filteredPoints;
             renderTrendChart();
         })
         .catch(function(e) {
