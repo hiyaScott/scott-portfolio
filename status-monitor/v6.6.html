@@ -813,7 +813,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v6.6 · 原设计保留 · 稳定版</span>
+                <span id="versionText">v6.6.1 · Bug修复版 · 稳定</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1164,6 +1164,22 @@ function startCountdown() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // 从 localStorage 恢复用户选择的时间范围
+    try {
+        var savedRange = localStorage.getItem('cognitiveTrendRange');
+        if (savedRange && ['5m', '15m', '1h'].indexOf(savedRange) !== -1) {
+            currentTrendRange = savedRange;
+            // 更新按钮状态
+            var buttons = document.querySelectorAll('.trend-range-btn');
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].classList.remove('active');
+                if (buttons[i].getAttribute('data-range') === savedRange) {
+                    buttons[i].classList.add('active');
+                }
+            }
+        }
+    } catch(e) {}
+    
     fetchData();
     fetchTrend();
     startCountdown();
@@ -1474,15 +1490,15 @@ function fetchTrend() {
         .then(function(text) {
             var lines = text.trim().split("\n");
             var points = [];
-            // 使用Date.now()获取当前时间戳
-            var now = Date.now();
+            // 使用UTC时间计算，避免时区问题
             var cutoffMinutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
+            var now = new Date().getTime();
             var cutoff = now - cutoffMinutes * 60 * 1000;
             
             for (var i = 0; i < lines.length; i++) {
                 try {
                     var r = JSON.parse(lines[i]);
-                    // 确保时间戳按UTC解析
+                    // 数据时间戳已经是UTC格式
                     var ts = new Date(r.timestamp).getTime();
                     if (ts > cutoff) {
                         points.push({ timestamp_ms: ts, score: r.score || 0 });
@@ -1502,10 +1518,10 @@ function fetchTrend() {
             }
             
             // 设置X轴显示的时间范围（完整时间范围，不是数据点范围）
-            trendTimeRange.end = Date.now();
-            trendTimeRange.start = Date.now() - cutoffMinutes * 60 * 1000;
+            trendTimeRange.end = now;
+            trendTimeRange.start = now - cutoffMinutes * 60 * 1000;
             
-            console.log('[Trend] Range:', currentTrendRange, 'Start:', new Date(trendTimeRange.start).toISOString(), 'End:', new Date(trendTimeRange.end).toISOString());
+            console.log('[Trend] Range:', currentTrendRange, 'Points:', points.length, 'Start:', new Date(trendTimeRange.start).toISOString());
             
             trendData = points;
             renderTrendChart();
@@ -1518,11 +1534,16 @@ function fetchTrend() {
 
 function switchTrendRange(range) {
     currentTrendRange = range;
+    // 保存用户选择到 localStorage
+    try { localStorage.setItem('cognitiveTrendRange', range); } catch(e) {}
+    
     var buttons = document.querySelectorAll('.trend-range-btn');
     for (var i = 0; i < buttons.length; i++) {
         buttons[i].classList.remove('active');
+        if (buttons[i].getAttribute('data-range') === range) {
+            buttons[i].classList.add('active');
+        }
     }
-    if (event && event.target) event.target.classList.add('active');
     fetchTrend();
 }
 </script>
