@@ -813,7 +813,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v6.6.3 · 三面板逻辑统一 · 心跳同步</span>
+                <span id="versionText">v6.6.4 · 以数据点为中心显示</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -1516,11 +1516,33 @@ function fetchTrend() {
                 filteredPoints = points.slice(-takeCount);
             }
             
-            // 设置X轴显示的时间范围（固定区间，不是数据点范围）
-            trendTimeRange.end = now;
-            trendTimeRange.start = now - cutoffMinutes * 60 * 1000;
+            // 设置X轴显示的时间范围：以数据点的时间范围为准，不是固定区间
+            if (filteredPoints.length > 0) {
+                var firstPointTime = filteredPoints[0].timestamp_ms;
+                var lastPointTime = filteredPoints[filteredPoints.length - 1].timestamp_ms;
+                
+                // 计算数据点实际覆盖的时间跨度
+                var dataSpan = lastPointTime - firstPointTime;
+                var minSpan = cutoffMinutes * 60 * 1000; // 最小跨度：5min/15min/1h
+                
+                // 如果数据跨度小于最小跨度，以最小跨度为准，数据点居中
+                if (dataSpan < minSpan) {
+                    var pad = (minSpan - dataSpan) / 2;
+                    trendTimeRange.start = firstPointTime - pad;
+                    trendTimeRange.end = lastPointTime + pad;
+                } else {
+                    // 数据跨度足够，以数据点范围为准
+                    trendTimeRange.start = firstPointTime;
+                    trendTimeRange.end = lastPointTime;
+                }
+            } else {
+                // 没有数据，使用默认区间
+                trendTimeRange.end = now;
+                trendTimeRange.start = now - cutoffMinutes * 60 * 1000;
+            }
             
-            console.log('[Trend] Range:', currentTrendRange, 'Total:', points.length, 'Filtered:', filteredPoints.length);
+            console.log('[Trend] Range:', currentTrendRange, 'Points:', filteredPoints.length, 
+                'TimeSpan:', Math.round((trendTimeRange.end - trendTimeRange.start)/1000), 's');
             
             trendData = filteredPoints;
             renderTrendChart();
