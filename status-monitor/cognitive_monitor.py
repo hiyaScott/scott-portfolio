@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v6.0 - 简化方案
+Shrimp Jetton 认知负载监控 v6.2 - 改进活跃会话检测
 更新：
+- v6.2: 最近5分钟内有活动的会话显示为"活跃中"，task_queue更准确
 - v6.0: 简化评分算法，队列长度直接映射；添加预估回复时间；单一数据源
 - v5.35: 状态显示改为"最后活跃时间"替代"等待时间"，更准确反映会话状态
 - v5.34: 从Redis迁移到本地JSON Lines存储，添加自动归档
@@ -479,21 +480,19 @@ def analyze_session(file_path):
         except:
             user_ts = assistant_ts = 0
         
-        # 三种状态判断 - v5.34: 区分当前对话和后台任务
+        # 三种状态判断 - v6.2: 改进活跃会话检测
         is_waiting = False
         is_processing = False
-        is_current_session = False  # 新增：是否是当前正在进行的对话
+        is_active = False  # 是否是活跃会话（最近5分钟有活动）
         wait_time = 0
         
         # 检测是否有lock文件（表示正在被写入/处理中）
         lock_file = file_path + '.lock'
         has_lock = os.path.exists(lock_file)
         
-        # 判断是否是"当前对话"（用户消息在30秒内且lock存在）
-        if has_lock and user_ts > 0:
-            time_since_user_msg = time.time() - user_ts
-            if time_since_user_msg < 30:  # 30秒内的用户消息 = 当前对话
-                is_current_session = True
+        # 判断是否是活跃会话（最近5分钟内有活动）
+        if last_activity < 300:  # 5分钟内
+            is_active = True
         
         if user_ts > assistant_ts:
             is_waiting = True
@@ -512,7 +511,8 @@ def analyze_session(file_path):
             'tool_calls': tool_calls,
             'is_waiting': is_waiting,
             'is_processing': is_processing,
-            'user_ts': user_ts,  # 新增：返回用户消息时间戳
+            'is_active': is_active,  # 新增：是否是活跃会话
+            'user_ts': user_ts,
             'wait_time': max(0, wait_time),
             'last_mtime': file_mtime,
             'session_type': session_type,
@@ -570,6 +570,9 @@ def get_cognitive_load():
                     status = f"💤 {a['wait_time']}秒前活跃"
             elif a['is_processing']:
                 status = "🔄 处理中"
+            elif a.get('is_active', False):
+                # 新增：活跃但未在处理中的会话
+                status = "💡 活跃中"
             else:
                 status = "✅ 已回复"
             
@@ -644,8 +647,8 @@ def get_cognitive_load():
         minutes = (total_queue - 1) // 2 + 1
         estimated_wait = {'text': f'~{minutes}分钟', 'seconds': minutes * 60, 'detail': f'预计{minutes}分钟内回复'}
     
-    # v6.1: 只返回活跃任务到 task_queue（处理中或等待中）
-    active_tasks = [t for t in all_tasks if '🔄' in t.get('status', '') or '前活跃' in t.get('status', '') or '运行中' in t.get('status', '')]
+    # v6.2: 返回活跃任务到 task_queue（处理中、等待中、或最近5分钟活跃）
+    active_tasks = [t for t in all_tasks if '🔄' in t.get('status', '') or '前活跃' in t.get('status', '') or '运行中' in t.get('status', '') or '活跃中' in t.get('status', '')]
     
     # 任务排序：最近活跃 > 处理中 > 已回复
     def task_priority(t):

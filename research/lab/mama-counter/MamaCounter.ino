@@ -1,5 +1,5 @@
 /**
- * 妈妈计数器 - Mama Counter
+ * 妈妈计数器 - Mama Counter v1.0.0
  * 基于 ESP32-Display (1.28寸圆形LCD, GC9A01驱动)
  * 
  * 硬件: ESP32-C3 + 1.28寸圆形LCD + 麦克风模块
@@ -7,6 +7,7 @@
  * 
  * 作者: Shrimp Jetton
  * 日期: 2026-03-21
+ * 版本: v1.0.0
  */
 
 #include <TFT_eSPI.h>  // 屏幕驱动库
