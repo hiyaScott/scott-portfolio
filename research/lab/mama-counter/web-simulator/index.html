@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>妈妈计数器 - Web模拟器</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --neon-green: #39ff14;
+            --neon-cyan: #00ffff;
+            --neon-pink: #ff00ff;
+            --dark: #0a0a0a;
+            --lcd-bg: #1a1a2e;
+        }
+        
+        body {
+            background: var(--dark);
+            color: #fff;
+            font-family: 'Noto Sans SC', 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+        }
+        
+        /* 设备外壳 */
+        .device-case {
+            width: 280px;
+            height: 280px;
+            background: linear-gradient(145deg, #2a2a3e, #1a1a2e);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 
+                0 20px 60px rgba(0,0,0,0.5),
+                inset 0 2px 10px rgba(255,255,255,0.1),
+                inset 0 -2px 10px rgba(0,0,0,0.3);
+            position: relative;
+            margin-bottom: 30px;
+        }
+        
+        .device-case::before {
+            content: '';
+            position: absolute;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+        
+        /* LCD屏幕 */
+        .lcd-screen {
+            width: 240px;
+            height: 240px;
+            background: var(--lcd-bg);
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+        }
+        
+        /* LCD内容 */
+        .lcd-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .status-bar {
+            position: absolute;
+            top: 35px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 50px;
+            font-size: 10px;
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .battery-icon {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        
+        .battery-level {
+            width: 18px;
+            height: 8px;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 2px;
+            position: relative;
+        }
+        
+        .battery-level::after {
+            content: '';
+            position: absolute;
+            right: -3px;
+            top: 2px;
+            width: 2px;
+            height: 4px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 0 1px 1px 0;
+        }
+        
+        .battery-fill {
+            height: 100%;
+            background: var(--neon-green);
+            border-radius: 1px;
+            transition: width 0.3s;
+        }
+        
+        .counter-display {
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .counter-label {
+            font-size: 14px;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+        }
+        
+        .counter-value {
+            font-size: 72px;
+            font-weight: 900;
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--neon-green);
+            text-shadow: 0 0 20px rgba(57,255,20,0.5);
+            line-height: 1;
+            transition: all 0.3s;
+        }
+        
+        .counter-value.pulse {
+            animation: pulse 0.5s ease;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .counter-unit {
+            font-size: 12px;
+            color: rgba(255,255,255,0.4);
+            margin-top: 5px;
+        }
+        
+        .wave-visual {
+            position: absolute;
+            bottom: 45px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 30px;
+        }
+        
+        .wave-bar {
+            width: 4px;
+            background: linear-gradient(to top, var(--neon-cyan), var(--neon-green));
+            border-radius: 2px;
+            transition: height 0.1s;
+        }
+        
+        .mode-indicator {
+            position: absolute;
+            bottom: 25px;
+            font-size: 10px;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 1px;
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: 1px solid var(--neon-green);
+            background: transparent;
+            color: var(--neon-green);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 25px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-green);
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-simulate {
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+        
+        .btn-simulate:hover {
+            background: var(--neon-cyan);
+            box-shadow: 0 0 20px var(--neon-cyan);
+        }
+        
+        .btn-reset {
+            border-color: var(--neon-pink);
+            color: var(--neon-pink);
+        }
+        
+        .btn-reset:hover {
+            background: var(--neon-pink);
+            box-shadow: 0 0 20px var(--neon-pink);
+        }
+        
+        /* 信息面板 */
+        .info-panel {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .info-panel h3 {
+            color: var(--neon-cyan);
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 13px;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .info-value {
+            color: var(--neon-green);
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        /* 模拟声音输入 */
+        .sound-input {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .sound-slider {
+            width: 100%;
+            max-width: 300px;
+            margin: 10px 0;
+            -webkit-appearance: none;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        .sound-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+        
+        .threshold-line {
+            width: 100%;
+            max-width: 300px;
+            height: 2px;
+            background: var(--neon-pink);
+            margin: 5px auto;
+            position: relative;
+        }
+        
+        .threshold-label {
+            position: absolute;
+            right: 0;
+            top: -18px;
+            font-size: 10px;
+            color: var(--neon-pink);
+        }
+
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: var(--neon-green);
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 16px;
+            border: 1px solid var(--neon-green);
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            background: var(--neon-green);
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <a href="../" class="back-link">← 返回项目页</a>
+    
+    <h1>👩‍👧 妈妈计数器 Web模拟器</h1>
+    <p class="subtitle">ESP32-Display 1.28寸圆形LCD模拟 | 点击"模拟检测"体验声音触发效果</p>
+    
+    <!-- 设备外壳 -->
+    <div class="device-case">
+        <div class="lcd-screen">
+            <div class="lcd-content">
+                <!-- 状态栏 -->
+                <div class="status-bar">
+                    <span>🔋</span>
+                    <div class="battery-icon">
+                        <div class="battery-level">
+                            <div class="battery-fill" id="batteryFill" style="width: 85%;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 计数显示 -->
+                <div class="counter-display">
+                    <div class="counter-label">MAMA COUNT</div>
+                    <div class="counter-value" id="counterValue">0</div>
+                    <div class="counter-unit">次</div>
+                </div>
+                
+                <!-- 波形可视化 -->
+                <div class="wave-visual" id="waveVisual">
+                    <!-- 动态生成 -->
+                </div>
+                
+                <!-- 模式指示 -->
+                <div class="mode-indicator" id="modeIndicator">监听中...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 控制按钮 -->
+    <div class="controls">
+        <button class="btn btn-simulate" onclick="simulateMama()">🎤 模拟"妈妈"</button>
+        <button class="btn btn-reset" onclick="resetCounter()">🔄 重置</button>
+    </div>
+    
+    <!-- 声音输入模拟 -->
+    <div class="sound-input">
+        <p style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 10px;">声音阈值模拟</p>
+        <input type="range" class="sound-slider" id="soundSlider" min="0" max="100" value="30" oninput="updateSoundLevel(this.value)">
+        <div class="threshold-line">
+            <span class="threshold-label">触发阈值: 50</span>
+        </div>
+        <p style="font-size: 11px; color: rgba(255,255,255,0.4);">拖动滑块模拟环境音量，超过阈值触发计数</p>
+    </div>
+    
+    <!-- 信息面板 -->
+    <div class="info-panel">
+        <h3>📊 运行状态</h3>
+        <div class="info-item">
+            <span class="info-label">今日计数</span>
+            <span class="info-value" id="todayCount">0</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">平均间隔</span>
+            <span class="info-value" id="avgInterval">--</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">运行时间</span>
+            <span class="info-value" id="runTime">00:00</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">电池电量</span>
+            <span class="info-value" id="batteryText">85%</span>
+        </div>
+    </div>
+
+    <script>
+        // 状态变量
+        let count = 0;
+        let lastTriggerTime = null;
+        let intervals = [];
+        let startTime = Date.now();
+        let batteryLevel = 85;
+        let isListening = true;
+        
+        // 初始化波形
+        function initWave() {
+            const waveContainer = document.getElementById('waveVisual');
+            waveContainer.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'wave-bar';
+                bar.style.height = '4px';
+                waveContainer.appendChild(bar);
+            }
+        }
+        
+        // 更新波形动画
+        function updateWave(active = false) {
+            const bars = document.querySelectorAll('.wave-bar');
+            bars.forEach((bar, i) => {
+                if (active) {
+                    const height = Math.random() * 25 + 5;
+                    bar.style.height = height + 'px';
+                } else {
+                    const height = Math.random() * 8 + 2;
+                    bar.style.height = height + 'px';
+                }
+            });
+        }
+        
+        // 模拟"妈妈"检测
+        function simulateMama() {
+            count++;
+            updateDisplay();
+            
+            // 脉冲动画
+            const counterEl = document.getElementById('counterValue');
+            counterEl.classList.add('pulse');
+            setTimeout(() => counterEl.classList.remove('pulse'), 500);
+            
+            // 计算间隔
+            const now = Date.now();
+            if (lastTriggerTime) {
+                const interval = Math.round((now - lastTriggerTime) / 1000);
+                intervals.push(interval);
+                updateAvgInterval();
+            }
+            lastTriggerTime = now;
+            
+            // 波形动画
+            updateWave(true);
+            setTimeout(() => updateWave(false), 1000);
+            
+            // 更新模式指示
+            const modeEl = document.getElementById('modeIndicator');
+            modeEl.textContent = '检测到"妈妈"! +';
+            modeEl.style.color = 'var(--neon-green)';
+            setTimeout(() => {
+                modeEl.textContent = '监听中...';
+                modeEl.style.color = 'rgba(255,255,255,0.4)';
+            }, 1500);
+        }
+        
+        // 更新显示
+        function updateDisplay() {
+            document.getElementById('counterValue').textContent = count;
+            document.getElementById('todayCount').textContent = count;
+        }
+        
+        // 更新平均间隔
+        function updateAvgInterval() {
+            if (intervals.length > 0) {
+                const avg = Math.round(intervals.reduce((a, b) => a + b, 0) / intervals.length);
+                const minutes = Math.floor(avg / 60);
+                const seconds = avg % 60;
+                document.getElementById('avgInterval').textContent = 
+                    minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
+            }
+        }
+        
+        // 重置计数器
+        function resetCounter() {
+            count = 0;
+            intervals = [];
+            lastTriggerTime = null;
+            updateDisplay();
+            document.getElementById('avgInterval').textContent = '--';
+        }
+        
+        // 更新运行时间
+        function updateRunTime() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(elapsed / 3600).toString().padStart(2, '0');
+            const minutes = Math.floor((elapsed % 3600) / 60).toString().padStart(2, '0');
+            document.getElementById('runTime').textContent = `${hours}:${minutes}`;
+        }
+        
+        // 更新声音级别
+        function updateSoundLevel(value) {
+            const threshold = 50;
+            if (value > threshold && isListening) {
+                simulateMama();
+                // 自动降低滑块值
+                setTimeout(() => {
+                    document.getElementById('soundSlider').value = 20;
+                }, 500);
+            }
+        }
+        
+        // 定时更新
+        setInterval(updateWave, 200);
+        setInterval(updateRunTime, 60000);
+        setInterval(() => {
+            // 模拟耗电
+            if (Math.random() > 0.95 && batteryLevel > 10) {
+                batteryLevel--;
+                document.getElementById('batteryFill').style.width = batteryLevel + '%';
+                document.getElementById('batteryText').textContent = batteryLevel + '%';
+            }
+        }, 10000);
+        
+        // 初始化
+        initWave();
+        updateDisplay();
+    </script>
+</body>
+</html>
