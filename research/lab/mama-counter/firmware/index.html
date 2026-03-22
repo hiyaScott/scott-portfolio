@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>妈妈计数器 固件与代码</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Share+Tech+Mono&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --neon-green: #39ff14;
+            --neon-cyan: #00ffff;
+            --neon-pink: #ff00ff;
+            --neon-yellow: #ffff00;
+            --dark: #0a0a0a;
+            --card-bg: rgba(255,255,255,0.03);
+        }
+
+        body {
+            background: var(--dark);
+            color: #fff;
+            font-family: 'Noto Sans SC', sans-serif;
+            min-height: 100vh;
+            line-height: 1.8;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* 导航 */
+        .nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: rgba(10,10,10,0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            z-index: 1000;
+            padding: 0 20px;
+        }
+
+        .nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            color: var(--neon-green);
+            text-decoration: none;
+        }
+
+        .nav-brand .icon {
+            font-size: 24px;
+        }
+
+        .back-link {
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        /* 主内容 */
+        .main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 100px 20px 60px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: rgba(255,255,255,0.6);
+            font-size: 16px;
+        }
+
+        /* 卡片 */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card h2 {
+            color: var(--neon-green);
+            font-size: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h3 {
+            color: var(--neon-cyan);
+            font-size: 16px;
+            margin: 25px 0 15px;
+        }
+
+        .card p {
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 15px;
+        }
+
+        .card ul {
+            margin-left: 20px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .card li {
+            margin-bottom: 8px;
+        }
+
+        /* 文件列表 */
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .file-item:hover {
+            border-color: var(--neon-green);
+            background: rgba(0,255,136,0.05);
+        }
+
+        .file-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(0,255,136,0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-info h4 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .file-info p {
+            font-size: 13px;
+            color: rgba(255,255,255,0.5);
+            margin: 0;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--neon-green);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 0 15px var(--neon-green);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+        }
+
+        .btn-outline:hover {
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        /* 状态标签 */
+        .status-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border-left: 3px solid rgba(255,255,255,0.2);
+        }
+
+        .status-item.done {
+            border-left-color: var(--neon-green);
+        }
+
+        .status-item.pending {
+            border-left-color: var(--neon-yellow);
+        }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: auto;
+        }
+
+        .status-badge.done {
+            background: rgba(0,255,136,0.15);
+            color: var(--neon-green);
+        }
+
+        .status-badge.pending {
+            background: rgba(255,255,0,0.15);
+            color: #ffff00;
+        }
+
+        /* 代码块 */
+        .code-block {
+            background: #0d0d0d;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            color: #aaffaa;
+        }
+
+        /* 警告框 */
+        .warning-box {
+            background: rgba(255,170,0,0.1);
+            border: 1px solid rgba(255,170,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .warning-box strong {
+            color: #ffaa00;
+        }
+
+        /* 提示框 */
+        .tip-box {
+            background: rgba(0,170,255,0.1);
+            border: 1px solid rgba(0,170,255,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .tip-box strong {
+            color: #00aaff;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.4);
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-content">
+            <a href="../index.html" class="nav-brand">
+                <span class="icon">👩‍👧</span>
+                <span>妈妈计数器</span>
+            </a>
+            <a href="../index.html" class="back-link">← 返回项目主页</a>
+        </div>
+    </nav>
+
+    <main class="main">
+        <header class="header">
+            <h1>🔧 固件与代码</h1>
+            <p>ESP32-S3 固件源码和技术文档</p>
+        </header>
+
+        <div class="warning-box">
+            <strong>⚠️ 重要提示</strong>
+            <p>当前固件为<strong>框架代码</strong>，有以下功能需要硬件到了后完善：</p>
+            <ul>
+                <li>LCD屏幕驱动 (GC9A01)</li>
+                <li>I2S麦克风音频采集</li>
+                <li>"妈妈"关键词检测 (ESP-SR库)</li>
+                <li>QMI8658陀螺仪翻转检测</li>
+            </ul>
+            <p>建议等硬件到货后我再帮你完善，然后烧录完整版本。</p>
+        </div>
+
+        <section class="card">
+            <h2>📦 固件源码</h2>
+
+            <div class="file-list">
+                <div class="file-item">
+                    <div class="file-icon">📄</div>
+                    <div class="file-info">
+                        <h4>MamaCounter_ESP32S3.ino</h4>
+                        <p>主程序 - 按键处理、状态机、WiFi同步、数据存储</p>
+                    </div>
+                    <div class="file-actions">
+                        <a href="MamaCounter_ESP32S3.ino" class="btn btn-outline" target="_blank">查看</a>
+                        <a href="https://raw.githubusercontent.com/hiyaScott/scott-portfolio/main/research/lab/mama-counter/firmware/MamaCounter_ESP32S3.ino" class="btn btn-primary" download>下载</a>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div class="file-icon">📡</div>
+                    <div class="file-info">
+                        <h4>wifi_portal.ino</h4>
+                        <p>WiFi配网模块 - AP模式、Web配网页面</p>
+                    </div>
+                    <div class="file-actions">
+                        <a href="wifi_portal.ino" class="btn btn-outline" target="_blank">查看</a>
+                        <a href="https://raw.githubusercontent.com/hiyaScott/scott-portfolio/main/research/lab/mama-counter/firmware/wifi_portal.ino" class="btn btn-primary" download>下载</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>📚 技术文档</h2>
+
+            <div class="file-list">
+                <div class="file-item">
+                    <div class="file-icon">📖</div>
+                    <div class="file-info">
+                        <h4>README.md</h4>
+                        <p>编译烧录指南 - Arduino IDE/PlatformIO配置、依赖库安装</p>
+                    </div>
+                    <div class="file-actions">
+                        <a href="README.md" class="btn btn-outline" target="_blank">查看</a>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div class="file-icon">🔌</div>
+                    <div class="file-info">
+                        <h4>API.md</h4>
+                        <p>REST API接口文档 - 设备注册、数据同步、声纹管理</p>
+                    </div>
+                    <div class="file-actions">
+                        <a href="API.md" class="btn btn-outline" target="_blank">查看</a>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div class="file-icon">🏗️</div>
+                    <div class="file-info">
+                        <h4>ARCHITECTURE.md</h4>
+                        <p>架构设计 - 前后端匹配、多设备数据隔离、权限控制</p>
+                    </div>
+                    <div class="file-actions">
+                        <a href="ARCHITECTURE.md" class="btn btn-outline" target="_blank">查看</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>✅ 功能实现状态</h2>
+
+            <div class="status-list">
+                <div class="status-item done">
+                    <span>实体按键处理</span>
+                    <span class="status-badge done">已完成</span>
+                </div>
+                <div class="status-item done">
+                    <span>WiFi连接</span>
+                    <span class="status-badge done">已完成</span>
+                </div>
+                <div class="status-item done">
+                    <span>Web配网AP模式</span>
+                    <span class="status-badge done">已完成</span>
+                </div>
+                <div class="status-item done">
+                    <span>数据同步 (HTTP)</span>
+                    <span class="status-badge done">已完成</span>
+                </div>
+                <div class="status-item done">
+                    <span>本地存储 (Flash)</span>
+                    <span class="status-badge done">已完成</span>
+                </div>
+                <div class="status-item pending">
+                    <span>LCD屏幕驱动</span>
+                    <span class="status-badge pending">待硬件</span>
+                </div>
+                <div class="status-item pending">
+                    <span>I2S麦克风</span>
+                    <span class="status-badge pending">待硬件</span>
+                </div>
+                <div class="status-item pending">
+                    <span>关键词检测 (ESP-SR)</span>
+                    <span class="status-badge pending">待硬件</span>
+                </div>
+                <div class="status-item pending">
+                    <span>陀螺仪翻转检测</span>
+                    <span class="status-badge pending">待硬件</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>🚀 快速开始</h2>
+
+            <h3>硬件准备</h3>
+            <ul>
+                <li>微雪 ESP32-S3 1.85寸 圆形LCD开发板</li>
+                <li>Type-C数据线</li>
+                <li>3.7V锂电池 (可选)</li>
+            </ul>
+
+            <h3>软件准备</h3>
+            <ol>
+                <li>安装 <a href="https://www.arduino.cc/en/software" style="color: var(--neon-cyan);">Arduino IDE</a></li>
+                <li>添加 ESP32 开发板支持</li>
+                <li>安装库: ArduinoJson, TFT_eSPI</li>
+            </ol>
+
+            <h3>烧录步骤</h3>
+            <div class="code-block">
+                <code>1. 下载 MamaCounter_ESP32S3.ino
+2. 用Arduino IDE打开
+3. 选择开发板: ESP32S3 Dev Module
+4. 选择端口 (COMx 或 /dev/ttyUSBx)
+5. 点击上传</code>
+            </div>
+
+            <div class="tip-box">
+                <strong>💡 提示</strong>
+                <p>如果上传失败，按住<strong>BOOT</strong>键，点击<strong>RESET</strong>，然后松开BOOT键再上传。</p>
+            </div>
+
+            <h3>首次使用</h3>
+            <ol>
+                <li>设备启动后会创建WiFi热点: <strong>MamaCounter-XXXX</strong></li>
+                <li>手机连接热点，访问 <strong>192.168.4.1</strong></li>
+                <li>选择你的WiFi网络，输入密码</li>
+                <li>设备自动重启并连接</li>
+                <li>访问 <a href="../web-app/" style="color: var(--neon-cyan);">Web应用</a> 查看数据</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <h2>📞 GitHub 仓库</h2>
+            <p>所有文件已开源在 GitHub:</p>
+            <div class="code-block">
+                <code>https://github.com/hiyaScott/scott-portfolio/tree/main/research/lab/mama-counter/firmware</code>
+            </div>
+            <p>也可以克隆整个仓库:</p>
+            <div class="code-block">
+                <code>git clone https://github.com/hiyaScott/scott-portfolio.git</code>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>固件版本: v2.0.0-beta | 最后更新: 2026-03-22</p>
+    </footer>
+</body>
+</html>
