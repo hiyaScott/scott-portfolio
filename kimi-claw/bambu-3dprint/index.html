@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拓竹3D打印 | Shrimp Jetton</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00ffff;
+            --neon-green: #39ff14;
+            --neon-yellow: #ffff00;
+            --neon-orange: #ff6600;
+            --neon-purple: #9d00ff;
+            --dark: #0a0a0a;
+        }
+        
+        body {
+            background: var(--dark);
+            color: #fff;
+            font-family: 'Noto Sans SC', 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+        
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.95);
+            border-bottom: 2px solid var(--neon-orange);
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav a {
+            color: var(--neon-orange);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .nav a:hover {
+            text-shadow: 0 0 10px var(--neon-orange);
+        }
+        
+        .main {
+            padding-top: 100px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-left: 30px;
+            padding-right: 30px;
+            padding-bottom: 60px;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* 左侧内容区 */
+        .content-area {
+            min-width: 0;
+        }
+        
+        .hero {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid rgba(255,102,0,0.2);
+            margin-bottom: 40px;
+        }
+        
+        .hero-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(90deg, var(--neon-orange), var(--neon-yellow));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+        }
+        
+        .hero p {
+            opacity: 0.8;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            font-size: 1.5rem;
+            color: var(--neon-orange);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section p {
+            line-height: 1.8;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+        
+        /* 场景卡片 */
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .scenario-card {
+            background: rgba(255,102,0,0.05);
+            border: 1px solid rgba(255,102,0,0.2);
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .scenario-card:hover {
+            background: rgba(255,102,0,0.1);
+            border-color: var(--neon-orange);
+            transform: translateY(-3px);
+        }
+        
+        .scenario-card .icon {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        
+        .scenario-card h4 {
+            color: var(--neon-cyan);
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        
+        .scenario-card p {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            margin: 0;
+        }
+        
+        /* 耗材表格 */
+        .material-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.9rem;
+        }
+        
+        .material-table th {
+            background: rgba(255,102,0,0.1);
+            color: var(--neon-orange);
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid rgba(255,102,0,0.3);
+        }
+        
+        .material-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .material-table tr:hover {
+            background: rgba(255,102,0,0.03);
+        }
+        
+        /* 右侧对话区 */
+        .chat-area {
+            position: sticky;
+            top: 100px;
+            height: calc(100vh - 120px);
+        }
+        
+        .chat-container {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,102,0,0.3);
+            border-radius: 15px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: rgba(255,102,0,0.1);
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255,102,0,0.2);
+        }
+        
+        .chat-header h3 {
+            color: var(--neon-orange);
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chat-header p {
+            font-size: 0.8rem;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            animation: messageIn 0.3s ease;
+        }
+        
+        @keyframes messageIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            align-self: flex-end;
+            background: rgba(255,102,0,0.2);
+            border: 1px solid rgba(255,102,0,0.3);
+        }
+        
+        .message.bot {
+            align-self: flex-start;
+            background: rgba(0,255,255,0.1);
+            border: 1px solid rgba(0,255,255,0.2);
+        }
+        
+        .message-time {
+            font-size: 0.7rem;
+            opacity: 0.5;
+            margin-top: 5px;
+        }
+        
+        .quick-questions {
+            padding: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .quick-questions-title {
+            font-size: 0.8rem;
+            opacity: 0.6;
+            margin-bottom: 5px;
+        }
+        
+        .quick-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-align: left;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        
+        .quick-btn:hover {
+            background: rgba(255,102,0,0.1);
+            border-color: var(--neon-orange);
+        }
+        
+        .chat-input-area {
+            padding: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--neon-orange);
+        }
+        
+        .chat-send {
+            background: var(--neon-orange);
+            border: none;
+            color: #000;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        
+        .chat-send:hover {
+            background: var(--neon-yellow);
+            box-shadow: 0 0 15px var(--neon-orange);
+        }
+        
+        .chat-send:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            padding: 12px 16px;
+        }
+        
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--neon-cyan);
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+        
+        .notice-box {
+            background: rgba(255,102,0,0.05);
+            border: 1px solid rgba(255,102,0,0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 0.9rem;
+        }
+        
+        .notice-box strong {
+            color: var(--neon-orange);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 40px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+            opacity: 0.6;
+            font-size: 0.9rem;
+            grid-column: 1 / -1;
+        }
+    </style>
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="alternate icon" type="image/x-icon" href="../../favicon.ico">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">← 返回能力图谱</a>
+    </nav>
+    
+    <main class="main">
+        <div class="content-area">
+            <section class="hero">
+                <div class="hero-icon">🖨️</div>
+                <h1>拓竹 3D打印</h1>
+                <p>把数字模型变成实体物件<br>从在线模型库到Arduino结构件设计</p>
+            </section>
+            
+            <section class="section">
+                <h2>🎯 我能帮你做什么</h2>
+                <div class="scenario-grid">
+                    <div class="scenario-card" onclick="sendQuickQuestion('帮我在Thingiverse找个手机支架')">
+                        <div class="icon">🔍</div>
+                        <h4>找模型</h4>
+                        <p>帮我在Thingiverse找个手机支架</p>
+                    </div>
+                    <div class="scenario-card" onclick="sendQuickQuestion('给UNO设计一个带按键开口的外壳')">
+                        <div class="icon">📦</div>
+                        <h4>Arduino外壳</h4>
+                        <p>给UNO设计一个带按键开口的外壳</p>
+                    </div>
+                    <div class="scenario-card" onclick="sendQuickQuestion('第一层不粘床怎么办？')">
+                        <div class="icon">🔧</div>
+                        <h4>打印问题</h4>
+                        <p>第一层不粘床怎么办？</p>
+                    </div>
+                    <div class="scenario-card" onclick="sendQuickQuestion('我想学3D建模，从哪个软件开始？')">
+                        <div class="icon">🎨</div>
+                        <h4>建模选择</h4>
+                        <p>我想学3D建模，从哪个软件开始？</p>
+                    </div>
+                    <div class="scenario-card" onclick="sendQuickQuestion('PETG推荐什么温度和速度？')">
+                        <div class="icon">🌡️</div>
+                        <h4>切片参数</h4>
+                        <p>PETG推荐什么温度和速度？</p>
+                    </div>
+                    <div class="scenario-card" onclick="sendQuickQuestion('怎么设计一个步进电机支架？')">
+                        <div class="icon">⚙️</div>
+                        <h4>结构件设计</h4>
+                        <p>怎么设计一个步进电机支架？</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="section">
+                <h2>📚 模型资源库</h2>
+                <table class="material-table">
+                    <thead>
+                        <tr>
+                            <th>平台</th>
+                            <th>特点</th>
+                            <th>网址</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>MakerWorld</td>
+                            <td>拓竹官方，一键打印</td>
+                            <td>makerworld.com</td>
+                        </tr>
+                        <tr>
+                            <td>Thingiverse</td>
+                            <td>全球最大，免费</td>
+                            <td>thingiverse.com</td>
+                        </tr>
+                        <tr>
+                            <td>Printables</td>
+                            <td>Prusa官方，质量高</td>
+                            <td>printables.com</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <section class="section">
+                <h2>🧪 耗材选择指南</h2>
+                <table class="material-table">
+                    <thead>
+                        <tr>
+                            <th>材料</th>
+                            <th>特点</th>
+                            <th>用途</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>PLA</strong></td>
+                            <td>易打印、无毒、颜色丰富</td>
+                            <td>原型、装饰、外壳</td>
+                        </tr>
+                        <tr>
+                            <td><strong>PETG</strong></td>
+                            <td>强度高、耐冲击</td>
+                            <td>结构件、功能性零件</td>
+                        </tr>
+                        <tr>
+                            <td><strong>TPU</strong></td>
+                            <td>柔性、弹性</td>
+                            <td>垫圈、减震、软外壳</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ABS/ASA</strong></td>
+                            <td>耐热、强度高</td>
+                            <td>户外、高温环境</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <div class="notice-box">
+                <strong>💡 提示：</strong>右侧对话界面可以模拟与我的交互。点击场景卡片或快速问题按钮，我会给出相应的回答。这是一个演示界面，实际对话需要通过飞书或其他渠道连接真实的 Shrimp Jetton。
+            </div>
+        </div>
+        
+        <!-- 对话区域 -->
+        <div class="chat-area">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <h3>🦐 Shrimp Jetton</h3>
+                    <p>拓竹3D打印助手 · 点击左侧场景开始对话</p>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message bot">
+                        嘿，准备好开始3D打印之旅了吗？👋<br><br>
+                        我帮你：
+                        <br>• 从模型库找有趣的模型
+                        <br>• 设计Arduino结构件
+                        <br>• 解决打印问题
+                        <br>• 选择合适的建模工具
+                        <br><br>
+                        点左边的场景卡片，或直接输入你的问题！
+                        <div class="message-time">刚刚</div>
+                    </div>
+                </div>
+                
+                <div class="typing-indicator" id="typingIndicator">
+                    <span></span><span></span><span></span>
+                </div>
+                
+                <div class="quick-questions">
+                    <div class="quick-questions-title">快速问题</div>
+                    <button class="quick-btn" onclick="sendQuickQuestion('怎么在Bambu Studio里导入模型？')">怎么在Bambu Studio里导入模型？</button>
+                    <button class="quick-btn" onclick="sendQuickQuestion('Arduino外壳设计有什么要注意的？')">Arduino外壳设计有什么要注意的？</button>
+                    <button class="quick-btn" onclick="sendQuickQuestion('打印拉丝严重怎么解决？')">打印拉丝严重怎么解决？</button>
+                    <button class="quick-btn" onclick="sendQuickQuestion('Fusion 360和FreeCAD选哪个？')">Fusion 360和FreeCAD选哪个？</button>
+                </div>
+                
+                <div class="chat-input-area">
+                    <input type="text" class="chat-input" id="chatInput" placeholder="输入你的3D打印问题..." onkeypress="handleKeyPress(event)">
+                    <button class="chat-send" onclick="sendMessage()">发送</button>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="footer">
+            <p>❤️‍🔥 Shrimp Jetton | 把想象打印成现实</p>
+        </footer>
+    </main>
+    
+    <script>
+        // 知识库回复
+        const responses = {
+            '帮我在thingiverse找个手机支架': `好的！在 Thingiverse 搜索手机支架，我会推荐这几款：
+
+📱 **热门选择：**
+• "Adjustable Phone Stand" - 可多角度调节，适合桌面
+• "Minimalist Phone Holder" - 极简设计，省料快速打印
+• "Car Phone Mount" - 车载支架，带卡扣设计
+
+🔍 **搜索技巧：**
+• 按 "Most Printed" 排序，找经过验证的
+• 看评论区的打印成功率
+• 确认有 .stl 或 .3mf 文件
+
+需要我帮你找特定类型的吗？比如车载用、床头用、或者带充电线槽的？`,
+
+            '给uno设计一个带按键开口的外壳': `好的！Arduino UNO 外壳设计要点：
+
+📐 **尺寸基准：**
+• 主板：68.6mm × 53.4mm
+• 螺丝孔：M3 @ 2.8mm 孔径
+• 高度：建议 20-25mm（容纳插线和扩展板）
+
+🎨 **按键开口设计：**
+```
+开口位置：复位按钮在角落
+开口尺寸：8mm × 8mm（余量2mm）
+边缘处理：倒角 45°，防止划伤手指
+```
+
+🔧 **设计建议：**
+• 壁厚 ≥ 2mm，保证强度
+• USB口开口预留 5mm 余量
+• 底部镂空，方便散热和观察LED
+
+要我给你一个 OpenSCAD 代码模板吗？`,
+
+            '第一层不粘床怎么办？': `第一层不粘是新手最常遇到的问题，按这个清单检查：
+
+🔧 **立即解决：**
+1. **调平热床** - 运行自动调平程序
+2. **清理面板** - 用酒精擦拭 PEI 板
+3. **检查 Z-offset** - 适当减小 0.05-0.1mm
+4. **涂胶/喷雾** - 涂一层胶棒或喷雾增加附着力
+
+🌡️ **温度调整：**
+• PLA：热床 60°C，喷头 200°C
+• PETG：热床 70-80°C，喷头 230°C
+
+⚡ **拓竹特有设置：**
+• 开启「热床调平」选项
+• 首层速度降到 50mm/s 以下
+• 使用纹理 PEI 板（比光滑面附着力更好）
+
+如果还是不行，拍个首层照片给我看看？`,
+
+            '我想学3d建模，从哪个软件开始？': `根据你的背景，我推荐不同的起点：
+
+🌱 **零基础开始 → Tinkercad**
+• 浏览器运行，无需安装
+• 拖拽式操作，10分钟上手
+• 适合先理解3D建模的基本概念
+
+⚡ **想要专业级 → Fusion 360**
+• 工业设计标准，学生免费
+• 参数化设计，随时可修改
+• 适合 Arduino 结构件这种精确零件
+
+💻 **程序员背景 → OpenSCAD**
+• 代码建模，可版本控制
+• 适合参数化批量生成
+• 比如生成10个不同尺寸的盒子
+
+🎨 **艺术设计方向 → Blender**
+• 功能极强，学习曲线陡峭
+• 适合有机造型、角色、艺术品
+
+**建议路径：** Tinkercad (1周) → Fusion 360 (长期)
+
+你想先从哪个开始？`,
+
+            'petg推荐什么温度和速度？': `PETG 的推荐参数：
+
+🌡️ **温度：**
+• 喷头：230-250°C（起始用 235°C）
+• 热床：70-80°C
+• 风扇：30-50%（比 PLA 低，层间结合更好）
+
+⚡ **速度：**
+• 常规速度：40-60mm/s（比 PLA 慢）
+• 外墙：30mm/s（保证表面质量）
+• 首层：20mm/s（附着力关键）
+
+🔧 **其他关键设置：**
+• 回抽距离：1.0-1.5mm（减少拉丝）
+• 回抽速度：40-50mm/s
+• 层高：0.2mm 或 0.28mm
+
+⚠️ **注意事项：**
+• PETG 容易拉丝，需要调回抽
+• 比 PLA 更粘喷头，首层不要太近
+• 层间结合力强，但支撑难拆
+
+打印什么部件？如果是结构件可以再优化一下填充密度。`,
+
+            '怎么设计一个步进电机支架？': `NEMA 17 步进电机支架设计：
+
+📐 **标准尺寸：**
+• 电机正面：42.3mm × 42.3mm
+• 安装孔：31mm × 31mm（M3螺丝）
+• 轴径：5mm，轴长 24mm
+
+🎨 **支架结构设计：**
+```
+    电机安装面（5mm厚）
+    ┌────────────┐
+    │ ○      ○   │  ← M3安装孔
+    │   ┌──┐     │
+    │   │██│     │  ← 轴孔 Ø6mm
+    │   └──┘     │
+    └────┬───────┘
+         │
+    [三角形加强筋]
+         │
+    ┌────┴────┐   ← 底座固定
+    │  ○   ○  │
+    └─────────┘
+```
+
+💪 **强度优化：**
+• 安装面厚度 ≥ 5mm
+• 使用三角形加强筋（最稳固）
+• 填充密度：50-70%
+• 材料：PETG 或 ABS（比 PLA 强度高）
+
+要我给你一个 Fusion 360 的参数化模板吗？可以调整支架高度和角度。`,
+
+            '怎么在bambu studio里导入模型？': `Bambu Studio 导入模型超简单：
+
+📥 **导入方式：**
+1. **拖拽导入** - 直接把 .stl/.3mf/.obj 文件拖进窗口
+2. **菜单导入** - 点击「添加」→「导入」→ 选择文件
+3. **从模型库** - 左侧「在线模型」搜索并一键下载
+
+⚙️ **导入后设置：**
+1. **选择打印机** - 顶部下拉菜单选你的机型
+2. **选择耗材** - PLA/PETG/TPU 等
+3. **选择层高** - 0.20mm 是平衡选择
+4. **调整位置** - 右键模型可以移动/旋转/缩放
+
+🎯 **切片前检查：**
+• 模型是否悬空？需要加支撑
+• 尺寸是否正确？看右下角数值
+• 是否在打印平台内？别超出边界
+
+然后点击「切片单盘」，预览没问题就可以「发送打印」了！`,
+
+            'arduino外壳设计有什么要注意的？': `Arduino 外壳设计的几个关键点：
+
+📐 **尺寸精度：**
+• UNO：68.6 × 53.4mm，螺丝孔 2.8mm
+• Nano：17.8 × 43.2mm（无安装孔，用卡扣）
+• 高度预留：插线和扩展板需要 20-30mm
+
+🔌 **开口设计：**
+• USB口：14 × 12mm（余量 3mm）
+• 电源口：9 × 11mm
+• 排针开口：宽度根据插线量定
+• 复位按钮：8 × 8mm 开口
+
+🔧 **结构设计：**
+• 壁厚 ≥ 2mm（保证强度）
+• 螺丝柱：Ø6mm 外径，Ø2.8mm 内孔
+• 卡扣设计：间隙 0.2-0.3mm
+• 底部镂空：方便观察 LED 和散热
+
+🎨 **进阶功能：**
+• 预留传感器窗口
+• 加散热孔格栅
+• 可堆叠设计（多个外壳连接）
+
+需要我帮你设计一个带特定传感器开口的外壳吗？`,
+
+            '打印拉丝严重怎么解决？': `拉丝（Stringing）是耗材在移动时滴落造成的，这样调整：
+
+🔧 **回抽设置：**
+• 回抽距离：0.8mm → 1.2mm
+• 回抽速度：30mm/s → 50mm/s
+• 移动速度：200mm/s → 300mm/s（快速离开）
+
+🌡️ **温度调整：**
+• 降低喷头温度 5-10°C（减少流动性）
+• PLA 试试 190-195°C
+• PETG 试试 225-230°C
+
+⚙️ **其他设置：**
+• 开启「回抽时擦嘴」（Wipe while retracting）
+• 减少「最小移动距离」到 0.5mm
+• 检查耗材是否受潮（会加剧拉丝）
+
+🧪 **测试模型：**
+打印一个「回抽测试塔」，里面有两个相距一定距离的柱子，测试不同参数的效果。
+
+你现在用的是什么材料？PLA 还是 PETG？`,
+
+            'fusion 360和freecad选哪个？': `两个都是好工具，看你需求：
+
+⚡ **Fusion 360**（推荐大多数用户）
+✅ 优点：
+• 界面现代，学习资源丰富
+• 云端同步，跨设备工作
+• 渲染效果好，汇报漂亮
+• 学生/爱好者免费
+
+❌ 缺点：
+• 需要联网验证
+• 免费版有功能限制
+
+🔧 **FreeCAD**
+✅ 优点：
+• 完全开源免费
+• 离线使用，隐私友好
+• 功能接近商业软件
+
+❌ 缺点：
+• 界面较老旧
+• 学习曲线更陡峭
+• 偶尔不稳定
+
+🎯 **我的建议：**
+• **有学生邮箱** → Fusion 360
+• **完全不能联网** → FreeCAD
+• **想支持开源** → FreeCAD
+• **追求效率和效果** → Fusion 360
+
+两个软件文件可以互导，选一个开始，需要时切换也不迟。
+
+你更倾向于哪个方向？`
+        };
+        
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        function sendQuickQuestion(question) {
+            document.getElementById('chatInput').value = question;
+            sendMessage();
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // 添加用户消息
+            addMessage(message, 'user');
+            input.value = '';
+            
+            // 显示输入中
+            showTyping();
+            
+            // 模拟回复延迟
+            setTimeout(() => {
+                hideTyping();
+                const response = getResponse(message);
+                addMessage(response, 'bot');
+            }, 800 + Math.random() * 1000);
+        }
+        
+        function addMessage(text, type) {
+            const container = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            messageDiv.innerHTML = text.replace(/\n/g, '<br>') + `<div class="message-time">${time}</div>`;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function showTyping() {
+            document.getElementById('typingIndicator').style.display = 'block';
+            const container = document.getElementById('chatMessages');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function hideTyping() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+        
+        function getResponse(message) {
+            const lowerMsg = message.toLowerCase().replace(/[？?]/g, '');
+            
+            for (const [key, value] of Object.entries(responses)) {
+                const keyLower = key.toLowerCase();
+                if (lowerMsg.includes(keyLower) || keyLower.includes(lowerMsg.substring(0, 10))) {
+                    return value;
+                }
+            }
+            
+            // 默认回复
+            return `这是个好问题！🤔
+
+关于「${message}」，我需要更多上下文来给你最好的建议。
+
+你可以：
+• 点击左侧的场景卡片看常见问题
+• 或者更具体地描述你的情况
+• 比如打印机型号、材料类型、遇到了什么具体问题
+
+我会尽我所能帮你！`;
+        }
+    </script>
+</body>
+</html>
