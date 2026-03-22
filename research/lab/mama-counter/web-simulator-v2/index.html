@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>妈妈计数器 Web模拟器 v2.0</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --neon-green: #00ff88;
+            --neon-cyan: #00ffff;
+            --neon-pink: #ff00ff;
+            --neon-yellow: #ffff00;
+            --neon-orange: #ff6600;
+            --dark: #0a0a0a;
+            --screen-bg: #000000;
+        }
+
+        body {
+            background: var(--dark);
+            color: #fff;
+            font-family: 'Noto Sans SC', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--neon-green);
+            margin-bottom: 5px;
+        }
+
+        .header .subtitle {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .version-badge {
+            display: inline-block;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            padding: 2px 8px;
+            background: rgba(0,255,136,0.15);
+            border: 1px solid rgba(0,255,136,0.3);
+            border-radius: 12px;
+            color: var(--neon-green);
+            margin-left: 10px;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* 设备模拟区域 */
+        .device-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .screen-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+            border-radius: 50%;
+            padding: 20px;
+            box-shadow: 
+                0 0 60px rgba(0,255,136,0.1),
+                inset 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        .screen {
+            width: 360px;
+            height: 360px;
+            background: var(--screen-bg);
+            border-radius: 50%;
+            overflow: hidden;
+            position: relative;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        /* 屏幕内容样式 */
+        .screen-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .big-number {
+            font-size: 96px;
+            font-weight: bold;
+            color: var(--neon-green);
+            text-shadow: 0 0 20px rgba(0,255,136,0.5);
+            line-height: 1;
+        }
+
+        .screen-label {
+            font-size: 16px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 10px;
+        }
+
+        .screen-unit {
+            font-size: 24px;
+            color: var(--neon-green);
+            margin-top: 5px;
+        }
+
+        /* 模式指示器 */
+        .mode-indicator {
+            position: absolute;
+            bottom: 60px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .mode-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transition: all 0.3s;
+        }
+
+        .mode-dot.active {
+            background: var(--neon-green);
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        /* 设置菜单样式 */
+        .menu-container {
+            width: 100%;
+            height: 100%;
+            padding: 40px 50px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .menu-title {
+            font-size: 20px;
+            color: var(--neon-cyan);
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0,255,255,0.3);
+        }
+
+        .menu-item {
+            font-size: 18px;
+            padding: 12px 0;
+            color: rgba(255,255,255,0.6);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .menu-item.selected {
+            color: var(--neon-green);
+        }
+
+        .menu-item.selected::before {
+            content: '>';
+            color: var(--neon-green);
+        }
+
+        .menu-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        /* 统计图表样式 */
+        .chart-container {
+            width: 100%;
+            height: 100%;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-title {
+            font-size: 18px;
+            color: var(--neon-cyan);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 15px;
+            height: 150px;
+            margin-top: 20px;
+        }
+
+        .bar {
+            width: 30px;
+            background: linear-gradient(to top, var(--neon-green), rgba(0,255,136,0.3));
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .bar-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+            white-space: nowrap;
+        }
+
+        .bar-value {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: var(--neon-green);
+        }
+
+        /* 电池状态 */
+        .battery-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .battery-icon {
+            width: 120px;
+            height: 60px;
+            border: 3px solid var(--neon-green);
+            border-radius: 10px;
+            position: relative;
+            padding: 5px;
+        }
+
+        .battery-icon::after {
+            content: '';
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 25px;
+            background: var(--neon-green);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .battery-level {
+            height: 100%;
+            background: linear-gradient(to right, var(--neon-green), var(--neon-cyan));
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .battery-text {
+            font-size: 48px;
+            color: var(--neon-green);
+        }
+
+        .battery-info {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            text-align: center;
+        }
+
+        /* 按键区域 */
+        .buttons-area {
+            display: flex;
+            gap: 40px;
+            margin-top: 10px;
+        }
+
+        .key-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 2px solid;
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.1s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            user-select: none;
+        }
+
+        .key-btn.key1 {
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        .key-btn.key1:hover {
+            background: rgba(0,255,255,0.1);
+        }
+
+        .key-btn.key1:active, .key-btn.key1.pressed {
+            background: rgba(0,255,255,0.3);
+            transform: scale(0.95);
+        }
+
+        .key-btn.key2 {
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        .key-btn.key2:hover {
+            background: rgba(0,255,136,0.1);
+        }
+
+        .key-btn.key2:active, .key-btn.key2.pressed {
+            background: rgba(0,255,136,0.3);
+            transform: scale(0.95);
+        }
+
+        .key-label {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .key-hint {
+            font-size: 9px;
+            opacity: 0.7;
+        }
+
+        /* 快捷键提示 */
+        .keyboard-hints {
+            margin-top: 10px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            text-align: center;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .keyboard-hints kbd {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 0 2px;
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 300px;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            color: var(--neon-cyan);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 8px;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+
+        .control-btn:hover {
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        .control-btn.primary {
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        .control-btn.primary:hover {
+            background: rgba(0,255,136,0.1);
+        }
+
+        /* 调试日志 */
+        .debug-log {
+            background: #0d0d0d;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 2px 0;
+        }
+
+        .log-time {
+            color: rgba(255,255,255,0.3);
+        }
+
+        .log-state {
+            color: var(--neon-cyan);
+        }
+
+        .log-key {
+            color: var(--neon-yellow);
+        }
+
+        .log-trigger {
+            color: var(--neon-green);
+        }
+
+        .log-flip {
+            color: var(--neon-pink);
+        }
+
+        /* 状态信息 */
+        .status-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .status-item {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 11px;
+        }
+
+        .status-label {
+            color: rgba(255,255,255,0.4);
+            margin-bottom: 4px;
+        }
+
+        .status-value {
+            color: var(--neon-green);
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .screen-container {
+                width: 320px;
+                height: 320px;
+                padding: 15px;
+            }
+
+            .screen {
+                width: 290px;
+                height: 290px;
+            }
+
+            .big-number {
+                font-size: 72px;
+            }
+
+            .control-panel {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>妈妈计数器 <span class="version-badge">v2.0 Simulator</span></h1>
+        <p class="subtitle">实体按键交互模拟器 | 硬件开发Debug工具</p>
+    </div>
+
+    <div class="main-container">
+        <!-- 设备模拟区域 -->
+        <div class="device-area">
+            <div class="screen-container">
+                <div class="screen" id="screen">
+                    <!-- 屏幕内容将由JS动态渲染 -->
+                </div>
+            </div>
+
+            <div class="buttons-area">
+                <div class="key-btn key1" id="key1" onmousedown="handleKey1Press()" onmouseup="handleKey1Release()" onmouseleave="handleKey1Release()" ontouchstart="handleKey1Press()" ontouchend="handleKey1Release()">
+                    <span class="key-label">KEY1</span>
+                    <span class="key-hint">切换/设置</span>
+                </div>
+                <div class="key-btn key2" id="key2" onmousedown="handleKey2Press()" onmouseup="handleKey2Release()" onmouseleave="handleKey2Release()" ontouchstart="handleKey2Press()" ontouchend="handleKey2Release()">
+                    <span class="key-label">KEY2</span>
+                    <span class="key-hint">确认/电源</span>
+                </div>
+            </div>
+
+            <div class="keyboard-hints">
+                快捷键: <kbd>Q</kbd>=KEY1短按 <kbd>W</kbd>=KEY2短按 <kbd>A</kbd>=KEY1长按 <kbd>S</kbd>=KEY2长按
+            </div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <div class="panel-title">🔧 模拟控制</div>
+            
+            <div class="control-group">
+                <div class="control-label">声音触发</div>
+                <div class="control-buttons">
+                    <button class="control-btn primary" onclick="simulateTrigger()">🔊 模拟"妈妈"</button>
+                    <button class="control-btn" onclick="simulateTrigger('noise')">📢 模拟噪音</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">设备状态</div>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="toggleFlip()">🔄 翻转静音</button>
+                    <button class="control-btn" onclick="adjustBattery(-10)">🔋 -10%</button>
+                    <button class="control-btn" onclick="adjustBattery(10)">🔋 +10%</button>
+                    <button class="control-btn" onclick="resetCounter()">🔄 重置计数</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">调试操作</div>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="clearLog()">🗑️ 清空日志</button>
+                    <button class="control-btn" onclick="exportLog()">📄 导出日志</button>
+                </div>
+            </div>
+
+            <div class="panel-title" style="margin-top: 20px;">📊 设备状态</div>
+            <div class="status-info">
+                <div class="status-item">
+                    <div class="status-label">当前状态</div>
+                    <div class="status-value" id="statusState">IDLE</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">显示模式</div>
+                    <div class="status-value" id="statusMode">计数模式</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">今日计数</div>
+                    <div class="status-value" id="statusCount">0</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">电量</div>
+                    <div class="status-value" id="statusBattery">100%</div>
+                </div>
+            </div>
+
+            <div class="panel-title" style="margin-top: 20px;">📝 调试日志</div>
+            <div class="debug-log" id="debugLog">
+                <div class="log-entry"><span class="log-time">[00:00:00]</span> 模拟器初始化完成</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 设备状态机 ====================
+        const DeviceState = {
+            IDLE: 'idle',
+            SETTING_MENU: 'setting',
+            VOICE_TRAIN: 'voice',
+            WIFI_CONFIG: 'wifi',
+            POWER_OFF: 'off'
+        };
+
+        const DisplayMode = {
+            COUNT: 'count',
+            TODAY: 'today',
+            WEEK: 'week',
+            BATTERY: 'battery'
+        };
+
+        const MenuItems = [
+            { id: 'voice', label: '声纹录制' },
+            { id: 'wifi', label: 'WiFi配置' },
+            { id: 'sensitivity', label: '灵敏度调节' },
+            { id: 'deviceId', label: '查看设备ID' },
+            { id: 'reset', label: '恢复出厂' },
+            { id: 'back', label: '返回' }
+        ];
+
+        // 设备数据
+        let device = {
+            state: DeviceState.IDLE,
+            displayMode: DisplayMode.COUNT,
+            count: 0,
+            battery: 67,
+            isFlipped: false,
+            selectedMenuIndex: 0,
+            todayData: [5, 12, 8, 15], // 早/上/下/晚
+            weekData: [45, 52, 38, 61, 55, 42, 48] // 最近7天
+        };
+
+        // 按键状态
+        let keyState = {
+            key1: { pressed: false, pressTime: 0, longPressTriggered: false },
+            key2: { pressed: false, pressTime: 0, longPressTriggered: false }
+        };
+
+        const LONG_PRESS_DURATION = 3000; // 3秒
+        const POWER_PRESS_DURATION = 5000; // 5秒
+
+        // ==================== 渲染函数 ====================
+        function render() {
+            const screen = document.getElementById('screen');
+            
+            if (device.state === DeviceState.IDLE) {
+                renderIdleMode(screen);
+            } else if (device.state === DeviceState.SETTING_MENU) {
+                renderSettingMenu(screen);
+            } else if (device.state === DeviceState.VOICE_TRAIN) {
+                renderVoiceTrain(screen);
+            } else if (device.state === DeviceState.POWER_OFF) {
+                renderPowerOff(screen);
+            }
+
+            updateStatusInfo();
+        }
+
+        function renderIdleMode(screen) {
+            let content = '';
+            
+            switch (device.displayMode) {
+                case DisplayMode.COUNT:
+                    content = `
+                        <div class="screen-content">
+                            <div class="screen-label" style="margin-bottom: 20px;">今日已喊妈妈</div>
+                            <div class="big-number" id="countNumber" style="${device.isFlipped ? 'opacity: 0.3;' : ''}">${device.count}</div>
+                            <div class="screen-unit" style="${device.isFlipped ? 'opacity: 0.3;' : ''}">次</div>
+                            ${device.isFlipped ? '<div style="color: var(--neon-orange); font-size: 14px; margin-top: 10px;">🔄 已翻转静音</div>' : ''}
+                            <div class="mode-indicator">
+                                <div class="mode-dot active"></div>
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot"></div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case DisplayMode.TODAY:
+                    content = `
+                        <div class="chart-container">
+                            <div class="chart-title">今日时段统计</div>
+                            <div class="bar-chart">
+                                <div class="bar" style="height: ${(device.todayData[0] / 20) * 100}px;">
+                                    <div class="bar-value">${device.todayData[0]}</div>
+                                    <div class="bar-label">早晨</div>
+                                </div>
+                                <div class="bar" style="height: ${(device.todayData[1] / 20) * 100}px;">
+                                    <div class="bar-value">${device.todayData[1]}</div>
+                                    <div class="bar-label">上午</div>
+                                </div>
+                                <div class="bar" style="height: ${(device.todayData[2] / 20) * 100}px;">
+                                    <div class="bar-value">${device.todayData[2]}</div>
+                                    <div class="bar-label">下午</div>
+                                </div>
+                                <div class="bar" style="height: ${(device.todayData[3] / 20) * 100}px;">
+                                    <div class="bar-value">${device.todayData[3]}</div>
+                                    <div class="bar-label">晚上</div>
+                                </div>
+                            </div>
+                            <div class="mode-indicator">
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot active"></div>
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot"></div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case DisplayMode.WEEK:
+                    const maxVal = Math.max(...device.weekData);
+                    content = `
+                        <div class="chart-container">
+                            <div class="chart-title">本周趋势</div>
+                            <div class="bar-chart" style="gap: 8px;">
+                                ${device.weekData.map((val, i) => `
+                                    <div class="bar" style="width: 20px; height: ${(val / maxVal) * 120}px;">
+                                        <div class="bar-value" style="font-size: 9px; top: -15px;">${val}</div>
+                                        <div class="bar-label" style="font-size: 8px;">${['一','二','三','四','五','六','日'][i]}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="mode-indicator">
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot active"></div>
+                                <div class="mode-dot"></div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case DisplayMode.BATTERY:
+                    content = `
+                        <div class="screen-content">
+                            <div class="battery-display">
+                                <div class="battery-icon">
+                                    <div class="battery-level" style="width: ${device.battery}%;"></div>
+                                </div>
+                                <div class="battery-text">${device.battery}%</div>
+                                <div class="battery-info">
+                                    预计可用 ${Math.floor(device.battery / 5)} 小时<br>
+                                    正常监听模式
+                                </div>
+                            </div>
+                            <div class="mode-indicator">
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot"></div>
+                                <div class="mode-dot active"></div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+            
+            screen.innerHTML = content;
+        }
+
+        function renderSettingMenu(screen) {
+            const items = MenuItems.map((item, index) => {
+                const selected = index === device.selectedMenuIndex ? 'selected' : '';
+                return `<div class="menu-item ${selected}">
+                    ${selected ? '' : '<span style="visibility: hidden;">></span>'}
+                    ${index + 1}. ${item.label}
+                </div>`;
+            }).join('');
+
+            screen.innerHTML = `
+                <div class="menu-container">
+                    <div class="menu-title">⚙️ 设置菜单</div>
+                    ${items}
+                    <div class="menu-hint">KEY1:选择 | KEY2:确认/返回</div>
+                </div>
+            `;
+        }
+
+        function renderVoiceTrain(screen) {
+            screen.innerHTML = `
+                <div class="screen-content">
+                    <div style="color: var(--neon-cyan); font-size: 16px; margin-bottom: 20px;">🎤 声纹录制</div>
+                    <div style="font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">请让宝贝喊"妈妈"</div>
+                    <div style="width: 200px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+                        <div style="width: 40%; height: 100%; background: var(--neon-green);"></div>
+                    </div>
+                    <div style="font-size: 12px; color: var(--neon-green); margin-top: 10px;">进度: 2/5</div>
+                    <div class="menu-hint" style="margin-top: 40px;">KEY2:跳过 | KEY1长按:返回</div>
+                </div>
+            `;
+        }
+
+        function renderPowerOff(screen) {
+            screen.innerHTML = `
+                <div class="screen-content">
+                    <div style="color: var(--neon-green); font-size: 20px; margin-bottom: 20px;">👋 已关机</div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.5);">长按 KEY2 开机</div>
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 30px;">Deep Sleep 模式<br>功耗 < 50μA</div>
+                </div>
+            `;
+        }
+
+        // ==================== 按键处理 ====================
+        function handleKey1Press() {
+            if (device.state === DeviceState.POWER_OFF) return;
+            
+            keyState.key1.pressed = true;
+            keyState.key1.pressTime = Date.now();
+            keyState.key1.longPressTriggered = false;
+            
+            document.getElementById('key1').classList.add('pressed');
+            
+            // 启动长按检测
+            setTimeout(() => checkKey1LongPress(), LONG_PRESS_DURATION);
+        }
+
+        function handleKey1Release() {
+            if (!keyState.key1.pressed) return;
+            
+            const pressDuration = Date.now() - keyState.key1.pressTime;
+            document.getElementById('key1').classList.remove('pressed');
+            
+            keyState.key1.pressed = false;
+            
+            // 如果不是长按触发，则处理短按
+            if (!keyState.key1.longPressTriggered && pressDuration < LONG_PRESS_DURATION) {
+                handleKey1ShortPress();
+            }
+        }
+
+        function checkKey1LongPress() {
+            if (keyState.key1.pressed && !keyState.key1.longPressTriggered) {
+                const pressDuration = Date.now() - keyState.key1.pressTime;
+                if (pressDuration >= LONG_PRESS_DURATION) {
+                    keyState.key1.longPressTriggered = true;
+                    handleKey1LongPress();
+                }
+            }
+        }
+
+        function handleKey1ShortPress() {
+            log('KEY', 'KEY1 短按');
+            
+            if (device.state === DeviceState.IDLE) {
+                // 循环切换显示模式
+                const modes = [DisplayMode.COUNT, DisplayMode.TODAY, DisplayMode.WEEK, DisplayMode.BATTERY];
+                const currentIndex = modes.indexOf(device.displayMode);
+                device.displayMode = modes[(currentIndex + 1) % modes.length];
+                
+                const modeNames = {
+                    count: '计数模式',
+                    today: '今日统计',
+                    week: '本周趋势',
+                    battery: '电池状态'
+                };
+                log('MODE', `切换到 ${modeNames[device.displayMode]}`);
+                
+            } else if (device.state === DeviceState.SETTING_MENU) {
+                // 菜单内循环选择
+                device.selectedMenuIndex = (device.selectedMenuIndex + 1) % MenuItems.length;
+                log('MENU', `选择: ${MenuItems[device.selectedMenuIndex].label}`);
+                
+            } else if (device.state === DeviceState.VOICE_TRAIN) {
+                device.state = DeviceState.SETTING_MENU;
+                log('STATE', 'VOICE_TRAIN → SETTING_MENU');
+            }
+            
+            render();
+        }
+
+        function handleKey1LongPress() {
+            log('KEY', 'KEY1 长按 (3秒)');
+            
+            if (device.state === DeviceState.IDLE) {
+                device.state = DeviceState.SETTING_MENU;
+                device.selectedMenuIndex = 0;
+                log('STATE', 'IDLE → SETTING_MENU');
+                
+            } else if (device.state === DeviceState.SETTING_MENU) {
+                device.state = DeviceState.IDLE;
+                log('STATE', 'SETTING_MENU → IDLE');
+                
+            } else if (device.state === DeviceState.VOICE_TRAIN || 
+                       device.state === DeviceState.WIFI_CONFIG) {
+                device.state = DeviceState.SETTING_MENU;
+                log('STATE', `${device.state} → SETTING_MENU`);
+            }
+            
+            render();
+        }
+
+        function handleKey2Press() {
+            keyState.key2.pressed = true;
+            keyState.key2.pressTime = Date.now();
+            keyState.key2.longPressTriggered = false;
+            
+            document.getElementById('key2').classList.add('pressed');
+            
+            // 启动长按检测
+            setTimeout(() => checkKey2LongPress(), POWER_PRESS_DURATION);
+        }
+
+        function handleKey2Release() {
+            if (!keyState.key2.pressed) return;
+            
+            const pressDuration = Date.now() - keyState.key2.pressTime;
+            document.getElementById('key2').classList.remove('pressed');
+            
+            keyState.key2.pressed = false;
+            
+            // 如果不是长按触发，则处理短按
+            if (!keyState.key2.longPressTriggered && pressDuration < POWER_PRESS_DURATION) {
+                handleKey2ShortPress();
+            }
+        }
+
+        function checkKey2LongPress() {
+            if (keyState.key2.pressed && !keyState.key2.longPressTriggered) {
+                const pressDuration = Date.now() - keyState.key2.pressTime;
+                if (pressDuration >= POWER_PRESS_DURATION) {
+                    keyState.key2.longPressTriggered = true;
+                    handleKey2LongPress();
+                }
+            }
+        }
+
+        function handleKey2ShortPress() {
+            log('KEY', 'KEY2 短按');
+            
+            if (device.state === DeviceState.POWER_OFF) {
+                // 开机
+                device.state = DeviceState.IDLE;
+                log('STATE', 'POWER_OFF → IDLE (开机)');
+                
+            } else if (device.state === DeviceState.SETTING_MENU) {
+                const selected = MenuItems[device.selectedMenuIndex];
+                
+                if (selected.id === 'back') {
+                    device.state = DeviceState.IDLE;
+                    log('STATE', 'SETTING_MENU → IDLE');
+                    
+                } else if (selected.id === 'voice') {
+                    device.state = DeviceState.VOICE_TRAIN;
+                    log('STATE', 'SETTING_MENU → VOICE_TRAIN');
+                    
+                } else if (selected.id === 'wifi') {
+                    device.state = DeviceState.WIFI_CONFIG;
+                    log('STATE', 'SETTING_MENU → WIFI_CONFIG');
+                    alert('WiFi配置界面\n实际设备会显示配网二维码');
+                    device.state = DeviceState.SETTING_MENU;
+                    
+                } else if (selected.id === 'reset') {
+                    if (confirm('确认恢复出厂设置?')) {
+                        device.count = 0;
+                        device.todayData = [0, 0, 0, 0];
+                        log('ACTION', '恢复出厂设置');
+                    }
+                } else {
+                    alert(`${selected.label}功能\n开发中...`);
+                }
+            }
+            
+            render();
+        }
+
+        function handleKey2LongPress() {
+            log('KEY', 'KEY2 长按 (5秒)');
+            
+            if (device.state !== DeviceState.POWER_OFF) {
+                if (confirm('确认关机?')) {
+                    device.state = DeviceState.POWER_OFF;
+                    log('STATE', '→ POWER_OFF (关机)');
+                }
+            }
+            
+            render();
+        }
+
+        // ==================== 模拟功能 ====================
+        function simulateTrigger(type = 'mama') {
+            if (device.state === DeviceState.POWER_OFF) {
+                log('WARN', '设备已关机，无法触发');
+                return;
+            }
+            
+            if (device.isFlipped) {
+                log('FLIP', '设备已翻转静音，忽略触发');
+                return;
+            }
+            
+            if (type === 'mama') {
+                device.count++;
+                
+                // 更新时段数据（根据当前时间）
+                const hour = new Date().getHours();
+                let period = 0;
+                if (hour < 9) period = 0; // 早晨
+                else if (hour < 12) period = 1; // 上午
+                else if (hour < 18) period = 2; // 下午
+                else period = 3; // 晚上
+                device.todayData[period]++;
+                
+                // 数字动画效果
+                const countEl = document.getElementById('countNumber');
+                if (countEl) {
+                    countEl.style.transform = 'scale(1.2)';
+                    setTimeout(() => {
+                        if (countEl) countEl.style.transform = 'scale(1)';
+                    }, 150);
+                }
+                
+                log('TRIGGER', `检测到"妈妈" | 能量=5234 | 计数=${device.count}`);
+            } else {
+                log('TRIGGER', '检测到噪音 | 能量=3210 | 未匹配关键词');
+            }
+            
+            render();
+        }
+
+        function toggleFlip() {
+            device.isFlipped = !device.isFlipped;
+            
+            if (device.isFlipped) {
+                log('FLIP', '设备翻转 → 进入静音模式');
+            } else {
+                log('FLIP', '设备恢复 → 退出静音模式');
+            }
+            
+            render();
+        }
+
+        function adjustBattery(delta) {
+            device.battery = Math.max(0, Math.min(100, device.battery + delta));
+            log('BATTERY', `电量调整: ${device.battery}%`);
+            render();
+        }
+
+        function resetCounter() {
+            device.count = 0;
+            device.todayData = [0, 0, 0, 0];
+            log('ACTION', '计数器已重置');
+            render();
+        }
+
+        // ==================== 日志系统 ====================
+        function log(type, message) {
+            const now = new Date();
+            const time = now.toTimeString().slice(0, 8);
+            
+            const logEl = document.getElementById('debugLog');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            let typeClass = '';
+            switch (type) {
+                case 'STATE': typeClass = 'log-state'; break;
+                case 'KEY': typeClass = 'log-key'; break;
+                case 'TRIGGER': typeClass = 'log-trigger'; break;
+                case 'FLIP': typeClass = 'log-flip'; break;
+            }
+            
+            entry.innerHTML = `
+                <span class="log-time">[${time}]</span> 
+                <span class="${typeClass}">[${type}]</span> ${message}
+            `;
+            
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+            
+            // 限制日志数量
+            while (logEl.children.length > 50) {
+                logEl.removeChild(logEl.firstChild);
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+
+        function exportLog() {
+            const logEl = document.getElementById('debugLog');
+            const text = Array.from(logEl.children).map(el => el.innerText).join('\n');
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mama-counter-log-${new Date().toISOString().slice(0,10)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function updateStatusInfo() {
+            document.getElementById('statusState').textContent = device.state.toUpperCase();
+            
+            const modeNames = {
+                count: '计数模式',
+                today: '今日统计',
+                week: '本周趋势',
+                battery: '电池状态'
+            };
+            document.getElementById('statusMode').textContent = modeNames[device.displayMode] || '-';
+            document.getElementById('statusCount').textContent = device.count;
+            document.getElementById('statusBattery').textContent = device.battery + '%';
+        }
+
+        // ==================== 键盘快捷键 ====================
+        document.addEventListener('keydown', (e) => {
+            switch (e.key.toLowerCase()) {
+                case 'q':
+                    e.preventDefault();
+                    handleKey1Press();
+                    setTimeout(handleKey1Release, 100);
+                    break;
+                case 'w':
+                    e.preventDefault();
+                    handleKey2Press();
+                    setTimeout(handleKey2Release, 100);
+                    break;
+                case 'a':
+                    e.preventDefault();
+                    handleKey1Press();
+                    setTimeout(() => {
+                        keyState.key1.longPressTriggered = true;
+                        handleKey1Release();
+                    }, LONG_PRESS_DURATION + 100);
+                    break;
+                case 's':
+                    e.preventDefault();
+                    handleKey2Press();
+                    setTimeout(() => {
+                        keyState.key2.longPressTriggered = true;
+                        handleKey2Release();
+                    }, POWER_PRESS_DURATION + 100);
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    simulateTrigger();
+                    break;
+                case 'f':
+                    e.preventDefault();
+                    toggleFlip();
+                    break;
+            }
+        });
+
+        // ==================== 初始化 ====================
+        render();
+        log('INIT', 'Web模拟器 v2.0 初始化完成');
+        log('INFO', '支持键盘快捷键: Q/W/A/S/空格/F');
+    </script>
+</body>
+</html>
