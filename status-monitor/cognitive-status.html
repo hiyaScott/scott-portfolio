@@ -810,7 +810,7 @@
             <h1>🧠 Shrimp Jetton</h1>
             <div class="subtitle">认知负载监控 - 基于会话分析的科学指标</div>
             <div class="version">
-                <span id="versionText">v7.0 · Mixed Score · 五因素精细评分</span>
+                <span id="versionText">v7.1 · 实时 API · 5秒刷新</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⏱️ 60s</span>
@@ -997,10 +997,11 @@
     </div>
 
     <script>
-// v6.6: 保留v6.2.3完整设计 + 简化稳定JavaScript代码
-var DATA_URL = './cognitive-data.json';
+// v7.1: 实时 API 优先方案
+var API_URL = 'http://8.210.105.190:8080/api/status';  // 优先使用实时 API
+var DATA_URL = './cognitive-data.json';  // CDN 回退
 var TREND_URL = './cognitive-history.jsonl';
-var REFRESH_INTERVAL = 30000;
+var REFRESH_INTERVAL = 5000;  // 5秒刷新一次（实时）
 var currentRange = '5m';
 var countdown = 60;
 var trendData = [];
@@ -1151,17 +1152,46 @@ function showError(msg) {
 }
 
 async function fetchData() {
+    var data = null;
+    var error = null;
+    
+    // v7.1: 优先尝试实时 API
     try {
-        var response = await fetch(DATA_URL + '?t=' + Date.now(), {
+        var apiResponse = await fetch(API_URL, {
             method: 'GET',
-            cache: 'no-cache'
+            cache: 'no-cache',
+            // CORS 请求不需要特殊 headers
         });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        var data = await response.json();
-        updateUI(data);
+        if (apiResponse.ok) {
+            data = await apiResponse.json();
+            console.log('[v7.1] 实时 API 数据');
+        }
     } catch (err) {
-        console.error('[v6.6] Error:', err);
-        showError(err.message);
+        error = err;
+        console.log('[v7.1] API 失败，回退到 CDN:', err.message);
+    }
+    
+    // API 失败，回退到 CDN
+    if (!data) {
+        try {
+            var response = await fetch(DATA_URL + '?t=' + Date.now(), {
+                method: 'GET',
+                cache: 'no-cache'
+            });
+            if (response.ok) {
+                data = await response.json();
+                console.log('[v7.1] CDN 回退数据');
+            }
+        } catch (err) {
+            error = err;
+        }
+    }
+    
+    if (data) {
+        updateUI(data);
+    } else {
+        console.error('[v7.1] Error:', error);
+        showError(error ? error.message : '无法获取数据');
     }
 }
 
