@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发布哨兵 | Deploy Sentinel | Shrimp Jetton</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00ffff;
+            --neon-green: #39ff14;
+            --neon-yellow: #ffff00;
+            --neon-orange: #ff6600;
+            --dark: #0a0a0a;
+        }
+        
+        body {
+            background: var(--dark);
+            color: #fff;
+            font-family: 'Noto Sans SC', 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+        
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.95);
+            border-bottom: 2px solid var(--neon-cyan);
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-brand {
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: var(--neon-cyan);
+        }
+        
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover {
+            opacity: 1;
+            color: var(--neon-pink);
+        }
+        
+        .main {
+            padding-top: 100px;
+            max-width: 900px;
+            margin: 0 auto;
+            padding-left: 30px;
+            padding-right: 30px;
+            padding-bottom: 60px;
+        }
+        
+        .hero {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 40px;
+        }
+        
+        .hero .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+            color: var(--neon-green);
+            text-shadow: 0 0 20px var(--neon-green);
+        }
+        
+        .hero .subtitle {
+            font-size: 1.2rem;
+            color: var(--neon-cyan);
+            margin-bottom: 20px;
+        }
+        
+        .hero .desc {
+            opacity: 0.8;
+            line-height: 1.8;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            font-size: 1.5rem;
+            color: var(--neon-cyan);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .checklist {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 25px;
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .checklist-item:last-child {
+            border-bottom: none;
+        }
+        
+        .checklist-item .box {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--neon-green);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: var(--neon-green);
+        }
+        
+        .checklist-item .text {
+            flex: 1;
+        }
+        
+        .checklist-item .status {
+            font-size: 0.8rem;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: rgba(57,255,20,0.1);
+            color: var(--neon-green);
+            border: 1px solid var(--neon-green);
+        }
+        
+        .usage-card {
+            background: linear-gradient(135deg, rgba(0,255,255,0.05) 0%, rgba(255,0,255,0.05) 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .usage-card h3 {
+            color: var(--neon-yellow);
+            margin-bottom: 15px;
+        }
+        
+        .usage-card .trigger {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--neon-cyan);
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        
+        .output-box {
+            background: rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 20px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        
+        .output-box .success { color: var(--neon-green); }
+        .output-box .info { color: var(--neon-cyan); }
+        
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .tag {
+            background: rgba(255,255,255,0.05);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 40px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+            opacity: 0.6;
+            font-size: 0.9rem;
+        }
+    </style>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">❤️‍🔥 SHRIMP JETTON</div>
+        <div class="nav-links">
+            <a href="../index.html">← 返回能力图谱</a>
+        </div>
+    </nav>
+    
+    <main class="main">
+        <section class="hero">
+            <div class="icon">🚀</div>
+            <h1>发布哨兵</h1>
+            <p class="subtitle">Deploy Sentinel</p>
+            <p class="desc">
+                标准化发布流程，拦截问题代码，确保部署成功率。<br>
+                基于 gstack 的 /ship 技能方法论，适配静态网站场景。
+            </p>
+        </section>
+        
+        <section class="section">
+            <h2>🎯 触发方式</h2>
+            <div class="usage-card">
+                <h3>对我说</h3>
+                <div class="trigger">/deploy-check</div>
+                <div class="trigger">/发布检查</div>
+                <p style="margin-top: 15px; opacity: 0.8;">
+                    或自然语言："帮我检查一下再发布"、"发布前跑一遍检查"
+                </p>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2>✅ 检查清单</h2>
+            <div class="checklist">
+                <div class="checklist-item">
+                    <div class="box">✓</div>
+                    <div class="text">项目构建成功</div>
+                    <div class="status">自动</div>
+                </div>
+                <div class="checklist-item">
+                    <div class="box">✓</div>
+                    <div class="text">HTML 无语法错误</div>
+                    <div class="status">自动</div>
+                </div>
+                <div class="checklist-item">
+                    <div class="box">✓</div>
+                    <div class="text">所有链接可访问</div>
+                    <div class="status">自动</div>
+                </div>
+                <div class="checklist-item">
+                    <div class="box">✓</div>
+                    <div class="text">关键文件存在</div>
+                    <div class="status">自动</div>
+                </div>
+                <div class="checklist-item">
+                    <div class="box">✓</div>
+                    <div class="text">文件大小合理</div>
+                    <div class="status">自动</div>
+                </div>
+                <div class="checklist-item">
+                    <div class="box">✓</div>
+                    <div class="text">Git 工作区干净</div>
+                    <div class="status">自动</div>
+                </div>
+                <div class="checklist-item">
+                    <div class="box">✓</div>
+                    <div class="text">推送到远程成功</div>
+                    <div class="status">自动</div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2>📋 输出示例</h2>
+            <div class="output-box">
+<span class="success">🚀 发布哨兵检查报告</span>
+==================
+<span class="success">✅</span> 构建检查: 通过 (HTML 文件 94 个)
+<span class="success">✅</span> 链接检查: 通过 (扫描 156 个链接，0 死链)
+<span class="success">✅</span> 文件检查: 通过 (最大文件 84KB)
+<span class="success">✅</span> Git 状态: 通过 (分支 main，工作区干净)
+
+<span class="success">🎉 所有检查通过，已推送到 GitHub</span>
+<span class="info">📊 预计 2-5 分钟后可在</span>
+   https://hiyascott.github.io/scott-portfolio/ <span class="info">查看</span></div>
+        </section>
+        
+        <section class="section">
+            <h2>📌 使用场景</h2>
+            <div class="usage-card">
+                <h3>场景一：发布前检查</h3>
+                <p>"我要发布 portfolio-blog，帮我检查一下"</p>
+            </div>
+            <div class="usage-card">
+                <h3>场景二：紧急修复后</h3>
+                <p>"刚改了首页链接，检查完直接推"</p>
+            </div>
+            <div class="usage-card">
+                <h3>场景三：批量更新后</h3>
+                <p>"更新了 10 个游戏页面，检查是否有死链"</p>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2>⚙️ 技术规格</h2>
+            <div class="tags">
+                <span class="tag">适用：静态网站</span>
+                <span class="tag">部署目标：GitHub Pages</span>
+                <span class="tag">检查耗时：10-30 秒</span>
+                <span class="tag">自动修复：无</span>
+            </div>
+            <p style="margin-top: 20px; opacity: 0.7; font-size: 0.9rem;">
+                * 灵感来源于 Garry Tan 的 gstack /ship 技能，针对 OpenClaw 和静态网站场景重新设计。
+            </p>
+        </section>
+    </main>
+    
+    <footer class="footer">
+        <p>❤️‍🔥 Shrimp Jetton × Scott | 发布前，让哨兵先上</p>
+    </footer>
+</body>
+</html>
