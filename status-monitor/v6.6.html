@@ -6,9 +6,6 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <title>Shrimp Jetton 认知负载监控</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1098,6 +1095,21 @@ function updateUI(data) {
                 } else if (ts.indexOf('等待') !== -1 || ts.indexOf('⏳') !== -1) {
                     statusClass = 'waiting';
                     statusText = '等待中';
+                } else if (ts.indexOf('收集') !== -1 || ts.indexOf('🔍') !== -1) {
+                    statusClass = 'processing';
+                    statusText = '收集中';
+                } else if (ts.indexOf('分析') !== -1 || ts.indexOf('🧠') !== -1) {
+                    statusClass = 'processing';
+                    statusText = '分析中';
+                } else if (ts.indexOf('开发') !== -1 || ts.indexOf('💻') !== -1) {
+                    statusClass = 'processing';
+                    statusText = '开发中';
+                } else if (ts.indexOf('撰写') !== -1 || ts.indexOf('✍️') !== -1) {
+                    statusClass = 'processing';
+                    statusText = '撰写中';
+                } else if (ts.indexOf('上传') !== -1 || ts.indexOf('📤') !== -1) {
+                    statusClass = 'processing';
+                    statusText = '上传中';
                 }
                 
                 html += '<div class="task-item">' +
@@ -1124,8 +1136,18 @@ function showError(msg) {
     }
     var taskList = getEl('taskList');
     if (taskList) {
-        taskList.innerHTML = '<div style="color:#ef4444;padding:10px;">错误: ' + msg + '</div>';
+        taskList.innerHTML = '<div style="color:#ef4444;padding:20px;text-align:center;">' +
+            '<div style="font-size:2rem;margin-bottom:10px;">📡</div>' +
+            '<div>数据获取失败</div>' +
+            '<div style="font-size:12px;color:#888;margin-top:8px;">' + msg + '</div>' +
+            '<div style="font-size:12px;color:#666;margin-top:15px;">将在 ' + countdown + ' 秒后重试</div>' +
+            '</div>';
     }
+    // 重置指标显示
+    ['sessionsValue', 'pendingValue', 'processingValue', 'tokensValue', 'estimatedValue'].forEach(function(id) {
+        var el = getEl(id);
+        if (el) el.textContent = '--';
+    });
 }
 
 async function fetchData() {
@@ -1497,12 +1519,7 @@ function fetchTrend() {
             
             // 按时间排序
             points.sort(function(a, b) { return a.timestamp_ms - b.timestamp_ms; });
-            
-            // 获取当前时间（本地时间戳）
-            var now = Date.now();
-            var cutoffMinutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
-            var cutoff = now - cutoffMinutes * 60 * 1000;
-            
+
             // 严格过滤：只取指定时间范围内的数据
             var filteredPoints = points.filter(function(p) { return p.timestamp_ms >= cutoff; });
             
