@@ -791,19 +791,26 @@ def update_data_file(data):
             })
         
         # 构建前端兼容的数据格式
+        # v7.1: 使用正确的 score_breakdown
+        sb = data.get('score_breakdown', {})
         output = {
             "timestamp": data.get('timestamp'),
             "cognitive_score": data.get('cognitive_score'),
             "score_breakdown": {
-                "wait_score": 0,
-                "token_score": 0,
-                "base_score": data.get('cognitive_score', 0),
+                "wait_score": sb.get('wait_score', 0),
+                "token_score": sb.get('token_score', 0),
+                "queue_score": sb.get('queue_score', 0),
+                "active_score": sb.get('active_score', 0),
+                "system_score": sb.get('system_score', 0),
+                "processing_bonus": sb.get('processing_bonus', 0),
+                "base_score": sb.get('base_score', data.get('cognitive_score', 0)),
+                "final_score": sb.get('final_score', data.get('cognitive_score', 0)),
                 "active_sessions": data.get('active_sessions', 0),
                 "recent_active": data.get('active_sessions', 0),
                 "tool_calls": 0,
                 "pending": data.get('pending_count', 0),
                 "processing": data.get('processing_count', 0),
-                "estimated_response": 30
+                "estimated_response": data.get('estimated_wait', {}).get('seconds', 30)
             },
             "status_code": data.get('status_code'),
             "status_text": data.get('status_text'),
