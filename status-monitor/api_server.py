@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 # 数据文件路径
 DATA_FILE = "/root/.openclaw/workspace/portfolio-blog/status-monitor/cognitive-data.json"
+HISTORY_FILE = "/root/.openclaw/workspace/portfolio-blog/status-monitor/cognitive-history.jsonl"
 
 def get_status():
     """读取当前认知负载数据"""
@@ -28,6 +29,33 @@ def get_status():
             "status_text": "🟡 数据读取失败",
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
+
+def get_trend_data():
+    """读取趋势数据 - 返回最近100个点"""
+    points = []
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, 'r') as f:
+                lines = f.readlines()
+            
+            # 解析最近100行
+            for line in lines[-100:]:
+                try:
+                    r = json.loads(line.strip())
+                    ts = r.get('timestamp', '')
+                    if ts:
+                        # 转换为毫秒时间戳
+                        dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                        points.append({
+                            "timestamp_ms": int(dt.timestamp() * 1000),
+                            "score": r.get('score', 0)
+                        })
+                except:
+                    pass
+    except Exception as e:
+        return {"error": str(e), "points": []}
+    
+    return {"points": points}
 
 class CORSRequestHandler(BaseHTTPRequestHandler):
     """支持 CORS 的请求处理器"""
@@ -61,6 +89,18 @@ class CORSRequestHandler(BaseHTTPRequestHandler):
             
             self.wfile.write(json.dumps(data).encode('utf-8'))
         
+        elif path == '/api/trend':
+            # 返回趋势数据
+            data = get_trend_data()
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.end_headers()
+            
+            self.wfile.write(json.dumps(data).encode('utf-8'))
+        
         elif path == '/health':
             # 健康检查
             self.send_response(200)
@@ -83,7 +123,8 @@ def run_server(port=8080):
     httpd = HTTPServer(server_address, CORSRequestHandler)
     print(f"🚀 API 服务器启动成功")
     print(f"   端口: {port}")
-    print(f"   端点: http://localhost:{port}/api/status")
+    print(f"   状态: http://localhost:{port}/api/status")
+    print(f"   趋势: http://localhost:{port}/api/trend")
     print(f"   健康: http://localhost:{port}/health")
     print(f"   按 Ctrl+C 停止")
     

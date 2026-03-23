@@ -999,9 +999,11 @@
     <script>
 // v7.1: 实时 API 优先方案
 var API_URL = 'http://8.210.105.190:8080/api/status';  // 优先使用实时 API
+var TREND_API_URL = 'http://8.210.105.190:8080/api/trend';  // 趋势数据实时 API
 var DATA_URL = './cognitive-data.json';  // CDN 回退
-var TREND_URL = './cognitive-history.jsonl';
+var TREND_URL = './cognitive-history.jsonl';  // 趋势 CDN 回退
 var REFRESH_INTERVAL = 5000;  // 5秒刷新一次（实时）
+var TREND_REFRESH_INTERVAL = 30000;  // 趋势图 30秒刷新
 var currentRange = '5m';
 var countdown = 60;
 var trendData = [];
@@ -1236,7 +1238,7 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchTrend();
     startCountdown();
     setInterval(fetchData, REFRESH_INTERVAL);
-    setInterval(fetchTrend, 60000);  // 趋势图每60秒刷新一次，与心跳同步
+    setInterval(fetchTrend, TREND_REFRESH_INTERVAL);  // 趋势图每30秒刷新
 });
 
 function renderTrendChart() {
@@ -1519,8 +1521,30 @@ function renderEmptyChart(message) {
     if (statsEl) statsEl.innerHTML = '<span>最高:-- 最低:-- 平均:--</span>';
 }
 
-// 修改fetchTrend函数来使用新的renderTrendChart - v6.6.3: 统一三面板逻辑，修复时区问题
+// v7.1: 修改fetchTrend函数来使用 API 或 CDN 回退
 function fetchTrend() {
+    // 优先使用 API
+    fetch(TREND_API_URL)
+        .then(function(response) {
+            if (response.ok) return response.json();
+            throw new Error('API failed');
+        })
+        .then(function(data) {
+            if (data.points) {
+                processTrendData(data.points);
+                console.log('[Trend] API 数据');
+            } else {
+                throw new Error('No points in API response');
+            }
+        })
+        .catch(function(err) {
+            // API 失败，回退到 CDN
+            console.log('[Trend] API 失败，回退到 CDN:', err.message);
+            fetchTrendFromCDN();
+        });
+}
+
+function fetchTrendFromCDN() {
     fetch(TREND_URL + '?t=' + Date.now())
         .then(function(response) {
             if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -1530,16 +1554,9 @@ function fetchTrend() {
             var lines = text.trim().split("\n").filter(function(l) { return l.trim(); });
             var points = [];
             
-            // 获取当前时间（本地时间戳）
-            var now = Date.now();
-            var cutoffMinutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
-            var cutoff = now - cutoffMinutes * 60 * 1000;
-            
-            // 解析所有数据点
             for (var i = 0; i < lines.length; i++) {
                 try {
                     var r = JSON.parse(lines[i]);
-                    // 正确解析带时区的ISO时间戳
                     var ts = new Date(r.timestamp).getTime();
                     if (ts && ts > 0) {
                         points.push({ timestamp_ms: ts, score: r.score || 0 });
@@ -1547,26 +1564,35 @@ function fetchTrend() {
                 } catch (e) {}
             }
             
-            // 按时间排序
-            points.sort(function(a, b) { return a.timestamp_ms - b.timestamp_ms; });
-
-            // 严格过滤：只取指定时间范围内的数据
-            var filteredPoints = points.filter(function(p) { return p.timestamp_ms >= cutoff; });
-            
-            // 设置X轴显示的时间范围：严格按照选择的时间范围（5min/15min/1h）
-            trendTimeRange.end = now;
-            trendTimeRange.start = now - cutoffMinutes * 60 * 1000;
-            
-            console.log('[Trend] Range:', currentTrendRange, 'Points in range:', filteredPoints.length, 
-                'TimeWindow:', cutoffMinutes + 'min');
-            
-            trendData = filteredPoints;
-            renderTrendChart();
+            processTrendData(points);
         })
         .catch(function(e) {
-            console.error('[Trend] Error:', e);
+            console.error('[Trend] CDN Error:', e);
             renderEmptyChart('加载失败');
         });
+}
+
+function processTrendData(points) {
+    // 获取当前时间（本地时间戳）
+    var now = Date.now();
+    var cutoffMinutes = currentTrendRange === '5m' ? 5 : currentTrendRange === '15m' ? 15 : 60;
+    var cutoff = now - cutoffMinutes * 60 * 1000;
+    
+    // 按时间排序
+    points.sort(function(a, b) { return a.timestamp_ms - b.timestamp_ms; });
+
+    // 严格过滤：只取指定时间范围内的数据
+    var filteredPoints = points.filter(function(p) { return p.timestamp_ms >= cutoff; });
+    
+    // 设置X轴显示的时间范围
+    trendTimeRange.end = now;
+    trendTimeRange.start = now - cutoffMinutes * 60 * 1000;
+    
+    console.log('[Trend] Range:', currentTrendRange, 'Points in range:', filteredPoints.length, 
+        'TimeWindow:', cutoffMinutes + 'min');
+    
+    trendData = filteredPoints;
+    renderTrendChart();
 }
 
 function switchTrendRange(range) {
