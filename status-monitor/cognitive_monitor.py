@@ -623,29 +623,72 @@ def get_cognitive_load():
     
     last_active = int(time.time() - recent_mtime) if recent_mtime > 0 else 999
     
-    # v6.0: 简化评分算法 - 队列长度直接映射
-    # 计算总队列长度 (处理中 + 等待中)
+    # v7.0: Mixed Score 混合评分算法 - 精细刻度版
+    # 基于等待时间、Token数量、队列长度、活跃会话、系统负载五因素
+    
+    # 因素1: 等待评分 (0-25分) - 基于最长等待时间
+    # 30秒内0分，每多30秒加5分，最高25分
+    if max_wait <= 30:
+        wait_score = 0
+    else:
+        wait_score = min((max_wait - 30) // 30 * 5, 25)
+    
+    # 因素2: Token评分 (0-30分) - 基于处理中任务的Token数量
+    # 每10万Tokens得3分，最高30分
+    processing_tokens = sum(
+        t.get('tokens', 0) for t in all_tasks 
+        if '🔄' in t.get('status', '') or '处理中' in t.get('status', '')
+    )
+    token_score = min(processing_tokens // 100000 * 3, 30)
+    
+    # 因素3: 队列评分 (0-20分) - 基于队列长度
     total_queue = processing_count + pending_count
+    queue_score = min(total_queue * 5, 20)
     
-    if total_queue == 0:
-        score = 0  # 空闲
-    elif total_queue == 1:
-        score = 25  # 轻载
-    elif total_queue == 2:
-        score = 50  # 中等
-    else:
-        score = min(75 + total_queue * 5, 100)  # 高载
+    # 因素4: 活跃会话评分 (0-15分)
+    recent_active_count = len([s for s in sessions if s.get('is_recent', False)])
+    active_score = min(recent_active_count * 5, 15)
     
-    # v6.0: 计算预估回复时间
-    if total_queue == 0:
+    # 因素5: 系统负载评分 (0-10分)
+    sys_metrics = get_system_metrics()
+    system_score = min((sys_metrics.get('cpu_percent', 0) + sys_metrics.get('memory_percent', 0)) // 20, 10)
+    
+    # 计算基础分数 (0-100)
+    base_score = wait_score + token_score + queue_score + active_score + system_score
+    
+    # 处理加成: 处理中的任务额外加成，但上限20%
+    processing_bonus = min(processing_count * 8, 20)
+    
+    # 最终分数 (0-100)
+    score = min(base_score + processing_bonus, 100)
+    
+    # v7.0: 详细的分数分解
+    score_breakdown = {
+        'wait_score': wait_score,
+        'token_score': token_score,
+        'queue_score': queue_score,
+        'active_score': active_score,
+        'system_score': system_score,
+        'processing_bonus': processing_bonus,
+        'base_score': base_score,
+        'final_score': score
+    }
+    
+    # v7.0: 计算预估回复时间 (更精细)
+    if score <= 10:
         estimated_wait = {'text': '立即', 'seconds': 0, 'detail': '可立即响应'}
-    elif total_queue == 1:
+    elif score <= 25:
+        estimated_wait = {'text': '~15秒', 'seconds': 15, 'detail': '预计15秒内回复'}
+    elif score <= 40:
         estimated_wait = {'text': '~30秒', 'seconds': 30, 'detail': '预计30秒内回复'}
-    elif total_queue == 2:
+    elif score <= 55:
         estimated_wait = {'text': '~1分钟', 'seconds': 60, 'detail': '预计1分钟内回复'}
+    elif score <= 70:
+        estimated_wait = {'text': '~2分钟', 'seconds': 120, 'detail': '预计2分钟内回复'}
+    elif score <= 85:
+        estimated_wait = {'text': '~3分钟', 'seconds': 180, 'detail': '预计3分钟内回复'}
     else:
-        minutes = (total_queue - 1) // 2 + 1
-        estimated_wait = {'text': f'~{minutes}分钟', 'seconds': minutes * 60, 'detail': f'预计{minutes}分钟内回复'}
+        estimated_wait = {'text': '~5分钟+', 'seconds': 300, 'detail': '预计5分钟或更久'}
     
     # v6.2: 返回活跃任务到 task_queue（处理中、等待中、或最近5分钟活跃）
     active_tasks = [t for t in all_tasks if '🔄' in t.get('status', '') or '前活跃' in t.get('status', '') or '运行中' in t.get('status', '') or '活跃中' in t.get('status', '')]
@@ -669,11 +712,13 @@ def get_cognitive_load():
         'local_builds': len(local_builds),
         'max_wait_sec': max_wait,
         'total_tokens': total_tokens,
+        'processing_tokens': processing_tokens,
         'estimated_wait': estimated_wait,
         'last_active_sec': last_active,
-        'task_queue': active_tasks,  # v6.1: 只返回活跃任务
+        'task_queue': active_tasks,
         'cognitive_score': score,
-        'system': get_system_metrics(),
+        'score_breakdown': score_breakdown,
+        'system': sys_metrics,
         'workflow_details': github_workflows,
         'build_details': local_builds
     }
