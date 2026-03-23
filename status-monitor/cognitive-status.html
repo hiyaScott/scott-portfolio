@@ -813,9 +813,9 @@
                 <span id="versionText">v7.1 · 实时 API · 5秒刷新</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
-                <span id="refreshTimer">⏱️ 60s</span>
+                <span id="refreshTimer">⚡ 实时 API</span>
                 <span style="margin: 0 10px; color: #444;">|</span>
-                <span id="lastSyncTime">🔄 --:--:--</span>
+                <span id="lastSyncTime">上次更新: --秒前</span>
             </div>
         </div>
         
@@ -1191,6 +1191,7 @@ async function fetchData() {
     
     if (data) {
         updateUI(data);
+        recordUpdate();  // 记录更新时间
     } else {
         console.error('[v7.1] Error:', error);
         showError(error ? error.message : '无法获取数据');
@@ -1203,17 +1204,27 @@ async function fetchData() {
 
 
 
+// v7.1: 显示上次更新时间
+var lastUpdateTime = Date.now();
+var updateCounter = 0;
+
+function updateLastSyncTime() {
+    var now = Date.now();
+    var diff = Math.floor((now - lastUpdateTime) / 1000);
+    var timeText = diff < 1 ? '刚刚' : diff + '秒前';
+    
+    var syncEl = getEl('lastSyncTime');
+    if (syncEl) syncEl.textContent = '上次更新: ' + timeText;
+}
+
+function recordUpdate() {
+    lastUpdateTime = Date.now();
+}
+
 function startCountdown() {
-    countdown = 60;
+    // 每秒更新"上次更新"显示
     setInterval(function() {
-        countdown--;
-        if (countdown <= 0) {
-            countdown = 60;
-            fetchData();
-            fetchTrend();
-        }
-        var timerEl = getEl('refreshTimer');
-        if (timerEl) timerEl.textContent = countdown + 's';
+        updateLastSyncTime();
     }, 1000);
 }
 
@@ -1234,6 +1245,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     } catch(e) {}
     
+    recordUpdate();
     fetchData();
     fetchTrend();
     startCountdown();

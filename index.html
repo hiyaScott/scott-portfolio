@@ -2233,7 +2233,7 @@
             requestAnimationFrame(scheduler);
         }
 
-        // 微型 Status Tuner 仪表盘更新
+        // 微型 Status Tuner 仪表盘更新 - v7.1: 优先使用实时 API
         async function updateMicroStatus() {
             const statusText = document.getElementById('microStatusText');
             const taskListEl = document.getElementById('microTaskList');
@@ -2246,16 +2246,47 @@
                 return;
             }
             
+            let data = null;
+            let source = 'unknown';
+            
+            // v7.1: 优先尝试实时 API
             try {
-                // v6.0: 简化数据源 - 直接从本地文件读取
-                const response = await fetch('./status-monitor/cognitive-data.json?t=' + Date.now(), {
+                const apiResponse = await fetch('http://8.210.105.190:8080/api/status', {
                     method: 'GET',
                     cache: 'no-cache'
                 });
-                if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.json();
-                const source = 'local';
-                
+                if (apiResponse.ok) {
+                    data = await apiResponse.json();
+                    source = 'API';
+                }
+            } catch (err) {
+                console.log('[Homepage] API failed, fallback to CDN:', err.message);
+            }
+            
+            // API 失败，回退到 CDN
+            if (!data) {
+                try {
+                    const response = await fetch('./status-monitor/cognitive-data.json?t=' + Date.now(), {
+                        method: 'GET',
+                        cache: 'no-cache'
+                    });
+                    if (response.ok) {
+                        data = await response.json();
+                        source = 'CDN';
+                    }
+                } catch (err) {
+                    console.log('[Homepage] CDN also failed:', err.message);
+                }
+            }
+            
+            if (!data) {
+                console.log('Micro status update failed: no data');
+                statusText.textContent = '离线';
+                taskListEl.innerHTML = '<div class="micro-task-item"><span class="micro-task-name">连接失败</span><span class="micro-task-status waiting">重试中</span></div>';
+                return;
+            }
+            
+            try {
                 // 使用正确的数据字段
                 const loadScore = data.cognitive_score || 0;
                 console.log('[Homepage] Source:', source, 'Score:', loadScore, 'Active:', data.active_sessions);
@@ -2311,10 +2342,9 @@
                 updateMicroTaskList(tasks);
 
             } catch (err) {
-                console.log('Micro status update failed:', err);
-                // 如果获取失败，显示离线状态
-                statusText.textContent = '离线';
-                taskListEl.innerHTML = '<div class="micro-task-item"><span class="micro-task-name">连接失败</span><span class="micro-task-status waiting">重试中</span></div>';
+                console.log('Micro status processing failed:', err);
+                statusText.textContent = '错误';
+                taskListEl.innerHTML = '<div class="micro-task-item"><span class="micro-task-name">数据处理错误</span><span class="micro-task-status waiting">请刷新</span></div>';
             }
         }
 
