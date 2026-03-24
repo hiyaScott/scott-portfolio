@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Shrimp Jetton 认知负载监控 v6.2 - 改进活跃会话检测
+Shrimp Jetton 认知负载监控 v7.1 - 体感优化版
 更新：
+- v7.1: 优化评分算法，降低敏感度，让1个pending任务不显示为"轻负载"
+- v7.0: 改进活跃会话检测
 - v6.2: 最近5分钟内有活动的会话显示为"活跃中"，task_queue更准确
-- v6.0: 简化评分算法，队列长度直接映射；添加预估回复时间；单一数据源
 - v5.35: 状态显示改为"最后活跃时间"替代"等待时间"，更准确反映会话状态
 - v5.34: 从Redis迁移到本地JSON Lines存储，添加自动归档
 """
@@ -623,41 +624,50 @@ def get_cognitive_load():
     
     last_active = int(time.time() - recent_mtime) if recent_mtime > 0 else 999
     
-    # v7.0: Mixed Score 混合评分算法 - 精细刻度版
+    # v7.1: Mixed Score 混合评分算法 - 体感优化版
     # 基于等待时间、Token数量、队列长度、活跃会话、系统负载五因素
+    # v7.1更新: 降低敏感度，让1个pending任务不显示为"轻负载"
     
-    # 因素1: 等待评分 (0-25分) - 基于最长等待时间
-    # 30秒内0分，每多30秒加5分，最高25分
-    if max_wait <= 30:
+    # 因素1: 等待评分 (0-20分) - 基于最长等待时间
+    # 2分钟内0分(正常响应时间)，2-5分钟10分，5-10分钟15分，10分钟以上20分
+    if max_wait <= 120:
         wait_score = 0
+    elif max_wait <= 300:
+        wait_score = 10
+    elif max_wait <= 600:
+        wait_score = 15
     else:
-        wait_score = min((max_wait - 30) // 30 * 5, 25)
+        wait_score = 20
     
-    # 因素2: Token评分 (0-30分) - 基于处理中任务的Token数量
-    # 每10万Tokens得3分，最高30分
+    # 因素2: Token评分 (0-25分) - 基于处理中任务的Token数量
+    # 每20万Tokens得5分，最高25分(需要100万tokens才满)
     processing_tokens = sum(
         t.get('tokens', 0) for t in all_tasks 
         if '🔄' in t.get('status', '') or '处理中' in t.get('status', '')
     )
-    token_score = min(processing_tokens // 100000 * 3, 30)
+    token_score = min(processing_tokens // 200000 * 5, 25)
     
-    # 因素3: 队列评分 (0-20分) - 基于队列长度
+    # 因素3: 队列评分 (0-25分) - 基于队列长度，非线性增长
+    # 0个:0分, 1个:2分, 2个:6分, 3个:12分, 4个:20分, 5个+:25分
     total_queue = processing_count + pending_count
-    queue_score = min(total_queue * 5, 20)
+    queue_score_map = {0: 0, 1: 2, 2: 6, 3: 12, 4: 20}
+    queue_score = queue_score_map.get(total_queue, 25)
     
-    # 因素4: 活跃会话评分 (0-15分)
+    # 因素4: 活跃会话评分 (0-10分) - 降低权重
+    # 只计算真正活跃的，每个2分
     recent_active_count = len([s for s in sessions if s.get('is_recent', False)])
-    active_score = min(recent_active_count * 5, 15)
+    active_score = min(recent_active_count * 2, 10)
     
-    # 因素5: 系统负载评分 (0-10分)
+    # 因素5: 系统负载评分 (0-10分) - 保持不变
     sys_metrics = get_system_metrics()
     system_score = min((sys_metrics.get('cpu_percent', 0) + sys_metrics.get('memory_percent', 0)) // 20, 10)
     
-    # 计算基础分数 (0-100)
+    # 计算基础分数 (0-90)
     base_score = wait_score + token_score + queue_score + active_score + system_score
     
-    # 处理加成: 处理中的任务额外加成，但上限20%
-    processing_bonus = min(processing_count * 8, 20)
+    # 处理加成: 处理中的任务额外加成，但上限10%
+    # 每个处理中任务加3分，更温和
+    processing_bonus = min(processing_count * 3, 10)
     
     # 最终分数 (0-100)
     score = min(base_score + processing_bonus, 100)
