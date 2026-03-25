@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>实验短片 004 - 声音的形状 (The Shape of Sound) v2</title>
+    <title>实验短片 004 - 声音的形状 (The Shape of Sound) v3</title>
     <style>
         * {
             margin: 0;
@@ -140,6 +140,19 @@
             transition: width 0.1s linear;
             z-index: 103;
         }
+
+        .audio-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 10px;
+            color: #333;
+            z-index: 102;
+        }
+
+        .audio-indicator.active {
+            color: #0f0;
+        }
     </style>
 </head>
 <body>
@@ -151,7 +164,7 @@
         <div class="ascii-container" style="margin-bottom: 30px;">
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║              实  验  短  片  0 0 4  v2                           ║
+║              实  验  短  片  0 0 4  v3                           ║
 ║                                                                  ║
 ║                 声  音  的  形  状                               ║
 ║                                                                  ║
@@ -174,210 +187,292 @@
     </div>
 
     <div id="timer" class="timer">00:00 / 02:00</div>
+    <div id="audioIndicator" class="audio-indicator">♪ BGM</div>
 
     <script>
-        // ==================== 增强音频系统 ====================
+        // ==================== 优化音频系统 v3 ====================
+        // 改进点:
+        // 1. 使用压缩器防止削波
+        // 2. 分离音乐和音效通道
+        // 3. 限制同时播放的声音数量
+        // 4. 降低整体音量,优化频率分布
+        // 5. 使用更柔和的波形
+        
         let audioCtx;
         let isPlaying = false;
         let currentPhase = 0;
         let startTime;
         let phaseInterval;
         
-        // 音频节点存储
-        let bgmNodes = [];
-        let melodyInterval = null;
-        let bassInterval = null;
-        let padInterval = null;
+        // 主输出节点(压缩器)
+        let masterCompressor;
+        let masterGain;
         
-        // 频率定义
+        // 分离的增益节点
+        let bgmGain;      // 背景音乐通道
+        let sfxGain;      // 音效通道
+        
+        // 音频节点管理
+        let activeNodes = [];
+        const MAX_CONCURRENT_SOUNDS = 6; // 限制同时播放的声音数
+        
+        // 音符定义(移调,避免过低频率)
         const NOTES = {
-            C2: 65.41, D2: 73.42, E2: 82.41, F2: 87.31, G2: 98.00, A2: 110.00, B2: 123.47,
             C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
             C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
-            C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00, B5: 987.77
+            C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00
         };
 
         function initAudio() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 创建主压缩器 - 防止削波/破音
+            masterCompressor = audioCtx.createDynamicsCompressor();
+            masterCompressor.threshold.value = -12;      // 阈值 -12dB
+            masterCompressor.knee.value = 6;             // 软拐点
+            masterCompressor.ratio.value = 4;            // 压缩比 4:1
+            masterCompressor.attack.value = 0.01;        // 快速攻击
+            masterCompressor.release.value = 0.1;        // 快速释放
+            
+            // 主音量控制 - 降低整体音量
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.5;
+            
+            // BGM通道
+            bgmGain = audioCtx.createGain();
+            bgmGain.gain.value = 0.6;
+            
+            // 音效通道
+            sfxGain = audioCtx.createGain();
+            sfxGain.gain.value = 0.4;
+            
+            // 连接: BGM/SFX -> 压缩器 -> 主增益 -> 输出
+            bgmGain.connect(masterCompressor);
+            sfxGain.connect(masterCompressor);
+            masterCompressor.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
         }
 
-        // 创建持续音 (Pad/Drone)
-        function createDrone(freq, volume, type = 'sine') {
+        // 清理过多的活跃节点
+        function cleanupNodes() {
+            if (activeNodes.length > MAX_CONCURRENT_SOUNDS) {
+                const oldest = activeNodes.shift();
+                try {
+                    oldest.stop();
+                    oldest.disconnect();
+                } catch(e) {}
+            }
+        }
+
+        // 创建持续音(BGM) - 使用sine波形,更柔和
+        function createBGMNote(freq, volume) {
             if (!audioCtx) return null;
+            cleanupNodes();
+            
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            const filter = audioCtx.createBiquadFilter();
+            
+            osc.type = 'sine';  // 最柔和的波形
+            osc.frequency.value = freq;
+            
+            // 非常低的音量开始,避免爆音
+            gain.gain.value = 0;
+            gain.gain.linearRampToValueAtTime(volume * 0.5, audioCtx.currentTime + 0.5);
+            
+            osc.connect(gain);
+            gain.connect(bgmGain);
+            osc.start();
+            
+            activeNodes.push(osc);
+            return { osc, gain };
+        }
+
+        // 播放旋律音符(BGM)
+        function playMelodyNote(freq, duration, volume = 0.3) {
+            if (!audioCtx) return;
+            cleanupNodes();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'triangle';  // 柔和的旋律
+            osc.frequency.value = freq;
+            
+            const now = audioCtx.currentTime;
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(volume * 0.4, now + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+            
+            osc.connect(gain);
+            gain.connect(bgmGain);
+            osc.start(now);
+            osc.stop(now + duration);
+            
+            activeNodes.push(osc);
+        }
+
+        // 播放音效(SFX) - 与BGM完全分离
+        function playSFX(freq, duration, type = 'sine', volume = 0.2) {
+            if (!audioCtx) return;
+            cleanupNodes();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
             
             osc.type = type;
             osc.frequency.value = freq;
             
-            filter.type = 'lowpass';
-            filter.frequency.value = 800;
-            
-            gain.gain.value = volume;
-            
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            
-            return { osc, gain, filter };
-        }
-
-        // 播放单个音符
-        function playTone(freq, duration, type = 'sine', volume = 0.1, delay = 0) {
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
-            
-            gain.gain.setValueAtTime(0, audioCtx.currentTime + delay);
-            gain.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + delay + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + duration);
+            const now = audioCtx.currentTime;
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(volume * 0.3, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
             
             osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(audioCtx.currentTime + delay);
-            osc.stop(audioCtx.currentTime + delay + duration);
+            gain.connect(sfxGain);
+            osc.start(now);
+            osc.stop(now + duration);
+            
+            activeNodes.push(osc);
         }
 
-        // 播放和弦
-        function playChord(freqs, duration, volume = 0.08) {
+        // 播放和弦(BGM)
+        function playChord(freqs, duration, volume = 0.25) {
             freqs.forEach((freq, i) => {
-                playTone(freq, duration, 'triangle', volume, i * 0.02);
+                setTimeout(() => {
+                    playMelodyNote(freq, duration, volume);
+                }, i * 30);
             });
         }
 
-        // 停止所有持续音
-        function stopAllBGM() {
-            bgmNodes.forEach(node => {
+        // 停止所有声音
+        function stopAllAudio() {
+            activeNodes.forEach(node => {
                 try {
-                    node.osc.stop();
-                    node.osc.disconnect();
-                    node.gain.disconnect();
+                    node.stop();
+                    node.disconnect();
+                } catch(e) {}
+            });
+            activeNodes = [];
+        }
+
+        // ==================== BGM场景定义 ====================
+        let bgmNodes = [];
+        let bgmInterval = null;
+
+        function clearBGM() {
+            bgmNodes.forEach(n => {
+                try {
+                    n.osc.stop();
+                    n.gain.disconnect();
                 } catch(e) {}
             });
             bgmNodes = [];
-            
-            if (melodyInterval) clearInterval(melodyInterval);
-            if (bassInterval) clearInterval(bassInterval);
-            if (padInterval) clearInterval(padInterval);
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
         }
 
-        // ==================== 场景1 BGM: 低频铺垫 ====================
+        // 场景1 BGM: 极简铺垫
         function startScene1BGM() {
-            // 基础低频铺垫
-            bgmNodes.push(createDrone(NOTES.C2, 0.08, 'sine'));
-            bgmNodes.push(createDrone(NOTES.G2, 0.06, 'triangle'));
+            clearBGM();
             
-            // 缓慢变化的泛音
-            let time = 0;
-            padInterval = setInterval(() => {
-                time += 4;
-                const note = [NOTES.C3, NOTES.E3, NOTES.G3][Math.floor(time / 12) % 3];
-                playTone(note, 3, 'sine', 0.04);
+            // 单音铺垫 - C3
+            const drone = createBGMNote(NOTES.C3, 0.15);
+            if (drone) bgmNodes.push(drone);
+            
+            // 极慢的琶音 - 每4秒一个音
+            const arpNotes = [NOTES.C4, NOTES.E4, NOTES.G4];
+            let arpIndex = 0;
+            bgmInterval = setInterval(() => {
+                playMelodyNote(arpNotes[arpIndex % arpNotes.length], 3, 0.2);
+                arpIndex++;
             }, 4000);
             
-            // 琶音旋律
-            const arp = [NOTES.C4, NOTES.E4, NOTES.G4, NOTES.B4, NOTES.C5, NOTES.B4, NOTES.G4, NOTES.E4];
-            let arpIndex = 0;
-            melodyInterval = setInterval(() => {
-                playTone(arp[arpIndex % arp.length], 0.8, 'triangle', 0.06);
-                arpIndex++;
-            }, 2000);
+            // 音效: 启动声
+            playSFX(NOTES.C5, 0.5, 'sine', 0.15);
         }
 
-        // ==================== 场景2 BGM: 螺旋上升 ====================
+        // 场景2 BGM: 上升感
         function startScene2BGM() {
-            stopAllBGM();
+            clearBGM();
             
-            // 更明亮的铺垫
-            bgmNodes.push(createDrone(NOTES.E3, 0.07, 'sine'));
-            bgmNodes.push(createDrone(NOTES.B3, 0.05, 'triangle'));
+            // 双音铺垫
+            const drone1 = createBGMNote(NOTES.E3, 0.12);
+            const drone2 = createBGMNote(NOTES.B3, 0.08);
+            if (drone1) bgmNodes.push(drone1);
+            if (drone2) bgmNodes.push(drone2);
             
-            // 螺旋上升音阶
-            const scale = [NOTES.C4, NOTES.D4, NOTES.E4, NOTES.F4, NOTES.G4, NOTES.A4, NOTES.B4, NOTES.C5];
+            // 上升音阶
+            const scale = [NOTES.C4, NOTES.D4, NOTES.E4, NOTES.F4, NOTES.G4];
             let index = 0;
-            melodyInterval = setInterval(() => {
-                playTone(scale[index % scale.length], 1.2, 'sine', 0.08);
-                playTone(scale[(index + 2) % scale.length], 1.2, 'triangle', 0.05);
+            bgmInterval = setInterval(() => {
+                playMelodyNote(scale[index % scale.length], 2, 0.25);
                 index++;
-            }, 1500);
+            }, 2500);
             
-            // 低音节奏
-            const bass = [NOTES.C2, NOTES.G2, NOTES.A2, NOTES.F2];
-            let bassIndex = 0;
-            bassInterval = setInterval(() => {
-                playTone(bass[bassIndex % bass.length], 2, 'sawtooth', 0.06);
-                bassIndex++;
-            }, 3000);
+            // 音效: 发现声
+            playSFX(NOTES.G4, 0.8, 'triangle', 0.2);
+            setTimeout(() => playSFX(NOTES.C5, 0.6, 'triangle', 0.2), 200);
         }
 
-        // ==================== 场景3 BGM: 对话与张力 ====================
+        // 场景3 BGM: 对话/张力
         function startScene3BGM() {
-            stopAllBGM();
+            clearBGM();
             
-            // 两个系统的音高对比
-            bgmNodes.push(createDrone(NOTES.C3, 0.06, 'sine')); // 地球
-            bgmNodes.push(createDrone(NOTES.F3, 0.06, 'sine')); // 未知
+            // 两个系统的铺垫音 - 纯五度关系
+            const drone1 = createBGMNote(NOTES.C3, 0.1);
+            const drone2 = createBGMNote(NOTES.G3, 0.1);
+            if (drone1) bgmNodes.push(drone1);
+            if (drone2) bgmNodes.push(drone2);
             
-            // 交替旋律
-            const earthTheme = [NOTES.C4, NOTES.E4, NOTES.G4];
-            const alienTheme = [NOTES.F4, NOTES.A4, NOTES.C5];
-            let toggle = 0;
-            
-            melodyInterval = setInterval(() => {
-                const theme = toggle % 2 === 0 ? earthTheme : alienTheme;
-                playChord(theme, 1.5, 0.07);
-                toggle++;
-            }, 2000);
-            
-            // 紧张的低音
-            bassInterval = setInterval(() => {
-                playTone(NOTES.C2, 1.5, 'square', 0.05);
-                setTimeout(() => playTone(NOTES.F2, 1.5, 'square', 0.05), 750);
-            }, 3000);
-        }
-
-        // ==================== 场景4 BGM: 升华 ====================
-        function startScene4BGM() {
-            stopAllBGM();
-            
-            // 辉煌的铺垫
-            bgmNodes.push(createDrone(NOTES.C3, 0.08, 'sine'));
-            bgmNodes.push(createDrone(NOTES.G3, 0.07, 'sine'));
-            bgmNodes.push(createDrone(NOTES.C4, 0.06, 'triangle'));
-            bgmNodes.push(createDrone(NOTES.E4, 0.05, 'sine'));
-            
-            // 高潮和弦进行
+            // 交替和弦 - 3秒切换
             const chords = [
-                [NOTES.C4, NOTES.E4, NOTES.G4, NOTES.C5],
-                [NOTES.F4, NOTES.A4, NOTES.C5, NOTES.F5],
-                [NOTES.G4, NOTES.B4, NOTES.D5, NOTES.G5],
-                [NOTES.C4, NOTES.E4, NOTES.G4, NOTES.C5, NOTES.E5, NOTES.G5]
+                [NOTES.C4, NOTES.E4, NOTES.G4],
+                [NOTES.G3, NOTES.B3, NOTES.D4]
             ];
             let chordIndex = 0;
-            
-            melodyInterval = setInterval(() => {
-                const chord = chords[chordIndex % chords.length];
-                chord.forEach((freq, i) => {
-                    playTone(freq, 4, 'triangle', 0.08, i * 0.05);
-                });
+            bgmInterval = setInterval(() => {
+                playChord(chords[chordIndex % chords.length], 2.5, 0.2);
                 chordIndex++;
-            }, 4000);
+            }, 3000);
             
-            // 低音进行
-            const bassLine = [NOTES.C2, NOTES.F2, NOTES.G2, NOTES.C2];
-            let bassIndex = 0;
-            bassInterval = setInterval(() => {
-                playTone(bassLine[bassIndex % bassLine.length], 3, 'sawtooth', 0.07);
-                bassIndex++;
-            }, 4000);
+            // 音效: 连接声
+            playChord([NOTES.C4, NOTES.G4], 1, 0.2);
         }
 
-        // ==================== 粒子系统 (保持原样) ====================
+        // 场景4 BGM: 升华
+        function startScene4BGM() {
+            clearBGM();
+            
+            // 三音铺垫 - 开放和弦
+            const drone1 = createBGMNote(NOTES.C3, 0.1);
+            const drone2 = createBGMNote(NOTES.G3, 0.08);
+            const drone3 = createBGMNote(NOTES.E4, 0.06);
+            if (drone1) bgmNodes.push(drone1);
+            if (drone2) bgmNodes.push(drone2);
+            if (drone3) bgmNodes.push(drone3);
+            
+            // 升华和弦进行
+            const progression = [
+                [NOTES.C4, NOTES.E4, NOTES.G4],
+                [NOTES.F4, NOTES.A4, NOTES.C5],
+                [NOTES.G4, NOTES.B4, NOTES.D5],
+                [NOTES.C4, NOTES.E4, NOTES.G4, NOTES.C5]
+            ];
+            let progIndex = 0;
+            bgmInterval = setInterval(() => {
+                progression[progIndex % progression.length].forEach((freq, i) => {
+                    setTimeout(() => playMelodyNote(freq, 4, 0.25), i * 50);
+                });
+                progIndex++;
+            }, 5000);
+            
+            // 音效: 高潮声
+            playChord([NOTES.C4, NOTES.E4, NOTES.G4, NOTES.C5], 3, 0.25);
+        }
+
+        // ==================== 粒子系统 ====================
         class Particle {
             constructor(x, y, char, color, life) {
                 this.x = x;
@@ -443,7 +538,7 @@
             return '#fff';
         }
 
-        // ==================== 场景渲染 (保持原样) ====================
+        // ==================== 场景渲染 ====================
         function renderScene1(elapsed) {
             const container = document.getElementById('scene1');
             const progress = Math.min(elapsed / 25, 1);
@@ -652,7 +747,10 @@
             currentPhase = phaseNum;
             document.getElementById(`phase-${phaseNum}`).classList.add('active');
             
-            // 切换BGM
+            // 更新音频指示器
+            document.getElementById('audioIndicator').textContent = `♪ Scene ${phaseNum}`;
+            document.getElementById('audioIndicator').classList.add('active');
+            
             switch(phaseNum) {
                 case 1: startScene1BGM(); break;
                 case 2: startScene2BGM(); break;
