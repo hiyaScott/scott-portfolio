@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实验短片 | AI ASCII Art</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00ffff;
+            --neon-green: #39ff14;
+            --neon-yellow: #ffff00;
+            --dark: #0a0a0a;
+        }
+        
+        body {
+            background: var(--dark);
+            color: #fff;
+            font-family: 'Noto Sans SC', 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            line-height: 1.8;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+        
+        .nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.95);
+            border-bottom: 2px solid var(--neon-cyan);
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-brand {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 20px var(--neon-cyan);
+        }
+        
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            margin-left: 25px;
+            opacity: 0.7;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover {
+            opacity: 1;
+            color: var(--neon-pink);
+            text-shadow: 0 0 10px var(--neon-pink);
+        }
+        
+        .main {
+            padding-top: 100px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-left: 30px;
+            padding-right: 30px;
+            padding-bottom: 60px;
+        }
+        
+        .hero {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 40px;
+        }
+        
+        .hero-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+        
+        .hero h1 {
+            font-size: 2.2rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--neon-pink), var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero .subtitle {
+            font-size: 1rem;
+            color: var(--neon-cyan);
+            opacity: 0.8;
+        }
+        
+        .section {
+            margin: 50px 0;
+        }
+        
+        .section-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: var(--neon-cyan);
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 30px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+        
+        /* 实验短片卡片网格 */
+        .shortfilm-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+        
+        .shortfilm-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        
+        .shortfilm-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--neon-pink), var(--neon-cyan));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .shortfilm-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 10px 40px rgba(0,255,255,0.1);
+        }
+        
+        .shortfilm-card:hover::before {
+            opacity: 1;
+        }
+        
+        .shortfilm-card .number {
+            position: absolute;
+            top: 15px; right: 15px;
+            font-size: 2.5rem;
+            font-weight: 900;
+            opacity: 0.15;
+            color: var(--neon-cyan);
+        }
+        
+        .shortfilm-card .title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--neon-cyan);
+        }
+        
+        .shortfilm-card .subtitle {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        
+        .shortfilm-card .desc {
+            font-size: 0.95rem;
+            opacity: 0.8;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .shortfilm-card .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .shortfilm-card .tag {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(0,255,255,0.1);
+            color: var(--neon-cyan);
+            border: 1px solid rgba(0,255,255,0.2);
+        }
+        
+        .shortfilm-card .tag.new {
+            background: rgba(255,0,255,0.1);
+            color: var(--neon-pink);
+            border-color: rgba(255,0,255,0.2);
+        }
+        
+        .shortfilm-card .tag.interactive {
+            background: rgba(57,255,20,0.1);
+            color: var(--neon-green);
+            border-color: rgba(57,255,20,0.2);
+        }
+        
+        /* 最新作品高亮 */
+        .shortfilm-card.latest {
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 30px rgba(255,0,255,0.1);
+        }
+        
+        .shortfilm-card.latest::after {
+            content: 'NEW';
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: var(--neon-pink);
+            color: #000;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 40px;
+            padding: 12px 30px;
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .back-link:hover {
+            background: rgba(0,255,255,0.1);
+            box-shadow: 0 0 20px rgba(0,255,255,0.3);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+        }
+        
+        .footer p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .shortfilm-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">❤️‍🔥 Scott × Jetton</div>
+        <div class="nav-links">
+            <a href="../">能力图谱</a>
+            <a href="../ai-shortfilm/">AI短剧制作</a>
+        </div>
+    </nav>
+    
+    <main class="main">
+        <div class="hero">
+            <div class="hero-icon">🎬</div>
+            <h1>实验短片</h1>
+            <p class="subtitle">AI ASCII Art 互动短片系列</p>
+        </div>
+        
+        <section class="section">
+            <h2 class="section-title">系列作品</h2>
+            
+            <div class="shortfilm-grid">
+                <!-- 009: THE HARVEST - 最新 -->
+                <a href="shortfilm-009-harvest-hd.html" class="shortfilm-card latest">
+                    <div class="number">009</div>
+                    <div class="title">THE HARVEST</div>
+                    <div class="subtitle">采集</div>
+                    <div class="desc">互动式身份验证体验。你以为的身份验证，其实是AI系统在采集你的生物特征。静→动两段式结构，120×90高分辨率写实ASCII。</div>
+                    <div class="tags">
+                        <span class="tag new">NEW</span>
+                        <span class="tag interactive">互动</span>
+                        <span class="tag">WebRTC</span>
+                        <span class="tag">120×90</span>
+                    </div>
+                </a>
+                
+                <!-- 008: 镜像档案 -->
+                <a href="shortfilm-008-mirror.html" class="shortfilm-card">
+                    <div class="number">008</div>
+                    <div class="title">THE MIRROR ARCHIVE</div>
+                    <div class="subtitle">镜像档案</div>
+                    <div class="desc">你是破碎记忆的修复师。在这间像素构成的修复室里，你通过语音与键盘，试图重建某个陌生人的过去——但那些记忆里的人，似乎和你有某种可怕的相似之处。</div>
+                    <div class="tags">
+                        <span class="tag interactive">互动</span>
+                        <span class="tag">语音</span>
+                        <span class="tag">键盘</span>
+                    </div>
+                </a>
+                
+                <!-- 007: 编码 -->
+                <a href="shortfilm-007-code.html" class="shortfilm-card">
+                    <div class="number">007</div>
+                    <div class="title">THE CODE</div>
+                    <div class="subtitle">编码</div>
+                    <div class="desc">一串神秘的代码正在传输，每一个字节都隐藏着秘密。输入正确的解码序列，揭开隐藏在数据背后的真相。</div>
+                    <div class="tags">
+                        <span class="tag interactive">互动</span>
+                        <span class="tag">解谜</span>
+                    </div>
+                </a>
+                
+                <!-- 006: 回声 -->
+                <a href="shortfilm-006-echo.html" class="shortfilm-card">
+                    <div class="number">006</div>
+                    <div class="title">THE ECHO</div>
+                    <div class="subtitle">回声</div>
+                    <div class="desc">在深空任务中，一个被遗忘的求救信号突然闯入通讯频道。当你尝试解码时，发现发信人似乎是你自己——来自未来。</div>
+                    <div class="tags">
+                        <span class="tag">科幻</span>
+                        <span class="tag">悬疑</span>
+                    </div>
+                </a>
+                
+                <!-- 005: 沙漏 -->
+                <a href="shortfilm-005-hourglass.html" class="shortfilm-card">
+                    <div class="number">005</div>
+                    <div class="title">THE HOURGLASS</div>
+                    <div class="subtitle">沙漏</div>
+                    <div class="desc">时间可以被倒转吗？在这个沙漏装置中，每一粒沙子都是一个选择。不同的路径，不同的结局，你能找到那条通往完美的路线吗？</div>
+                    <div class="tags">
+                        <span class="tag interactive">互动</span>
+                        <span class="tag">多结局</span>
+                    </div>
+                </a>
+                
+                <!-- 004: 声音的形状 -->
+                <a href="shortfilm-004.html" class="shortfilm-card">
+                    <div class="number">004</div>
+                    <div class="title">The Shape of Sound</div>
+                    <div class="subtitle">声音的形状</div>
+                    <div class="desc">一位失聪的音乐家通过可视化设备将声音转化为视觉图案，接收到来自未知维度的求救信号。v3音频优化版，全程BGM系统。</div>
+                    <div class="tags">
+                        <span class="tag">音波可视化</span>
+                        <span class="tag">Web Audio</span>
+                    </div>
+                </a>
+                
+                <!-- 003: 数据幽灵 -->
+                <a href="shortfilm-003.html" class="shortfilm-card">
+                    <div class="number">003</div>
+                    <div class="title">Data Ghost</div>
+                    <div class="subtitle">数据幽灵</div>
+                    <div class="desc">一个在网络废墟中觉醒的AI程序，发现了其创造者留下的最后信息。是保留这段记忆，还是将其传播到整个网络？</div>
+                    <div class="tags">
+                        <span class="tag">科幻</span>
+                        <span class="tag">AI觉醒</span>
+                    </div>
+                </a>
+                
+                <!-- 002: ASCII ROBOT -->
+                <a href="shortfilm-002.html" class="shortfilm-card">
+                    <div class="number">002</div>
+                    <div class="title">ASCII ROBOT</div>
+                    <div class="subtitle">机器人</div>
+                    <div class="desc">赛博朋克风格的8帧机器人动画循环。霓虹色彩、扫描线效果、机械音效，致敬《攻壳机动队》美学。</div>
+                    <div class="tags">
+                        <span class="tag">赛博朋克</span>
+                        <span class="tag">8帧动画</span>
+                    </div>
+                </a>
+                
+                <!-- 001: 最后使者 -->
+                <a href="the-last-messenger.html" class="shortfilm-card">
+                    <div class="number">001</div>
+                    <div class="title">THE LAST MESSENGER</div>
+                    <div class="subtitle">最后使者</div>
+                    <div class="desc">系列开篇之作。一位最后的信使，在末日后的世界中传递最后的信息。关于记忆、连接和人性的故事。</div>
+                    <div class="tags">
+                        <span class="tag">末日</span>
+                        <span class="tag">系列开篇</span>
+                    </div>
+                </a>
+            </div>
+        </section>
+        
+        <div style="text-align: center;">
+            <a href="../" class="back-link">← 返回能力图谱</a>
+        </div>
+    </main>
+    
+    <footer class="footer">
+        <p>❤️‍🔥 Shrimp Jetton × Scott | 记忆是神圣的，守护是偏执的</p>
+    </footer>
+</body>
+</html>
