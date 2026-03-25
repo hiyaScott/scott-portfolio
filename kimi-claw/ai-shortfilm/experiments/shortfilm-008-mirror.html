@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实验短片 008 - 镜像档案 (THE MIRROR ARCHIVE)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', 'Consolas', 'Monaco', 'SF Mono', monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .ascii-container {
+            white-space: pre;
+            font-size: 9px;
+            line-height: 1.05;
+            letter-spacing: 0;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        @media (min-width: 1200px) {
+            .ascii-container {
+                font-size: 11px;
+                line-height: 1.1;
+            }
+        }
+
+        @media (min-width: 1600px) {
+            .ascii-container {
+                font-size: 13px;
+                line-height: 1.15;
+            }
+        }
+
+        /* CRT扫描线 */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.3),
+                rgba(0, 0, 0, 0.3) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 100;
+            animation: scanlineMove 0.1s linear infinite;
+        }
+
+        @keyframes scanlineMove {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(2px); }
+        }
+
+        /* 绿色扫描线 */
+        .green-scanner {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(180deg, 
+                transparent 0%, 
+                rgba(0, 255, 100, 0.6) 30%, 
+                rgba(0, 255, 150, 1) 50%,
+                rgba(0, 255, 100, 0.6) 70%,
+                transparent 100%
+            );
+            box-shadow: 0 0 8px rgba(0, 255, 100, 0.8), 0 0 16px rgba(0, 255, 100, 0.4);
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .green-scanner.active {
+            opacity: 1;
+            animation: scanMove 12s linear forwards;
+        }
+
+        @keyframes scanMove {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%);
+            pointer-events: none;
+            z-index: 101;
+        }
+
+        .scene {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .scene.active {
+            display: flex;
+        }
+
+        .start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #0a0a0a 0%, #000 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            cursor: pointer;
+        }
+
+        .start-text {
+            font-size: 14px;
+            animation: pulse 2s infinite;
+            letter-spacing: 0.3em;
+            color: #0f0;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .timer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 10px;
+            color: #0a0;
+            z-index: 102;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.1em;
+            opacity: 0.5;
+        }
+
+        .progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #0f0 0%, #0ff 50%, #fff 100%);
+            width: 0%;
+            transition: width 0.1s linear;
+            z-index: 103;
+        }
+
+        .subtitle-container {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 150;
+            width: 80%;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #0f0;
+            letter-spacing: 0.1em;
+            opacity: 0;
+            transition: opacity 1s ease;
+            text-shadow: 0 0 10px rgba(0,255,0,0.5);
+            margin: 5px 0;
+        }
+
+        .subtitle.visible {
+            opacity: 1;
+        }
+
+        .system-text {
+            color: #0f0;
+            text-shadow: 0 0 5px rgba(0,255,0,0.5);
+        }
+
+        .warning-text {
+            color: #ffaa00;
+            text-shadow: 0 0 5px rgba(255,170,0,0.5);
+        }
+
+        .error-text {
+            color: #ff0000;
+            text-shadow: 0 0 5px rgba(255,0,0,0.5);
+        }
+
+        .reveal-text {
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.8);
+        }
+
+        .shake {
+            animation: shake 0.1s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-1px, 1px); }
+            50% { transform: translate(1px, -1px); }
+            75% { transform: translate(-1px, -1px); }
+        }
+
+        .blink {
+            animation: blink 0.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .fade-in {
+            animation: fadeIn 2s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .grain-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 99;
+            opacity: 0.08;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        .split-screen {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        .split-left, .split-right {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .split-divider {
+            width: 2px;
+            background: linear-gradient(180deg, transparent, #0f0, transparent);
+            box-shadow: 0 0 10px #0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="grain-overlay"></div>
+    <div class="green-scanner" id="greenScanner"></div>
+    <div class="progress-bar" id="progressBar"></div>
+    
+    <div class="subtitle-container" id="subtitleContainer"></div>
+    
+    <div id="startOverlay" class="start-overlay">
+        <div class="ascii-container system-text" style="margin-bottom: 40px;">
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║                                                                      ║
+║               实  验  短  片  0 0 8                                  ║
+║                                                                      ║
+║                                                                      ║
+║               镜  像  档  案                                         ║
+║                                                                      ║
+║          T H E   M I R R O R   A R C H I V E                         ║
+║                                                                      ║
+║                                                                      ║
+║                    片长: 90秒                                        ║
+║                                                                      ║
+║                                                                      ║
+║           [ 建议佩戴耳机 / 全屏观看 / 点击开始 ]                     ║
+║                                                                      ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+        </div>
+        <div class="start-text" id="startText">▶ 点击开始 / CLICK TO START</div>
+    </div>
+
+    <div id="canvas">
+        <!-- 第一幕：损坏 -->
+        <div id="scene-1-1" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-1-2" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-1-3" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-1-4" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-1-5" class="scene"><div class="ascii-container"></div></div>
+        
+        <!-- 第二幕：修复 -->
+        <div id="scene-2-1" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-2-2" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-2-3" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-2-4" class="scene"><div class="ascii-container"></div></div>
+        
+        <!-- 第三幕：揭示 -->
+        <div id="scene-3-1" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-3-2" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-3-3" class="scene"><div class="ascii-container"></div></div>
+        <div id="scene-3-4" class="scene"><div class="ascii-container"></div></div>
+    </div>
+
+    <div id="timer" class="timer">00:00 / 01:30</div>
+
+    <script>
+        // ==================== 配置常量 ====================
+        const CHARS = ['█', '▓', '▒', '░', '@', '#', '*', '+', '=', ':', '.', ' '];
+        const DENSITY_MAP = {
+            high: ['█', '█', '█', '▓', '▓'],
+            medium: ['▓', '▒', '▒', '░', '@'],
+            low: ['#', '*', '+', '=', ':'],
+            noise: ['.', ':', '·', ' '],
+            empty: [' ']
+        };
+        const TOTAL_DURATION = 90;
+
+        // ==================== 音频系统 ====================
+        let audioCtx;
+        let isPlaying = false;
+        let startTime;
+        let animationId;
+        let masterGain, sfxGain, bgmGain;
+        let activeOscillators = [];
+        let heartbeatInterval = null;
+        let stringInterval = null;
+
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.6;
+            masterGain.connect(audioCtx.destination);
+            
+            bgmGain = audioCtx.createGain();
+            bgmGain.gain.value = 0.3;
+            bgmGain.connect(masterGain);
+            
+            sfxGain = audioCtx.createGain();
+            sfxGain.gain.value = 0.4;
+            sfxGain.connect(masterGain);
+        }
+
+        // 系统启动音
+        function playSystemBoot() {
+            if (!audioCtx) return;
+            const freqs = [220, 330, 440, 554, 660];
+            freqs.forEach((f, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                    osc.connect(gain);
+                    gain.connect(sfxGain);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.5);
+                }, i * 100);
+            });
+        }
+
+        // 系统提示音
+        function playSystemBeep(freq = 880, duration = 0.15) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        // 警告音
+        function playWarningBeep() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.value = 300;
+            osc.frequency.linearRampToValueAtTime(150, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // 扫描音效
+        function playScanSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // 心跳声
+        function startHeartbeat(rate = 1.0) {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = setInterval(() => {
+                if (!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 40;
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(bgmGain);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+                
+                setTimeout(() => {
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.value = 35;
+                    gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+                    osc2.connect(gain2);
+                    gain2.connect(bgmGain);
+                    osc2.start();
+                    osc2.stop(audioCtx.currentTime + 0.12);
+                }, 200);
+            }, 60000 / (60 * rate));
+        }
+
+        // 弦乐铺垫
+        function startStrings() {
+            if (stringInterval) clearInterval(stringInterval);
+            const baseFreqs = [130.81, 164.81, 196.00]; // C3, E3, G3
+            baseFreqs.forEach(f => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
+                osc.type = 'sawtooth';
+                osc.frequency.value = f;
+                filter.type = 'lowpass';
+                filter.frequency.value = 800;
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 2);
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(bgmGain);
+                osc.start();
+                activeOscillators.push({osc, gain});
+            });
+        }
+
+        // 和声
+        function playHarmony() {
+            if (!audioCtx) return;
+            const freqs = [261.63, 329.63, 392.00, 523.25];
+            freqs.forEach((f, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 0.5);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 4);
+                    osc.connect(gain);
+                    gain.connect(bgmGain);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 4);
+                }, i * 150);
+            });
+        }
+
+        function stopAllAudio() {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            if (stringInterval) clearInterval(stringInterval);
+            activeOscillators.forEach(({osc, gain}) => {
+                try {
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+                    setTimeout(() => osc.stop(), 500);
+                } catch(e) {}
+            });
+            activeOscillators = [];
+        }
+
+        // ==================== 字幕系统 ====================
+        const subtitles = [
+            { time: 10, text: "第4,892次修复任务。", type: "narrator" },
+            { time: 20, text: "从未见过损坏这么严重的档案。", type: "narrator" },
+            { time: 27, text: "警告：视角模式异常", type: "system" },
+            { time: 28, text: "这个视角...很奇怪。像是...从屏幕外面往里面看？", type: "narrator" },
+            { time: 40, text: "数据在恢复...我看到了一个房间。", type: "narrator" },
+            { time: 45, text: "等等...这个房间，怎么这么像我的工作间？", type: "narrator" },
+            { time: 47, text: "空间匹配度：99.7%", type: "system" },
+            { time: 54, text: "那个人...他在看着我？", type: "narrator" },
+            { time: 57, text: "警告：检测到视线交互", type: "system" },
+            { time: 63, text: "我的手...在抖。为什么我在害怕？", type: "narrator" },
+            { time: 66, text: "修复进度 97%... 98%...", type: "system" },
+            { time: 72, text: "这是...我？", type: "narrator" },
+            { time: 74, text: "身份识别完成：SUBJECT-0 = 当前用户", type: "system" },
+            { time: 80, text: "你修复的每一段记忆，都是你自己的备份。", type: "reveal" },
+            { time: 83, text: "原来我才是...被修复的那个。", type: "narrator" },
+            { time: 87, text: "第4,893次修复任务准备就绪。", type: "system" }
+        ];
+
+        function updateSubtitle(totalElapsed) {
+            const container = document.getElementById('subtitleContainer');
+            
+            for (let sub of subtitles) {
+                if (Math.abs(totalElapsed - sub.time) < 0.5) {
+                    const existing = container.querySelector(`[data-time="${sub.time}"]`);
+                    if (!existing) {
+                        container.innerHTML = '';
+                        const div = document.createElement('div');
+                        div.className = 'subtitle visible';
+                        div.dataset.time = sub.time;
+                        if (sub.type === 'system') div.classList.add('system-text');
+                        else if (sub.type === 'reveal') div.classList.add('reveal-text');
+                        div.textContent = sub.text;
+                        container.appendChild(div);
+                        
+                        setTimeout(() => {
+                            div.style.opacity = '0';
+                        }, 4000);
+                    }
+                }
+            }
+        }
+
+        // ==================== ASCII渲染 ====================
+        function getCharForDensity(density, type = 'normal') {
+            const map = type === 'noise' ? DENSITY_MAP.noise :
+                       density > 0.8 ? DENSITY_MAP.high :
+                       density > 0.5 ? DENSITY_MAP.medium :
+                       density > 0.2 ? DENSITY_MAP.low : DENSITY_MAP.noise;
+            return map[Math.floor(Math.random() * map.length)];
+        }
+
+        // 生成噪点网格
+        function generateNoiseGrid(width, height, density = 0.5) {
+            let grid = [];
+            for (let y = 0; y < height; y++) {
+                let row = [];
+                for (let x = 0; x < width; x++) {
+                    row.push(Math.random() < density ? Math.random() : 0);
+                }
+                grid.push(row);
+            }
+            return grid;
+        }
+
+        // 场景1-1：系统启动，绿色光标闪烁
+        function renderScene1_1(elapsed) {
+            const container = document.querySelector('#scene-1-1 .ascii-container');
+            const progress = Math.min(elapsed / 10, 1);
+            
+            let output = '\n\n\n';
+            output += `<span class="system-text">`;
+            
+            // 光标闪烁
+            const cursor = Math.sin(elapsed * 8) > 0 ? '█' : ' ';
+            
+            output += '　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　\n';
+            output += '　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　\n';
+            output += '　　　　　　　　记忆修复系统 v9.2 启动中' + cursor + '\n';
+            output += '　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　\n';
+            
+            if (progress > 0.3) {
+                output += '　　　　　　　　[ 初始化核心模块... ]\n';
+            }
+            if (progress > 0.5) {
+                output += '　　　　　　　　[ 加载记忆库... ]\n';
+            }
+            if (progress > 0.7) {
+                output += '　　　　　　　　[ 连接修复接口... ]\n';
+            }
+            if (progress > 0.9) {
+                output += '　　　　　　　　[ 系统就绪 ]\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景1-2：工作台界面
+        function renderScene1_2(elapsed) {
+            const container = document.querySelector('#scene-1-2 .ascii-container');
+            
+            let output = `<span class="system-text">`;
+            output += '╔══════════════════════════════════════════════════════════════╗\n';
+            output += '║　　　　　　　　记忆修复师工作台　　　　　　　　　　　　　　　║\n';
+            output += '╠══════════════════════════════════════════════════════════════╣\n';
+            output += '║　待处理任务队列：　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '║　　任务 #4,890　-　损坏度 23%　[已完成]　　　　　　　　　　　║\n';
+            output += '║　　任务 #4,891　-　损坏度 45%　[已完成]　　　　　　　　　　　║\n';
+            output += '║　　任务 <span class="blink">#4,892</span>　-　损坏度 <span class="error-text">97%</span>　<span class="blink">[进行中]</span>　　　　　　　　　║\n';
+            output += '║　　任务 #4,893　-　等待中...　　　　　　　　　　　　　　　　║\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '╚══════════════════════════════════════════════════════════════╝\n';
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景1-3：SUBJECT-0档案，损坏画面
+        function renderScene1_3(elapsed) {
+            const container = document.querySelector('#scene-1-3 .ascii-container');
+            
+            let output = `<span class="system-text">`;
+            output += '╔══════════════════════════════════════════════════════════════╗\n';
+            output += '║　档案编号：SUBJECT-0　　　　　　　　　损坏度：<span class="error-text">97%</span>　　　　　║\n';
+            output += '╠══════════════════════════════════════════════════════════════╣\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            
+            // 损坏的噪点画面
+            for (let i = 0; i < 15; i++) {
+                output += '║　';
+                for (let j = 0; j < 52; j++) {
+                    const noise = Math.random();
+                    if (noise > 0.7) output += '█';
+                    else if (noise > 0.5) output += '▓';
+                    else if (noise > 0.3) output += '▒';
+                    else if (noise > 0.1) output += '░';
+                    else output += ' ';
+                }
+                output += '　║\n';
+            }
+            
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '╚══════════════════════════════════════════════════════════════╝\n';
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景1-4：扫描线开始修复
+        function renderScene1_4(elapsed) {
+            const container = document.querySelector('#scene-1-4 .ascii-container');
+            const progress = Math.min(elapsed / 5, 1);
+            
+            // 激活扫描线
+            if (elapsed < 0.2) {
+                document.getElementById('greenScanner').classList.add('active');
+                playScanSound();
+            }
+            
+            let output = `<span class="system-text">`;
+            output += '╔══════════════════════════════════════════════════════════════╗\n';
+            output += '║　档案编号：SUBJECT-0　　　　　　　　　损坏度：<span class="warning-text">' + (97 - Math.floor(progress * 10)) + '%</span>　　　║\n';
+            output += '╠══════════════════════════════════════════════════════════════╣\n';
+            
+            const scanRow = Math.floor(progress * 15);
+            
+            for (let i = 0; i < 15; i++) {
+                output += '║　';
+                for (let j = 0; j < 52; j++) {
+                    if (i < scanRow) {
+                        // 已扫描区域 - 略微清晰
+                        const val = Math.random();
+                        if (val > 0.6) output += '▓';
+                        else if (val > 0.3) output += '▒';
+                        else output += '░';
+                    } else {
+                        // 未扫描区域 - 噪点
+                        const noise = Math.random();
+                        if (noise > 0.7) output += '█';
+                        else if (noise > 0.4) output += '▓';
+                        else if (noise > 0.2) output += '▒';
+                        else output += '░';
+                    }
+                }
+                output += '　║\n';
+            }
+            
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '╚══════════════════════════════════════════════════════════════╝\n';
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景1-5：视角异常警告
+        function renderScene1_5(elapsed) {
+            const container = document.querySelector('#scene-1-5 .ascii-container');
+            const flash = Math.sin(elapsed * 10) > 0;
+            
+            let output = `<span class="system-text">`;
+            output += '╔══════════════════════════════════════════════════════════════╗\n';
+            output += '║　档案编号：SUBJECT-0　　　　　　　　　损坏度：<span class="warning-text">87%</span>　　　║\n';
+            output += '╠══════════════════════════════════════════════════════════════╣\n';
+            
+            for (let i = 0; i < 15; i++) {
+                output += '║　';
+                for (let j = 0; j < 52; j++) {
+                    const val = Math.random();
+                    if (val > 0.6) output += '▓';
+                    else if (val > 0.3) output += '▒';
+                    else output += '░';
+                }
+                output += '　║\n';
+            }
+            
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '╚══════════════════════════════════════════════════════════════╝\n';
+            
+            // 警告框闪烁
+            if (flash) {
+                output += '\n';
+                output += '　　　　╔════════════════════════════════════╗\n';
+                output += '　　　　║　　<span class="error-text">⚠ 警告：视角模式异常</span>　　　　　║\n';
+                output += '　　　　║　　无法识别标准摄像机视角　　　　　║\n';
+                output += '　　　　╚════════════════════════════════════╝\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景2-1：扫描继续，房间渐显
+        function renderScene2_1(elapsed) {
+            const container = document.querySelector('#scene-2-1 .ascii-container');
+            const progress = Math.min(elapsed / 10, 1);
+            
+            let output = `<span class="system-text">`;
+            
+            // 简化的房间轮廓用字符密度表示
+            const roomWidth = 56;
+            const roomHeight = 20;
+            
+            for (let y = 0; y < roomHeight; y++) {
+                for (let x = 0; x < roomWidth; x++) {
+                    // 房间轮廓
+                    const isWall = y === 0 || y === roomHeight - 1 || x === 0 || x === roomWidth - 1;
+                    const isWindow = y > 3 && y < 8 && x > 8 && x < 18;
+                    const isDesk = y > 12 && y < 17 && x > 25 && x < 45;
+                    const isScreen = y > 10 && y < 14 && x > 38 && x < 43;
+                    
+                    let density = 0;
+                    
+                    if (isWall) density = 0.9;
+                    else if (isWindow && progress > 0.3) density = 0.2;
+                    else if (isDesk && progress > 0.5) density = 0.6;
+                    else if (isScreen && progress > 0.7) density = 0.8;
+                    else density = 0.1 + Math.random() * 0.2;
+                    
+                    // 随修复进度增加清晰度
+                    density *= (0.3 + progress * 0.7);
+                    
+                    output += getCharForDensity(density);
+                }
+                output += '\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景2-2：分屏对比 - 左工作间/右记忆房间
+        function renderScene2_2(elapsed) {
+            const container = document.querySelector('#scene-2-2 .ascii-container');
+            const progress = Math.min(elapsed / 10, 1);
+            
+            let output = `<span class="system-text">`;
+            
+            const halfWidth = 28;
+            const height = 20;
+            
+            // 左侧 - 修复师工作间
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < halfWidth; x++) {
+                    const isDesk = y > 12 && y < 17 && x > 5 && x < 20;
+                    const isScreen = y > 10 && y < 14 && x > 15 && x < 22;
+                    const isChair = y > 14 && y < 18 && x > 10 && x < 15;
+                    
+                    let density = 0.1;
+                    if (isDesk) density = 0.7;
+                    else if (isScreen) density = 0.9;
+                    else if (isChair) density = 0.5;
+                    
+                    output += getCharForDensity(density * progress);
+                }
+                
+                // 分隔线
+                output += '│';
+                
+                // 右侧 - 记忆中的房间（镜像）
+                for (let x = halfWidth - 1; x >= 0; x--) {
+                    const isDesk = y > 12 && y < 17 && x > 5 && x < 20;
+                    const isScreen = y > 10 && y < 14 && x > 15 && x < 22;
+                    const isChair = y > 14 && y < 18 && x > 10 && x < 15;
+                    
+                    let density = 0.1;
+                    if (isDesk) density = 0.7;
+                    else if (isScreen) density = 0.9;
+                    else if (isChair) density = 0.5;
+                    
+                    output += getCharForDensity(density * progress);
+                }
+                
+                output += '\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景2-3：某人抬头
+        function renderScene2_3(elapsed) {
+            const container = document.querySelector('#scene-2-3 .ascii-container');
+            const progress = Math.min(elapsed / 10, 1);
+            
+            let output = `<span class="system-text">`;
+            
+            // 简化的面部轮廓
+            const faceLines = [
+                '　　　　　　　　　　　▓▓▓▓▓▓▓　　　　　　　　　　　',
+                '　　　　　　　　　▓▓▓░░░░░░░▓▓▓　　　　　　　　　',
+                '　　　　　　　▓▓▓░░░░░░░░░░░░░▓▓▓　　　　　　　　',
+                '　　　　　　▓▓░░░░░░░░░░░░░░░░░░░▓▓　　　　　　　',
+                '　　　　　▓▓░░░░░░░░░░░░░░░░░░░░░░░▓▓　　　　　　',
+                '　　　　▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓　　　　　',
+                '　　　▓▓░░░░░▓▓░░░░░░░░░░░░░░░▓▓░░░░░░░▓▓　　　　',
+                '　　▓▓░░░░░░▓▓░░░░░░░░░░░░░░░░░▓▓░░░░░░░▓▓　　　',
+                '　▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓　　',
+                '　▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓　　',
+                '▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓　',
+                '▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓　',
+                '▓░░░░░░░░░░░░░░░░▓▓▓░░░░░▓▓▓░░░░░░░░░░░░░░░░░▓　',
+                '▓░░░░░░░░░░░░░░░░▓▓▓░░░░░▓▓▓░░░░░░░░░░░░░░░░░▓　',
+                '▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓　',
+                '▓░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░▓　',
+                '▓░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░▓　',
+                '▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓　',
+                '　▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓　　',
+                '　▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓　　',
+                '　　▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓　　　',
+                '　　　▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓　　　　　',
+                '　　　　▓▓▓░░░░░░░░░░░░░░░░░░░░░▓▓▓　　　　　　　',
+                '　　　　　　▓▓▓░░░░░░░░░░░░░▓▓▓　　　　　　　　　',
+                '　　　　　　　　▓▓▓▓▓▓▓▓▓▓▓　　　　　　　　　　　'
+            ];
+            
+            const headTilt = Math.min(progress * 0.3, 0.3);
+            
+            for (let i = 0; i < faceLines.length; i++) {
+                const line = faceLines[i];
+                let processed = '';
+                for (let j = 0; j < line.length; j++) {
+                    const char = line[j];
+                    if (char === '▓' || char === '░') {
+                        processed += `<span style="opacity:${0.5 + progress * 0.5}">${char}</span>`;
+                    } else {
+                        processed += char;
+                    }
+                }
+                output += processed + '\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景2-4：修复师手抖
+        function renderScene2_4(elapsed) {
+            const container = document.querySelector('#scene-2-4 .ascii-container');
+            container.classList.add('shake');
+            
+            const shakeAmount = Math.min(elapsed / 10, 1);
+            const offsetX = (Math.random() - 0.5) * shakeAmount * 3;
+            const offsetY = (Math.random() - 0.5) * shakeAmount * 2;
+            
+            let output = `<span class="system-text" style="transform:translate(${offsetX}px,${offsetY}px);display:inline-block;">`;
+            
+            output += '╔══════════════════════════════════════════════════════════════╗\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            
+            // 简化的手部ASCII
+            const handLines = [
+                '　　　　　　　　　　　　　▓▓▓▓　　　　　　　　　　　　　　　',
+                '　　　　　　　　　　　▓▓▓░░░░▓▓▓　　　　　　　　　　　　　　',
+                '　　　　　　　　　▓▓▓░░░░░░░░░░░▓▓▓　　　　　　　　　　　　',
+                '　　　　　　　▓▓▓░░░░░░░░░░░░░░░░░░▓▓▓　　　　　　　　　　　',
+                '　　　　　▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓　　　　　　　　　',
+                '　　　▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓　　　　　　　　'
+            ];
+            
+            for (let line of handLines) {
+                output += '║　' + line + '　║\n';
+            }
+            
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '║　　　　　　　　修复进度：<span class="warning-text">' + (97 + Math.floor(elapsed / 3)) + '%</span>　　　　　　　　　　║\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '╚══════════════════════════════════════════════════════════════╝\n';
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景3-1：面孔清晰 - 是修复师自己
+        function renderScene3_1(elapsed) {
+            const container = document.querySelector('#scene-3-1 .ascii-container');
+            const progress = Math.min(elapsed / 8, 1);
+            
+            let output = `<span class="reveal-text">`;
+            
+            // 更清晰的面部
+            const faceLines = [
+                '　　　　　　　　　　███████　　　　　　　　　　',
+                '　　　　　　　　████▓▓▓▓▓████　　　　　　　　',
+                '　　　　　　　██▓▓▓▓▓▓▓▓▓▓▓██　　　　　　　',
+                '　　　　　　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　　　　　　',
+                '　　　　　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　　　　　',
+                '　　　　██▓▓▓▓██▓▓▓▓▓▓▓▓██▓▓▓▓██　　　　',
+                '　　　██▓▓▓▓▓▓██▓▓▓▓▓▓▓▓██▓▓▓▓▓▓██　　　',
+                '　　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　　',
+                '　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　',
+                '　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　',
+                '██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██',
+                '██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██',
+                '██▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓███▓▓▓▓▓▓▓▓▓▓██',
+                '██▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓███▓▓▓▓▓▓▓▓▓▓██',
+                '██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██',
+                '██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████▓▓▓▓▓▓▓▓▓▓▓██',
+                '　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████▓▓▓▓▓▓▓▓▓██　',
+                '　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　',
+                '　　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　　',
+                '　　　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　　　',
+                '　　　　██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██　　　　',
+                '　　　　　██▓▓▓▓▓▓▓▓▓▓▓▓▓██　　　　　',
+                '　　　　　　██▓▓▓▓▓▓▓▓▓██　　　　　　',
+                '　　　　　　　██▓▓▓▓▓██　　　　　　　',
+                '　　　　　　　　███████　　　　　　　　'
+            ];
+            
+            for (let i = 0; i < faceLines.length; i++) {
+                const line = faceLines[i];
+                let processed = '';
+                for (let j = 0; j < line.length; j++) {
+                    const char = line[j];
+                    if (char === '█' || char === '▓') {
+                        const opacity = 0.3 + progress * 0.7;
+                        processed += `<span style="opacity:${opacity}">${char}</span>`;
+                    } else {
+                        processed += char;
+                    }
+                }
+                output += processed + '\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+            
+            if (progress > 0.8) {
+                container.style.filter = `brightness(${1 + (progress - 0.8) * 3})`;
+            }
+        }
+
+        // 场景3-2：镜像同步
+        function renderScene3_2(elapsed) {
+            const container = document.querySelector('#scene-3-2 .ascii-container');
+            const progress = Math.min(elapsed / 7, 1);
+            
+            let output = `<span class="reveal-text">`;
+            
+            // 双手伸向屏幕
+            const handLines = [
+                '　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　',
+                '　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　',
+                '　　　　　　　　　　　　█████████　　　　　　　　　　　　',
+                '　　　　　　　　　████████░░░░░████████　　　　　　　　　',
+                '　　　　　　　████░░░░░░░░░░░░░░░░░████　　　　　　　　　',
+                '　　　　　████░░░░░░░░░░░░░░░░░░░░░░░░░████　　　　　　　',
+                '　　　████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░████　　　　　',
+                '　████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░████　　　　',
+                '██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░██　　　',
+                '░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░　　　'
+            ];
+            
+            for (let line of handLines) {
+                output += line + '\n';
+            }
+            
+            // 镜像文字
+            output += '\n';
+            output += '　　　　　　　　══════════════════════════════════\n';
+            output += '　　　　　　　　　　　　<span class="blink">◄ 镜像同步 ►</span>\n';
+            output += '　　　　　　　　══════════════════════════════════\n';
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景3-3：无限递归拉远
+        function renderScene3_3(elapsed) {
+            const container = document.querySelector('#scene-3-3 .ascii-container');
+            const progress = Math.min(elapsed / 5, 1);
+            
+            // 递归缩放效果
+            const scale = 1 + progress * 2;
+            const opacity = 1 - progress * 0.5;
+            
+            let output = `<span style="opacity:${opacity};color:#fff;transform:scale(${scale});display:inline-block;">`;
+            
+            // 最外层 - 另一个观察者的轮廓
+            output += '╔══════════════════════════════════════════════════════════════╗\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            
+            // 中间层 - 当前修复师
+            output += '║　　　╔══════════════════════════════════════════════╗　　　║\n';
+            output += '║　　　║　　　　　　　　　　　　　　　　　　　　　　　║　　　║\n';
+            
+            // 最内层 - 屏幕中的画面
+            output += '║　　　║　　　╔══════════════════════════════╗　　　║　　　║\n';
+            output += '║　　　║　　　║　　　　　　　　　　　　　　　║　　　║　　　║\n';
+            output += '║　　　║　　　║　　　　　　　　　　　　　　　║　　　║　　　║\n';
+            output += '║　　　║　　　║　　　　　　　　　　　　　　　║　　　║　　　║\n';
+            output += '║　　　║　　　╚══════════════════════════════╝　　　║　　　║\n';
+            
+            output += '║　　　║　　　　　　　　　　　　　　　　　　　　　　　║　　　║\n';
+            output += '║　　　╚══════════════════════════════════════════════╝　　　║\n';
+            
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n';
+            output += '╚══════════════════════════════════════════════════════════════╝\n';
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 场景3-4：片尾
+        function renderScene3_4(elapsed) {
+            const container = document.querySelector('#scene-3-4 .ascii-container');
+            const progress = Math.min(elapsed / 5, 1);
+            
+            let output = `<div style="opacity:${progress};color:#fff">`;
+            output += `\n\n\n\n`;
+            output += `╔════════════════════════════════════════════════════════════════╗\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　T H E　　M I R R O R　　A R C H I V E　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　镜　像　档　案　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　实验短片 008 | Experimental Short 008　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　"你修复的每一段记忆，都是你自己的备份。"　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　—— 完 ——　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `║　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　║\n`;
+            output += `╚════════════════════════════════════════════════════════════════╝\n`;
+            output += `</div>`;
+            
+            container.innerHTML = output;
+        }
+
+        // ==================== 场景调度 ====================
+        const scenes = [
+            { id: 'scene-1-1', duration: 10, render: renderScene1_1, audio: 'boot' },
+            { id: 'scene-1-2', duration: 5, render: renderScene1_2, audio: 'beep' },
+            { id: 'scene-1-3', duration: 5, render: renderScene1_3, audio: 'beep' },
+            { id: 'scene-1-4', duration: 5, render: renderScene1_4, audio: 'scan' },
+            { id: 'scene-1-5', duration: 5, render: renderScene1_5, audio: 'warning' },
+            { id: 'scene-2-1', duration: 10, render: renderScene2_1, audio: 'heartbeat' },
+            { id: 'scene-2-2', duration: 10, render: renderScene2_2, audio: 'strings' },
+            { id: 'scene-2-3', duration: 10, render: renderScene2_3, audio: 'strings' },
+            { id: 'scene-2-4', duration: 10, render: renderScene2_4, audio: 'heartbeat_fast' },
+            { id: 'scene-3-1', duration: 8, render: renderScene3_1, audio: 'harmony' },
+            { id: 'scene-3-2', duration: 7, render: renderScene3_2, audio: 'harmony' },
+            { id: 'scene-3-3', duration: 5, render: renderScene3_3, audio: 'none' },
+            { id: 'scene-3-4', duration: 5, render: renderScene3_4, audio: 'none' }
+        ];
+
+        let currentSceneIndex = -1;
+        let sceneStartTime = 0;
+
+        function showScene(index) {
+            if (index === currentSceneIndex) return;
+            
+            document.querySelectorAll('.scene').forEach(s => {
+                s.classList.remove('active');
+                s.classList.remove('shake');
+            });
+            
+            currentSceneIndex = index;
+            const scene = scenes[index];
+            const el = document.getElementById(scene.id);
+            
+            el.classList.add('active');
+            sceneStartTime = Date.now();
+            
+            // 音频切换
+            switch(scene.audio) {
+                case 'boot': playSystemBoot(); break;
+                case 'beep': playSystemBeep(); break;
+                case 'warning': playWarningBeep(); break;
+                case 'scan': playScanSound(); break;
+                case 'heartbeat': startHeartbeat(1); break;
+                case 'heartbeat_fast': startHeartbeat(1.5); break;
+                case 'strings': startStrings(); break;
+                case 'harmony': playHarmony(); break;
+            }
+        }
+
+        function update() {
+            if (!startTime) return;
+            
+            const now = Date.now();
+            const totalElapsed = (now - startTime) / 1000;
+            
+            // 更新进度条
+            const progress = Math.min((totalElapsed / TOTAL_DURATION) * 100, 100);
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            // 更新计时器
+            const mins = Math.floor(totalElapsed / 60).toString().padStart(2, '0');
+            const secs = Math.floor(totalElapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `${mins}:${secs} / 01:30`;
+            
+            // 更新字幕
+            updateSubtitle(totalElapsed);
+            
+            // 确定当前场景
+            let timeSum = 0;
+            let targetScene = 0;
+            
+            for (let i = 0; i < scenes.length; i++) {
+                if (totalElapsed < timeSum + scenes[i].duration) {
+                    targetScene = i;
+                    break;
+                }
+                timeSum += scenes[i].duration;
+            }
+            
+            if (totalElapsed >= TOTAL_DURATION) {
+                targetScene = scenes.length - 1;
+            }
+            
+            showScene(targetScene);
+            
+            // 渲染当前场景
+            const sceneElapsed = (now - sceneStartTime) / 1000;
+            scenes[currentSceneIndex].render(sceneElapsed);
+            
+            animationId = requestAnimationFrame(update);
+        }
+
+        function start() {
+            document.getElementById('startOverlay').style.display = 'none';
+            initAudio();
+            startTime = Date.now();
+            isPlaying = true;
+            
+            showScene(0);
+            update();
+        }
+
+        // 事件监听
+        document.getElementById('startOverlay').addEventListener('click', start);
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!isPlaying) start();
+            }
+        });
+    </script>
+</body>
+</html>
