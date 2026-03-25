@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE HARVEST - 采集 | 实验短片 009</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            color: #ccc;
+            font-family: 'Courier New', 'Consolas', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        /* 屏幕外框 - 始终固定 */
+        .screen-frame {
+            border: 2px solid #444;
+            padding: 10px;
+            background: #0a0a0a;
+            position: relative;
+        }
+        
+        /* ASCII显示区域 */
+        .ascii-display {
+            white-space: pre;
+            font-size: 8px;
+            line-height: 1;
+            letter-spacing: 0;
+            color: #bbb;
+            min-height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* 红色UI元素 */
+        .red-ui {
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        .red-button {
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            cursor: pointer;
+            padding: 10px 20px;
+            border: 1px solid #ff0000;
+            display: inline-block;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        
+        .red-button:hover {
+            background: rgba(255, 0, 0, 0.2);
+        }
+        
+        /* 闪烁动画 */
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        /* 扫描线 */
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+        
+        .scan-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+            animation: scan 2s linear infinite;
+            display: none;
+        }
+        
+        /* 字幕 */
+        .subtitle {
+            color: #888;
+            font-size: 12px;
+            margin-top: 15px;
+            text-align: center;
+            min-height: 20px;
+        }
+        
+        /* 隐藏视频元素 */
+        #video {
+            display: none;
+        }
+        
+        /* 场景容器 */
+        .scene {
+            display: none;
+        }
+        
+        .scene.active {
+            display: block;
+        }
+        
+        /* 噪点效果 */
+        .noise {
+            animation: noise 0.1s infinite;
+        }
+        
+        @keyframes noise {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.95; }
+        }
+        
+        /* 警告文字 */
+        .warning {
+            color: #ff0000;
+            font-size: 16px;
+            text-align: center;
+            text-shadow: 0 0 20px #ff0000;
+        }
+        
+        /* 系统报告文字 */
+        .system-report {
+            color: #666;
+            font-size: 10px;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <!-- 隐藏的视频元素 -->
+    <video id="video" autoplay playsinline></video>
+    
+    <!-- 屏幕外框 -->
+    <div class="screen-frame">
+        <!-- 扫描线 -->
+        <div class="scan-line" id="scanLine"></div>
+        
+        <!-- 场景1：唤醒 -->
+        <div class="scene active" id="scene1">
+            <div class="ascii-display">
+                <div style="text-align: center;">
+                    <div style="margin-bottom: 30px; color: #444;">
+╔═══════════════════════════════════════╗
+║                                       ║
+║                                       ║
+║                                       ║
+║                                       ║
+║                                       ║
+╚═══════════════════════════════════════╝
+                    </div>
+                    <div class="red-button" onclick="startExperience()">
+                        【 点击开始验证 】
+                    </div>
+                    <div style="margin-top: 20px; color: #555; font-size: 10px;">
+                        身份认证系统 v2.1.7
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 场景2：权限请求 -->
+        <div class="scene" id="scene2">
+            <div class="ascii-display">
+                <div style="text-align: center;">
+                    <div style="margin-bottom: 30px;">
+系统请求访问您的摄像头<br>
+用于身份验证<br><br>
+<span style="color: #444;">[数据仅本地处理，不会上传]</span>
+                    </div>
+                    <div>
+                        <span class="red-button" onclick="requestCamera()">【 确认 】</span>
+                        <span class="red-button" onclick="denyCamera()">【 拒绝 】</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 场景3：聚焦（噪点→清晰） -->
+        <div class="scene" id="scene3">
+            <div class="ascii-display" id="asciiDisplay"></div>
+        </div>
+        
+        <!-- 场景4：校准 -->
+        <div class="scene" id="scene4">
+            <div class="ascii-display" id="calibrationDisplay"></div>
+        </div>
+        
+        <!-- 场景5：揭示 -->
+        <div class="scene" id="scene5">
+            <div class="ascii-display" id="revealDisplay"></div>
+        </div>
+        
+        <!-- 场景6：系统报告 -->
+        <div class="scene" id="scene6">
+            <div class="ascii-display system-report" id="reportDisplay"></div>
+        </div>
+        
+        <!-- 场景7：终局 -->
+        <div class="scene" id="scene7">
+            <div class="ascii-display" id="finalDisplay"></div>
+        </div>
+    </div>
+    
+    <!-- 字幕 -->
+    <div class="subtitle" id="subtitle"></div>
+
+    <script>
+        // 配置
+        const CONFIG = {
+            width: 40,      // 低分辨率，保证流畅
+            height: 30,
+            fontSize: 8,
+            chars: '█▓▒░@#*+=:. '
+        };
+        
+        // 场景状态
+        let currentScene = 1;
+        let stream = null;
+        let animationId = null;
+        
+        // DOM元素
+        const video = document.getElementById('video');
+        const subtitle = document.getElementById('subtitle');
+        const scanLine = document.getElementById('scanLine');
+        
+        // 显示场景
+        function showScene(sceneNum) {
+            document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+            document.getElementById(`scene${sceneNum}`).classList.add('active');
+            currentScene = sceneNum;
+        }
+        
+        // 设置字幕
+        function setSubtitle(text, duration = 3000) {
+            subtitle.textContent = text;
+            if (duration > 0) {
+                setTimeout(() => {
+                    subtitle.textContent = '';
+                }, duration);
+            }
+        }
+        
+        // 场景1：开始体验
+        function startExperience() {
+            playSound('click');
+            showScene(2);
+            setSubtitle('');
+        }
+        
+        // 场景2：请求摄像头
+        async function requestCamera() {
+            playSound('click');
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 320, 
+                        height: 240,
+                        facingMode: 'user'
+                    } 
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    showScene(3);
+                    startFocusing();
+                };
+            } catch (err) {
+                setSubtitle('摄像头访问被拒绝，使用演示模式');
+                setTimeout(() => {
+                    showScene(3);
+                    startFocusing(true); // 演示模式
+                }, 2000);
+            }
+        }
+        
+        function denyCamera() {
+            setSubtitle('需要摄像头权限才能继续');
+        }
+        
+        // 场景3：聚焦动画（噪点→清晰）
+        function startFocusing(demoMode = false) {
+            const display = document.getElementById('asciiDisplay');
+            let phase = 0;
+            let frameCount = 0;
+            
+            setSubtitle('正在校准光学传感器...');
+            
+            function render() {
+                frameCount++;
+                
+                if (phase === 0) {
+                    // 噪点阶段（0-3秒）
+                    display.innerHTML = generateNoise();
+                    if (frameCount > 30) {
+                        phase = 1;
+                        frameCount = 0;
+                        setSubtitle('环境光检测：正常');
+                    }
+                } else if (phase === 1) {
+                    // 过渡阶段（3-6秒）
+                    const noiseRatio = 1 - (frameCount / 30);
+                    display.innerHTML = generateTransition(noiseRatio);
+                    if (frameCount > 30) {
+                        phase = 2;
+                        frameCount = 0;
+                        setSubtitle('面部轮廓捕捉完成');
+                    }
+                } else {
+                    // 清晰阶段
+                    if (demoMode) {
+                        display.innerHTML = generateDemoFace();
+                    } else {
+                        display.innerHTML = captureFrame();
+                    }
+                    
+                    if (frameCount > 60) {
+                        cancelAnimationFrame(animationId);
+                        showScene(4);
+                        startCalibration();
+                        return;
+                    }
+                }
+                
+                animationId = requestAnimationFrame(render);
+            }
+            
+            render();
+        }
+        
+        // 生成噪点
+        function generateNoise() {
+            let result = '';
+            for (let y = 0; y < CONFIG.height; y++) {
+                for (let x = 0; x < CONFIG.width; x++) {
+                    result += CONFIG.chars[Math.floor(Math.random() * CONFIG.chars.length)];
+                }
+                result += '\n';
+            }
+            return result;
+        }
+        
+        // 生成过渡画面
+        function generateTransition(noiseRatio) {
+            let result = '';
+            for (let y = 0; y < CONFIG.height; y++) {
+                for (let x = 0; x < CONFIG.width; x++) {
+                    if (Math.random() < noiseRatio) {
+                        result += CONFIG.chars[Math.floor(Math.random() * CONFIG.chars.length)];
+                    } else {
+                        result += '░';
+                    }
+                }
+                result += '\n';
+            }
+            return result;
+        }
+        
+        // 捕获视频帧并转换为ASCII
+        function captureFrame() {
+            const canvas = document.createElement('canvas');
+            canvas.width = CONFIG.width;
+            canvas.height = CONFIG.height;
+            const ctx = canvas.getContext('2d');
+            
+            // 绘制视频帧（镜像）
+            ctx.translate(CONFIG.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, CONFIG.width, CONFIG.height);
+            
+            const imageData = ctx.getImageData(0, 0, CONFIG.width, CONFIG.height);
+            const data = imageData.data;
+            let result = '';
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const brightness = (data[i] + data[i+1] + data[i+2]) / 3;
+                const charIndex = Math.floor((brightness / 255) * (CONFIG.chars.length - 1));
+                result += CONFIG.chars[charIndex];
+                if ((i / 4 + 1) % CONFIG.width === 0) result += '\n';
+            }
+            
+            return result;
+        }
+        
+        // 演示模式：生成示例脸
+        function generateDemoFace() {
+            // 简化的脸部轮廓
+            const faceMap = [
+                '.................................',
+                '..........▓▓▓▓▓▓▓▓▓▓▓...........',
+                '........▓▓▓▓▓▓▓▓▓▓▓▓▓▓.........',
+                '.......▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓.......',
+                '......▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓......',
+                '.....▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓.....',
+                '....▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓....',
+                '...▓▓▓▓▓▓▓▓██▓▓▓▓▓▓██▓▓▓▓▓▓▓▓...',
+                '...▓▓▓▓▓▓▓▓██▓▓▓▓▓▓██▓▓▓▓▓▓▓▓...',
+                '...▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓...',
+                '..▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓..',
+                '..▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓..',
+                '..▓▓▓▓▓▓▓▓▓▓▓████▓▓▓▓▓▓▓▓▓▓▓▓▓▓..',
+                '..▓▓▓▓▓▓▓▓▓▓▓████▓▓▓▓▓▓▓▓▓▓▓▓▓▓..',
+                '..▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓..',
+                '..▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓..',
+                '...▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓...',
+                '...▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓...',
+                '....▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓....',
+                '.....▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓.....',
+                '......▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓......',
+                '........▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓........',
+                '..........▓▓▓▓▓▓▓▓▓▓▓▓..........',
+                '.................................'
+            ];
+            return faceMap.slice(0, CONFIG.height).map(line => line.substring(0, CONFIG.width)).join('\n');
+        }
+        
+        // 场景4：校准
+        function startCalibration() {
+            const display = document.getElementById('calibrationDisplay');
+            let showDots = true;
+            let frameCount = 0;
+            
+            setSubtitle('请将双眼对准屏幕上的红色标记点');
+            
+            function render() {
+                frameCount++;
+                let ascii = '';
+                
+                if (demoMode || !stream) {
+                    ascii = generateDemoFace();
+                } else {
+                    ascii = captureFrame();
+                }
+                
+                // 添加红点（闪烁）
+                if (showDots && frameCount < 180) {
+                    const lines = ascii.split('\n');
+                    if (lines[8]) lines[8] = '<span class="red-ui">●</span>' + lines[8].substring(1, lines[8].length-1) + '<span class="red-ui">●</span>';
+                    ascii = lines.join('\n');
+                }
+                
+                display.innerHTML = ascii;
+                
+                // 闪烁效果
+                if (frameCount % 30 === 0) {
+                    showDots = !showDots;
+                }
+                
+                if (frameCount > 180) {
+                    cancelAnimationFrame(animationId);
+                    setSubtitle('视网膜扫描完成');
+                    setTimeout(() => {
+                        setSubtitle('点击【确认】完成身份验证');
+                        // 添加确认按钮
+                        display.innerHTML += '<br><br><span class="red-button" onclick="confirmIdentity()">【 确认 】</span>';
+                    }, 2000);
+                    return;
+                }
+                
+                animationId = requestAnimationFrame(render);
+            }
+            
+            render();
+        }
+        
+        let demoMode = false;
+        
+        // 场景5：确认身份（转折点）
+        function confirmIdentity() {
+            playSound('click');
+            playSound('alarm');
+            showScene(5);
+            startReveal();
+        }
+        
+        // 场景5：揭示动画
+        function startReveal() {
+            const display = document.getElementById('revealDisplay');
+            let phase = 0;
+            let frameCount = 0;
+            
+            setSubtitle('⚠ 警告：身份验证异常', 0);
+            
+            function render() {
+                frameCount++;
+                
+                if (phase === 0) {
+                    // 扫描线效果
+                    display.innerHTML = '<div class="warning">⚠ 身份验证失败 ⚠</div>';
+                    scanLine.style.display = 'block';
+                    if (frameCount > 60) {
+                        phase = 1;
+                        frameCount = 0;
+                        scanLine.style.display = 'none';
+                        setSubtitle('Subject-#8942 采集完成', 0);
+                    }
+                } else if (phase === 1) {
+                    // 分解效果
+                    display.innerHTML = generateDecomposingFace(frameCount);
+                    if (frameCount > 120) {
+                        phase = 2;
+                        frameCount = 0;
+                    }
+                } else {
+                    // 显示零件库
+                    cancelAnimationFrame(animationId);
+                    showScene(6);
+                    startReport();
+                    return;
+                }
+                
+                animationId = requestAnimationFrame(render);
+            }
+            
+            render();
+        }
+        
+        // 生成分解中的脸
+        function generateDecomposingFace(frame) {
+            const base = generateDemoFace().split('\n');
+            const noiseLevel = Math.min(frame / 120, 1);
+            
+            return base.map(line => {
+                return line.split('').map(char => {
+                    if (Math.random() < noiseLevel) {
+                        return CONFIG.chars[Math.floor(Math.random() * CONFIG.chars.length)];
+                    }
+                    return char;
+                }).join('');
+            }).join('\n');
+        }
+        
+        // 场景6：系统报告
+        function startReport() {
+            const display = document.getElementById('reportDisplay');
+            const reports = [
+                'Subject-#8942 身份采集完成',
+                '',
+                '脸。',
+                '眼睛。',
+                '表情数据。',
+                'DNA数字化完整采集已完成',
+                '',
+                '可重新组合为高等级样品',
+                '',
+                '外部世界碳基生命形态……',
+                '无价值',
+                '可销毁'
+            ];
+            
+            let index = 0;
+            
+            function showNext() {
+                if (index < reports.length) {
+                    display.innerHTML += reports[index] + '<br>';
+                    index++;
+                    setTimeout(showNext, 800);
+                } else {
+                    setTimeout(() => {
+                        showScene(7);
+                        showFinal();
+                    }, 2000);
+                }
+            }
+            
+            showNext();
+        }
+        
+        // 场景7：终局
+        function showFinal() {
+            const display = document.getElementById('finalDisplay');
+            
+            display.innerHTML = `
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║              ████████████████████████████                 ║
+║           ██████████████████████████████████              ║
+║         ██████████████████████████████████████            ║
+║        ████████████████████████████████████████           ║
+║       ████████   ◉████████████████◉   ██████████        ║
+║      ██████████                      ████████████       ║
+║      ████████████                  ██████████████       ║
+║      ██████████████              ████████████████       ║
+║       ████████████████    ▲    █████████████████        ║
+║        █████████████████  █  ██████████████████         ║
+║         █████████████████   ██████████████████          ║
+║          ███████████████████████████████████            ║
+║            ███████████████████████████████              ║
+║              ███████████████████████████                ║
+║                      ████████████                       ║
+║                         ██████                          ║
+║                          ████                           ║
+║                                                           ║
+║              零件组装完成                                 ║
+║              样品等级：A+                                 ║
+╚═══════════════════════════════════════════════════════════╝
+<br><br>
+<span style="color: #ff0000; font-size: 16px;">
+THE HARVEST<br>
+采集<br><br>
+实验短片 009
+</span>
+            `;
+            
+            setTimeout(() => {
+                setSubtitle('刷新页面再次体验（循环继续）', 0);
+            }, 3000);
+        }
+        
+        // 音效（简化版，使用Web Audio API）
+        function playSound(type) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            if (type === 'click') {
+                oscillator.frequency.value = 800;
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } else if (type === 'alarm') {
+                oscillator.frequency.value = 440;
+                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                oscillator.type = 'sawtooth';
+                oscillator.start(audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.1);
+                oscillator.frequency.setValueAtTime(440, audioContext.currentTime + 0.2);
+                oscillator.stop(audioContext.currentTime + 0.5);
+            }
+        }
+    </script>
+</body>
+</html>
