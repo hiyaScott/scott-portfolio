@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实验短片 007 - 编码 (THE CODE)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #050505;
+            color: #fff;
+            font-family: 'Courier New', 'Consolas', 'Monaco', 'SF Mono', monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .ascii-container {
+            white-space: pre;
+            font-size: 10px;
+            line-height: 1;
+            letter-spacing: 0.5px;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        @media (min-width: 1200px) {
+            .ascii-container {
+                font-size: 12px;
+                line-height: 1.05;
+            }
+        }
+
+        @media (min-width: 1600px) {
+            .ascii-container {
+                font-size: 14px;
+                line-height: 1.1;
+            }
+        }
+
+        /* CRT扫描线效果 */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.3),
+                rgba(0, 0, 0, 0.3) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 100;
+            animation: scanlineMove 0.15s linear infinite;
+        }
+
+        @keyframes scanlineMove {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(2px); }
+        }
+
+        /* 主动画扫描线 */
+        .scanner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(180deg, 
+                transparent 0%, 
+                rgba(0, 255, 150, 0.8) 20%, 
+                rgba(0, 255, 200, 1) 50%,
+                rgba(0, 255, 150, 0.8) 80%,
+                transparent 100%
+            );
+            box-shadow: 0 0 10px rgba(0, 255, 150, 0.5), 0 0 20px rgba(0, 255, 150, 0.3);
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .scanner.active {
+            opacity: 1;
+            animation: scanDown 10s linear forwards;
+        }
+
+        @keyframes scanDown {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: 101;
+        }
+
+        .scene {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .scene.active {
+            display: flex;
+        }
+
+        .start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #0a0a0a 0%, #000 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            cursor: pointer;
+        }
+
+        .start-text {
+            font-size: 14px;
+            animation: pulse 2s infinite;
+            letter-spacing: 0.3em;
+            color: #888;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .timer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 10px;
+            color: #333;
+            z-index: 102;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.1em;
+        }
+
+        .timer.active {
+            color: #555;
+        }
+
+        .progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #333 0%, #0ff 33%, #0f0 66%, #fff 100%);
+            width: 0%;
+            transition: width 0.1s linear;
+            z-index: 103;
+        }
+
+        .audio-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 10px;
+            color: #333;
+            z-index: 102;
+            font-family: 'Courier New', monospace;
+        }
+
+        .audio-indicator.active {
+            color: #0a0;
+        }
+
+        .grain-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 99;
+            opacity: 0.12;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            animation: grain 0.5s steps(10) infinite;
+        }
+
+        @keyframes grain {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-2%, -2%); }
+            20% { transform: translate(2%, 2%); }
+            30% { transform: translate(-1%, 1%); }
+            40% { transform: translate(1%, -1%); }
+            50% { transform: translate(-2%, 2%); }
+            60% { transform: translate(2%, -2%); }
+            70% { transform: translate(-1%, -1%); }
+            80% { transform: translate(1%, 1%); }
+            90% { transform: translate(-2%, -1%); }
+        }
+
+        .fade-in {
+            animation: fadeIn 2s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .fade-out {
+            animation: fadeOut 1s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .flicker {
+            animation: flicker 0.1s infinite;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+        }
+
+        .subtitle {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: #888;
+            letter-spacing: 0.2em;
+            opacity: 0;
+            transition: opacity 1s ease;
+            z-index: 150;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .subtitle.visible {
+            opacity: 1;
+        }
+
+        .ending-frame {
+            animation: endingFade 3s ease-out forwards;
+        }
+
+        @keyframes endingFade {
+            0% { opacity: 0; filter: blur(10px); }
+            50% { opacity: 1; filter: blur(0); }
+            100% { opacity: 1; filter: blur(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="grain-overlay"></div>
+    <div class="scanner" id="scanner"></div>
+    <div class="progress-bar" id="progressBar"></div>
+    
+    <div class="subtitle" id="subtitle"></div>
+    
+    <div id="startOverlay" class="start-overlay">
+        <div class="ascii-container" style="margin-bottom: 40px; color: #666;">
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║                                                                      ║
+║               实  验  短  片  0 0 7                                  ║
+║                                                                      ║
+║                                                                      ║
+║                     编        码                                     ║
+║                                                                      ║
+║                    T H E   C O D E                                   ║
+║                                                                      ║
+║                                                                      ║
+║                    片长: 30秒                                        ║
+║                                                                      ║
+║                                                                      ║
+║           [ 建议佩戴耳机 / 全屏观看 / 点击开始 ]                     ║
+║                                                                      ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+        </div>
+        <div class="start-text" id="startText">▶ 点击开始 / CLICK TO START</div>
+    </div>
+
+    <div id="canvas">
+        <!-- Act 1: 模拟 -->
+        <div id="scene-1" class="scene"><div class="ascii-container"></div></div>
+        
+        <!-- Act 2: 采样 -->
+        <div id="scene-2" class="scene"><div class="ascii-container"></div></div>
+        
+        <!-- Act 3: 重生 -->
+        <div id="scene-3" class="scene"><div class="ascii-container"></div></div>
+        
+        <!-- Ending -->
+        <div id="scene-ending" class="scene"><div class="ascii-container"></div></div>
+    </div>
+
+    <div id="timer" class="timer">00:00 / 00:30</div>
+    <div id="audioIndicator" class="audio-indicator">◐ AUDIO</div>
+
+    <script>
+        // ==================== 配置常量 ====================
+        const CHARS = ['█', '▓', '▒', '░', '@', '#', '*', '+', '=', ':', '.'];
+        const COLS = 60;
+        const ROWS = 40;
+        const TOTAL_DURATION = 30; // 30秒
+        
+        // ==================== 音频系统 ====================
+        let audioCtx;
+        let isPlaying = false;
+        let startTime;
+        let animationId;
+        
+        // 节点管理
+        let masterGain, sfxGain, bgmGain;
+        let activeOscillators = [];
+        let noiseNode = null;
+        let noiseGain = null;
+        
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 主音量
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.7;
+            masterGain.connect(audioCtx.destination);
+            
+            // BGM通道
+            bgmGain = audioCtx.createGain();
+            bgmGain.gain.value = 0.3;
+            bgmGain.connect(masterGain);
+            
+            // 音效通道
+            sfxGain = audioCtx.createGain();
+            sfxGain.gain.value = 0.4;
+            sfxGain.connect(masterGain);
+        }
+
+        // 创建白噪音（静电噪音）
+        function createStaticNoise(volume = 0.1) {
+            if (!audioCtx) return;
+            
+            const bufferSize = 2 * audioCtx.sampleRate;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = buffer;
+            noiseNode.loop = true;
+            
+            // 滤波器让噪音更像老式胶片
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 1000;
+            filter.Q.value = 1;
+            
+            noiseGain = audioCtx.createGain();
+            noiseGain.gain.value = volume;
+            
+            noiseNode.connect(filter);
+            filter.connect(noiseGain);
+            noiseGain.connect(sfxGain);
+            noiseNode.start();
+            
+            activeOscillators.push(noiseNode);
+        }
+
+        // 停止噪音
+        function stopStaticNoise() {
+            if (noiseGain) {
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                setTimeout(() => {
+                    if (noiseNode) {
+                        noiseNode.stop();
+                        noiseNode = null;
+                    }
+                }, 500);
+            }
+        }
+
+        // 胶片放映机咔哒声
+        function playProjectorClick() {
+            if (!audioCtx) return;
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            
+            osc.type = 'square';
+            osc.frequency.value = 60 + Math.random() * 20;
+            
+            filter.type = 'lowpass';
+            filter.frequency.value = 800;
+            
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(sfxGain);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.03);
+        }
+
+        // 数字蜂鸣声
+        function playDigitalBeep(freq = 880, duration = 0.1) {
+            if (!audioCtx) return;
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        // 扫描线音效
+        function playScanSound() {
+            if (!audioCtx) return;
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+            
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // 和声 - 解决
+        function playResolutionChord() {
+            if (!audioCtx) return;
+            
+            const freqs = [261.63, 329.63, 392.00, 523.25]; // C major chord
+            
+            freqs.forEach((freq, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 1);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 4);
+                    
+                    osc.connect(gain);
+                    gain.connect(bgmGain);
+                    
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 4);
+                    activeOscillators.push(osc);
+                }, i * 100);
+            });
+        }
+
+        // 单音结尾
+        function playFinalNote() {
+            if (!audioCtx) return;
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.value = 523.25; // C5
+            
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 3);
+            
+            osc.connect(gain);
+            gain.connect(bgmGain);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 3);
+        }
+
+        function stopAllAudio() {
+            activeOscillators.forEach(osc => {
+                try {
+                    if (osc.stop) osc.stop();
+                } catch(e) {}
+            });
+            activeOscillators = [];
+            stopStaticNoise();
+        }
+
+        // ==================== 图像数据 - 面孔/眼睛 ====================
+        // 使用字符密度创建灰度图像
+        const FACE_DATA = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,1,1,2,2,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,1,2,2,3,3,3,3,2,2,1,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,1,2,3,3,3,3,3,3,3,3,2,1,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,1,2,3,4,4,3,3,3,3,4,4,3,2,1,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,1,2,3,4,5,4,3,3,3,3,4,5,4,3,2,1,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,1,2,3,4,4,3,3,3,3,3,3,4,4,3,2,1,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,2,3,3,3,3,3,4,5,5,4,3,3,3,3,3,2,1,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,2,3,3,3,3,4,5,6,6,5,4,3,3,3,3,2,1,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,2,3,3,3,4,5,6,7,7,6,5,4,3,3,3,2,1,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,2,3,3,3,4,5,6,7,7,6,5,4,3,3,3,2,1,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,2,3,3,3,3,4,5,6,6,5,4,3,3,3,3,2,1,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,2,3,3,3,3,3,4,5,5,4,3,3,3,3,3,2,1,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,1,2,3,4,4,3,3,3,3,3,3,4,4,3,2,1,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,1,2,3,4,5,4,3,3,3,3,4,5,4,3,2,1,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,1,2,3,4,4,3,3,3,3,4,4,3,2,1,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,1,2,3,3,3,4,4,3,3,3,2,1,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,1,2,3,4,5,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,1,2,3,4,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,1,2,3,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        ];
+
+        // ==================== 场景渲染函数 ====================
+        
+        // 随机噪点生成
+        function generateNoise() {
+            let grid = [];
+            for (let y = 0; y < ROWS; y++) {
+                let row = [];
+                for (let x = 0; x < COLS; x++) {
+                    row.push(Math.random());
+                }
+                grid.push(row);
+            }
+            return grid;
+        }
+
+        // 将数值转换为字符
+        function valueToChar(val) {
+            const idx = Math.floor(val * CHARS.length);
+            return CHARS[Math.min(idx, CHARS.length - 1)];
+        }
+
+        // 第一幕：模拟 - 噪点雪花屏
+        let noiseGrid = generateNoise();
+        let noiseGrid2 = generateNoise();
+        
+        function renderAct1(elapsed, totalElapsed) {
+            const container = document.querySelector('#scene-1 .ascii-container');
+            const progress = Math.min(elapsed / 10, 1);
+            const focusProgress = Math.min(elapsed / 8, 1); // 聚焦进度
+            
+            let output = '';
+            
+            // 闪烁效果
+            const flicker = Math.random() > 0.95 ? 0.3 : 1;
+            const color = `rgba(200, 200, 200, ${0.5 + focusProgress * 0.5 * flicker})`;
+            
+            // 随机重新生成部分噪点
+            if (Math.random() > 0.7) {
+                noiseGrid = generateNoise();
+            }
+            
+            // 混合两个噪点图实现闪烁
+            const blend = (Math.sin(elapsed * 10) + 1) / 2;
+            
+            output += `<span style="color:${color}">`;
+            
+            for (let y = 0; y < ROWS; y++) {
+                let line = '';
+                for (let x = 0; x < COLS; x++) {
+                    // 中心聚焦效果 - 边缘更模糊
+                    const dx = x - COLS / 2;
+                    const dy = y - ROWS / 2;
+                    const dist = Math.sqrt(dx * dx + dy * dy) / 30;
+                    const edgeBlur = Math.max(0, dist - 0.5) * (1 - focusProgress);
+                    
+                    let val = noiseGrid[y][x] * (1 - blend) + noiseGrid2[y][x] * blend;
+                    val = val * (1 - edgeBlur * 0.5) + Math.random() * edgeBlur;
+                    
+                    // 聚焦后噪点变得更"有序"
+                    if (focusProgress > 0.5) {
+                        val = val * (1 - focusProgress) + (val > 0.5 ? 0.7 : 0.3) * focusProgress;
+                    }
+                    
+                    line += valueToChar(val);
+                }
+                output += line + '\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+            
+            // 胶片咔哒声
+            if (Math.random() > 0.85) {
+                playProjectorClick();
+            }
+        }
+
+        // 第二幕：采样 - 扫描线效果
+        let scanProgress = 0;
+        let sampledGrid = [];
+        let isScanning = false;
+        
+        function initSampledGrid() {
+            sampledGrid = [];
+            for (let y = 0; y < ROWS; y++) {
+                let row = [];
+                for (let x = 0; x < COLS; x++) {
+                    row.push(Math.random());
+                }
+                sampledGrid.push(row);
+            }
+        }
+
+        function renderAct2(elapsed, totalElapsed) {
+            const container = document.querySelector('#scene-2 .ascii-container');
+            const scanner = document.getElementById('scanner');
+            
+            if (!isScanning && elapsed < 0.1) {
+                initSampledGrid();
+                isScanning = true;
+                scanner.classList.add('active');
+                
+                // 播放数字蜂鸣声
+                setTimeout(() => playDigitalBeep(440, 0.2), 0);
+                setTimeout(() => playDigitalBeep(660, 0.15), 100);
+                setTimeout(() => playDigitalBeep(880, 0.3), 200);
+            }
+            
+            const progress = Math.min(elapsed / 10, 1);
+            scanProgress = progress;
+            
+            let output = '';
+            const scanLineY = Math.floor(progress * ROWS);
+            
+            output += `<span style="color:#0ff">`;
+            
+            for (let y = 0; y < ROWS; y++) {
+                let line = '';
+                const isScanned = y <= scanLineY;
+                const isScanLine = y === scanLineY;
+                
+                for (let x = 0; x < COLS; x++) {
+                    let val = sampledGrid[y][x];
+                    
+                    if (!isScanned) {
+                        // 未扫描区域：随机噪点
+                        val = Math.random();
+                        line += valueToChar(val);
+                    } else if (isScanLine && Math.random() > 0.7) {
+                        // 扫描线位置：闪烁效果
+                        line += `<span style="color:#fff">${CHARS[0]}</span>`;
+                    } else {
+                        // 已扫描区域：有序密度矩阵
+                        // 将随机值映射到10层灰度
+                        const quantized = Math.floor(val * 10) / 10;
+                        line += CHARS[Math.floor(quantized * CHARS.length)];
+                    }
+                }
+                
+                // 扫描线音效
+                if (isScanLine && Math.random() > 0.8) {
+                    playScanSound();
+                }
+                
+                output += line + '\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+        }
+
+        // 第三幕：重生 - ASCII艺术面孔
+        let faceRevealed = false;
+        
+        function renderAct3(elapsed, totalElapsed) {
+            const container = document.querySelector('#scene-3 .ascii-container');
+            
+            if (!faceRevealed && elapsed < 0.1) {
+                faceRevealed = true;
+                stopStaticNoise();
+                playResolutionChord();
+            }
+            
+            const progress = Math.min(elapsed / 10, 1);
+            
+            let output = '';
+            const faceStartY = Math.floor((ROWS - FACE_DATA.length) / 2);
+            const faceStartX = Math.floor((COLS - FACE_DATA[0].length) / 2);
+            
+            // 颜色渐变 - 从青色到白色
+            const r = Math.floor(0 + progress * 255);
+            const g = Math.floor(255);
+            const b = Math.floor(255 - progress * 100);
+            const color = `rgb(${r},${g},${b})`;
+            
+            output += `<span style="color:${color}">`;
+            
+            for (let y = 0; y < ROWS; y++) {
+                let line = '';
+                for (let x = 0; x < COLS; x++) {
+                    const faceY = y - faceStartY;
+                    const faceX = x - faceStartX;
+                    
+                    if (faceY >= 0 && faceY < FACE_DATA.length && 
+                        faceX >= 0 && faceX < FACE_DATA[0].length) {
+                        // 面孔区域
+                        const density = FACE_DATA[faceY][faceX];
+                        
+                        // 添加一些动态噪点，随进度减少
+                        const noise = (Math.random() * 0.3) * (1 - progress);
+                        const finalDensity = Math.min(7, density + noise);
+                        
+                        line += CHARS[finalDensity];
+                    } else {
+                        // 背景 - 稀疏噪点
+                        const bgNoise = Math.random() > 0.95 ? CHARS[CHARS.length - 1] : ' ';
+                        line += bgNoise;
+                    }
+                }
+                output += line + '\n';
+            }
+            
+            output += '</span>';
+            container.innerHTML = output;
+            
+            // 高潮时定格
+            if (progress > 0.8) {
+                container.style.filter = `brightness(${1 + (progress - 0.8) * 2})`;
+            }
+        }
+
+        // 片尾
+        function renderEnding(elapsed, totalElapsed) {
+            const container = document.querySelector('#scene-ending .ascii-container');
+            
+            if (elapsed < 0.1) {
+                playFinalNote();
+            }
+            
+            const progress = Math.min(elapsed / 5, 1);
+            const opacity = Math.min(progress * 2, 1);
+            
+            let output = `<div class="ending-frame" style="opacity:${opacity};color:#fff">`;
+            output += `\n\n\n\n`;
+            output += `╔════════════════════════════════════════════════════════════════╗\n`;
+            output += `║                                                                ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                    T H E   C O D E                             ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                     编       码                                 ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║              实验短片 007 | Experimental Short 007             ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                    在离散中，我们找到了新的连续                  ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║              In discreteness, we found new continuity          ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                        — 完 —                                  ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                                                                ║\n`;
+            output += `║                                                                ║\n`;
+            output += `╚════════════════════════════════════════════════════════════════╝\n`;
+            output += `</div>`;
+            
+            container.innerHTML = output;
+        }
+
+        // ==================== 场景管理 ====================
+        const scenes = [
+            { id: 'scene-1', duration: 10, render: renderAct1 },
+            { id: 'scene-2', duration: 10, render: renderAct2 },
+            { id: 'scene-3', duration: 8, render: renderAct3 },
+            { id: 'scene-ending', duration: 5, render: renderEnding }
+        ];
+
+        let currentSceneIndex = -1;
+        let sceneStartTime = 0;
+        const subtitles = [
+            { time: 0, text: '很久以前，信息是连续的...' },
+            { time: 10, text: '然后，我们开始离散化...' },
+            { time: 20, text: '在离散中，我们找到了新的连续' },
+            { time: 28, text: '' }
+        ];
+
+        function showScene(index) {
+            if (index === currentSceneIndex) return;
+            
+            // 隐藏所有场景
+            document.querySelectorAll('.scene').forEach(s => {
+                s.classList.remove('active');
+            });
+            
+            currentSceneIndex = index;
+            const scene = scenes[index];
+            const el = document.getElementById(scene.id);
+            
+            el.classList.add('active');
+            sceneStartTime = Date.now();
+            
+            // 重置扫描线
+            if (scene.id !== 'scene-2') {
+                document.getElementById('scanner').classList.remove('active');
+                isScanning = false;
+            }
+        }
+
+        function updateSubtitle(totalElapsed) {
+            const subtitleEl = document.getElementById('subtitle');
+            
+            for (let i = subtitles.length - 1; i >= 0; i--) {
+                if (totalElapsed >= subtitles[i].time) {
+                    if (subtitleEl.textContent !== subtitles[i].text) {
+                        subtitleEl.textContent = subtitles[i].text;
+                        subtitleEl.classList.remove('visible');
+                        void subtitleEl.offsetWidth; // 触发重排
+                        subtitleEl.classList.add('visible');
+                    }
+                    break;
+                }
+            }
+        }
+
+        function update() {
+            if (!startTime) return;
+            
+            const now = Date.now();
+            const totalElapsed = (now - startTime) / 1000;
+            
+            // 更新进度条
+            const progress = Math.min((totalElapsed / TOTAL_DURATION) * 100, 100);
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            // 更新计时器
+            const secs = Math.floor(totalElapsed % 60).toString().padStart(2, '0');
+            const ms = Math.floor((totalElapsed % 1) * 100).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `00:${secs}:${ms} / 00:30`;
+            document.getElementById('timer').classList.add('active');
+            document.getElementById('audioIndicator').classList.add('active');
+            
+            // 更新字幕
+            updateSubtitle(totalElapsed);
+            
+            // 确定当前场景
+            let timeSum = 0;
+            let targetScene = 0;
+            
+            for (let i = 0; i < scenes.length; i++) {
+                if (totalElapsed < timeSum + scenes[i].duration) {
+                    targetScene = i;
+                    break;
+                }
+                timeSum += scenes[i].duration;
+            }
+            
+            if (totalElapsed >= TOTAL_DURATION) {
+                targetScene = scenes.length - 1;
+                if (totalElapsed > TOTAL_DURATION + 3) {
+                    // 自动循环或停止
+                    document.getElementById('subtitle').classList.remove('visible');
+                }
+            }
+            
+            showScene(targetScene);
+            
+            // 渲染当前场景
+            const sceneElapsed = (now - sceneStartTime) / 1000;
+            scenes[currentSceneIndex].render(sceneElapsed, totalElapsed);
+            
+            animationId = requestAnimationFrame(update);
+        }
+
+        function start() {
+            document.getElementById('startOverlay').style.display = 'none';
+            initAudio();
+            startTime = Date.now();
+            isPlaying = true;
+            
+            // 开始静电噪音
+            createStaticNoise(0.15);
+            
+            showScene(0);
+            update();
+        }
+
+        // 事件监听
+        document.getElementById('startOverlay').addEventListener('click', start);
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!isPlaying) start();
+            }
+        });
+
+        // 预生成噪点图
+        setInterval(() => {
+            if (!isPlaying) {
+                noiseGrid2 = generateNoise();
+            }
+        }, 100);
+    </script>
+</body>
+</html>
