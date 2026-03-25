@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>实验短片 004 - 声音的形状 (The Shape of Sound)</title>
+    <title>实验短片 004 - 声音的形状 (The Shape of Sound) v2</title>
     <style>
         * {
             margin: 0;
@@ -140,15 +140,6 @@
             transition: width 0.1s linear;
             z-index: 103;
         }
-
-        #waveCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
     </style>
 </head>
 <body>
@@ -160,7 +151,7 @@
         <div class="ascii-container" style="margin-bottom: 30px;">
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║              实  验  短  片  0 0 4                               ║
+║              实  验  短  片  0 0 4  v2                           ║
 ║                                                                  ║
 ║                 声  音  的  形  状                               ║
 ║                                                                  ║
@@ -176,73 +167,217 @@
     </div>
 
     <div id="canvas">
-        <!-- 场景1: 静默 (0-25s) -->
-        <div id="phase-1" class="phase">
-            <div id="scene1" class="ascii-container"></div>
-        </div>
-
-        <!-- 场景2: 觉醒 (25-55s) -->
-        <div id="phase-2" class="phase">
-            <div id="scene2" class="ascii-container"></div>
-        </div>
-
-        <!-- 场景3: 对话 (55-90s) -->
-        <div id="phase-3" class="phase">
-            <div id="scene3" class="ascii-container"></div>
-        </div>
-
-        <!-- 场景4: 融合 (90-120s) -->
-        <div id="phase-4" class="phase">
-            <div id="scene4" class="ascii-container"></div>
-        </div>
+        <div id="phase-1" class="phase"><div id="scene1" class="ascii-container"></div></div>
+        <div id="phase-2" class="phase"><div id="scene2" class="ascii-container"></div></div>
+        <div id="phase-3" class="phase"><div id="scene3" class="ascii-container"></div></div>
+        <div id="phase-4" class="phase"><div id="scene4" class="ascii-container"></div></div>
     </div>
 
     <div id="timer" class="timer">00:00 / 02:00</div>
 
     <script>
-        // ==================== 音频系统 ====================
+        // ==================== 增强音频系统 ====================
         let audioCtx;
         let isPlaying = false;
         let currentPhase = 0;
         let startTime;
         let phaseInterval;
-        let oscillators = [];
+        
+        // 音频节点存储
+        let bgmNodes = [];
+        let melodyInterval = null;
+        let bassInterval = null;
+        let padInterval = null;
+        
+        // 频率定义
+        const NOTES = {
+            C2: 65.41, D2: 73.42, E2: 82.41, F2: 87.31, G2: 98.00, A2: 110.00, B2: 123.47,
+            C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
+            C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+            C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00, B5: 987.77
+        };
 
         function initAudio() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
 
+        // 创建持续音 (Pad/Drone)
+        function createDrone(freq, volume, type = 'sine') {
+            if (!audioCtx) return null;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            
+            osc.type = type;
+            osc.frequency.value = freq;
+            
+            filter.type = 'lowpass';
+            filter.frequency.value = 800;
+            
+            gain.gain.value = volume;
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            
+            return { osc, gain, filter };
+        }
+
+        // 播放单个音符
         function playTone(freq, duration, type = 'sine', volume = 0.1, delay = 0) {
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
+            
             osc.type = type;
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+            
             gain.gain.setValueAtTime(0, audioCtx.currentTime + delay);
-            gain.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + delay + 0.1);
+            gain.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + delay + 0.05);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + duration);
+            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start(audioCtx.currentTime + delay);
             osc.stop(audioCtx.currentTime + delay + duration);
-            oscillators.push(osc);
-            return osc;
         }
 
+        // 播放和弦
         function playChord(freqs, duration, volume = 0.08) {
             freqs.forEach((freq, i) => {
-                playTone(freq, duration, 'triangle', volume, i * 0.03);
+                playTone(freq, duration, 'triangle', volume, i * 0.02);
             });
         }
 
-        function stopAllSounds() {
-            oscillators.forEach(osc => {
-                try { osc.stop(); } catch(e) {}
+        // 停止所有持续音
+        function stopAllBGM() {
+            bgmNodes.forEach(node => {
+                try {
+                    node.osc.stop();
+                    node.osc.disconnect();
+                    node.gain.disconnect();
+                } catch(e) {}
             });
-            oscillators = [];
+            bgmNodes = [];
+            
+            if (melodyInterval) clearInterval(melodyInterval);
+            if (bassInterval) clearInterval(bassInterval);
+            if (padInterval) clearInterval(padInterval);
         }
 
-        // ==================== 粒子系统 ====================
+        // ==================== 场景1 BGM: 低频铺垫 ====================
+        function startScene1BGM() {
+            // 基础低频铺垫
+            bgmNodes.push(createDrone(NOTES.C2, 0.08, 'sine'));
+            bgmNodes.push(createDrone(NOTES.G2, 0.06, 'triangle'));
+            
+            // 缓慢变化的泛音
+            let time = 0;
+            padInterval = setInterval(() => {
+                time += 4;
+                const note = [NOTES.C3, NOTES.E3, NOTES.G3][Math.floor(time / 12) % 3];
+                playTone(note, 3, 'sine', 0.04);
+            }, 4000);
+            
+            // 琶音旋律
+            const arp = [NOTES.C4, NOTES.E4, NOTES.G4, NOTES.B4, NOTES.C5, NOTES.B4, NOTES.G4, NOTES.E4];
+            let arpIndex = 0;
+            melodyInterval = setInterval(() => {
+                playTone(arp[arpIndex % arp.length], 0.8, 'triangle', 0.06);
+                arpIndex++;
+            }, 2000);
+        }
+
+        // ==================== 场景2 BGM: 螺旋上升 ====================
+        function startScene2BGM() {
+            stopAllBGM();
+            
+            // 更明亮的铺垫
+            bgmNodes.push(createDrone(NOTES.E3, 0.07, 'sine'));
+            bgmNodes.push(createDrone(NOTES.B3, 0.05, 'triangle'));
+            
+            // 螺旋上升音阶
+            const scale = [NOTES.C4, NOTES.D4, NOTES.E4, NOTES.F4, NOTES.G4, NOTES.A4, NOTES.B4, NOTES.C5];
+            let index = 0;
+            melodyInterval = setInterval(() => {
+                playTone(scale[index % scale.length], 1.2, 'sine', 0.08);
+                playTone(scale[(index + 2) % scale.length], 1.2, 'triangle', 0.05);
+                index++;
+            }, 1500);
+            
+            // 低音节奏
+            const bass = [NOTES.C2, NOTES.G2, NOTES.A2, NOTES.F2];
+            let bassIndex = 0;
+            bassInterval = setInterval(() => {
+                playTone(bass[bassIndex % bass.length], 2, 'sawtooth', 0.06);
+                bassIndex++;
+            }, 3000);
+        }
+
+        // ==================== 场景3 BGM: 对话与张力 ====================
+        function startScene3BGM() {
+            stopAllBGM();
+            
+            // 两个系统的音高对比
+            bgmNodes.push(createDrone(NOTES.C3, 0.06, 'sine')); // 地球
+            bgmNodes.push(createDrone(NOTES.F3, 0.06, 'sine')); // 未知
+            
+            // 交替旋律
+            const earthTheme = [NOTES.C4, NOTES.E4, NOTES.G4];
+            const alienTheme = [NOTES.F4, NOTES.A4, NOTES.C5];
+            let toggle = 0;
+            
+            melodyInterval = setInterval(() => {
+                const theme = toggle % 2 === 0 ? earthTheme : alienTheme;
+                playChord(theme, 1.5, 0.07);
+                toggle++;
+            }, 2000);
+            
+            // 紧张的低音
+            bassInterval = setInterval(() => {
+                playTone(NOTES.C2, 1.5, 'square', 0.05);
+                setTimeout(() => playTone(NOTES.F2, 1.5, 'square', 0.05), 750);
+            }, 3000);
+        }
+
+        // ==================== 场景4 BGM: 升华 ====================
+        function startScene4BGM() {
+            stopAllBGM();
+            
+            // 辉煌的铺垫
+            bgmNodes.push(createDrone(NOTES.C3, 0.08, 'sine'));
+            bgmNodes.push(createDrone(NOTES.G3, 0.07, 'sine'));
+            bgmNodes.push(createDrone(NOTES.C4, 0.06, 'triangle'));
+            bgmNodes.push(createDrone(NOTES.E4, 0.05, 'sine'));
+            
+            // 高潮和弦进行
+            const chords = [
+                [NOTES.C4, NOTES.E4, NOTES.G4, NOTES.C5],
+                [NOTES.F4, NOTES.A4, NOTES.C5, NOTES.F5],
+                [NOTES.G4, NOTES.B4, NOTES.D5, NOTES.G5],
+                [NOTES.C4, NOTES.E4, NOTES.G4, NOTES.C5, NOTES.E5, NOTES.G5]
+            ];
+            let chordIndex = 0;
+            
+            melodyInterval = setInterval(() => {
+                const chord = chords[chordIndex % chords.length];
+                chord.forEach((freq, i) => {
+                    playTone(freq, 4, 'triangle', 0.08, i * 0.05);
+                });
+                chordIndex++;
+            }, 4000);
+            
+            // 低音进行
+            const bassLine = [NOTES.C2, NOTES.F2, NOTES.G2, NOTES.C2];
+            let bassIndex = 0;
+            bassInterval = setInterval(() => {
+                playTone(bassLine[bassIndex % bassLine.length], 3, 'sawtooth', 0.07);
+                bassIndex++;
+            }, 4000);
+        }
+
+        // ==================== 粒子系统 (保持原样) ====================
         class Particle {
             constructor(x, y, char, color, life) {
                 this.x = x;
@@ -254,49 +389,38 @@
                 this.vx = (Math.random() - 0.5) * 0.5;
                 this.vy = (Math.random() - 0.5) * 0.5;
             }
-
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
                 this.life--;
                 return this.life > 0;
             }
-
             getOpacity() {
                 return this.life / this.maxLife;
             }
         }
 
         let particles = [];
-
-        // ==================== 场景渲染 ====================
         const width = 80;
         const height = 40;
-        
-        // 低频字符 (重)
         const lowChars = ['█', '▓', '▒', '■', '●'];
-        // 中频字符 (中)
         const midChars = ['○', '◎', '◐', '◑', '◒'];
-        // 高频字符 (轻)
         const highChars = ['·', '∴', '∵', ':', '.'];
-        // 特殊字符
         const specialChars = ['∫', '∑', '∆', '√', '∞', '≈', '≠', '≡'];
 
-        function getWaveChar(amplitude, frequency) {
+        function getWaveChar(amplitude) {
             if (amplitude > 0.7) return lowChars[Math.floor(Math.random() * lowChars.length)];
             if (amplitude > 0.4) return midChars[Math.floor(Math.random() * midChars.length)];
             return highChars[Math.floor(Math.random() * highChars.length)];
         }
 
         function getColor(phase, progress, intensity) {
-            // 场景1: 白→蓝
             if (phase === 1) {
                 const r = Math.floor(255 * (1 - progress));
                 const g = Math.floor(255 * (1 - progress * 0.5));
                 const b = 255;
                 return `rgb(${r},${g},${b})`;
             }
-            // 场景2: 蓝→青→绿
             if (phase === 2) {
                 if (progress < 0.5) {
                     const p = progress * 2;
@@ -306,14 +430,12 @@
                     return `rgb(0,255,${Math.floor(127 - p * 127)})`;
                 }
             }
-            // 场景3: 绿→黄→橙→红
             if (phase === 3) {
                 const r = Math.floor(255 * progress);
                 const g = Math.floor(255 * (1 - progress * 0.5));
                 const b = Math.floor(50 * (1 - progress));
                 return `rgb(${r},${g},${b})`;
             }
-            // 场景4: 金→白
             if (phase === 4) {
                 const v = Math.floor(200 + 55 * progress);
                 return `rgb(${v},${Math.floor(v * 0.8)},${Math.floor(v * 0.3)})`;
@@ -321,11 +443,10 @@
             return '#fff';
         }
 
-        // 场景1: 静默 - 简单波形
+        // ==================== 场景渲染 (保持原样) ====================
         function renderScene1(elapsed) {
             const container = document.getElementById('scene1');
             const progress = Math.min(elapsed / 25, 1);
-            
             let output = '';
             const centerY = height / 2;
             
@@ -336,11 +457,11 @@
                     const wave1 = Math.sin(normalizedX + elapsed * 2) * (5 + progress * 5);
                     const wave2 = Math.sin(normalizedX * 2 + elapsed * 3) * (2 + progress * 3);
                     const waveY = centerY + wave1 + wave2;
-                    
                     const dist = Math.abs(y - waveY);
+                    
                     if (dist < 1.5) {
                         const amp = 1 - dist / 1.5;
-                        const char = getWaveChar(amp, 1);
+                        const char = getWaveChar(amp);
                         const color = getColor(1, progress, amp);
                         line += `<span style="color:${color}">${char}</span>`;
                     } else {
@@ -350,19 +471,15 @@
                 output += line + '\n';
             }
             
-            // 添加标题
             if (progress < 0.3) {
                 output += '\n<div style="color:#fff;text-align:center;margin-top:20px;">[ AWAKENING ] 觉醒</div>';
             }
-            
             container.innerHTML = output;
         }
 
-        // 场景2: 觉醒 - 复杂波形+螺旋
         function renderScene2(elapsed) {
             const container = document.getElementById('scene2');
             const progress = Math.min(elapsed / 30, 1);
-            
             let output = '';
             const centerX = width / 2;
             const centerY = height / 2;
@@ -375,9 +492,7 @@
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     const angle = Math.atan2(dy, dx);
                     
-                    // 螺旋效果
                     const spiral = Math.sin(dist * 0.3 - angle * 3 + elapsed * 2) > 0.3;
-                    // 波形效果
                     const waveX = (x / width) * Math.PI * 6;
                     const wave = Math.sin(waveX + elapsed * 3 + dist * 0.1) * 8;
                     const waveY = centerY + wave;
@@ -385,7 +500,7 @@
                     
                     if (spiral || onWave) {
                         const intensity = spiral ? 0.8 : 0.6;
-                        const char = spiral ? specialChars[Math.floor(Math.random() * specialChars.length)] : getWaveChar(intensity, 1);
+                        const char = spiral ? specialChars[Math.floor(Math.random() * specialChars.length)] : getWaveChar(intensity);
                         const color = getColor(2, progress, intensity);
                         line += `<span style="color:${color}">${char}</span>`;
                     } else {
@@ -395,7 +510,6 @@
                 output += line + '\n';
             }
             
-            // 添加粒子
             if (Math.random() > 0.7) {
                 particles.push(new Particle(
                     Math.random() * width,
@@ -406,7 +520,6 @@
                 ));
             }
             
-            // 渲染粒子
             particles = particles.filter(p => p.update());
             let particleOverlay = '\n<div style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">';
             particles.forEach(p => {
@@ -417,22 +530,17 @@
             
             container.innerHTML = output + particleOverlay;
             
-            // 状态文字
             if (progress > 0.5) {
                 container.innerHTML += '\n<div style="color:#0ff;text-align:center;margin-top:10px;">[ DISCOVERING UNKNOWN SIGNAL ] 发现未知信号</div>';
             }
         }
 
-        // 场景3: 对话 - 双系统碰撞
         function renderScene3(elapsed) {
             const container = document.getElementById('scene3');
             const progress = Math.min(elapsed / 35, 1);
-            
             let output = '';
             const centerX = width / 2;
             const centerY = height / 2;
-            
-            // 干扰效果 (70-80s)
             const noisePhase = progress > 0.4 && progress < 0.7;
             
             for (let y = 0; y < height; y++) {
@@ -448,11 +556,8 @@
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     const angle = Math.atan2(dy, dx);
                     
-                    // 系统1 (地球): 暖色，从左侧来
                     const sys1 = Math.sin(angle * 3 + elapsed * 2) * Math.exp(-Math.pow(x - width * 0.3, 2) / 200);
-                    // 系统2 (未知): 冷色，从右侧来
                     const sys2 = Math.cos(angle * 4 - elapsed * 2.5) * Math.exp(-Math.pow(x - width * 0.7, 2) / 200);
-                    
                     const combined = sys1 + sys2;
                     
                     if (Math.abs(combined) > 0.3 || dist < 5 + progress * 10) {
@@ -464,13 +569,10 @@
                             char = midChars[Math.floor(Math.random() * midChars.length)];
                             color = `rgb(0,${Math.floor(200 + sys2 * 55)},255)`;
                         }
-                        
-                        // 碰撞区域
                         if (Math.abs(sys1 - sys2) < 0.2 && dist < 8) {
                             char = specialChars[Math.floor(Math.random() * specialChars.length)];
                             color = '#fff';
                         }
-                        
                         line += `<span style="color:${color}">${char}</span>`;
                     } else {
                         line += ' ';
@@ -479,7 +581,6 @@
                 output += line + '\n';
             }
             
-            // 状态文字
             let statusText = '';
             if (progress < 0.3) statusText = '[ COMMUNICATION ESTABLISHED ] 建立连接';
             else if (progress < 0.5) statusText = '[ HARMONY ACHIEVED ] 达成和谐';
@@ -489,11 +590,9 @@
             container.innerHTML = output + `\n<div style="color:${noisePhase ? '#f00' : '#ff0'};text-align:center;margin-top:10px;">${statusText}</div>`;
         }
 
-        // 场景4: 融合 - 曼陀罗
         function renderScene4(elapsed) {
             const container = document.getElementById('scene4');
             const progress = Math.min(elapsed / 30, 1);
-            
             let output = '';
             const centerX = width / 2;
             const centerY = height / 2;
@@ -506,7 +605,6 @@
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     const angle = Math.atan2(dy, dx);
                     
-                    // 曼陀罗图案
                     const petals = 8;
                     const mandala = Math.sin(angle * petals + dist * 0.2 - elapsed) * Math.exp(-dist * 0.05);
                     const circle = Math.abs(dist - (5 + progress * 15)) < 2;
@@ -526,7 +624,6 @@
                 output += line + '\n';
             }
             
-            // 结局文字
             if (progress > 0.7) {
                 output += `
 
@@ -546,7 +643,6 @@
 ╚══════════════════════════════════════════════════════════╝
 </div>`;
             }
-            
             container.innerHTML = output;
         }
 
@@ -556,24 +652,12 @@
             currentPhase = phaseNum;
             document.getElementById(`phase-${phaseNum}`).classList.add('active');
             
-            // 音效
+            // 切换BGM
             switch(phaseNum) {
-                case 1:
-                    playTone(65, 3, 'sine', 0.1);
-                    playTone(130, 3, 'sine', 0.08, 0.5);
-                    break;
-                case 2:
-                    playChord([196, 246, 293], 2, 0.1);
-                    break;
-                case 3:
-                    playChord([262, 330, 392], 2, 0.12);
-                    setTimeout(() => playChord([196, 246, 293], 1.5, 0.08), 500);
-                    setTimeout(() => playChord([523, 659, 784], 2, 0.15), 10000);
-                    break;
-                case 4:
-                    playChord([523, 659, 784, 1046], 3, 0.15);
-                    setTimeout(() => playChord([659, 830, 988, 1318], 4, 0.12), 1000);
-                    break;
+                case 1: startScene1BGM(); break;
+                case 2: startScene2BGM(); break;
+                case 3: startScene3BGM(); break;
+                case 4: startScene4BGM(); break;
             }
         }
 
@@ -588,13 +672,11 @@
             document.getElementById('timer').textContent = `${minutes}:${seconds} / 02:00`;
             document.getElementById('timer').classList.add('active');
             
-            // 场景切换
             if (elapsed >= 0 && currentPhase === 0) showPhase(1);
             else if (elapsed >= 25 && currentPhase === 1) showPhase(2);
             else if (elapsed >= 55 && currentPhase === 2) showPhase(3);
             else if (elapsed >= 90 && currentPhase === 3) showPhase(4);
             
-            // 场景渲染
             const phaseElapsed = elapsed - (currentPhase === 1 ? 0 : currentPhase === 2 ? 25 : currentPhase === 3 ? 55 : 90);
             switch(currentPhase) {
                 case 1: renderScene1(phaseElapsed); break;
