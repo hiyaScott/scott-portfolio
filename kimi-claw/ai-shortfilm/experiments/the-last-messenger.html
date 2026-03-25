@@ -45,10 +45,16 @@
             height: 100%;
         }
         
+        #canvas > div {
+            position: absolute;
+            white-space: pre;
+        }
+        
         .controls {
             margin-top: 20px;
             display: flex;
             gap: 15px;
+            align-items: center;
         }
         
         button {
@@ -71,6 +77,18 @@
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+        
+        .audio-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .audio-toggle input[type="checkbox"] {
+            accent-color: var(--neon-purple, #9d00ff);
         }
         
         .title {
@@ -118,6 +136,49 @@
         .snow { color: #888; }
         .text { color: #c0c0c0; }
         
+        /* Title Card Styles */
+        .title-card {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            animation: titlePulse 3s ease-in-out infinite;
+        }
+        
+        .title-card .main-title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(157, 0, 255, 0.8), 0 0 40px rgba(0, 255, 255, 0.4);
+            margin-bottom: 10px;
+            letter-spacing: 8px;
+        }
+        
+        .title-card .sub-title {
+            font-size: 1.2rem;
+            color: #888;
+            letter-spacing: 4px;
+        }
+        
+        .title-card .episode {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 20px;
+            letter-spacing: 2px;
+        }
+        
+        .title-decoration {
+            color: #9d00ff;
+            opacity: 0.5;
+            margin: 15px 0;
+        }
+        
+        @keyframes titlePulse {
+            0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.02); }
+        }
+        
         @keyframes blink {
             0%, 90% { opacity: 1; }
             95% { opacity: 0.3; }
@@ -138,7 +199,14 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
+        
+        .fade-out { animation: fadeOut 1s ease-out forwards; }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
     </style>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
 </head>
 <body>
     <div id="screen">
@@ -152,6 +220,10 @@
         <button id="startBtn">START</button>
         <button id="pauseBtn" disabled>PAUSE</button>
         <button id="resetBtn">RESET</button>
+        <label class="audio-toggle">
+            <input type="checkbox" id="audioToggle" checked>
+            <span>🔊 音效</span>
+        </label>
     </div>
 
     <script>
@@ -232,23 +304,258 @@
                 "                                    ",
                 "         使命完成                    ",
                 ""
+            ],
+            titleLogo: [
+                "    ╭────────────────────────────────╮    ",
+                "    │                                │    ",
+                "    │     📡  最 後 の 信 使  📡     │    ",
+                "    │                                │    ",
+                "    │     THE LAST MESSENGER         │    ",
+                "    │                                │    ",
+                "    ╰────────────────────────────────╯    "
             ]
         };
 
+        // Audio System - Web Audio API
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.isEnabled = true;
+                this.oscillators = [];
+                this.noiseNodes = [];
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.value = 0.3;
+                    this.masterGain.connect(this.ctx.destination);
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            setEnabled(enabled) {
+                this.isEnabled = enabled;
+                if (this.masterGain) {
+                    this.masterGain.gain.setTargetAtTime(enabled ? 0.3 : 0, this.ctx.currentTime, 0.1);
+                }
+            }
+
+            // Drone - continuous low frequency for atmosphere
+            startDrone(frequency = 60, volume = 0.1) {
+                if (!this.isEnabled || !this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const filter = this.ctx.createBiquadFilter();
+                
+                osc.type = 'sine';
+                osc.frequency.value = frequency;
+                
+                filter.type = 'lowpass';
+                filter.frequency.value = 200;
+                
+                gain.gain.value = volume;
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start();
+                this.oscillators.push({ osc, gain });
+                
+                return { osc, gain };
+            }
+
+            // Footstep sound
+            playFootstep() {
+                if (!this.isEnabled || !this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            // Mechanical startup sound
+            playStartup() {
+                if (!this.isEnabled || !this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.5);
+                
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+
+            // Robot eye blink sound
+            playBlink() {
+                if (!this.isEnabled || !this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.1, this.ctx.currentTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            // Wind/Storm noise
+            startWind() {
+                if (!this.isEnabled || !this.ctx) return;
+                
+                const bufferSize = 2 * this.ctx.sampleRate;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                noise.loop = true;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 400;
+                
+                const gain = this.ctx.createGain();
+                gain.gain.value = 0.05;
+                
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+                
+                noise.start();
+                this.noiseNodes.push({ noise, gain });
+                
+                return { noise, gain };
+            }
+
+            // Signal transmission - rising tone
+            playSignal() {
+                if (!this.isEnabled || !this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 3);
+                
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.3, this.ctx.currentTime + 0.5);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 3);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 3);
+            }
+
+            // Completion chime
+            playChime() {
+                if (!this.isEnabled || !this.ctx) return;
+                
+                const frequencies = [523.25, 659.25, 783.99, 1046.50]; // C major chord
+                
+                frequencies.forEach((freq, i) => {
+                    setTimeout(() => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        
+                        osc.type = 'sine';
+                        osc.frequency.value = freq;
+                        
+                        gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 0.1);
+                        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 2);
+                        
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 2);
+                    }, i * 100);
+                });
+            }
+
+            // Stop all sounds
+            stopAll() {
+                this.oscillators.forEach(({ osc, gain }) => {
+                    try {
+                        osc.stop();
+                        gain.disconnect();
+                    } catch(e) {}
+                });
+                this.oscillators = [];
+                
+                this.noiseNodes.forEach(({ noise, gain }) => {
+                    try {
+                        noise.stop();
+                        gain.disconnect();
+                    } catch(e) {}
+                });
+                this.noiseNodes = [];
+            }
+        }
+
         // Animation System
         class ASCIIAnimator {
-            constructor() {
+            constructor(audioEngine) {
                 this.canvas = document.getElementById('canvas');
                 this.progressBar = document.getElementById('progress');
                 this.status = document.getElementById('status');
+                this.audio = audioEngine;
                 this.isPlaying = false;
                 this.currentFrame = 0;
                 this.frameRate = 12;
-                this.totalDuration = 60; // seconds
+                this.totalDuration = 70; // seconds (60s content + 10s title)
                 this.totalFrames = this.totalDuration * this.frameRate;
                 this.animationId = null;
                 this.stars = this.generateStars();
                 this.snow = this.generateSnow();
+                this.walkCycle = 0;
+                this.droneActive = false;
+                this.windActive = false;
             }
 
             generateStars() {
@@ -316,15 +623,41 @@
                 });
             }
 
-            // Scene 1: Opening - Robot wakes up in ruins
+            // Title Card Scene (0-10s)
+            sceneTitle(frame) {
+                this.clear();
+                
+                // Background stars
+                this.drawStars(0);
+                
+                // Title card
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'title-card';
+                titleDiv.innerHTML = `
+                    <div class="main-title">最后的信使</div>
+                    <div class="sub-title">THE LAST MESSENGER</div>
+                    <div class="title-decoration">═══════════════════════</div>
+                    <div class="episode">实验短片 #001</div>
+                `;
+                this.canvas.appendChild(titleDiv);
+                
+                this.status.textContent = frame < 84 ? '影片即将开始...' : 'Press START or wait...';
+                
+                // Audio: Start drone at 2 seconds
+                if (frame === 24 && !this.droneActive) {
+                    this.audio.startDrone(55, 0.08);
+                    this.droneActive = true;
+                }
+            }
+
+            // Scene 1: Robot wakes up in ruins (10-20s)
             scene1(frame) {
                 this.clear();
-                const fadeIn = Math.min(frame / 24, 1); // 2 seconds fade
                 
                 // Draw ruins
                 this.drawText(ASSETS.city, 20, 15, 'ruins');
                 
-                // Robot eye blinks after 3 seconds
+                // Robot eye blinks after 3 seconds into scene
                 if (frame > 36) {
                     const robot = frame % 24 < 12 ? ASSETS.robot : ASSETS.robotWalk1;
                     this.drawText(robot, 33, 28, 'robot');
@@ -337,24 +670,39 @@
                     eyeDiv.textContent = '◠';
                     eyeDiv.className = 'robot-eye';
                     this.canvas.appendChild(eyeDiv);
+                    
+                    // Blink sound every 2 seconds
+                    if (frame % 24 === 0) {
+                        this.audio.playBlink();
+                    }
+                }
+                
+                // Startup sound at scene start
+                if (frame === 0) {
+                    this.audio.playStartup();
                 }
                 
                 this.status.textContent = frame < 36 ? '系统启动中...' : '任务: 送达 | 距离: 未知';
             }
 
-            // Scene 2: Journey through wasteland
+            // Scene 2: Journey through wasteland (20-35s)
             scene2(frame) {
                 this.clear();
-                const progress = (frame % 72) / 72; // 6 second loop
+                const progress = (frame % 72) / 72;
                 const robotX = Math.floor(10 + progress * 50);
                 
                 // Draw horizon
-                this.drawText(['_' .repeat(80)], 0, 25, 'ruins');
+                this.drawText(['_'.repeat(80)], 0, 25, 'ruins');
                 
                 // Draw walking robot
                 const walkCycle = Math.floor(frame / 6) % 2;
                 const robot = walkCycle === 0 ? ASSETS.robotWalk1 : ASSETS.robotWalk2;
                 this.drawText(robot, robotX, 20, 'robot');
+                
+                // Footstep sounds
+                if (frame % 12 === 0) {
+                    this.audio.playFootstep();
+                }
                 
                 // Background elements passing by
                 const elementPos = Math.floor((1 - progress) * 70);
@@ -365,7 +713,7 @@
                 this.status.textContent = '行进中...';
             }
 
-            // Scene 3: Mountain and tower
+            // Scene 3: Mountain and tower (35-45s)
             scene3(frame) {
                 this.clear();
                 this.drawStars(2);
@@ -387,7 +735,7 @@
                 this.status.textContent = '目标锁定: 信号塔';
             }
 
-            // Scene 4: Snow storm
+            // Scene 4: Snow storm (45-55s)
             scene4(frame) {
                 this.clear();
                 this.drawSnow();
@@ -405,10 +753,16 @@
                     this.drawText(['[电量: 12%]'], 20, 40, 'robot-eye');
                 }
                 
+                // Start wind at scene start
+                if (frame === 0 && !this.windActive) {
+                    this.audio.startWind();
+                    this.windActive = true;
+                }
+                
                 this.status.textContent = '暴风雪 | 电量不足';
             }
 
-            // Scene 5: Signal transmission
+            // Scene 5: Signal transmission (55-65s)
             scene5(frame) {
                 this.clear();
                 this.drawStars(0);
@@ -434,10 +788,15 @@
                     this.drawText(ASSETS.message, 15, 18, 'text');
                 }
                 
+                // Signal sound at beam start
+                if (frame === 12) {
+                    this.audio.playSignal();
+                }
+                
                 this.status.textContent = frame > 36 ? '数据传输完成' : '信号发射中...';
             }
 
-            // Scene 6: Ending
+            // Scene 6: Ending (65-70s)
             scene6(frame) {
                 this.clear();
                 this.drawStars(0);
@@ -455,6 +814,11 @@
                     this.drawText(ASSETS.ending, 15, 15, 'text');
                 }
                 
+                // Chime at ending start
+                if (frame === 0) {
+                    this.audio.playChime();
+                }
+                
                 this.status.textContent = frame > 48 ? 'THE END' : '使命完成';
             }
 
@@ -463,17 +827,27 @@
                 
                 // Scene timeline
                 if (seconds < 10) {
-                    this.scene1(this.currentFrame);
-                } else if (seconds < 25) {
-                    this.scene2(this.currentFrame - 120);
+                    this.sceneTitle(this.currentFrame);
+                } else if (seconds < 20) {
+                    this.scene1(this.currentFrame - 120);
                 } else if (seconds < 35) {
-                    this.scene3(this.currentFrame - 300);
+                    this.scene2(this.currentFrame - 240);
                 } else if (seconds < 45) {
-                    this.scene4(this.currentFrame - 420);
+                    this.scene3(this.currentFrame - 420);
                 } else if (seconds < 55) {
-                    this.scene5(this.currentFrame - 540);
+                    this.scene4(this.currentFrame - 540);
+                } else if (seconds < 65) {
+                    // Stop wind when leaving snow scene
+                    if (this.windActive && seconds >= 55) {
+                        this.audio.stopAll();
+                        this.windActive = false;
+                        this.droneActive = false;
+                        this.audio.startDrone(50, 0.05);
+                        this.droneActive = true;
+                    }
+                    this.scene5(this.currentFrame - 660);
                 } else {
-                    this.scene6(this.currentFrame - 660);
+                    this.scene6(this.currentFrame - 780);
                 }
                 
                 // Update progress
@@ -483,6 +857,7 @@
 
             start() {
                 if (this.isPlaying) return;
+                this.audio.init();
                 this.isPlaying = true;
                 this.lastTime = performance.now();
                 this.animate();
@@ -493,6 +868,9 @@
             pause() {
                 this.isPlaying = false;
                 cancelAnimationFrame(this.animationId);
+                this.audio.stopAll();
+                this.droneActive = false;
+                this.windActive = false;
                 document.getElementById('startBtn').disabled = false;
                 document.getElementById('pauseBtn').disabled = true;
                 document.getElementById('startBtn').textContent = 'RESUME';
@@ -508,7 +886,10 @@
                 document.getElementById('startBtn').disabled = false;
                 document.getElementById('pauseBtn').disabled = true;
                 document.getElementById('startBtn').textContent = 'START';
-                this.scene1(0);
+                this.audio.stopAll();
+                this.droneActive = false;
+                this.windActive = false;
+                this.sceneTitle(0);
             }
 
             animate() {
@@ -535,14 +916,18 @@
         }
 
         // Initialize
-        const animator = new ASCIIAnimator();
+        const audioEngine = new AudioEngine();
+        const animator = new ASCIIAnimator(audioEngine);
         
         document.getElementById('startBtn').addEventListener('click', () => animator.start());
         document.getElementById('pauseBtn').addEventListener('click', () => animator.pause());
         document.getElementById('resetBtn').addEventListener('click', () => animator.reset());
+        document.getElementById('audioToggle').addEventListener('change', (e) => {
+            audioEngine.setEnabled(e.target.checked);
+        });
 
-        // Initial render
-        animator.scene1(0);
+        // Initial render - show title card
+        animator.sceneTitle(0);
     </script>
 </body>
 </html>
