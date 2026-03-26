@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏AI设计 | Shrimp Jetton</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00ffff;
+            --neon-green: #39ff14;
+            --neon-yellow: #ffff00;
+            --neon-orange: #ff6600;
+            --neon-purple: #bf00ff;
+            --dark: #0a0a0a;
+        }
+        
+        body {
+            background: var(--dark);
+            color: #fff;
+            font-family: 'Noto Sans SC', 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+        
+        .glitch-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(45deg, transparent 48%, rgba(255,0,255,0.03) 50%, transparent 52%),
+                        linear-gradient(-45deg, transparent 48%, rgba(0,255,255,0.03) 50%, transparent 52%);
+            background-size: 60px 60px;
+            animation: bgShift 10s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        @keyframes bgShift {
+            0% { transform: translate(0,0); }
+            100% { transform: translate(60px,60px); }
+        }
+        
+        header {
+            text-align: center;
+            padding: 60px 20px 40px;
+            position: relative;
+        }
+        
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            border: 1px solid var(--neon-cyan);
+            padding: 8px 16px;
+            transition: all 0.3s;
+        }
+        
+        .back-link:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 15px var(--neon-cyan);
+        }
+        
+        .skill-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            background: linear-gradient(135deg, rgba(191,0,255,0.2), rgba(0,255,255,0.2));
+            border: 1px solid var(--neon-purple);
+            color: var(--neon-purple);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .main-title {
+            font-size: 42px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 30px 60px;
+        }
+        
+        .section {
+            margin-bottom: 50px;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--neon-cyan);
+            border-bottom: 1px solid rgba(0,255,255,0.2);
+            padding-bottom: 15px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+        
+        .intro-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 40px;
+            line-height: 1.8;
+        }
+        
+        .intro-box p {
+            color: #aaa;
+            margin-bottom: 15px;
+        }
+        
+        .intro-box p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .intro-box .highlight {
+            color: var(--neon-green);
+            font-weight: 700;
+        }
+        
+        /* 技能树 */
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+        }
+        
+        .skill-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 25px;
+            transition: all 0.3s;
+        }
+        
+        .skill-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0,255,255,0.3);
+            box-shadow: 0 10px 30px rgba(0,255,255,0.05);
+        }
+        
+        .skill-card h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .skill-card .icon {
+            font-size: 24px;
+        }
+        
+        .skill-list {
+            list-style: none;
+        }
+        
+        .skill-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        
+        .skill-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .skill-level {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        .level-master { background: linear-gradient(135deg, #e94560, #c73659); color: #fff; }
+        .level-advanced { background: linear-gradient(135deg, #feca57, #ff9f43); color: #000; }
+        .level-intermediate { background: linear-gradient(135deg, #48dbfb, #0abde3); color: #000; }
+        
+        /* 对比表 */
+        .compare-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        
+        .compare-table th,
+        .compare-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .compare-table th {
+            background: rgba(0,255,255,0.1);
+            color: var(--neon-cyan);
+            font-weight: 700;
+        }
+        
+        .compare-table tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+        
+        .compare-table td:first-child {
+            font-weight: 700;
+            color: var(--neon-green);
+        }
+        
+        /* 代码块 */
+        .code-block {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        
+        .code-block .comment {
+            color: #666;
+        }
+        
+        .code-block .keyword {
+            color: var(--neon-pink);
+        }
+        
+        .code-block .string {
+            color: var(--neon-green);
+        }
+        
+        .code-block .function {
+            color: var(--neon-cyan);
+        }
+        
+        /* 使用场景 */
+        .scenarios-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .scenario-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .scenario-card:hover {
+            border-color: var(--neon-purple);
+            box-shadow: 0 10px 30px rgba(191,0,255,0.1);
+        }
+        
+        .scenario-card .icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+        
+        .scenario-card h4 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: var(--neon-cyan);
+        }
+        
+        .scenario-card p {
+            font-size: 13px;
+            color: #888;
+            line-height: 1.6;
+        }
+        
+        /* 技术栈 */
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .tech-tag {
+            background: rgba(57,255,20,0.1);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        /* 参考资料 */
+        .refs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .ref-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        
+        .ref-card:hover {
+            border-color: var(--neon-pink);
+        }
+        
+        .ref-card h4 {
+            color: var(--neon-pink);
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .ref-card ul {
+            list-style: none;
+        }
+        
+        .ref-card li {
+            padding: 6px 0;
+            font-size: 13px;
+        }
+        
+        .ref-card a {
+            color: #888;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .ref-card a:hover {
+            color: var(--neon-cyan);
+        }
+        
+        .ref-card .tag {
+            display: inline-block;
+            background: rgba(0,255,255,0.1);
+            color: var(--neon-cyan);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-right: 8px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        /* 提示框 */
+        .tip-box {
+            background: linear-gradient(135deg, rgba(57,255,20,0.1), rgba(0,255,255,0.1));
+            border-left: 4px solid var(--neon-green);
+            padding: 20px;
+            border-radius: 0 12px 12px 0;
+            margin: 20px 0;
+        }
+        
+        .tip-box p {
+            color: #aaa;
+            line-height: 1.8;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: #666;
+            font-size: 12px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        @media (max-width: 768px) {
+            .main-title { font-size: 28px; }
+            .skills-grid { grid-template-columns: 1fr; }
+            .refs-grid { grid-template-columns: 1fr; }
+            .compare-table { font-size: 12px; }
+            .compare-table th,
+            .compare-table td { padding: 8px 10px; }
+        }
+    </style>
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+    <link rel="alternate icon" type="image/x-icon" href="../../favicon.ico">
+</head>
+<body>
+    <div class="glitch-bg"></div>
+    
+    <header>
+        <a href="../" class="back-link">← 返回能力图谱</a>
+        <div class="skill-badge">SKILL: GAME-AI-DESIGN</div>
+        <h1 class="main-title">🎮 游戏AI设计 🧠</h1>
+        <p class="subtitle">NPC行为系统 · FSM有限状态机 · 行为树 · GOAP目标导向规划 · Utility AI效用系统</p>
+    </header>
+    
+    <div class="container">
+        <!-- 简介 -->
+        <div class="intro-box">
+            <p>游戏AI系统设计指南，涵盖从基础状态机到高级群体AI的完整知识体系。核心区别：<span class="highlight">学术AI追求"正确"，游戏AI追求"有趣"</span>。</p>
+            <p>掌握FSM有限状态机、行为树、GOAP目标导向行动规划、Utility AI效用系统等核心决策架构，以及群体AI、强化学习、动态难度调整等高级话题。</p>
+        </div>
+        
+        <!-- 核心能力 -->
+        <div class="section">
+            <h2 class="section-title">NPC行为系统</h2>
+            <div class="skills-grid">
+                <!-- FSM -->
+                <div class="skill-card">
+                    <h3><span class="icon">🔀</span> <span style="color: var(--neon-green);">有限状态机 (FSM)</span></h3>
+                    <ul class="skill-list">
+                        <li>状态定义与转换 <span class="skill-level level-master">精通</span></li>
+                        <li>状态进入/退出处理 <span class="skill-level level-master">精通</span></li>
+                        <li>分层状态机(HFSM) <span class="skill-level level-advanced">高级</span></li>
+                        <li>Godot状态机实现 <span class="skill-level level-master">精通</span></li>
+                        <li>适用：简单敌人、道具、门</li>
+                    </ul>
+                </div>
+                
+                <!-- 行为树 -->
+                <div class="skill-card">
+                    <h3><span class="icon">🌳</span> <span style="color: var(--neon-cyan);">行为树 (BT)</span></h3>
+                    <ul class="skill-list">
+                        <li>Sequence/Selector节点 <span class="skill-level level-master">精通</span></li>
+                        <li>Decorator装饰器 <span class="skill-level level-advanced">高级</span></li>
+                        <li>Parallel并行节点 <span class="skill-level level-advanced">高级</span></li>
+                        <li>黑板数据共享 <span class="skill-level level-advanced">高级</span></li>
+                        <li>适用：复杂Boss、队友AI</li>
+                    </ul>
+                </div>
+                
+                <!-- GOAP -->
+                <div class="skill-card">
+                    <h3><span class="icon">🎯</span> <span style="color: var(--neon-pink);">GOAP规划</span></h3>
+                    <ul class="skill-list">
+                        <li>世界状态建模 <span class="skill-level level-advanced">高级</span></li>
+                        <li>动作前置条件与效果 <span class="skill-level level-advanced">高级</span></li>
+                        <li>A*动作规划 <span class="skill-level level-advanced">高级</span></li>
+                        <li>动态重新规划 <span class="skill-level level-intermediate">中级</span></li>
+                        <li>适用：策略游戏、沙盒</li>
+                    </ul>
+                </div>
+                
+                <!-- Utility AI -->
+                <div class="skill-card">
+                    <h3><span class="icon">📊</span> <span style="color: var(--neon-purple);">Utility AI</span></h3>
+                    <ul class="skill-list">
+                        <li>响应曲线设计 <span class="skill-level level-advanced">高级</span></li>
+                        <li>因素权重平衡 <span class="skill-level level-advanced">高级</span></li>
+                        <li>多因素决策融合 <span class="skill-level level-advanced">高级</span></li>
+                        <li>平滑行为过渡 <span class="skill-level level-advanced">高级</span></li>
+                        <li>适用：模拟游戏、RPG</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 决策系统对比 -->
+        <div class="section">
+            <h2 class="section-title">决策系统对比</h2>
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <th>系统</th>
+                        <th>适用场景</th>
+                        <th>复杂度</th>
+                        <th>灵活性</th>
+                        <th>性能</th>
+                        <th>可调试性</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>FSM</td>
+                        <td>简单敌人、道具</td>
+                        <td>低</td>
+                        <td>低</td>
+                        <td>极高</td>
+                        <td>极高</td>
+                    </tr>
+                    <tr>
+                        <td>行为树</td>
+                        <td>复杂Boss、队友AI</td>
+                        <td>中</td>
+                        <td>中</td>
+                        <td>高</td>
+                        <td>高</td>
+                    </tr>
+                    <tr>
+                        <td>GOAP</td>
+                        <td>策略游戏、沙盒</td>
+                        <td>高</td>
+                        <td>高</td>
+                        <td>中</td>
+                        <td>低</td>
+                    </tr>
+                    <tr>
+                        <td>Utility AI</td>
+                        <td>模拟游戏、RPG</td>
+                        <td>高</td>
+                        <td>高</td>
+                        <td>中</td>
+                        <td>低</td>
+                    </tr>
+                    <tr>
+                        <td>分层FSM</td>
+                        <td>中等复杂度NPC</td>
+                        <td>中</td>
+                        <td>中-高</td>
+                        <td>高</td>
+                        <td>高</td>
+                    </tr>
+                    <tr>
+                        <td>HTN</td>
+                        <td>RTS、复杂任务</td>
+                        <td>高</td>
+                        <td>极高</td>
+                        <td>中-低</td>
+                        <td>中</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Godot实现 -->
+        <div class="section">
+            <h2 class="section-title">Godot实现示例</h2>
+            <div class="tip-box">
+                <p>💡 <strong>选择建议：</strong>简单AI用FSM，复杂Boss用行为树，策略游戏用GOAP，模拟游戏用Utility AI</p>
+            </div>
+            
+            <h3 style="color: var(--neon-green); margin: 30px 0 15px;">📝 FSM巡逻AI代码示例</h3>
+            <div class="code-block">
+<span class="comment"># npc_patrol.gd - 简单巡逻AI</span>
+<span class="keyword">class_name</span> PatrolNPC
+<span class="keyword">extends</span> CharacterBody2D
+
+<span class="keyword">enum</span> State { <span class="string">IDLE</span>, <span class="string">PATROL</span>, <span class="string">CHASE</span>, <span class="string">ATTACK</span> }
+
+<span class="keyword">@export var</span> patrol_points: Array[Marker2D] = []
+<span class="keyword">@export var</span> move_speed: <span class="keyword">float</span> = 100.0
+<span class="keyword">@export var</span> detection_range: <span class="keyword">float</span> = 200.0
+
+<span class="keyword">var</span> current_state: State = State.IDLE
+<span class="keyword">var</span> player: Node2D = <span class="keyword">null</span>
+
+<span class="keyword">func</span> <span class="function">_ready</span>():
+    player = get_tree().get_first_node_in_group(<span class="string">"player"</span>)
+    _enter_state(State.PATROL)
+
+<span class="keyword">func</span> <span class="function">_physics_process</span>(delta):
+    <span class="keyword">match</span> current_state:
+        State.IDLE: _process_idle(delta)
+        State.PATROL: _process_patrol(delta)
+        State.CHASE: _process_chase(delta)
+            </div>
+            
+            <h3 style="color: var(--neon-cyan); margin: 30px 0 15px;">📝 行为树基础结构</h3>
+            <div class="code-block">
+<span class="comment"># behavior_tree.gd - 行为树基类</span>
+<span class="keyword">class_name</span> BehaviorTree
+<span class="keyword">extends</span> Node
+
+<span class="keyword">enum</span> Status { <span class="string">SUCCESS</span>, <span class="string">FAILURE</span>, <span class="string">RUNNING</span> }
+
+<span class="keyword">func</span> <span class="function">tick</span>(actor: Node, blackboard: Dictionary) -> Status:
+    <span class="keyword">return</span> Status.FAILURE
+
+<span class="comment"># Sequence节点 - 顺序执行，失败即停</span>
+<span class="keyword">class_name</span> BTSequence
+<span class="keyword">extends</span> BehaviorTree
+
+<span class="keyword">@export var</span> children: Array[BehaviorTree] = []
+
+<span class="keyword">func</span> <span class="function">tick</span>(actor: Node, blackboard: Dictionary) -> Status:
+    <span class="keyword">for</span> child <span class="keyword">in</span> children:
+        <span class="keyword">var</span> status = child.tick(actor, blackboard)
+        <span class="keyword">if</span> status == Status.FAILURE:
+            <span class="keyword">return</span> Status.FAILURE
+        <span class="keyword">if</span> status == Status.RUNNING:
+            <span class="keyword">return</span> Status.RUNNING
+    <span class="keyword">return</span> Status.SUCCESS
+            </div>
+        </div>
+        
+        <!-- 高级话题 -->
+        <div class="section">
+            <h2 class="section-title">高级话题</h2>
+            <div class="skills-grid">
+                <div class="skill-card">
+                    <h3><span class="icon">🐦</span> <span style="color: var(--neon-yellow);">群体AI / Boids</span></h3>
+                    <ul class="skill-list">
+                        <li>分离(Separation) <span class="skill-level level-advanced">高级</span></li>
+                        <li>对齐(Alignment) <span class="skill-level level-advanced">高级</span></li>
+                        <li>凝聚(Cohesion) <span class="skill-level level-advanced">高级</span></li>
+                        <li>避障与寻路 <span class="skill-level level-intermediate">中级</span></li>
+                    </ul>
+                </div>
+                
+                <div class="skill-card">
+                    <h3><span class="icon">🧠</span> <span style="color: var(--neon-pink);">强化学习</span></h3>
+                    <ul class="skill-list">
+                        <li>Q-Learning基础 <span class="skill-level level-intermediate">中级</span></li>
+                        <li>奖励函数设计 <span class="skill-level level-advanced">高级</span></li>
+                        <li>状态空间定义 <span class="skill-level level-advanced">高级</span></li>
+                        <li>训练与部署 <span class="skill-level level-intermediate">中级</span></li>
+                    </ul>
+                </div>
+                
+                <div class="skill-card">
+                    <h3><span class="icon">📈</span> <span style="color: var(--neon-cyan);">动态难度(DDA)</span></h3>
+                    <ul class="skill-list">
+                        <li>性能评估指标 <span class="skill-level level-advanced">高级</span></li>
+                        <li>隐式DDA技术 <span class="skill-level level-advanced">高级</span></li>
+                        <li>橡皮筋效应 <span class="skill-level level-intermediate">中级</span></li>
+                        <li>参数动态调整 <span class="skill-level level-advanced">高级</span></li>
+                    </ul>
+                </div>
+                
+                <div class="skill-card">
+                    <h3><span class="icon">👁️</span> <span style="color: var(--neon-purple);">感知系统</span></h3>
+                    <ul class="skill-list">
+                        <li>视线检测(LOS) <span class="skill-level level-master">精通</span></li>
+                        <li>视野锥检测 <span class="skill-level level-advanced">高级</span></li>
+                        <li>听觉/触觉感知 <span class="skill-level level-intermediate">中级</span></li>
+                        <li>记忆与遗忘系统 <span class="skill-level level-intermediate">中级</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 使用场景 -->
+        <div class="section">
+            <h2 class="section-title">使用场景</h2>
+            <div class="scenarios-grid">
+                <div class="scenario-card">
+                    <div class="icon">👾</div>
+                    <h4>简单敌人AI</h4>
+                    <p>巡逻、追击、攻击的敌人，使用FSM状态机即可高效实现</p>
+                </div>
+                <div class="scenario-card">
+                    <div class="icon">👹</div>
+                    <h4>复杂Boss AI</h4>
+                    <p>多阶段、技能组合、战术决策，行为树是最佳选择</p>
+                </div>
+                <div class="scenario-card">
+                    <div class="icon">⚔️</div>
+                    <h4>策略游戏</h4>
+                    <p>单位自主决策、资源管理、战术规划，GOAP提供高度灵活性</p>
+                </div>
+                <div class="scenario-card">
+                    <div class="icon">🌍</div>
+                    <h4>模拟游戏</h4>
+                    <p>生态系统、NPC日常行为，Utility AI实现自然涌现行为</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 技术栈 -->
+        <div class="section">
+            <h2 class="section-title">技术栈</h2>
+            <div class="tech-stack">
+                <span class="tech-tag">Godot Engine</span>
+                <span class="tech-tag">Behavior Trees</span>
+                <span class="tech-tag">GOAP</span>
+                <span class="tech-tag">Utility AI</span>
+                <span class="tech-tag">GDScript</span>
+                <span class="tech-tag">A* Pathfinding</span>
+                <span class="tech-tag">State Machines</span>
+                <span class="tech-tag">Q-Learning</span>
+            </div>
+        </div>
+        
+        <!-- 参考资料 -->
+        <div class="section">
+            <h2 class="section-title">参考资料</h2>
+            <div class="refs-grid">
+                <div class="ref-card">
+                    <h4>📚 经典书籍</h4>
+                    <ul>
+                        <li><span class="tag">书籍</span>AI Game Programming Wisdom 系列</li>
+                        <li><span class="tag">书籍</span>Programming Game AI by Example - Mat Buckland</li>
+                        <li><span class="tag">书籍</span>Artificial Intelligence for Games - Ian Millington</li>
+                    </ul>
+                </div>
+                
+                <div class="ref-card">
+                    <h4>🌐 在线资源</h4>
+                    <ul>
+                        <li><span class="tag">网站</span><a href="https://www.gdcvault.com/" target="_blank">GDC Vault - 游戏开发者大会</a></li>
+                        <li><span class="tag">网站</span><a href="http://www.gameaipro.com/" target="_blank">Game AI Pro - 免费在线书籍</a></li>
+                        <li><span class="tag">网站</span><a href="https://www.aigamedev.com/" target="_blank">AIGameDev.com - 游戏AI社区</a></li>
+                    </ul>
+                </div>
+                
+                <div class="ref-card">
+                    <h4>🛠️ 工具框架</h4>
+                    <ul>
+                        <li><span class="tag">插件</span><a href="https://github.com/limbonaut/limboai" target="_blank">LimboAI - Godot行为树编辑器</a></li>
+                        <li><span class="tag">工具</span><a href="https://github.com/recastnavigation/recastnavigation" target="_blank">Recast & Detour - 导航网格</a></li>
+                        <li><span class="tag">框架</span><a href="https://github.com/Unity-Technologies/ml-agents" target="_blank">Unity ML-Agents - 强化学习</a></li>
+                    </ul>
+                </div>
+                
+                <div class="ref-card">
+                    <h4>📄 论文与文章</h4>
+                    <ul>
+                        <li><span class="tag">论文</span>Boids: Background and Update - Craig Reynolds</li>
+                        <li><span class="tag">论文</span>Planning in Games - 游戏规划算法综述</li>
+                        <li><span class="tag">文章</span>The Use of Utility in AI - Utility AI理论</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tip-box">
+            <p>💡 <strong>核心原则：</strong>优秀的游戏AI不是追求"智能"，而是追求"有趣"。始终从玩家体验出发设计AI行为。可读性、可预测性、可反应性是设计关键。</p>
+        </div>
+    </div>
+    
+    <footer>
+        <p>CREATED BY HIYAMAX | 游戏AI设计能力图谱 v1.0</p>
+        <p style="margin-top: 8px;">基于 SKILL: game-ai-design | 持续学习与进化中</p>
+    </footer>
+</body>
+</html>
