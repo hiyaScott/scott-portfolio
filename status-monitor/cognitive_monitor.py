@@ -32,6 +32,89 @@ HISTORY_RETENTION_DAYS = 7  # 7天热数据
 ARCHIVE_RETENTION_MONTHS = 12  # 保留12个月归档
 
 # ============================================================================
+# v7.2: 六大任务分类系统
+# ============================================================================
+TASK_CATEGORIES = {
+    "研究": {
+        "icon": "🔬",
+        "keywords": [
+            "分析", "竞品", "调研", "研究", "benchmark", "对比",
+            "方案设计", "架构设计", "技术选型", "可行性", "评估",
+            "数据挖掘", "模式识别", "趋势分析", "报告"
+        ],
+        "description": "数据分析、竞品调研、技术方案设计"
+    },
+    "作品": {
+        "icon": "🎮",
+        "keywords": [
+            "游戏开发", "游戏设计", "交互页面", "创意工具", "前端开发",
+            "godot", "unity", "unreal", "游戏引擎", "关卡设计", "gdd",
+            "ascii", "短剧", "短片", "动画", "视觉", "美术", "特效"
+        ],
+        "description": "游戏开发、交互页面、创意工具、前端开发"
+    },
+    "开发": {
+        "icon": "⚙️",
+        "keywords": [
+            "后端", "api", "自动化", "脚本", "基建", "devops",
+            "部署", "ci/cd", "github actions", "docker", "服务器",
+            "数据库", "缓存", "消息队列", "微服务", "网关"
+        ],
+        "description": "后端服务、API开发、自动化脚本、技术基建"
+    },
+    "内容": {
+        "icon": "📝",
+        "keywords": [
+            "文档", "设计文档", "分析报告", "知识整理", "文档编写",
+            "剧本", "写作", "文案", "博客", "教程", "手册",
+            "gdd", "策划案", "故事", "剧情", "叙事"
+        ],
+        "description": "设计文档、分析报告、知识整理、文档编写"
+    },
+    "系统": {
+        "icon": "🔧",
+        "keywords": [
+            "监控", "状态", "负载", "定时任务", "cron", "heartbeat",
+            "系统维护", "运维", "日志", "告警", "备份", "恢复",
+            "飞书", "消息", "通知", "集成"
+        ],
+        "description": "飞书对话、状态监控、定时任务、系统维护"
+    },
+    "其他": {
+        "icon": "📦",
+        "keywords": [],
+        "description": "临时任务、待分类事项、杂项"
+    }
+}
+
+def classify_task(content):
+    """
+    v7.2: 智能任务分类
+    根据内容匹配六大任务分类
+    """
+    content_lower = content.lower()
+    
+    # 按优先级匹配（研究 > 作品 > 开发 > 内容 > 系统 > 其他）
+    category_order = ["研究", "作品", "开发", "内容", "系统"]
+    
+    for category in category_order:
+        cat_data = TASK_CATEGORIES[category]
+        for keyword in cat_data["keywords"]:
+            if keyword.lower() in content_lower:
+                return {
+                    "category": category,
+                    "icon": cat_data["icon"],
+                    "description": cat_data["description"]
+                }
+    
+    # 默认返回其他
+    return {
+        "category": "其他",
+        "icon": TASK_CATEGORIES["其他"]["icon"],
+        "description": TASK_CATEGORIES["其他"]["description"]
+    }
+
+# ============================================================================
 # 扩展的关键词到标签映射 - v5.23
 # ============================================================================
 KEYWORD_TAGS = {
@@ -380,7 +463,7 @@ def extract_task_label(content):
     return None
 
 def analyze_session(file_path):
-    """分析会话 - v5.23: 增强标签提取"""
+    """分析会话 - v7.2: 添加任务分类"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -396,6 +479,9 @@ def analyze_session(file_path):
         is_group = False
         is_spawn = False
         
+        # v7.2: 收集内容用于分类
+        all_content = []
+        
         for line in lines[-80:]:  # 检查最近80条，提高准确度
             try:
                 msg = json.loads(line.strip())
@@ -407,6 +493,9 @@ def analyze_session(file_path):
                     
                     total_tokens += len(content) // 4
                     messages += 1
+                    
+                    # v7.2: 收集内容
+                    all_content.append(content)
                     
                     # 提取标签（从最近的消息中）
                     if label is None:
@@ -450,6 +539,10 @@ def analyze_session(file_path):
                         
             except:
                 pass
+        
+        # v7.2: 对收集的内容进行分类
+        combined_content = ' '.join(all_content[-20:])  # 最近20条内容用于分类
+        task_classification = classify_task(combined_content)
         
         # 确定会话类型和标签
         if label:
@@ -519,13 +612,18 @@ def analyze_session(file_path):
             'session_type': session_type,
             'session_name': session_name,
             'full_type': f"{session_type} {session_name}",
-            'has_lock': has_lock
+            'has_lock': has_lock,
+            # v7.2: 新增任务分类信息
+            'task_category': task_classification['category'],
+            'task_icon': task_classification['icon'],
+            'task_description': task_classification['description']
         }
     except Exception as e:
         print(f"[analyze_session error] {e}")
         return {'messages': 0, 'estimated_tokens': 0, 'tool_calls': 0, 
                 'is_waiting': False, 'is_processing': False, 'user_ts': 0, 'wait_time': 0, 'last_mtime': 0,
-                'session_type': "💭", 'session_name': "未知", 'full_type': "💭 未知", 'has_lock': False}
+                'session_type': "💭", 'session_name': "未知", 'full_type': "💭 未知", 'has_lock': False,
+                'task_category': '其他', 'task_icon': '📦', 'task_description': '临时任务、待分类事项、杂项'}
 
 def get_cognitive_load():
     """获取认知负载 - v5.33: 修复任务去重问题"""
@@ -587,7 +685,11 @@ def get_cognitive_load():
                 'type': 'session',
                 'file_key': file_key,
                 'user_ts': a.get('user_ts', 0),  # 用户消息时间戳
-                'is_system_monitor': is_system_monitor  # 标记系统监控
+                'is_system_monitor': is_system_monitor,  # 标记系统监控
+                # v7.2: 新增任务分类
+                'category': a.get('task_category', '其他'),
+                'category_icon': a.get('task_icon', '📦'),
+                'category_description': a.get('task_description', '临时任务、待分类事项、杂项')
             })
     else:
         total_tokens = 0
@@ -605,7 +707,11 @@ def get_cognitive_load():
             'status': status_text,
             'tokens': 0,
             'type': 'github_workflow',
-            'details': wf
+            'details': wf,
+            # v7.2: 新增任务分类
+            'category': '开发',
+            'category_icon': '⚙️',
+            'category_description': '后端服务、API开发、自动化脚本、技术基建'
         })
         # GitHub 构建也算作处理中任务
         if wf['status'] in ['in_progress', 'queued']:
@@ -618,7 +724,11 @@ def get_cognitive_load():
             'status': "🔄 运行中",
             'tokens': 0,
             'type': 'local_build',
-            'pid': build['pid']
+            'pid': build['pid'],
+            # v7.2: 新增任务分类
+            'category': '开发',
+            'category_icon': '⚙️',
+            'category_description': '后端服务、API开发、自动化脚本、技术基建'
         })
         processing_count += 1
     
@@ -797,7 +907,11 @@ def update_data_file(data):
                 'status': task.get('status', '✅ 空闲'),
                 'tokens': task.get('tokens', 0),
                 'type': task.get('type', 'session'),
-                'last_role': 'user' if '前活跃' in task.get('status', '') else 'assistant'
+                'last_role': 'user' if '前活跃' in task.get('status', '') else 'assistant',
+                # v7.2: 新增任务分类
+                'category': task.get('category', '其他'),
+                'category_icon': task.get('category_icon', '📦'),
+                'category_description': task.get('category_description', '临时任务、待分类事项、杂项')
             })
         
         # 构建前端兼容的数据格式
