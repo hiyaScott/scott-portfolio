@@ -1154,7 +1154,7 @@ def get_history_data(hours=1, max_points=200):
 
 def main():
     """v6.0: 单次执行模式 - crontab 每分钟调用一次"""
-    print("🧠 Shrimp Jetton v6.0 - 单次执行模式")
+    print("🧠 Shrimp Jetton v7.2 - 六大任务分类版 - 单次执行模式")
     
     try:
         load = get_cognitive_load()
