@@ -810,37 +810,40 @@ def get_cognitive_load():
     else:
         estimated_wait = {'text': '~5分钟+', 'seconds': 300, 'detail': '预计5分钟或更久'}
     
-    # v6.2: 返回活跃任务到 task_queue（处理中、等待中、或最近5分钟活跃）
-    active_tasks = [t for t in all_tasks if '🔄' in t.get('status', '') or '前活跃' in t.get('status', '') or '运行中' in t.get('status', '') or '活跃中' in t.get('status', '')]
+    # v7.3: 方案1 - task_queue包含所有活跃会话，数据完全可验证
+    # 不再过滤，显示所有all_tasks
     
-    # 任务排序：最近活跃 > 处理中 > 已回复
+    # 任务排序：处理中 > 最近活跃 > 其他
     def task_priority(t):
-        if '前活跃' in t.get('status', ''):
-            return (0, 0, t.get('wait_time', 0))
-        elif '🔄' in t.get('status', ''):
-            return (1, 0, 0)
+        if '🔄' in t.get('status', '') or '处理中' in t.get('status', ''):
+            return (0, 0)
+        elif '前活跃' in t.get('status', '') or '活跃中' in t.get('status', ''):
+            return (1, 0)
         else:
-            return (2, 0, 0)
+            return (2, 0)
     
-    active_tasks.sort(key=task_priority)
+    all_tasks.sort(key=task_priority)
+    
+    # 方案1: Sessions = task_queue数量, Tokens = task_queue累加
+    task_queue_tokens = sum(t.get('tokens', 0) for t in all_tasks)
     
     return {
-        'active_sessions': len(sessions),
+        'active_sessions': len(all_tasks),  # 改为task_queue数量
         'pending_count': pending_count,
         'processing_count': processing_count,
         'github_workflows': len(github_workflows),
         'local_builds': len(local_builds),
         'max_wait_sec': max_wait,
-        'total_tokens': total_tokens,
+        'total_tokens': task_queue_tokens,  # 改为task_queue累加
         'processing_tokens': processing_tokens,
         'estimated_wait': estimated_wait,
         'last_active_sec': last_active,
-        'task_queue': active_tasks,
+        'task_queue': all_tasks,  # 不过滤，显示所有
         'cognitive_score': score,
         'score_breakdown': score_breakdown,
         'system': sys_metrics,
         'workflow_details': github_workflows,
-        'build_details': local_builds
+        'build_details': build_details
     }
 
 def determine_status(score):
