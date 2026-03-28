@@ -843,7 +843,7 @@ def get_cognitive_load():
         'score_breakdown': score_breakdown,
         'system': sys_metrics,
         'workflow_details': github_workflows,
-        'build_details': build_details
+        'build_details': local_builds
     }
 
 def determine_status(score):
