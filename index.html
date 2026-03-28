@@ -2233,7 +2233,11 @@
             requestAnimationFrame(scheduler);
         }
 
-        // 微型 Status Tuner 仪表盘更新 - v7.1: 优先使用实时 API
+        // 微型 Status Tuner 仪表盘更新 - v7.3: 与 cognitive-status.html 保持一致 (Redis → CDN)
+        const MICRO_REDIS_URL = 'https://singular-snake-71209.upstash.io/get/cognitive.json';
+        const MICRO_REDIS_TOKEN = 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk';
+        const MICRO_CDN_URL = './status-monitor/cognitive-data.json';
+        
         async function updateMicroStatus() {
             const statusText = document.getElementById('microStatusText');
             const taskListEl = document.getElementById('microTaskList');
@@ -2249,30 +2253,42 @@
             let data = null;
             let source = 'unknown';
             
-            // v7.1: 优先尝试实时 API
+            // v7.3: 优先尝试 Redis (与 cognitive-status.html 保持一致)
             try {
-                const apiResponse = await fetch('http://8.210.105.190:8080/api/status', {
+                const redisResponse = await fetch(MICRO_REDIS_URL, {
                     method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + MICRO_REDIS_TOKEN
+                    },
                     cache: 'no-cache'
                 });
-                if (apiResponse.ok) {
-                    data = await apiResponse.json();
-                    source = 'API';
+                if (redisResponse.ok) {
+                    const redisResult = await redisResponse.json();
+                    // Upstash Redis 返回嵌套 JSON 格式
+                    if (redisResult.result) {
+                        const inner = JSON.parse(redisResult.result);
+                        if (inner.value) {
+                            data = JSON.parse(inner.value);
+                            source = 'Redis';
+                            console.log('[Homepage] Redis 实时数据');
+                        }
+                    }
                 }
             } catch (err) {
-                console.log('[Homepage] API failed, fallback to CDN:', err.message);
+                console.log('[Homepage] Redis failed, fallback to CDN:', err.message);
             }
             
-            // API 失败，回退到 CDN
+            // Redis 失败，回退到 CDN
             if (!data) {
                 try {
-                    const response = await fetch('./status-monitor/cognitive-data.json?t=' + Date.now(), {
+                    const response = await fetch(MICRO_CDN_URL + '?t=' + Date.now(), {
                         method: 'GET',
                         cache: 'no-cache'
                     });
                     if (response.ok) {
                         data = await response.json();
                         source = 'CDN';
+                        console.log('[Homepage] CDN 回退数据');
                     }
                 } catch (err) {
                     console.log('[Homepage] CDN also failed:', err.message);
