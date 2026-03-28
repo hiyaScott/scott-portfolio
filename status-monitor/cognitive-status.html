@@ -814,7 +814,7 @@
             <h1 style="display: flex; align-items: center; justify-content: center; gap: 12px;"><img src="../assets/tars-icon.jpg" alt="TARS" style="height: 56px; width: auto; border-radius: 8px; display: block;"><span style="font-size: 56px; line-height: 1;">TARS</span></h1>
             <div class="subtitle">Do not go gentle into that good night</div>
             <div class="version">
-                <span id="versionText">v7.1 · 实时 API · 5秒刷新</span>
+                <span id="versionText">v7.3 · Redis实时 · 30秒刷新</span>
             </div>
             <div style="margin-top: 12px; font-size: 12px; color: #888;">
                 <span id="refreshTimer">⚡ 实时 API</span>
@@ -1012,12 +1012,12 @@
     </div>
 
     <script>
-// v7.1: 实时 API 优先方案
-var API_URL = 'http://8.210.105.190:8080/api/status';  // 优先使用实时 API
-var TREND_API_URL = 'http://8.210.105.190:8080/api/trend';  // 趋势数据实时 API
-var DATA_URL = './cognitive-data.json';  // CDN 回退
+// v7.3: Redis 实时方案
+var REDIS_URL = 'https://singular-snake-71209.upstash.io/get/cognitive.json';
+var REDIS_TOKEN = 'gQAAAAAAARYpAAIncDE2NmRhOGU0OWFhZWM0N2I4OGZlMGZkNGM5NjdjMTI5NnAxNzEyMDk';
 var TREND_URL = 'https://hiyascott.github.io/scott-portfolio-data/status-monitor/cognitive-history.jsonl';  // 趋势数据从独立仓库读取
-var REFRESH_INTERVAL = 5000;  // 5秒刷新一次（实时）
+var DATA_URL = './cognitive-data.json';  // CDN 回退
+var REFRESH_INTERVAL = 30000;  // 30秒刷新一次（Redis轮询）
 var TREND_REFRESH_INTERVAL = 30000;  // 趋势图 30秒刷新
 var currentRange = '0.5h';
 var countdown = 60;
@@ -1199,23 +1199,32 @@ async function fetchData() {
     var data = null;
     var error = null;
     
-    // v7.1: 优先尝试实时 API
+    // v7.3: 优先尝试 Redis
     try {
-        var apiResponse = await fetch(API_URL, {
+        var redisResponse = await fetch(REDIS_URL, {
             method: 'GET',
-            cache: 'no-cache',
-            // CORS 请求不需要特殊 headers
+            headers: {
+                'Authorization': 'Bearer ' + REDIS_TOKEN
+            },
+            cache: 'no-cache'
         });
-        if (apiResponse.ok) {
-            data = await apiResponse.json();
-            console.log('[v7.1] 实时 API 数据');
+        if (redisResponse.ok) {
+            var redisResult = await redisResponse.json();
+            // Upstash Redis 返回嵌套 JSON 格式
+            if (redisResult.result) {
+                var inner = JSON.parse(redisResult.result);
+                if (inner.value) {
+                    data = JSON.parse(inner.value);
+                    console.log('[v7.3] Redis 实时数据');
+                }
+            }
         }
     } catch (err) {
         error = err;
-        console.log('[v7.1] API 失败，回退到 CDN:', err.message);
+        console.log('[v7.3] Redis 失败，回退到 CDN:', err.message);
     }
     
-    // API 失败，回退到 CDN
+    // Redis 失败，回退到 CDN
     if (!data) {
         try {
             var response = await fetch(DATA_URL + '?t=' + Date.now(), {
@@ -1224,7 +1233,7 @@ async function fetchData() {
             });
             if (response.ok) {
                 data = await response.json();
-                console.log('[v7.1] CDN 回退数据');
+                console.log('[v7.3] CDN 回退数据');
             }
         } catch (err) {
             error = err;
@@ -1233,9 +1242,9 @@ async function fetchData() {
     
     if (data) {
         updateUI(data);
-        recordUpdate();  // 记录更新时间
+        recordUpdate();
     } else {
-        console.error('[v7.1] Error:', error);
+        console.error('[v7.3] Error:', error);
         showError(error ? error.message : '无法获取数据');
     }
 }
@@ -1575,57 +1584,42 @@ function renderEmptyChart(message) {
     if (statsEl) statsEl.innerHTML = '<span>最高:-- 最低:-- 平均:--</span>';
 }
 
-// v7.1: 修改fetchTrend函数来使用 API 或 CDN 回退
+// v7.3: 趋势数据从 Data 仓库读取
 function fetchTrend() {
-    // 优先使用 API
-    fetch(TREND_API_URL)
+    fetch(TREND_URL + '?t=' + Date.now())
         .then(function(response) {
-            if (response.ok) return response.json();
-            throw new Error('API failed');
+            if (response.ok) return response.text();
+            throw new Error('CDN failed');
         })
-        .then(function(data) {
-            if (data.points) {
-                processTrendData(data.points);
-                console.log('[Trend] API 数据');
+        .then(function(text) {
+            // JSON Lines 格式解析
+            var lines = text.trim().split('\n');
+            var points = [];
+            lines.forEach(function(line) {
+                if (line) {
+                    try {
+                        var record = JSON.parse(line);
+                        if (record.timestamp && record.score !== undefined) {
+                            points.push({
+                                timestamp_ms: new Date(record.timestamp).getTime(),
+                                score: record.score,
+                                ts: record.timestamp
+                            });
+                        }
+                    } catch (e) {}
+                }
+            });
+            if (points.length > 0) {
+                processTrendData(points);
+                console.log('[Trend] Data 仓库数据');
             } else {
-                throw new Error('No points in API response');
+                throw new Error('No valid points');
             }
         })
         .catch(function(err) {
-            // API 失败，回退到 CDN
-            console.log('[Trend] API 失败，回退到 CDN:', err.message);
-            fetchTrendFromCDN();
+            console.error('[Trend] Error:', err);
+            showNoData('加载趋势数据失败');
         });
-}
-
-function fetchTrendFromCDN() {
-    fetch(TREND_URL + '?t=' + Date.now())
-        .then(function(response) {
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            return response.text();
-        })
-        .then(function(text) {
-            var lines = text.trim().split("\n").filter(function(l) { return l.trim(); });
-            var points = [];
-            
-            for (var i = 0; i < lines.length; i++) {
-                try {
-                    var r = JSON.parse(lines[i]);
-                    var ts = new Date(r.timestamp).getTime();
-                    if (ts && ts > 0) {
-                        points.push({ timestamp_ms: ts, score: r.score || 0 });
-                    }
-                } catch (e) {}
-            }
-            
-            processTrendData(points);
-        })
-        .catch(function(e) {
-            console.error('[Trend] CDN Error:', e);
-            renderEmptyChart('加载失败');
-        });
-}
-
 function processTrendData(points) {
     // 获取当前时间（本地时间戳）
     var now = Date.now();

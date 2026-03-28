@@ -1187,6 +1187,9 @@ def main():
         update_data_file(data)
         update_history_file(data)
         
+        # v7.3: 写入 Redis (实时数据)
+        update_redis(data)
+        
         ts = datetime.now().strftime("%H:%M:%S")
         tasks = ", ".join([d['name'].split()[1] if ' ' in d['name'] else d['name'] 
                            for d in load['task_queue'][:3]])
