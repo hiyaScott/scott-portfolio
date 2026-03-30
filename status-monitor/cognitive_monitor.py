@@ -734,12 +734,10 @@ def get_cognitive_load():
     
     last_active = int(time.time() - recent_mtime) if recent_mtime > 0 else 999
     
-    # v7.1: Mixed Score 混合评分算法 - 体感优化版
-    # 基于等待时间、Token数量、队列长度、活跃会话、系统负载五因素
-    # v7.1更新: 降低敏感度，让1个pending任务不显示为"轻负载"
+    # v7.4: Mixed Score 混合评分算法 - 体感对齐版
+    # 问题修复: 之前只计算"处理中"任务的tokens，但大token等待任务同样是负载
     
     # 因素1: 等待评分 (0-20分) - 基于最长等待时间
-    # 2分钟内0分(正常响应时间)，2-5分钟10分，5-10分钟15分，10分钟以上20分
     if max_wait <= 120:
         wait_score = 0
     elif max_wait <= 300:
@@ -749,38 +747,44 @@ def get_cognitive_load():
     else:
         wait_score = 20
     
-    # 因素2: Token评分 (0-25分) - 基于处理中任务的Token数量
-    # 每20万Tokens得5分，最高25分(需要100万tokens才满)
+    # 因素2: Token评分 (0-30分) - 基于所有活跃会话的Token总量
+    # v7.4: 改为计算所有任务的tokens，因为大token等待任务同样是负载
+    total_tokens_all = sum(t.get('tokens', 0) for t in all_tasks)
+    # 每10万tokens得3分，最高30分(100万tokens满)
+    token_score = min(int(total_tokens_all / 100000) * 3, 30)
+    
+    # 因素3: 队列评分 (0-25分) - 基于队列长度，加权考虑token规模
+    # v7.4: 大token任务（>30万）额外加权
+    total_queue = processing_count + pending_count
+    queue_score_map = {0: 0, 1: 5, 2: 12, 3: 18, 4: 23}
+    queue_score = queue_score_map.get(total_queue, 25)
+    # 大token任务额外加分（每个>30万token的任务+3分）
+    large_token_tasks = len([t for t in all_tasks if t.get('tokens', 0) > 300000])
+    queue_score += min(large_token_tasks * 3, 6)  # 最多加6分
+    queue_score = min(queue_score, 25)  # 封顶25分
+    
+    # 因素4: 活跃会话评分 (0-10分)
+    recent_active_count = len([s for s in sessions if s.get('is_recent', False)])
+    active_score = min(recent_active_count * 2, 10)
+    
+    # 因素5: 系统负载评分 (0-10分)
+    sys_metrics = get_system_metrics()
+    system_score = min((sys_metrics.get('cpu_percent', 0) + sys_metrics.get('memory_percent', 0)) // 20, 10)
+    
+    # 计算基础分数 (0-95)
+    base_score = wait_score + token_score + queue_score + active_score + system_score
+    
+    # 处理加成: 处理中的任务额外加成
+    processing_bonus = min(processing_count * 3, 8)
+    
+    # 最终分数 (0-100)
+    score = min(base_score + processing_bonus, 100)
+    
+    # v7.4: 计算处理中任务的tokens（用于返回数据）
     processing_tokens = sum(
         t.get('tokens', 0) for t in all_tasks 
         if '🔄' in t.get('status', '') or '处理中' in t.get('status', '')
     )
-    token_score = min(processing_tokens // 200000 * 5, 25)
-    
-    # 因素3: 队列评分 (0-25分) - 基于队列长度，非线性增长
-    # 0个:0分, 1个:2分, 2个:6分, 3个:12分, 4个:20分, 5个+:25分
-    total_queue = processing_count + pending_count
-    queue_score_map = {0: 0, 1: 2, 2: 6, 3: 12, 4: 20}
-    queue_score = queue_score_map.get(total_queue, 25)
-    
-    # 因素4: 活跃会话评分 (0-10分) - 降低权重
-    # 只计算真正活跃的，每个2分
-    recent_active_count = len([s for s in sessions if s.get('is_recent', False)])
-    active_score = min(recent_active_count * 2, 10)
-    
-    # 因素5: 系统负载评分 (0-10分) - 保持不变
-    sys_metrics = get_system_metrics()
-    system_score = min((sys_metrics.get('cpu_percent', 0) + sys_metrics.get('memory_percent', 0)) // 20, 10)
-    
-    # 计算基础分数 (0-90)
-    base_score = wait_score + token_score + queue_score + active_score + system_score
-    
-    # 处理加成: 处理中的任务额外加成，但上限10%
-    # 每个处理中任务加3分，更温和
-    processing_bonus = min(processing_count * 3, 10)
-    
-    # 最终分数 (0-100)
-    score = min(base_score + processing_bonus, 100)
     
     # v7.0: 详细的分数分解
     score_breakdown = {
@@ -794,18 +798,18 @@ def get_cognitive_load():
         'final_score': score
     }
     
-    # v7.0: 计算预估回复时间 (更精细)
-    if score <= 10:
+    # v7.4: 计算预估回复时间 - 调整阈值匹配新算法
+    if score <= 15:
         estimated_wait = {'text': '立即', 'seconds': 0, 'detail': '可立即响应'}
-    elif score <= 25:
+    elif score <= 35:
         estimated_wait = {'text': '~15秒', 'seconds': 15, 'detail': '预计15秒内回复'}
-    elif score <= 40:
+    elif score <= 50:
         estimated_wait = {'text': '~30秒', 'seconds': 30, 'detail': '预计30秒内回复'}
-    elif score <= 55:
+    elif score <= 65:
         estimated_wait = {'text': '~1分钟', 'seconds': 60, 'detail': '预计1分钟内回复'}
-    elif score <= 70:
+    elif score <= 75:
         estimated_wait = {'text': '~2分钟', 'seconds': 120, 'detail': '预计2分钟内回复'}
-    elif score <= 85:
+    elif score <= 90:
         estimated_wait = {'text': '~3分钟', 'seconds': 180, 'detail': '预计3分钟内回复'}
     else:
         estimated_wait = {'text': '~5分钟+', 'seconds': 300, 'detail': '预计5分钟或更久'}
@@ -847,11 +851,12 @@ def get_cognitive_load():
     }
 
 def determine_status(score):
-    if score >= 80:
+    # v7.4: 调整阈值匹配新算法
+    if score >= 85:
         return "high", "🔴 高负载", "建议等待，系统忙碌"
-    elif score >= 55:
+    elif score >= 60:
         return "medium", "🟡 中等负载", "可派简单任务"
-    elif score >= 30:
+    elif score >= 35:
         return "medium", "🟡 轻负载", "30秒内响应"
     else:
         return "low", "🟢 空闲", "可立即响应"
@@ -877,7 +882,11 @@ def update_redis(data):
                 'label': task.get('name', '💭 未知任务'),
                 'status': task.get('status', '✅ 空闲'),
                 'tokens': task.get('tokens', 0),
-                'type': task.get('type', 'session')
+                'type': task.get('type', 'session'),
+                # v7.2: 新增任务分类
+                'category': task.get('category', '其他'),
+                'category_icon': task.get('category_icon', '📦'),
+                'category_description': task.get('category_description', '临时任务、待分类事项、杂项')
             })
         redis_data['task_queue'] = formatted_tasks
         
