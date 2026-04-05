@@ -754,6 +754,11 @@
                 <span class="icon">📈</span>
                 <span>数据分析</span>
             </div>
+            <div class="nav-item" data-page="recommendation">
+                <span class="icon">🤖</span>
+                <span>智能推荐</span>
+                <span class="nav-badge" style="background: var(--neon-green);">3</span>
+            </div>
         </div>
         
         <div class="nav-section">
@@ -809,8 +814,18 @@
                 </div>
             </div>
 
-            <!-- 运行状态 + 告警 -->
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+            <!-- 智能推荐卡片 -->
+            <div class="card" style="border-color: rgba(57, 255, 20, 0.3); background: linear-gradient(135deg, rgba(57, 255, 20, 0.05), transparent);">
+                <div class="card-header">
+                    <span class="card-title">🤖 智能灌溉推荐</span>
+                    <span style="font-size: 12px; color: var(--neon-green);">基于高海拔作物模型分析</span>
+                </div>
+                <div class="card-body">
+                    <div id="smart-recommendations">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+            </div>
                 <div class="card">
                     <div class="card-header">
                         <span class="card-title">🔥 当前运行任务</span>
@@ -1042,6 +1057,97 @@
                 </div>
             </div>
         </div>
+
+        <!-- 智能推荐页面 -->
+        <div class="page hidden" id="page-recommendation">
+            <div class="page-title">
+                <span>🤖 智能灌溉推荐</span>
+                <div class="page-actions">
+                    <button class="btn btn-secondary" onclick="refreshRecommendations()">
+                        <span>🔄</span> 刷新分析
+                    </button>
+                    <button class="btn btn-primary" onclick="applyAllRecommendations()">
+                        <span>✓</span> 应用全部
+                    </button>
+                </div>
+            </div>
+
+            <!-- 天地状况概览 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">🌡️ 气温</div>
+                    <div class="stat-value" style="color: var(--neon-blue);">8.5°C</div>
+                    <div class="stat-change">昼夜温差 18°C</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">💧 土壤湿度</div>
+                    <div class="stat-value success">62%</div>
+                    <div class="stat-change">10cm深度</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">☀️ 紫外线指数</div>
+                    <div class="stat-value warning">极高</div>
+                    <div class="stat-change">SPF建议 50+</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">🌬️ 风速</div>
+                    <div class="stat-value">4.2m/s</div>
+                    <div class="stat-change">西北风</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <!-- AI推荐列表 -->
+                <div class="card" style="border-color: rgba(57, 255, 20, 0.3);">
+                    <div class="card-header">
+                        <span class="card-title">💡 今日灌溉建议</span>
+                        <span style="font-size: 12px; color: var(--neon-green);">AI生成</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="ai-recommendations">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 作物状态 -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🌾 作物生长监测</span>
+                        <button class="btn btn-sm btn-secondary">查看详情</button>
+                    </div>
+                    <div class="card-body">
+                        <div id="crop-status">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 高海拔特殊提醒 -->
+            <div class="card" style="border-color: rgba(255, 170, 0, 0.3);">
+                <div class="card-header">
+                    <span class="card-title">🏔️ 高原环境特别提醒</span>
+                </div>
+                <div class="card-body">
+                    <div id="plateau-alerts">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 未来7天预测 -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📅 未来7天灌溉预测</span>
+                </div>
+                <div class="card-body">
+                    <div id="forecast-list">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Toast 容器 -->
@@ -1112,6 +1218,74 @@
                 { time: '2026-04-05 17:58:10', user: '系统', action: '检测到阀门-A03电量低', result: '告警' },
                 { time: '2026-04-05 17:45:00', user: '管理员', action: '修改轮询间隔为30秒', result: '成功' },
             ];
+
+            // 智能推荐数据
+            state.recommendations = [
+                {
+                    id: 1,
+                    crop: '青稞',
+                    zone: '青稞田-A区',
+                    stage: '拔节期',
+                    priority: 'high',
+                    title: '建议立即进行拔节水灌溉',
+                    reason: '当前土壤湿度62%，低于拔节期最佳湿度(70%)。未来3天无降雨预报，气温将升至15°C，蒸发加剧。',
+                    action: '开启阀门-A01、A02，持续45分钟',
+                    waterAmount: '预计用水 18m³',
+                    timing: '最佳时间: 10:00-12:00（土温>8°C）',
+                    benefits: ['促进分蘖成穗', '增加穗粒数', '提高抗倒伏能力']
+                },
+                {
+                    id: 2,
+                    crop: '油菜',
+                    zone: '油菜田-B区',
+                    stage: '花期',
+                    priority: 'medium',
+                    title: '花期补水建议（明日执行）',
+                    reason: '花期需保持土壤湿度65%以上，当前湿度58%。明日午后风速预计降低至2m/s，适合微喷灌。',
+                    action: '明日14:00开启阀门-B01，持续20分钟',
+                    waterAmount: '预计用水 8m³',
+                    timing: '最佳时间: 14:00-16:00（避开授粉高峰）',
+                    benefits: ['延长花期', '提高结实率', '增加含油量']
+                },
+                {
+                    id: 3,
+                    crop: '马铃薯',
+                    zone: '马铃薯-C区',
+                    stage: '块茎膨大期',
+                    priority: 'high',
+                    title: '块茎膨大关键水 - 紧急',
+                    reason: '块茎膨大期是需水高峰期，当前土壤湿度仅55%，严重不足。昼夜温差达18°C，需水调控温度。',
+                    action: '立即开启水泵-02及阀门，持续60分钟',
+                    waterAmount: '预计用水 25m³',
+                    timing: '最佳时间: 现在（土温12°C适宜）',
+                    benefits: ['促进块茎膨大', '增加单薯重', '提高淀粉含量']
+                }
+            ];
+
+            // 作物状态数据
+            state.crops = [
+                { name: '青稞', zone: 'A区', stage: '拔节期', day: 45, totalDays: 110, health: 85, waterNeed: '高', nextWater: '今天' },
+                { name: '油菜', zone: 'B区', stage: '花期', day: 65, totalDays: 130, health: 92, waterNeed: '中', nextWater: '明天' },
+                { name: '马铃薯', zone: 'C区', stage: '块茎膨大', day: 55, totalDays: 115, health: 78, waterNeed: '极高', nextWater: '立即' }
+            ];
+
+            // 高原特别提醒
+            state.plateauAlerts = [
+                { type: 'warning', title: '紫外线极强', desc: '未来3天紫外线指数极高，建议灌溉时间安排在早晨或傍晚，避免 midday 高温蒸发。', icon: '☀️' },
+                { type: 'info', title: '昼夜温差大', desc: '昼夜温差达18°C，夜间土壤温度可能降至-2°C，建议下午灌溉以利土壤储热。', icon: '🌡️' },
+                { type: 'success', title: '融雪水充足', desc: '上游冰川融雪量正常，水源充足，可放心执行灌溉计划。', icon: '💧' }
+            ];
+
+            // 7天预测
+            state.forecast = [
+                { day: '今天', date: '4/5', weather: '☀️晴', temp: '8~15°C', humidity: '45%', action: '青稞拔节水', priority: 'high' },
+                { day: '明天', date: '4/6', weather: '🌤️多云', temp: '6~14°C', humidity: '50%', action: '油菜花期补水', priority: 'medium' },
+                { day: '周二', date: '4/7', weather: '☁️阴', temp: '5~12°C', humidity: '60%', action: '马铃薯膨大水', priority: 'high' },
+                { day: '周三', date: '4/8', weather: '🌧️小雨', temp: '3~10°C', humidity: '75%', action: '暂停灌溉', priority: 'low' },
+                { day: '周四', date: '4/9', weather: '☁️阴', temp: '4~11°C', humidity: '65%', action: '观察墒情', priority: 'low' },
+                { day: '周五', date: '4/10', weather: '🌤️多云', temp: '7~13°C', humidity: '55%', action: '常规巡检', priority: 'medium' },
+                { day: '周六', date: '4/11', weather: '☀️晴', temp: '8~16°C', humidity: '45%', action: '深度灌溉', priority: 'medium' }
+            ];
         }
 
         // 页面导航
@@ -1135,6 +1309,7 @@
             else if (page === 'irrigation') renderIrrigation();
             else if (page === 'devices') renderDevices();
             else if (page === 'logs') renderLogs();
+            else if (page === 'recommendation') renderRecommendations();
         }
 
         // 渲染仪表盘
@@ -1196,6 +1371,9 @@
                     </div>
                 </div>
             `).join('');
+
+            // 渲染智能推荐（仪表盘快捷预览）
+            renderSmartRecommendationsPreview();
         }
 
         // 渲染灌溉管理
@@ -1573,6 +1751,254 @@
                 closeModal();
             }
         });
+
+        // 渲染智能推荐预览（仪表盘）
+        function renderSmartRecommendationsPreview() {
+            const container = document.getElementById('smart-recommendations');
+            if (!container) return;
+
+            const highPriorityRecs = state.recommendations.filter(r => r.priority === 'high');
+            
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${highPriorityRecs.map(rec => `
+                        <div style="padding: 16px; background: var(--bg-tertiary); border-radius: 8px; border-left: 3px solid ${rec.priority === 'high' ? 'var(--neon-red)' : 'var(--neon-amber)'};"
+                        >
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                <div>
+                                    <span style="font-size: 12px; color: var(--neon-green); margin-right: 8px;">${rec.crop}</span>
+                                    <span style="font-size: 12px; color: var(--text-secondary);">${rec.zone}</span>
+                                </div>
+                                <span style="font-size: 11px; padding: 2px 8px; background: ${rec.priority === 'high' ? 'rgba(255, 71, 87, 0.2)' : 'rgba(255, 170, 0, 0.2)'}; color: ${rec.priority === 'high' ? 'var(--neon-red)' : 'var(--neon-amber)'}; border-radius: 10px;">
+                                    ${rec.priority === 'high' ? '紧急' : '建议'}
+                                </span>
+                            </div>
+                            <div style="font-weight: 500; margin-bottom: 8px;">${rec.title}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">${rec.reason.substring(0, 60)}...</div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-sm btn-success" onclick="applyRecommendation(${rec.id})"
+                                    style="flex: 1; justify-content: center;">
+                                    ✓ 执行
+                                </button>
+                                <button class="btn btn-sm btn-secondary" onclick="navigateTo('recommendation')">
+                                    详情
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                    <div style="text-align: center; padding: 8px;">
+                        <button class="btn btn-sm btn-secondary" onclick="navigateTo('recommendation')"
+                            style="width: 100%;">
+                            查看全部 ${state.recommendations.length} 条建议 →
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染智能推荐页面
+        function renderRecommendations() {
+            // AI推荐列表
+            const aiContainer = document.getElementById('ai-recommendations');
+            if (aiContainer) {
+                aiContainer.innerHTML = state.recommendations.map(rec => `
+                    <div style="padding: 20px; background: var(--bg-tertiary); border-radius: 10px; margin-bottom: 16px; border-left: 4px solid ${rec.priority === 'high' ? 'var(--neon-red)' : rec.priority === 'medium' ? 'var(--neon-amber)' : 'var(--neon-blue)'};"
+                    >
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                            <div>
+                                <div style="font-size: 13px; color: var(--neon-green); margin-bottom: 4px;">
+                                    ${rec.crop} · ${rec.stage} · ${rec.zone}
+                                </div>
+                                <div style="font-weight: 600; font-size: 16px;">${rec.title}</div>
+                            </div>
+                            <span style="font-size: 11px; padding: 4px 10px; background: ${rec.priority === 'high' ? 'rgba(255, 71, 87, 0.2)' : rec.priority === 'medium' ? 'rgba(255, 170, 0, 0.2)' : 'rgba(0, 212, 255, 0.2)'}; color: ${rec.priority === 'high' ? 'var(--neon-red)' : rec.priority === 'medium' ? 'var(--neon-amber)' : 'var(--neon-blue)'}; border-radius: 10px;">
+                                ${rec.priority === 'high' ? '紧急' : rec.priority === 'medium' ? '建议' : '提示'}
+                            </span>
+                        </div>
+                        
+                        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6;">
+                            ${rec.reason}
+                        </div>
+                        
+                        <div style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">💡 推荐操作</div>
+                            <div style="font-weight: 500;">${rec.action}</div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 16px; margin-bottom: 12px; font-size: 12px;">
+                            <span style="color: var(--neon-blue);">💧 ${rec.waterAmount}</span>
+                            <span style="color: var(--neon-amber);">⏰ ${rec.timing}</span>
+                        </div>
+                        
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+                            ${rec.benefits.map(b => `
+                                <span style="font-size: 11px; padding: 4px 10px; background: rgba(57, 255, 20, 0.1); color: var(--neon-green); border-radius: 12px;">✓ ${b}</span>
+                            `).join('')}
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn btn-success" onclick="applyRecommendation(${rec.id})" style="flex: 1; justify-content: center;">
+                                ✓ 应用此建议
+                            </button>
+                            <button class="btn btn-secondary" onclick="modifyRecommendation(${rec.id})">
+                                修改
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 作物状态
+            const cropContainer = document.getElementById('crop-status');
+            if (cropContainer) {
+                cropContainer.innerHTML = state.crops.map(crop => `
+                    <div style="padding: 16px; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div>
+                                <div style="font-weight: 500;">🌾 ${crop.name}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">${crop.zone} · ${crop.stage}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 12px; color: ${crop.health >= 80 ? 'var(--neon-green)' : crop.health >= 60 ? 'var(--neon-amber)' : 'var(--neon-red)'};">
+                                    健康度 ${crop.health}%
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">第 ${crop.day}/${crop.totalDays} 天</div>
+                            </div>
+                        </div>
+                        <div class="progress-bar" style="margin-bottom: 8px;">
+                            <div class="progress-fill" style="width: ${(crop.day / crop.totalDays) * 100}%; background: linear-gradient(90deg, var(--neon-green), var(--neon-blue));"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                            <span style="color: var(--text-secondary);">需水: <span style="color: ${crop.waterNeed === '极高' ? 'var(--neon-red)' : crop.waterNeed === '高' ? 'var(--neon-amber)' : 'var(--neon-green)'};">${crop.waterNeed}</span></span>
+                            <span style="color: var(--text-secondary);">下次灌溉: <span style="color: crop.nextWater === '立即' ? 'var(--neon-red)' : 'var(--neon-blue)';">${crop.nextWater}</span></span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 高原特别提醒
+            const plateauContainer = document.getElementById('plateau-alerts');
+            if (plateauContainer) {
+                plateauContainer.innerHTML = state.plateauAlerts.map(alert => `
+                    <div class="alert-item ${alert.type}" style="margin-bottom: 8px;">
+                        <span class="alert-icon">${alert.icon}</span>
+                        <div class="alert-content">
+                            <div class="alert-title">${alert.title}</div>
+                            <div class="alert-desc">${alert.desc}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 7天预测
+            const forecastContainer = document.getElementById('forecast-list');
+            if (forecastContainer) {
+                forecastContainer.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px;">
+                        ${state.forecast.map(day => `
+                            <div style="text-align: center; padding: 16px 8px; background: var(--bg-tertiary); border-radius: 10px; ${day.day === '今天' ? 'border: 1px solid var(--neon-green);' : ''}">
+                                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">${day.day}</div>
+                                <div style="font-size: 13px; margin-bottom: 8px;">${day.date}</div>
+                                <div style="font-size: 24px; margin-bottom: 8px;">${day.weather}</div>
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">${day.temp}</div>
+                                <div style="font-size: 11px; color: var(--neon-blue); margin-bottom: 8px;">💧 ${day.humidity}</div>
+                                <div style="font-size: 10px; padding: 4px 6px; background: ${day.priority === 'high' ? 'rgba(255, 71, 87, 0.2)' : day.priority === 'medium' ? 'rgba(255, 170, 0, 0.2)' : 'rgba(0, 212, 255, 0.1)'}; color: ${day.priority === 'high' ? 'var(--neon-red)' : day.priority === 'medium' ? 'var(--neon-amber)' : 'var(--neon-blue)'}; border-radius: 6px;"
+                                >
+                                    ${day.action}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        // 应用单个推荐
+        function applyRecommendation(id) {
+            const rec = state.recommendations.find(r => r.id === id);
+            if (!rec) return;
+
+            showModal(
+                '应用推荐方案',
+                `确定要执行"${rec.title}"吗？\n\n${rec.action}\n${rec.waterAmount}`,
+                () => {
+                    // 模拟执行
+                    showToast(`正在执行: ${rec.title}`, 'success');
+                    
+                    // 添加到日志
+                    state.logs.unshift({
+                        time: new Date().toLocaleString('zh-CN'),
+                        user: '管理员',
+                        action: `应用AI推荐: ${rec.title}`,
+                        result: '成功'
+                    });
+
+                    // 标记为已应用（从列表中移除或标记）
+                    rec.applied = true;
+                    
+                    setTimeout(() => {
+                        renderRecommendations();
+                        if (state.currentPage === 'dashboard') {
+                            renderSmartRecommendationsPreview();
+                        }
+                    }, 500);
+                },
+                'success'
+            );
+        }
+
+        // 应用全部推荐
+        function applyAllRecommendations() {
+            const pendingRecs = state.recommendations.filter(r => !r.applied);
+            if (pendingRecs.length === 0) {
+                showToast('没有待执行的推荐', 'info');
+                return;
+            }
+
+            showModal(
+                '批量应用推荐',
+                `确定要执行全部 ${pendingRecs.length} 条推荐方案吗？`,
+                () => {
+                    showToast(`正在批量执行 ${pendingRecs.length} 条推荐`, 'success');
+                    
+                    state.logs.unshift({
+                        time: new Date().toLocaleString('zh-CN'),
+                        user: '管理员',
+                        action: `批量应用 ${pendingRecs.length} 条AI推荐`,
+                        result: '成功'
+                    });
+
+                    pendingRecs.forEach(r => r.applied = true);
+                    
+                    setTimeout(() => {
+                        renderRecommendations();
+                        if (state.currentPage === 'dashboard') {
+                            renderSmartRecommendationsPreview();
+                        }
+                    }, 500);
+                },
+                'success'
+            );
+        }
+
+        // 修改推荐
+        function modifyRecommendation(id) {
+            showToast('修改功能：可调整灌溉时间、时长等参数', 'info');
+        }
+
+        // 刷新推荐
+        function refreshRecommendations() {
+            const btn = event.target.closest('button');
+            btn.innerHTML = '<span class="loading"></span> 分析中...';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                btn.innerHTML = '<span>🔄</span> 刷新分析';
+                btn.disabled = false;
+                showToast('已根据最新天地状况重新生成推荐', 'success');
+                renderRecommendations();
+            }, 1500);
+        }
     </script>
 </body>
 </html>
