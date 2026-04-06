@@ -1626,7 +1626,7 @@
             </div>
             <div class="nav-item" data-page="logs">
                 <span class="icon">📝</span>
-                <span>操作日志</span>
+                <span>系统日志</span>
             </div>
         </div>
     </aside>
@@ -2039,10 +2039,70 @@
         <!-- 操作日志页面 -->
         <div class="page hidden" id="page-logs">
             <div class="page-title">
-                <span>📝 操作日志</span>
+                <span>📝 系统日志</span>
+                <div class="page-actions">
+                    <button class="btn btn-secondary" onclick="exportLogs()">
+                        <span>📥</span> 导出
+                    </button>
+                </div>
             </div>
 
+            <!-- 用水/肥水统计 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div>
+                        <div class="stat-label">今日用水量</div>
+                        <div class="stat-value" style="color: var(--neon-blue);">326.7</div>
+                    </div>
+                    <div class="stat-change">m³</div>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <div class="stat-label">今日肥水量</div>
+                        <div class="stat-value" style="color: var(--neon-purple);">27.0</div>
+                    </div>
+                    <div class="stat-change">m³</div>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <div class="stat-label">本周累计用水</div>
+                        <div class="stat-value success">2,150.5</div>
+                    </div>
+                    <div class="stat-change">m³</div>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <div class="stat-label">总用水量</div>
+                        <div class="stat-value primary">12,580.5</div>
+                    </div>
+                    <div class="stat-change">m³ (累计)</div>
+                </div>
+            </div>
+
+            <!-- 水流量监控 -->
             <div class="card">
+                <div class="card-header">
+                    <span class="card-title">💧 实时水流量监控</span>
+                    <span style="font-size: 12px; color: var(--neon-green);">● 总表在线</span>
+                </div>
+                <div class="card-body">
+                    <div id="flow-meters-panel">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 灌溉/施肥日志 -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📋 灌溉施肥日志</span>
+                    <div class="quick-actions">
+                        <button class="btn btn-sm btn-secondary active" onclick="filterLogs('all')">全部</button>
+                        <button class="btn btn-sm btn-secondary" onclick="filterLogs('irrigation')">灌溉</button>
+                        <button class="btn btn-sm btn-secondary" onclick="filterLogs('fertilization')">施肥</button>
+                        <button class="btn btn-sm btn-secondary" onclick="filterLogs('system')">系统</button>
+                    </div>
+                </div>
                 <div class="card-body">
                     <div id="logs-list"></div>
                 </div>
@@ -2317,13 +2377,15 @@
                 { id: 3, name: '周末深度灌溉', zone: '青稞田', time: '09:00', duration: '60分钟', status: 'disabled', repeat: '周六' },
             ];
 
-            // 操作日志
+            // 操作日志 - 增加用水量/肥水量字段
             state.logs = [
-                { time: '2026-04-05 18:45:23', user: '管理员', action: '开启阀门-A01', result: '成功' },
-                { time: '2026-04-05 18:30:15', user: '系统', action: '自动执行早间灌溉计划', result: '成功' },
-                { time: '2026-04-05 18:15:42', user: '管理员', action: '关闭水泵-02', result: '成功' },
-                { time: '2026-04-05 17:58:10', user: '系统', action: '检测到阀门-A03电量低', result: '告警' },
-                { time: '2026-04-05 17:45:00', user: '管理员', action: '修改轮询间隔为30秒', result: '成功' },
+                { time: '2026-04-06 17:30:00', user: '系统', action: '自动执行油菜田灌溉', result: '成功', type: 'irrigation', waterAmount: 18.5, zone: '油菜田-B1' },
+                { time: '2026-04-06 16:45:23', user: '管理员', action: '执行马铃薯膨大肥方案', result: '成功', type: 'fertilization', waterAmount: 25.0, fertAmount: 2.5, zone: '马铃薯-C1/C2' },
+                { time: '2026-04-06 14:20:15', user: '系统', action: '自动执行早间灌溉计划', result: '成功', type: 'irrigation', waterAmount: 45.2, zone: '全部区域' },
+                { time: '2026-04-06 10:15:42', user: '管理员', action: '手动开启施肥阀-B', result: '成功', type: 'fertilization', fertAmount: 0.8 },
+                { time: '2026-04-06 08:30:00', user: '系统', action: '自动灌溉完成', result: '成功', type: 'irrigation', waterAmount: 32.6 },
+                { time: '2026-04-05 18:45:23', user: '管理员', action: '开启阀门-A01', result: '成功', type: 'system' },
+                { time: '2026-04-05 17:58:10', user: '系统', action: '检测到阀门-A03电量低', result: '告警', type: 'system' },
             ];
 
             // 智能推荐数据
@@ -2369,7 +2431,33 @@
                 }
             ];
 
-            // 作物状态数据
+            // 水流量传感器数据
+            state.flowMeters = {
+                main: { id: 1, name: '总水表', currentFlow: 0, totalWater: 12580.5, unit: 'm³', status: 'online' },
+                zones: [
+                    { id: 101, name: '青稞田-A1', currentFlow: 0, todayWater: 45.2, totalWater: 1850.3, valveId: 6 },
+                    { id: 102, name: '青稞田-A2', currentFlow: 0, todayWater: 42.8, totalWater: 1720.5, valveId: 7 },
+                    { id: 103, name: '油菜田-B1', currentFlow: 8.5, todayWater: 38.6, totalWater: 1680.2, valveId: 8 },
+                    { id: 104, name: '油菜田-B2', currentFlow: 0, todayWater: 35.4, totalWater: 1590.8, valveId: 9 },
+                    { id: 105, name: '马铃薯-C1', currentFlow: 0, todayWater: 52.3, totalWater: 2100.6, valveId: 10 },
+                    { id: 106, name: '马铃薯-C2', currentFlow: 0, todayWater: 48.9, totalWater: 1950.4, valveId: 11 },
+                    { id: 107, name: '试验田-D1', currentFlow: 0, todayWater: 25.6, totalWater: 980.2, valveId: 12 },
+                    { id: 108, name: '试验田-D2', currentFlow: 0, todayWater: 28.3, totalWater: 1050.7, valveId: 13 }
+                ],
+                fertMeters: [
+                    { id: 201, name: '施肥阀-A', currentFlow: 0, todayFert: 12.5, totalFert: 450.8, fertType: 'NPK', valveId: 3 },
+                    { id: 202, name: '施肥阀-B', currentFlow: 0, todayFert: 8.3, totalFert: 320.5, fertType: '尿素', valveId: 4 },
+                    { id: 203, name: '施肥阀-C', currentFlow: 0, todayFert: 6.2, totalFert: 280.2, fertType: '钾肥', valveId: 5 }
+                ]
+            };
+
+            // 用水/肥水统计
+            state.usageStats = {
+                today: { water: 326.7, fert: 27.0 },
+                week: { water: 2150.5, fert: 185.3 },
+                month: { water: 8950.2, fert: 720.8 },
+                year: { water: 45820.5, fert: 3850.6 }
+            };
             state.crops = [
                 { name: '青稞', zone: 'A区', stage: '拔节期', day: 45, totalDays: 110, health: 85, waterNeed: '高', nextWater: '今天', fertilizationStage: '拔节肥', npk: '15-15-15' },
                 { name: '油菜', zone: 'B区', stage: '花期', day: 65, totalDays: 130, health: 92, waterNeed: '中', nextWater: '明天', fertilizationStage: '花期追肥', npk: '10-20-10' },
@@ -2832,15 +2920,243 @@
 
         // 渲染日志
         function renderLogs() {
+            renderFlowMeters();
+            renderLogsList('all');
+        }
+
+        // 渲染水流量监控面板
+        function renderFlowMeters() {
+            const panel = document.getElementById('flow-meters-panel');
+            if (!panel) return;
+
+            const mainMeter = state.flowMeters.main;
+            const zoneMeters = state.flowMeters.zones;
+            const fertMeters = state.flowMeters.fertMeters;
+
+            panel.innerHTML = `
+                <!-- 总水表 -->
+                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border-color);"
+                >
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"
+                    >
+                        <div style="display: flex; align-items: center; gap: 8px;"
+                        >
+                            <span style="font-size: 24px;"
+                            >🌊</span
+                            >
+                            <span style="font-weight: 600; font-size: 16px;"
+                            >${mainMeter.name}</span
+                            >
+                        </div
+                        >
+                        <span style="font-size: 12px; color: var(--neon-green);"
+                        >● 在线</span
+                        >
+                    </div
+                    >
+                    <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;"
+                    >
+                        <div
+                        >
+                            <div style="font-size: 12px; color: var(--text-secondary);"
+                            >当前流量</div
+                            >
+                            <div style="font-size: 28px; font-weight: 700; color: var(--neon-blue);"
+                            >${mainMeter.currentFlow.toFixed(1)}
+                                <span style="font-size: 14px; font-weight: 400;"
+                                >m³/h</span
+                                >
+                            </div
+                            >
+                        </div
+                        >
+                        <div
+                        >
+                            <div style="font-size: 12px; color: var(--text-secondary);"
+                            >今日累计</div
+                            >
+                            <div style="font-size: 28px; font-weight: 700; color: var(--neon-green);"
+                            >${state.usageStats.today.water}
+                                <span style="font-size: 14px; font-weight: 400;"
+                                >m³</span
+                                >
+                            </div
+                            >
+                        </div
+                        >
+                        <div
+                        >
+                            <div style="font-size: 12px; color: var(--text-secondary);"
+                            >总累计</div
+                            >
+                            <div style="font-size: 24px; font-weight: 600;"
+                            >${mainMeter.totalWater.toLocaleString()}
+                                <span style="font-size: 12px; color: var(--text-secondary);"
+                                >m³</span
+                                >
+                            </div
+                            >
+                        </div
+                        >
+                    </div
+                    >
+                </div
+                >
+
+                <!-- 分区水表 -->
+                <div style="margin-bottom: 16px;"
+                >
+                    <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;"
+                    >分区用水监控 (8个区域)</div
+                    >
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;"
+                    >
+                        ${zoneMeters.map(meter => `
+                            <div style="background: var(--bg-secondary); padding: 12px; border-radius: 6px; border-left: 3px solid ${meter.currentFlow > 0 ? 'var(--neon-blue)' : 'var(--border-color)'};"
+                            >
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+                                >
+                                    <span style="font-size: 13px; font-weight: 500;"
+                                    >${meter.name}</span
+                                    >
+                                    ${meter.currentFlow > 0 ? '<span style="font-size: 10px; color: var(--neon-blue);">● 运行中</span>' : ''}
+                                </div
+                                >
+                                <div style="display: flex; justify-content: space-between;"
+                                >
+                                    <span style="font-size: 20px; font-weight: 600; color: ${meter.currentFlow > 0 ? 'var(--neon-blue)' : 'var(--text-secondary)'};"
+                                    >${meter.currentFlow.toFixed(1)}
+                                        <span style="font-size: 11px;"
+                                        >m³/h</span
+                                        >
+                                    </span
+                                    >
+                                    <span style="font-size: 12px; color: var(--text-secondary);"
+                                    >今日: ${meter.todayWater}m³</span
+                                    >
+                                </div
+                                >
+                            </div
+                            >
+                        `).join('')}
+                    </div
+                    >
+                </div
+                >
+
+                <!-- 肥水表 -->
+                <div
+                >
+                    <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;"
+                    >施肥监控 (3路)</div
+                    >
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;"
+                    >
+                        ${fertMeters.map(meter => `
+                            <div style="background: var(--bg-secondary); padding: 12px; border-radius: 6px; border-left: 3px solid ${meter.currentFlow > 0 ? 'var(--neon-purple)' : 'var(--border-color)'};"
+                            >
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+                                >
+                                    <span style="font-size: 13px; font-weight: 500;"
+                                    >${meter.name}</span
+                                    >
+                                    <span style="font-size: 10px; padding: 2px 6px; background: rgba(168, 85, 247, 0.15); color: var(--neon-purple); border-radius: 4px;"
+                                    >${meter.fertType}</span
+                                    >
+                                </div
+                                >
+                                <div style="display: flex; justify-content: space-between;"
+                                >
+                                    <span style="font-size: 20px; font-weight: 600; color: ${meter.currentFlow > 0 ? 'var(--neon-purple)' : 'var(--text-secondary)'};"
+                                    >${meter.currentFlow.toFixed(1)}
+                                        <span style="font-size: 11px;"
+                                        >m³/h</span
+                                        >
+                                    </span
+                                    >
+                                    <span style="font-size: 12px; color: var(--text-secondary);"
+                                    >今日: ${meter.todayFert}m³</span
+                                    >
+                                </div
+                                >
+                            </div
+                            >
+                        `).join('')}
+                    </div
+                    >
+                </div
+                >
+            `;
+        }
+
+        // 渲染日志列表
+        function renderLogsList(filter = 'all') {
             const logsList = document.getElementById('logs-list');
-            logsList.innerHTML = state.logs.map(log => `
-                <div class="log-item">
-                    <span class="log-time">${log.time}</span>
-                    <span class="log-user">${log.user}</span>
-                    <span class="log-action">${log.action}</span>
-                    <span class="log-result ${log.result === '成功' ? 'success' : log.result === '告警' ? 'warning' : 'error'}">${log.result}</span>
-                </div>
+            if (!logsList) return;
+
+            let filteredLogs = state.logs;
+            if (filter !== 'all') {
+                filteredLogs = state.logs.filter(log => log.type === filter || (filter === 'irrigation' && log.action.includes('灌溉')) || (filter === 'fertilization' && log.action.includes('施肥')) || (filter === 'system' && log.user === '系统'));
+            }
+
+            logsList.innerHTML = filteredLogs.map(log => `
+                <div class="log-item"
+                >
+                    <span class="log-time"
+                    >${log.time}</span
+                    >
+                    <span class="log-user"
+                    >${log.user}</span
+                    >
+                    <span class="log-action"
+                    >${log.action}</span
+                    >
+                    ${log.waterAmount ? `<span style="color: var(--neon-blue); font-size: 12px;"
+                    >💧 ${log.waterAmount}m³</span
+                    >` : ''}
+                    ${log.fertAmount ? `<span style="color: var(--neon-purple); font-size: 12px;"
+                    >🧪 ${log.fertAmount}m³</span
+                    >` : ''}
+                    <span class="log-result ${log.result === '成功' ? 'success' : log.result === '告警' ? 'warning' : 'error'}"
+                    >${log.result}</span
+                    >
+                </div
+                >
             `).join('');
+        }
+
+        // 筛选日志
+        function filterLogs(type) {
+            // 更新按钮状态
+            document.querySelectorAll('#page-logs .quick-actions .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            renderLogsList(type);
+        }
+
+        // 导出日志
+        function exportLogs() {
+            const csvContent = [
+                ['时间', '用户', '操作', '用水量(m³)', '肥水量(m³)', '结果'].join(','),
+                ...state.logs.map(log => [
+                    log.time,
+                    log.user,
+                    log.action,
+                    log.waterAmount || '',
+                    log.fertAmount || '',
+                    log.result
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `灌溉系统日志_${new Date().toLocaleDateString('zh-CN')}.csv`;
+            link.click();
+
+            showToast('日志已导出', 'success');
         }
 
         // 切换设备开关
@@ -2858,12 +3174,44 @@
                     device.isOpen = !device.isOpen;
                     
                     // 添加日志
-                    state.logs.unshift({
+                    const logEntry = {
                         time: new Date().toLocaleString('zh-CN'),
                         user: '管理员',
                         action: `${action}${device.name}`,
-                        result: '成功'
-                    });
+                        result: '成功',
+                        type: 'system'
+                    };
+                    
+                    // 如果是田间阀开启，记录预估用水量
+                    if (device.type === 'fieldValve' && action === '开启') {
+                        const estimatedWater = 15.0; // 预估用水量
+                        logEntry.waterAmount = estimatedWater;
+                        logEntry.type = 'irrigation';
+                        logEntry.zone = device.field;
+                        
+                        // 更新总水表和区域水表
+                        state.usageStats.today.water += estimatedWater;
+                        const zoneMeter = state.flowMeters.zones.find(z => z.valveId === device.id);
+                        if (zoneMeter) {
+                            zoneMeter.todayWater += estimatedWater;
+                        }
+                    }
+                    
+                    // 如果是施肥阀开启，记录肥水量
+                    if (device.type === 'fertValve' && action === '开启') {
+                        const estimatedFert = 2.0;
+                        logEntry.fertAmount = estimatedFert;
+                        logEntry.type = 'fertilization';
+                        
+                        // 更新肥水表
+                        state.usageStats.today.fert += estimatedFert;
+                        const fertMeter = state.flowMeters.fertMeters.find(f => f.valveId === device.id);
+                        if (fertMeter) {
+                            fertMeter.todayFert += estimatedFert;
+                        }
+                    }
+                    
+                    state.logs.unshift(logEntry);
                     
                     // 显示通知
                     showToast(`${device.name} 已${action}`, 'success');
@@ -3583,12 +3931,24 @@
                     
                     showToast(`${isFertigation ? '施肥' : '灌溉'}方案 "${prog.name}" 开始执行`, 'success');
                     
-                    // 添加日志
+                    // 计算用水量/肥水量（模拟数据）
+                    const waterAmount = isFertigation ? 25.0 : 35.0;
+                    const fertAmount = isFertigation ? parseFloat(prog.amount) || 2.5 : 0;
+                    
+                    // 更新统计数据
+                    state.usageStats.today.water += waterAmount;
+                    state.usageStats.today.fert += fertAmount;
+                    
+                    // 添加日志 - 包含用水量/肥水量
                     state.logs.unshift({
                         time: new Date().toLocaleString('zh-CN'),
                         user: '管理员',
                         action: `执行${isFertigation ? '施肥' : '灌溉'}方案: ${prog.name}`,
-                        result: '成功'
+                        result: '成功',
+                        type: isFertigation ? 'fertilization' : 'irrigation',
+                        waterAmount: waterAmount,
+                        fertAmount: isFertigation ? fertAmount : null,
+                        zone: prog.crop + '区域'
                     });
 
                     // 添加施肥任务到任务列表
