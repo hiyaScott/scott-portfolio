@@ -2274,7 +2274,7 @@
 
         // 初始化数据
         function initData() {
-            // 创建设备数据 - 更新拓扑结构
+            // 创建设备数据 - 更新拓扑结构（田间阀与灌溉主阀、施肥阀同级）
             state.devices = [
                 // 第一级：水泵
                 { id: 1, name: '水泵-主', type: 'pump', nodeaddr: 1, subaddr: 0, status: 'online', power: 85, signal: -72, isOpen: true, parent: null, level: 1 },
@@ -2286,15 +2286,15 @@
                 { id: 4, name: '施肥阀-B', type: 'fertValve', nodeaddr: 1, subaddr: 3, status: 'online', power: 86, signal: -72, isOpen: false, parent: 1, level: 2, category: 'fertilization', fertType: '尿素' },
                 { id: 5, name: '施肥阀-C', type: 'fertValve', nodeaddr: 1, subaddr: 4, status: 'warning', power: 25, signal: -85, isOpen: false, parent: 1, level: 2, category: 'fertilization', fertType: '钾肥' },
                 
-                // 第三级：8个田间灌溉阀（挂在灌溉主阀下）
-                { id: 6, name: '田间阀-01', type: 'fieldValve', nodeaddr: 2, subaddr: 1, status: 'online', power: 90, signal: -65, isOpen: false, parent: 2, level: 3, field: '青稞田-A1' },
-                { id: 7, name: '田间阀-02', type: 'fieldValve', nodeaddr: 2, subaddr: 2, status: 'online', power: 88, signal: -68, isOpen: false, parent: 2, level: 3, field: '青稞田-A2' },
-                { id: 8, name: '田间阀-03', type: 'fieldValve', nodeaddr: 2, subaddr: 3, status: 'online', power: 85, signal: -70, isOpen: true, parent: 2, level: 3, field: '油菜田-B1' },
-                { id: 9, name: '田间阀-04', type: 'fieldValve', nodeaddr: 2, subaddr: 4, status: 'offline', power: 0, signal: 0, isOpen: false, parent: 2, level: 3, field: '油菜田-B2' },
-                { id: 10, name: '田间阀-05', type: 'fieldValve', nodeaddr: 2, subaddr: 5, status: 'online', power: 87, signal: -66, isOpen: false, parent: 2, level: 3, field: '马铃薯-C1' },
-                { id: 11, name: '田间阀-06', type: 'fieldValve', nodeaddr: 2, subaddr: 6, status: 'online', power: 89, signal: -64, isOpen: false, parent: 2, level: 3, field: '马铃薯-C2' },
-                { id: 12, name: '田间阀-07', type: 'fieldValve', nodeaddr: 2, subaddr: 7, status: 'warning', power: 30, signal: -88, isOpen: false, parent: 2, level: 3, field: '试验田-D1' },
-                { id: 13, name: '田间阀-08', type: 'fieldValve', nodeaddr: 2, subaddr: 8, status: 'online', power: 91, signal: -62, isOpen: false, parent: 2, level: 3, field: '试验田-D2' }
+                // 第三级：8个田间灌溉阀（与主阀、施肥阀同级，都挂在水泵下）
+                { id: 6, name: '田间阀-01', type: 'fieldValve', nodeaddr: 2, subaddr: 1, status: 'online', power: 90, signal: -65, isOpen: false, parent: 1, level: 3, field: '青稞田-A1' },
+                { id: 7, name: '田间阀-02', type: 'fieldValve', nodeaddr: 2, subaddr: 2, status: 'online', power: 88, signal: -68, isOpen: false, parent: 1, level: 3, field: '青稞田-A2' },
+                { id: 8, name: '田间阀-03', type: 'fieldValve', nodeaddr: 2, subaddr: 3, status: 'online', power: 85, signal: -70, isOpen: true, parent: 1, level: 3, field: '油菜田-B1' },
+                { id: 9, name: '田间阀-04', type: 'fieldValve', nodeaddr: 2, subaddr: 4, status: 'offline', power: 0, signal: 0, isOpen: false, parent: 1, level: 3, field: '油菜田-B2' },
+                { id: 10, name: '田间阀-05', type: 'fieldValve', nodeaddr: 2, subaddr: 5, status: 'online', power: 87, signal: -66, isOpen: false, parent: 1, level: 3, field: '马铃薯-C1' },
+                { id: 11, name: '田间阀-06', type: 'fieldValve', nodeaddr: 2, subaddr: 6, status: 'online', power: 89, signal: -64, isOpen: false, parent: 1, level: 3, field: '马铃薯-C2' },
+                { id: 12, name: '田间阀-07', type: 'fieldValve', nodeaddr: 2, subaddr: 7, status: 'warning', power: 30, signal: -88, isOpen: false, parent: 1, level: 3, field: '试验田-D1' },
+                { id: 13, name: '田间阀-08', type: 'fieldValve', nodeaddr: 2, subaddr: 8, status: 'online', power: 91, signal: -62, isOpen: false, parent: 1, level: 3, field: '试验田-D2' }
             ];
 
             // 告警数据
@@ -2751,20 +2751,20 @@
             renderDeviceTree();
         }
 
-        // 渲染设备树 - 更新为三级拓扑结构
+        // 渲染设备树 - 更新为三级拓扑结构（田间阀与主阀、施肥阀同级）
         function renderDeviceTree() {
             const treeContainer = document.getElementById('device-tree');
             const pump = state.devices.find(d => d.type === 'pump');
             
             if (!pump) return;
             
-            // 获取第二级设备（灌溉主阀和施肥阀）
+            // 获取第二级设备（灌溉主阀、施肥阀、田间阀 - 全部并列）
             const level2Devices = state.devices.filter(d => d.parent === pump.id && d.level === 2);
+            const level3Devices = state.devices.filter(d => d.parent === pump.id && d.level === 3);
+            
             const mainValve = level2Devices.find(d => d.type === 'mainValve');
             const fertValves = level2Devices.filter(d => d.type === 'fertValve');
-            
-            // 获取第三级设备（田间阀）
-            const fieldValves = mainValve ? state.devices.filter(d => d.parent === mainValve.id && d.level === 3) : [];
+            const fieldValves = level3Devices.filter(d => d.type === 'fieldValve');
             
             treeContainer.innerHTML = `
                 <div class="tree-node">
@@ -2781,41 +2781,21 @@
                     <div class="tree-children">
                         <!-- 第二级A：灌溉主阀 -->
                         ${mainValve ? `
-                            <div class="tree-node">
-                                <div class="tree-header" onclick="toggleNode(this)" style="background: ${mainValve.isOpen ? 'rgba(0, 212, 255, 0.1)' : 'transparent'}; border-radius: 6px;">
-                                    <span>▼</span>
-                                    <span style="font-size: 18px;">🚰</span>
-                                    <span>${mainValve.name}</span>
-                                    <span style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-                                        <span style="font-size: 11px; padding: 2px 8px; background: rgba(0, 212, 255, 0.15); color: var(--neon-blue); border-radius: 8px;">灌溉</span>
-                                        <span style="font-size: 12px; color: ${mainValve.status === 'online' ? 'var(--neon-green)' : mainValve.status === 'warning' ? 'var(--neon-amber)' : 'var(--neon-red)'}">
-                                            ${mainValve.status === 'online' ? '●' : '○'}
-                                        </span>
+                            <div class="tree-header" style="background: ${mainValve.isOpen ? 'rgba(0, 212, 255, 0.1)' : 'transparent'}; border-radius: 6px;">
+                                <span style="font-size: 18px;">🚰</span>
+                                <span>${mainValve.name}</span>
+                                <span style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 11px; padding: 2px 8px; background: rgba(0, 212, 255, 0.15); color: var(--neon-blue); border-radius: 8px;">灌溉</span>
+                                    <span style="font-size: 12px; color: ${mainValve.status === 'online' ? 'var(--neon-green)' : mainValve.status === 'warning' ? 'var(--neon-amber)' : 'var(--neon-red)'}">
+                                        ${mainValve.status === 'online' ? '●' : '○'}
                                     </span>
-                                </div>
-                                
-                                <div class="tree-children">
-                                    <!-- 第三级：8个田间阀 -->
-                                    ${fieldValves.map(valve => `
-                                        <div class="tree-header" style="padding-left: 24px; background: ${valve.isOpen ? 'rgba(57, 255, 20, 0.08)' : 'transparent'}; border-radius: 6px;">
-                                            <span style="font-size: 16px;">💧</span>
-                                            <span>${valve.name}</span>
-                                            <span style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;">${valve.field || ''}</span>
-                                            <span style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-                                                ${valve.isOpen ? '<span style="font-size: 11px; color: var(--neon-green);">● 开启</span>' : ''}
-                                                <span style="font-size: 12px; color: ${valve.status === 'online' ? 'var(--neon-green)' : valve.status === 'warning' ? 'var(--neon-amber)' : 'var(--neon-red)'}">
-                                                    ${valve.status === 'online' ? '●' : valve.status === 'warning' ? '⚠' : '○'}
-                                                </span>
-                                            </span>
-                                        </div>
-                                    `).join('')}
-                                </div>
+                                </span>
                             </div>
                         ` : ''}
                         
                         <!-- 第二级B：3个施肥阀 -->
                         ${fertValves.map(valve => `
-                            <div class="tree-header" style="margin-top: 4px; background: ${valve.isOpen ? 'rgba(168, 85, 247, 0.1)' : 'transparent'}; border-radius: 6px;">
+                            <div class="tree-header" style="background: ${valve.isOpen ? 'rgba(168, 85, 247, 0.1)' : 'transparent'}; border-radius: 6px;">
                                 <span style="font-size: 18px;">🧪</span>
                                 <span>${valve.name}</span>
                                 <span style="margin-left: 8px; font-size: 11px; padding: 2px 8px; background: rgba(168, 85, 247, 0.15); color: var(--neon-purple); border-radius: 8px;">${valve.fertType || '肥料'}</span>
@@ -2827,6 +2807,24 @@
                                 </span>
                             </div>
                         `).join('')}
+                        
+                        <!-- 第三级：8个田间阀（与主阀、施肥阀并列显示） -->
+                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; padding-left: 12px;">💧 田间灌溉阀</div>
+                            ${fieldValves.map(valve => `
+                                <div class="tree-header" style="background: ${valve.isOpen ? 'rgba(57, 255, 20, 0.08)' : 'transparent'}; border-radius: 6px;">
+                                    <span style="font-size: 16px;">💧</span>
+                                    <span>${valve.name}</span>
+                                    <span style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;">${valve.field || ''}</span>
+                                    <span style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                                        ${valve.isOpen ? '<span style="font-size: 11px; color: var(--neon-green);">● 开启</span>' : ''}
+                                        <span style="font-size: 12px; color: ${valve.status === 'online' ? 'var(--neon-green)' : valve.status === 'warning' ? 'var(--neon-amber)' : 'var(--neon-red)'}">
+                                            ${valve.status === 'online' ? '●' : valve.status === 'warning' ? '⚠' : '○'}
+                                        </span>
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
                     </div>
                 </div>
             `;
