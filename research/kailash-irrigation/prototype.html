@@ -1654,7 +1654,7 @@
     
     <!-- 版本信息 -->
     <div class="version-info">
-        <div id="version-display">v1.5.1 · 2026-04-06</div>
+        <div id="version-display">v1.5.2 · 2026-04-06</div>
         <div style="font-size: 10px; margin-top: 4px; opacity: 0.7;">冈仁波齐灌溉系统</div>
     </div>
 
@@ -2200,7 +2200,18 @@
                 </div>
             </div>
 
-            <!-- 施肥程序卡片 -->
+            <!-- 施肥阀控制 -->
+            <div class="card" style="border-color: rgba(168, 85, 247, 0.3);">
+                <div class="card-header">
+                    <span class="card-title">🧪 施肥阀控制</span>
+                    <span style="font-size: 12px; color: var(--neon-purple);">3个施肥阀</span>
+                </div>
+                <div class="card-body">
+                    <div id="fertilization-valves">
+                        <!-- 动态生成施肥阀控制卡片 -->
+                    </div>
+                </div>
+            </div>
             <div class="card" style="border-color: rgba(168, 85, 247, 0.3); background: linear-gradient(135deg, rgba(168, 85, 247, 0.05), transparent);">
                 <div class="card-header">
                     <span class="card-title">📋 施肥程序</span>
@@ -2758,13 +2769,13 @@
             // 渲染灌溉程序列表
             renderIrrigationPrograms();
 
-            // 渲染手动控制 - 按层级分组
+            // 渲染手动控制 - 按层级分组（移除施肥阀，移至施肥管理页面）
             const controlsContainer = document.getElementById('irrigation-controls');
             
             // 第一级：水泵
             const pumps = state.devices.filter(d => d.type === 'pump');
-            // 第二级：主阀和施肥阀
-            const level2Devices = state.devices.filter(d => d.level === 2);
+            // 第二级：灌溉主阀（施肥阀已移至施肥管理页面）
+            const mainValves = state.devices.filter(d => d.type === 'mainValve');
             // 第三级：田间阀
             const fieldValves = state.devices.filter(d => d.type === 'fieldValve');
             
@@ -2775,17 +2786,22 @@
                 </div>
                 ${pumps.map(device => renderDeviceCard(device)).join('')}
                 
-                <!-- 第二级：主阀和施肥阀 -->
+                <!-- 第二级：灌溉主阀 -->
                 <div style="grid-column: 1 / -1; font-size: 12px; color: var(--text-secondary); margin-bottom: -8px; margin-top: 8px;">
-                    🚰 第二级：主阀与施肥阀
+                    🚰 第二级：灌溉主阀
                 </div>
-                ${level2Devices.map(device => renderDeviceCard(device)).join('')}
+                ${mainValves.map(device => renderDeviceCard(device)).join('')}
                 
                 <!-- 第三级：田间阀 -->
                 <div style="grid-column: 1 / -1; font-size: 12px; color: var(--text-secondary); margin-bottom: -8px; margin-top: 8px;">
                     💧 第三级：田间灌溉阀
                 </div>
                 ${fieldValves.map(device => renderDeviceCard(device)).join('')}
+                
+                <!-- 提示信息：施肥阀已移至施肥管理 -->
+                <div style="grid-column: 1 / -1; padding: 12px; background: rgba(168, 85, 247, 0.05); border: 1px dashed var(--neon-purple); border-radius: 8px; margin-top: 8px; text-align: center; font-size: 12px; color: var(--text-secondary);">
+                    🧪 施肥阀控制已移至<a href="#" onclick="showPage('fertilization'); return false;" style="color: var(--neon-purple);">施肥管理页面</a>
+                </div>
             `;
 
             // 渲染灌溉计划
@@ -4489,6 +4505,66 @@
 
         // 渲染施肥管理页面
         function renderFertilization() {
+            // 渲染施肥阀控制卡片
+            const valvesContainer = document.getElementById('fertilization-valves');
+            if (valvesContainer) {
+                const fertValves = state.devices.filter(d => d.type === 'fertValve');
+                
+                valvesContainer.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                        ${fertValves.map(valve => `
+                            <div class="device-card" style="border-left-color: ${valve.isOpen ? 'var(--neon-purple)' : 'var(--border-color)'};">
+                                <div class="device-header">
+                                    <div class="device-name">
+                                        🧪 ${valve.name}
+                                        <span style="font-size: 11px; padding: 2px 8px; background: rgba(168, 85, 247, 0.15); color: var(--neon-purple); border-radius: 8px; margin-left: 6px;">${valve.fertType}</span>
+                                    </div>
+                                    <div class="device-status ${valve.status}">
+                                        <span>●</span> ${valve.status === 'online' ? '在线' : valve.status === 'warning' ? '警告' : '离线'}
+                                    </div>
+                                </div>
+                                <div class="device-info">
+                                    <div class="device-info-row">
+                                        <span>类型</span>
+                                        <span>施肥阀</span>
+                                    </div>
+                                    <div class="device-info-row">
+                                        <span>地址</span>
+                                        <span>${valve.nodeaddr},${valve.subaddr}</span>
+                                    </div>
+                                    <div class="device-info-row">
+                                        <span>电量</span>
+                                        <span style="color: ${valve.power < 30 ? 'var(--neon-amber)' : 'var(--neon-green)'}">${valve.power}%</span>
+                                    </div>
+                                    <div class="device-info-row">
+                                        <span>信号</span>
+                                        <span>${valve.signal}dBm</span>
+                                    </div>
+                                </div>
+                                <div class="device-controls">
+                                    <button class="btn ${valve.isOpen ? 'btn-danger' : 'btn-success'}" 
+                                            style="flex: 1;"
+                                            onclick="toggleFertValve(${valve.id})"
+                                            ${valve.status === 'offline' ? 'disabled' : ''}>
+                                        ${valve.isOpen ? '🔴 关闭阀门' : '🟢 开启阀门'}
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <!-- 快捷操作 -->
+                    <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="openAllFertValves()" style="flex: 1;">
+                            🧪 全部开启
+                        </button>
+                        <button class="btn btn-secondary" onclick="closeAllFertValves()" style="flex: 1;">
+                            ⏸️ 全部关闭
+                        </button>
+                    </div>
+                `;
+            }
+
             // 渲染施肥程序
             const programsContainer = document.getElementById('fertilization-programs');
             if (programsContainer) {
@@ -4742,6 +4818,112 @@
         // 编辑施肥方案
         function editFertilizationProgram(id) {
             showToast('编辑施肥方案功能（演示）', 'info');
+        }
+
+        // 施肥阀控制函数
+        function toggleFertValve(valveId) {
+            const valve = state.devices.find(d => d.id === valveId);
+            if (!valve || valve.status === 'offline') return;
+
+            const action = valve.isOpen ? '关闭' : '开启';
+            
+            showModal(
+                `确认${action}施肥阀`,
+                `确定要${action} ${valve.name} (${valve.fertType}) 吗？`,
+                () => {
+                    valve.isOpen = !valve.isOpen;
+                    
+                    // 添加日志
+                    const logEntry = {
+                        time: new Date().toLocaleString('zh-CN'),
+                        user: '管理员',
+                        action: `手动${action}施肥阀-${valve.name}`,
+                        result: '成功',
+                        type: 'fertilization',
+                        fertAmount: valve.isOpen ? 0.5 : 0
+                    };
+                    state.logs.unshift(logEntry);
+                    
+                    // 如果是开启，同时开启主阀
+                    if (valve.isOpen) {
+                        const mainValve = state.devices.find(d => d.type === 'mainValve');
+                        if (mainValve) mainValve.isOpen = true;
+                        showToast(`${valve.name} 已开启`, 'success');
+                    } else {
+                        showToast(`${valve.name} 已关闭`, 'info');
+                    }
+                    
+                    renderFertilization();
+                    renderDashboard();
+                },
+                valve.isOpen ? 'danger' : 'success'
+            );
+        }
+
+        function openAllFertValves() {
+            showModal(
+                '确认开启全部施肥阀',
+                '确定要开启所有施肥阀吗？\n\n将同时开启：\n- 施肥阀-A (NPK)\n- 施肥阀-B (尿素)\n- 施肥阀-C (钾肥)',
+                () => {
+                    const fertValves = state.devices.filter(d => d.type === 'fertValve' && d.status === 'online');
+                    let openedCount = 0;
+                    
+                    fertValves.forEach(valve => {
+                        if (!valve.isOpen) {
+                            valve.isOpen = true;
+                            openedCount++;
+                        }
+                    });
+                    
+                    // 同时开启主阀
+                    const mainValve = state.devices.find(d => d.type === 'mainValve');
+                    if (mainValve) mainValve.isOpen = true;
+                    
+                    state.logs.unshift({
+                        time: new Date().toLocaleString('zh-CN'),
+                        user: '管理员',
+                        action: `一键开启全部施肥阀 (${openedCount}个)`,
+                        result: '成功',
+                        type: 'fertilization',
+                        fertAmount: openedCount * 0.5
+                    });
+                    
+                    showToast(`已开启 ${openedCount} 个施肥阀`, 'success');
+                    renderFertilization();
+                    renderDashboard();
+                },
+                'success'
+            );
+        }
+
+        function closeAllFertValves() {
+            showModal(
+                '确认关闭全部施肥阀',
+                '确定要关闭所有施肥阀吗？',
+                () => {
+                    const fertValves = state.devices.filter(d => d.type === 'fertValve');
+                    let closedCount = 0;
+                    
+                    fertValves.forEach(valve => {
+                        if (valve.isOpen) {
+                            valve.isOpen = false;
+                            closedCount++;
+                        }
+                    });
+                    
+                    state.logs.unshift({
+                        time: new Date().toLocaleString('zh-CN'),
+                        user: '管理员',
+                        action: `一键关闭全部施肥阀 (${closedCount}个)`,
+                        result: '成功',
+                        type: 'fertilization'
+                    });
+                    
+                    showToast(`已关闭 ${closedCount} 个施肥阀`, 'info');
+                    renderFertilization();
+                },
+                'secondary'
+            );
         }
 
         // 刷新施肥数据
