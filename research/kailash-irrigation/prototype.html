@@ -1654,7 +1654,7 @@
     
     <!-- 版本信息 -->
     <div class="version-info">
-        <div id="version-display">v1.4.0 · 2026-04-06</div>
+        <div id="version-display">v1.5.0 · 2026-04-06</div>
         <div style="font-size: 10px; margin-top: 4px; opacity: 0.7;">冈仁波齐灌溉系统</div>
     </div>
 
@@ -1892,9 +1892,27 @@
         <div class="page hidden" id="page-irrigation">
             <div class="page-title">
                 <span>💧 灌溉管理</span>
-                <button class="btn btn-primary" onclick="createSchedule()">
-                    <span>+</span> 新建计划
-                </button>
+                <div class="page-actions">
+                    <button class="btn btn-secondary" onclick="refreshIrrigationData()">
+                        <span>🔄</span> 刷新
+                    </button>
+                    <button class="btn btn-primary" onclick="showIrrigationProgramModal()">
+                        <span>+</span> 新建灌溉程序
+                    </button>
+                </div>
+            </div>
+
+            <!-- 灌溉程序列表 -->
+            <div class="card" style="border-color: rgba(0, 212, 255, 0.3); background: linear-gradient(135deg, rgba(0, 212, 255, 0.05), transparent);">
+                <div class="card-header">
+                    <span class="card-title">📋 灌溉程序</span>
+                    <span style="font-size: 12px; color: var(--neon-blue);">可执行程序列表</span>
+                </div>
+                <div class="card-body">
+                    <div id="irrigation-programs-list">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
             </div>
 
             <div class="card">
@@ -2404,6 +2422,48 @@
                 { id: 3, name: '周末深度灌溉', zone: '青稞田', time: '09:00', duration: '60分钟', status: 'disabled', repeat: '周六' },
             ];
 
+            // 灌溉程序（新增）
+            state.irrigationPrograms = [
+                {
+                    id: 1,
+                    name: '青稞田-A1 滴灌程序',
+                    valveId: 6,
+                    valveName: '田间阀-01',
+                    field: '青稞田-A1',
+                    crop: '青稞',
+                    method: 'drip',
+                    frequency: 2,
+                    startTime: '08:00',
+                    duration: 45,
+                    status: 'active',
+                    createdAt: '2026-04-05'
+                },
+                {
+                    id: 2,
+                    name: '油菜田-B1 喷灌程序',
+                    valveId: 8,
+                    valveName: '田间阀-03',
+                    field: '油菜田-B1',
+                    crop: '油菜',
+                    method: 'sprinkler',
+                    frequency: 3,
+                    startTime: '14:00',
+                    duration: 30,
+                    status: 'active',
+                    createdAt: '2026-04-04'
+                }
+            ];
+
+            // 作物类型选项
+            state.cropTypes = [
+                { id: 'qingke', name: '青稞', waterNeed: '中', icon: '🌾' },
+                { id: 'youcai', name: '油菜', waterNeed: '高', icon: '🌻' },
+                { id: 'malingshu', name: '马铃薯', waterNeed: '极高', icon: '🥔' },
+                { id: 'xiaomai', name: '小麦', waterNeed: '中', icon: '🌾' },
+                { id: 'dacai', name: '大白菜', waterNeed: '高', icon: '🥬' },
+                { id: 'qita', name: '其他作物', waterNeed: '中', icon: '🌱' }
+            ];
+
             // 操作日志 - 增加用水量/肥水量字段
             state.logs = [
                 { time: '2026-04-06 17:30:00', user: '系统', action: '自动执行油菜田灌溉', result: '成功', type: 'irrigation', waterAmount: 18.5, zone: '油菜田-B1' },
@@ -2695,6 +2755,9 @@
 
         // 渲染灌溉管理
         function renderIrrigation() {
+            // 渲染灌溉程序列表
+            renderIrrigationPrograms();
+
             // 渲染手动控制 - 按层级分组
             const controlsContainer = document.getElementById('irrigation-controls');
             
@@ -2737,6 +2800,62 @@
                         <div class="switch ${schedule.status === 'enabled' ? 'active' : ''}"></div>
                         <button class="btn btn-sm btn-secondary">编辑</button>
                         <button class="btn btn-sm btn-danger">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 渲染灌溉程序列表
+        function renderIrrigationPrograms() {
+            const container = document.getElementById('irrigation-programs-list');
+            if (!container) return;
+
+            if (state.irrigationPrograms.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <div style="font-size: 48px; margin-bottom: 16px;">💧</div>
+                        <div style="font-size: 16px; margin-bottom: 8px;">暂无灌溉程序</div>
+                        <div style="font-size: 13px;">点击右上角"新建灌溉程序"创建</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = state.irrigationPrograms.map(prog => `
+                <div class="recommendation-card" style="border-left-color: ${prog.status === 'active' ? 'var(--neon-green)' : 'var(--text-secondary)'}; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <div>
+                            <div style="font-size: 13px; color: var(--neon-blue); margin-bottom: 4px;">
+                                ${prog.field} · ${prog.crop}
+                            </div>
+                            <div style="font-weight: 600; font-size: 15px;">${prog.name}</div>
+                        </div>
+                        <span class="status-badge ${prog.status === 'active' ? 'low' : 'high'}" style="font-size: 11px;">
+                            ${prog.status === 'active' ? '运行中' : '已暂停'}
+                        </span>
+                    </div>
+                    
+                    <div style="display: flex; gap: 16px; margin-bottom: 12px; font-size: 13px; flex-wrap: wrap;">
+                        <span style="color: var(--neon-blue);">💧 ${prog.method === 'drip' ? '滴灌' : '喷灌'}</span>
+                        <span style="color: var(--neon-amber);">📅 每${prog.frequency}天</span>
+                        <span style="color: var(--neon-green);">⏰ ${prog.startTime}</span>
+                        <span style="color: var(--text-secondary);">⏱️ ${prog.duration}分钟</span>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm ${prog.status === 'active' ? 'btn-danger' : 'btn-success'}" 
+                                onclick="toggleIrrigationProgram(${prog.id})" style="flex: 1;">
+                            ${prog.status === 'active' ? '⏸️ 暂停' : '▶️ 启用'}
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="executeIrrigationProgram(${prog.id})">
+                            🚀 立即执行
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="editIrrigationProgram(${prog.id})">
+                            ✏️ 编辑
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteIrrigationProgram(${prog.id})">
+                            🗑️ 删除
+                        </button>
                     </div>
                 </div>
             `).join('');
@@ -3184,6 +3303,433 @@
             link.click();
 
             showToast('日志已导出', 'success');
+        }
+
+        // ==================== 灌溉程序管理 ====================
+
+        // 显示创建灌溉程序弹窗
+        function showIrrigationProgramModal() {
+            const fieldValves = state.devices.filter(d => d.type === 'fieldValve');
+            const cropOptions = state.cropTypes.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+            const valveOptions = fieldValves.map(v => `<option value="${v.id}" data-field="${v.field}">${v.name} - ${v.field}</option>`).join('');
+
+            const modalContent = `
+                <form id="irrigation-program-form" style="display: flex; flex-direction: column; gap: 16px;"
+                >
+                    <div>
+                        <label style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;"
+                        >程序名称 *</label
+                        >
+                        <input type="text" id="prog-name" required placeholder="如：青稞田-A1滴灌程序"
+                               style="width: 100%; padding: 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
+                        >
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;"
+                        >选择阀门 *</label
+                        >
+                        <select id="prog-valve" required
+                                style="width: 100%; padding: 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
+                        >
+                            <option value="">请选择田间阀门</option>
+                            ${valveOptions}
+                        </select
+                        >
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;"
+                        >种植作物 *</label
+                        >
+                        <select id="prog-crop" required
+                                style="width: 100%; padding: 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
+                        >
+                            <option value="">请选择作物种类</option>
+                            ${cropOptions}
+                        </select
+                        >
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;"
+                        >灌溉方式 *</label
+                        >
+                        <div style="display: flex; gap: 12px;"
+                        >
+                            <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;"
+                            >
+                                <input type="radio" name="prog-method" value="drip" checked style="accent-color: var(--neon-blue);"
+                                >
+                                <span>💧 滴灌</span
+                                >
+                            </label
+                            >
+                            <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;"
+                            >
+                                <input type="radio" name="prog-method" value="sprinkler" style="accent-color: var(--neon-blue);"
+                                >
+                                <span>🚿 喷灌</span
+                                >
+                            </label
+                            >
+                        </div
+                        >
+                    </div
+                    >
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"
+                    >
+                        <div>
+                            <label style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;"
+                            >浇水频率 *</label
+                            >
+                            <select id="prog-frequency" required
+                                    style="width: 100%; padding: 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
+                            >
+                                <option value="1">每天</option>
+                                <option value="2">每2天</option>
+                                <option value="3">每3天</option>
+                                <option value="4">每4天</option>
+                                <option value="5">每5天</option>
+                                <option value="6">每6天</option>
+                                <option value="7">每7天</option>
+                            </select
+                            >
+                        </div
+                        >
+                        <div>
+                            <label style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;"
+                            >开始时间 *</label
+                            >
+                            <input type="time" id="prog-start-time" required value="08:00"
+                                   style="width: 100%; padding: 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
+                            >
+                        </div
+                        >
+                    </div
+                    >
+
+                    <div>
+                        <label style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;"
+                        >运行时长 * (1分钟 - 5小时)</label
+                        >
+                        <div style="display: flex; align-items: center; gap: 12px;"
+                        >
+                            <input type="range" id="prog-duration-slider" min="1" max="300" value="30"
+                                   style="flex: 1; accent-color: var(--neon-blue);"
+                                   oninput="document.getElementById('prog-duration-display').textContent = this.value + ' 分钟'"
+                            >
+                            <span id="prog-duration-display" style="min-width: 80px; font-size: 14px; color: var(--neon-blue); font-weight: 500;"
+                            >30 分钟</span
+                            >
+                        </div
+                        >
+                    </div
+                    >
+
+                    <div id="conflict-warning" style="display: none; padding: 12px; background: rgba(255, 71, 87, 0.1); border: 1px solid var(--neon-red); border-radius: 6px; color: var(--neon-red); font-size: 13px;"
+                    >
+                    </div
+                    >
+                </form
+                >
+            `;
+
+            const modal = document.createElement('div');
+            modal.className = 'modal show';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 480px;"
+                >
+                    <div class="modal-header"
+                    >
+                        <h3 class="modal-title"
+                        >新建灌溉程序</h3
+                        >
+                        <button class="modal-close" onclick="this.closest('.modal').remove()"
+                        >×</button
+                        >
+                    </div
+                    >
+                    <div class="modal-body"
+                    >
+                        ${modalContent}
+                    </div
+                    >
+                    <div class="modal-footer"
+                    >
+                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()"
+                        >取消</button
+                        >
+                        <button class="btn btn-primary" onclick="saveIrrigationProgram()"
+                        >保存程序</button
+                        >
+                    </div
+                    >
+                </div
+                >
+            `;
+
+            document.body.appendChild(modal);
+
+            // 监听时间变化，实时检测冲突
+            document.getElementById('prog-start-time').addEventListener('change', checkTimeConflict);
+            document.getElementById('prog-duration-slider').addEventListener('change', checkTimeConflict);
+        }
+
+        // 检查时间冲突
+        function checkTimeConflict() {
+            const startTime = document.getElementById('prog-start-time').value;
+            const duration = parseInt(document.getElementById('prog-duration-slider').value);
+            const valveId = parseInt(document.getElementById('prog-valve').value);
+
+            if (!startTime || !duration || !valveId) return;
+
+            // 计算新程序的时间范围（分钟数）
+            const [startHour, startMin] = startTime.split(':').map(Number);
+            const newStart = startHour * 60 + startMin;
+            const newEnd = newStart + duration;
+
+            // 检查与现有程序的冲突
+            const conflicts = [];
+            state.irrigationPrograms.forEach(prog => {
+                if (prog.status !== 'active') return;
+
+                const [progHour, progMin] = prog.startTime.split(':').map(Number);
+                const progStart = progHour * 60 + progMin;
+                const progEnd = progStart + prog.duration;
+
+                // 检查时间是否重叠
+                const hasOverlap = (newStart < progEnd && newEnd > progStart);
+
+                if (hasOverlap) {
+                    conflicts.push({
+                        name: prog.name,
+                        valveName: prog.valveName,
+                        time: prog.startTime,
+                        duration: prog.duration
+                    });
+                }
+            });
+
+            const warningDiv = document.getElementById('conflict-warning');
+            if (conflicts.length > 0) {
+                warningDiv.style.display = 'block';
+                warningDiv.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 8px;"
+                    >⚠️ 时间冲突检测</div
+                    >
+                    <div style="margin-bottom: 8px;"
+                    >新程序的运行时间与以下程序冲突：</div
+                    >
+                    ${conflicts.map(c => `
+                        <div style="margin-left: 8px; margin-bottom: 4px;"
+                        >• ${c.name} (${c.valveName}) ${c.time} 持续${c.duration}分钟</div
+                        >
+                    `).join('')}
+                    <div style="margin-top: 8px; color: var(--text-secondary);"
+                    >请修改开始时间或运行时长，否则无法保存。</div
+                    >
+                `;
+            } else {
+                warningDiv.style.display = 'none';
+            }
+
+            return conflicts.length === 0;
+        }
+
+        // 保存灌溉程序
+        function saveIrrigationProgram() {
+            const name = document.getElementById('prog-name').value.trim();
+            const valveId = parseInt(document.getElementById('prog-valve').value);
+            const crop = document.getElementById('prog-crop').value;
+            const method = document.querySelector('input[name="prog-method"]:checked').value;
+            const frequency = parseInt(document.getElementById('prog-frequency').value);
+            const startTime = document.getElementById('prog-start-time').value;
+            const duration = parseInt(document.getElementById('prog-duration-slider').value);
+
+            // 验证必填项
+            if (!name || !valveId || !crop || !startTime) {
+                showToast('请填写所有必填项', 'error');
+                return;
+            }
+
+            // 检查时间冲突
+            if (!checkTimeConflict()) {
+                showToast('存在时间冲突，请修改后重试', 'error');
+                return;
+            }
+
+            const valve = state.devices.find(d => d.id === valveId);
+            const cropInfo = state.cropTypes.find(c => c.id === crop);
+
+            const newProgram = {
+                id: Date.now(),
+                name,
+                valveId,
+                valveName: valve.name,
+                field: valve.field,
+                crop: cropInfo.name,
+                method,
+                frequency,
+                startTime,
+                duration,
+                status: 'active',
+                createdAt: new Date().toISOString().split('T')[0]
+            };
+
+            state.irrigationPrograms.push(newProgram);
+
+            // 添加日志
+            state.logs.unshift({
+                time: new Date().toLocaleString('zh-CN'),
+                user: '管理员',
+                action: `创建灌溉程序: ${name}`,
+                result: '成功',
+                type: 'system'
+            });
+
+            document.querySelector('.modal').remove();
+            showToast('灌溉程序创建成功', 'success');
+            renderIrrigationPrograms();
+        }
+
+        // 启用/暂停灌溉程序
+        function toggleIrrigationProgram(id) {
+            const prog = state.irrigationPrograms.find(p => p.id === id);
+            if (!prog) return;
+
+            const newStatus = prog.status === 'active' ? 'paused' : 'active';
+            const action = newStatus === 'active' ? '启用' : '暂停';
+
+            // 如果要启用，检查是否有冲突
+            if (newStatus === 'active') {
+                const [progHour, progMin] = prog.startTime.split(':').map(Number);
+                const progStart = progHour * 60 + progMin;
+                const progEnd = progStart + prog.duration;
+
+                const conflicts = state.irrigationPrograms.filter(p => {
+                    if (p.id === id || p.status !== 'active') return false;
+
+                    const [pHour, pMin] = p.startTime.split(':').map(Number);
+                    const pStart = pHour * 60 + pMin;
+                    const pEnd = pStart + p.duration;
+
+                    return (progStart < pEnd && progEnd > pStart);
+                });
+
+                if (conflicts.length > 0) {
+                    showModal(
+                        '时间冲突',
+                        `启用此程序与 "${conflicts[0].name}" 时间冲突，请先暂停其他程序或修改时间。`,
+                        null,
+                        'warning'
+                    );
+                    return;
+                }
+            }
+
+            prog.status = newStatus;
+
+            state.logs.unshift({
+                time: new Date().toLocaleString('zh-CN'),
+                user: '管理员',
+                action: `${action}灌溉程序: ${prog.name}`,
+                result: '成功',
+                type: 'system'
+            });
+
+            showToast(`已${action}灌溉程序`, 'success');
+            renderIrrigationPrograms();
+        }
+
+        // 立即执行灌溉程序
+        function executeIrrigationProgram(id) {
+            const prog = state.irrigationPrograms.find(p => p.id === id);
+            if (!prog) return;
+
+            showModal(
+                '立即执行',
+                `确定要立即执行 "${prog.name}" 吗？\n\n将在 ${prog.field} 执行${prog.method === 'drip' ? '滴灌' : '喷灌'}，持续 ${prog.duration} 分钟。`,
+                () => {
+                    // 开启对应阀门
+                    const valve = state.devices.find(d => d.id === prog.valveId);
+                    const mainValve = state.devices.find(d => d.type === 'mainValve');
+
+                    if (valve && valve.status === 'online') {
+                        valve.isOpen = true;
+                        if (mainValve) mainValve.isOpen = true;
+
+                        // 添加到运行任务
+                        state.tasks.unshift({
+                            id: Date.now(),
+                            name: prog.name,
+                            zone: prog.field,
+                            progress: 0,
+                            duration: `${prog.duration}分钟`,
+                            remaining: `${prog.duration}分钟`
+                        });
+
+                        // 记录日志
+                        const waterAmount = (prog.duration / 60) * 15; // 估算用水量
+                        state.usageStats.today.water += waterAmount;
+
+                        state.logs.unshift({
+                            time: new Date().toLocaleString('zh-CN'),
+                            user: '管理员',
+                            action: `手动执行灌溉程序: ${prog.name}`,
+                            result: '成功',
+                            type: 'irrigation',
+                            waterAmount: waterAmount.toFixed(1),
+                            zone: prog.field
+                        });
+
+                        showToast('灌溉程序开始执行', 'success');
+                        renderIrrigation();
+                        renderDashboard();
+                    } else {
+                        showToast('阀门离线，无法执行', 'error');
+                    }
+                },
+                'success'
+            );
+        }
+
+        // 编辑灌溉程序
+        function editIrrigationProgram(id) {
+            showToast('编辑功能开发中...', 'info');
+        }
+
+        // 删除灌溉程序
+        function deleteIrrigationProgram(id) {
+            const prog = state.irrigationPrograms.find(p => p.id === id);
+            if (!prog) return;
+
+            showModal(
+                '确认删除',
+                `确定要删除灌溉程序 "${prog.name}" 吗？此操作不可恢复。`,
+                () => {
+                    state.irrigationPrograms = state.irrigationPrograms.filter(p => p.id !== id);
+
+                    state.logs.unshift({
+                        time: new Date().toLocaleString('zh-CN'),
+                        user: '管理员',
+                        action: `删除灌溉程序: ${prog.name}`,
+                        result: '成功',
+                        type: 'system'
+                    });
+
+                    showToast('灌溉程序已删除', 'success');
+                    renderIrrigationPrograms();
+                },
+                'danger'
+            );
+        }
+
+        // 刷新灌溉数据
+        function refreshIrrigationData() {
+            showToast('数据已刷新', 'success');
+            renderIrrigation();
         }
 
         // 切换设备开关
