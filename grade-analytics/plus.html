@@ -380,6 +380,52 @@
         }
 
         .chart-container { position: relative; height: 200px; }
+        
+        .chart-container.single { height: 250px; margin-top: 15px; }
+
+        /* 趋势标签页 */
+        .trend-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .trend-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .trend-tabs label {
+            padding: 6px 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .trend-tabs label:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .trend-tabs input[type="radio"] {
+            display: none;
+        }
+
+        .trend-tabs input[type="radio"]:checked + * {
+            color: var(--text-primary);
+        }
+
+        .trend-tabs label:has(input:checked) {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
 
         /* 历史记录 */
         .history-list {
@@ -638,7 +684,7 @@
     <div class="container">
         <div class="header">
             <div>
-                <h1>🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span> <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.8</span></h1>
+                <h1>🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span> <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.9</span></h1>
                 <p class="subtitle">GitHub Gist 云端同步</p>
             </div>
             <div class="header-actions">
@@ -721,12 +767,17 @@
 
         <!-- 排名趋势 -->
         <div class="card hidden" id="trendsSection">
-            <h2>📉 趋势</h2>
-            <div class="charts-grid">
-                <div class="chart-box"><div class="chart-container"><canvas id="chartMath"></canvas></div></div>
-                <div class="chart-box"><div class="chart-container"><canvas id="chartEng"></canvas></div></div>
-                <div class="chart-box"><div class="chart-container"><canvas id="chartTotal"></canvas></div></div>
-                <div class="chart-box"><div class="chart-container"><canvas id="chartPct"></canvas></div></div>
+            <div class="trend-header">
+                <h2>📉 趋势</h2>
+                <div class="trend-tabs">
+                    <label><input type="radio" name="trendTab" value="math" checked onchange="switchTrend('math')"> 数学</label>
+                    <label><input type="radio" name="trendTab" value="eng" onchange="switchTrend('eng')"> 英语</label>
+                    <label><input type="radio" name="trendTab" value="total" onchange="switchTrend('total')"> 总分</label>
+                    <label><input type="radio" name="trendTab" value="pct" onchange="switchTrend('pct')"> 百分比</label>
+                </div>
+            </div>
+            <div class="chart-container single">
+                <canvas id="trendChart"></canvas>
             </div>
         </div>
 
@@ -1202,27 +1253,81 @@
             renderCharts(studentRecords);
         }
 
+        let currentTrendData = null;
+
         function renderCharts(studentRecords) {
             const dates = studentRecords.map(r => r.dateDisplay.slice(5));
-            const mathRanks = studentRecords.map(r => r.student.mathRank);
-            const engRanks = studentRecords.map(r => r.student.englishRank);
-            const totalRanks = studentRecords.map(r => r.student.totalRank);
-            const mathPcts = studentRecords.map(r => parseFloat(r.student.mathPct));
-            const engPcts = studentRecords.map(r => parseFloat(r.student.englishPct));
-            const totalPcts = studentRecords.map(r => parseFloat(r.student.totalPct));
+            
+            currentTrendData = {
+                dates,
+                math: studentRecords.map(r => r.student.mathRank),
+                eng: studentRecords.map(r => r.student.englishRank),
+                total: studentRecords.map(r => r.student.totalRank),
+                mathPct: studentRecords.map(r => parseFloat(r.student.mathPct)),
+                engPct: studentRecords.map(r => parseFloat(r.student.englishPct)),
+                totalPct: studentRecords.map(r => parseFloat(r.student.totalPct))
+            };
 
-            Object.values(charts).forEach(c => c.destroy());
+            // 默认显示数学排名
+            switchTrend('math');
+        }
 
-            const createChart = (id, label, data, color, reverse = true) => {
-                return new Chart(document.getElementById(id), {
+        function switchTrend(type) {
+            if (!currentTrendData) return;
+            
+            if (charts.trend) {
+                charts.trend.destroy();
+            }
+
+            const config = {
+                math: { label: '数学排名', data: currentTrendData.math, color: '#3b82f6', reverse: true },
+                eng: { label: '英语排名', data: currentTrendData.eng, color: '#22c55e', reverse: true },
+                total: { label: '总分排名', data: currentTrendData.total, color: '#eab308', reverse: true },
+                pct: { label: '百分比', data: null, color: null, reverse: false, multi: true }
+            }[type];
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            if (type === 'pct') {
+                charts.trend = new Chart(ctx, {
                     type: 'line',
-                    data: { labels: dates, datasets: [{ label, data, borderColor: color, backgroundColor: color + '20', fill: true, tension: 0.4 }] },
+                    data: {
+                        labels: currentTrendData.dates,
+                        datasets: [
+                            { label: '数学', data: currentTrendData.mathPct, borderColor: '#3b82f6', tension: 0.4 },
+                            { label: '英语', data: currentTrendData.engPct, borderColor: '#22c55e', tension: 0.4 },
+                            { label: '总分', data: currentTrendData.totalPct, borderColor: '#eab308', tension: 0.4 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#94a3b8' } } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#94a3b8', callback: v => v + '%' } },
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+            } else {
+                charts.trend = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: currentTrendData.dates,
+                        datasets: [{
+                            label: config.label,
+                            data: config.data,
+                            borderColor: config.color,
+                            backgroundColor: config.color + '20',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
                         scales: {
                             y: {
-                                reverse,
+                                reverse: config.reverse,
                                 grid: { color: 'rgba(255,255,255,0.1)' },
                                 ticks: { color: '#94a3b8', stepSize: 1, precision: 0 }
                             },
@@ -1230,17 +1335,8 @@
                         }
                     }
                 });
-            };
-
-            charts.math = createChart('chartMath', '数学排名', mathRanks, '#3b82f6');
-            charts.eng = createChart('chartEng', '英语排名', engRanks, '#22c55e');
-            charts.total = createChart('chartTotal', '总分排名', totalRanks, '#eab308');
-
-            charts.pct = new Chart(document.getElementById('chartPct'), {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [
+            }
+        }
                         { label: '数学', data: mathPcts, borderColor: '#3b82f6', tension: 0.4 },
                         { label: '英语', data: engPcts, borderColor: '#22c55e', tension: 0.4 },
                         { label: '总分', data: totalPcts, borderColor: '#eab308', tension: 0.4 }
