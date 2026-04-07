@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>成绩统计分析系统</title>
+    <title>Max 成绩追踪分析系统</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -447,7 +447,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>📊 成绩统计分析系统</h1>
+        <h1>🎯 Max 成绩追踪分析系统</h1>
         
         <!-- 上传区域 -->
         <div class="upload-section">
@@ -466,6 +466,13 @@
                     <label>📝 英语成绩表 (Excel)</label>
                     <input type="file" id="englishFile" accept=".xlsx,.xls,.csv" />
                     <div class="file-status" id="englishStatus"></div>
+                </div>
+            </div>
+            <div class="upload-grid" style="margin-top: 15px;">
+                <div class="upload-box" style="border-color: #eab308;">
+                    <label>🎯 Max 今日编号</label>
+                    <input type="text" id="maxStudentId" placeholder="例如: B078" style="width: 100%; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px;" />
+                    <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">每天Max的编号不同，请输入当天的编号</div>
                 </div>
             </div>
             <button class="btn-primary" id="analyzeBtn" onclick="analyzeData()">🚀 开始分析</button>
@@ -651,20 +658,44 @@
             });
         }
 
-        // 解析成绩数据
-        function parseGradeData(excelData, subject) {
+        // 解析数学成绩表（多列横向格式）
+        function parseMathData(excelData) {
             const result = [];
-            // 跳过表头，从第2行开始
+            // 从第2行开始（跳过标题）
             for (let i = 1; i < excelData.length; i++) {
                 const row = excelData[i];
-                if (!row || row.length < 2) continue;
+                if (!row) continue;
                 
-                // 假设第一列是考试号码，第二列是成绩
-                const examId = String(row[0]).trim();
-                const score = parseFloat(row[1]);
+                // 每行有4组数据 (学号, 分数, null, 学号, 分数...)
+                for (let j = 0; j < 12; j += 3) {
+                    const examId = row[j] ? String(row[j]).trim() : null;
+                    const score = row[j + 1];
+                    
+                    if (examId && score && !isNaN(parseFloat(score))) {
+                        result.push({ examId, score: parseFloat(score), subject: 'math' });
+                    }
+                }
+            }
+            return result;
+        }
+
+        // 解析英语成绩表（分营格式）
+        function parseEnglishData(excelData) {
+            const result = [];
+            // 从第4行开始（跳过标题和表头）
+            for (let i = 3; i < excelData.length; i++) {
+                const row = excelData[i];
+                if (!row) continue;
                 
-                if (examId && !isNaN(score)) {
-                    result.push({ examId, score, subject });
+                // 四营数据: A营(0,1), B营(3,4), C营(6,7), D营(9,10)
+                const camps = [[0, 1], [3, 4], [6, 7], [9, 10]];
+                for (const [idIdx, scoreIdx] of camps) {
+                    const examId = row[idIdx] ? String(row[idIdx]).trim() : null;
+                    const score = row[scoreIdx];
+                    
+                    if (examId && score && !isNaN(parseFloat(score))) {
+                        result.push({ examId, score: parseFloat(score), subject: 'english' });
+                    }
                 }
             }
             return result;
@@ -675,21 +706,36 @@
             const mathFile = document.getElementById('mathFile').files[0];
             const englishFile = document.getElementById('englishFile').files[0];
             const examDate = document.getElementById('examDate').value;
+            const maxStudentId = document.getElementById('maxStudentId').value.trim();
 
             if (!mathFile || !englishFile) {
                 alert('请同时上传数学和英语成绩表！');
                 return;
             }
 
+            if (!maxStudentId) {
+                alert('请输入Max今日的编号！');
+                return;
+            }
+
             try {
                 // 读取两个文件
-                const [mathData, englishData] = await Promise.all([
-                    readExcel(mathFile).then(data => parseGradeData(data, 'math')),
-                    readExcel(englishFile).then(data => parseGradeData(data, 'english'))
+                const [mathExcel, englishExcel] = await Promise.all([
+                    readExcel(mathFile),
+                    readExcel(englishFile)
                 ]);
 
+                // 解析数据
+                const mathData = parseMathData(mathExcel);
+                const englishData = parseEnglishData(englishExcel);
+
                 // 合并数据
-                const mergedData = mergeData(mathData, englishData);
+                const mergedData = mergeData(mathData, englishData, maxStudentId);
+                
+                if (!mergedData.maxStudent) {
+                    alert(`未找到编号为 ${maxStudentId} 的学生，请检查输入是否正确！`);
+                    return;
+                }
                 
                 // 计算统计
                 const stats = calculateStats(mergedData);
@@ -698,7 +744,9 @@
                 const record = {
                     date: examDate.replace(/-/g, ''),
                     dateDisplay: examDate,
-                    data: mergedData,
+                    maxStudentId: maxStudentId,
+                    data: mergedData.students,
+                    maxStudent: mergedData.maxStudent,
                     stats: stats,
                     timestamp: Date.now()
                 };
@@ -733,12 +781,12 @@
         }
 
         // 合并数学和英语数据
-        function mergeData(mathData, englishData) {
+        function mergeData(mathData, englishData, maxStudentId) {
             const map = new Map();
             
             // 添加数学成绩
             mathData.forEach(item => {
-                map.set(item.examId, { examId: item.examId, math: item.score, english: 0 });
+                map.set(item.examId, { examId: item.examId, math: item.score, english: null });
             });
             
             // 添加英语成绩
@@ -746,12 +794,15 @@
                 if (map.has(item.examId)) {
                     map.get(item.examId).english = item.score;
                 } else {
-                    map.set(item.examId, { examId: item.examId, math: 0, english: item.score });
+                    map.set(item.examId, { examId: item.examId, math: null, english: item.score });
                 }
             });
             
-            // 转为数组并计算总分和排名
-            const result = Array.from(map.values());
+            // 转为数组并计算总分（只保留两科都有的学生）
+            const result = Array.from(map.values()).filter(item => 
+                item.math !== null && item.english !== null
+            );
+            
             result.forEach(item => {
                 item.total = item.math + item.english;
             });
@@ -783,43 +834,55 @@
                 target.totalPct = ((index + 1) / totalCount * 100).toFixed(2);
             });
             
-            return result.sort((a, b) => a.mathRank - b.mathRank);
+            // 找到Max学生
+            const maxStudent = result.find(r => r.examId === maxStudentId);
+            
+            return {
+                students: result.sort((a, b) => a.totalRank - b.totalRank),
+                maxStudent: maxStudent || null,
+                totalCount
+            };
         }
 
         // 计算统计数据
-        function calculateStats(data) {
-            const count = data.length;
-            if (count === 0) return null;
+        function calculateStats(mergedData) {
+            const { students, maxStudent, totalCount } = mergedData;
+            if (students.length === 0) return null;
             
-            const mathScores = data.map(d => d.math);
-            const englishScores = data.map(d => d.english);
-            const totalScores = data.map(d => d.total);
+            const mathScores = students.map(d => d.math);
+            const englishScores = students.map(d => d.english);
+            const totalScores = students.map(d => d.total);
             
-            // 找最高分学生（按总分第一）
-            const topStudent = data.reduce((max, curr) => curr.total > max.total ? curr : max);
+            // 第一名学生
+            const topStudent = students.reduce((max, curr) => curr.total > max.total ? curr : max);
+            
+            // 计算Max的Max指标（假设Max的目标是前10%学生的平均分）
+            const top10Percent = Math.ceil(students.length * 0.1);
+            const topMathAvg = mathScores.slice(0, top10Percent).reduce((a, b) => a + b, 0) / top10Percent;
+            const topEngAvg = englishScores.slice(0, top10Percent).reduce((a, b) => a + b, 0) / top10Percent;
             
             return {
-                count,
+                count: totalCount,
                 math: {
-                    avg: (mathScores.reduce((a, b) => a + b, 0) / count).toFixed(1),
+                    avg: (mathScores.reduce((a, b) => a + b, 0) / totalCount).toFixed(1),
                     max: Math.max(...mathScores),
                     first: topStudent.math
                 },
                 english: {
-                    avg: (englishScores.reduce((a, b) => a + b, 0) / count).toFixed(1),
+                    avg: (englishScores.reduce((a, b) => a + b, 0) / totalCount).toFixed(1),
                     max: Math.max(...englishScores),
                     first: topStudent.english
                 },
                 total: {
-                    avg: (totalScores.reduce((a, b) => a + b, 0) / count).toFixed(1),
+                    avg: (totalScores.reduce((a, b) => a + b, 0) / totalCount).toFixed(1),
                     first: topStudent.total
                 },
-                // Max 指标（示例：取75%分位数作为目标线）
-                mathMaxTarget: Math.round(Math.max(...mathScores) * 0.9),
-                englishMaxTarget: Math.round(Math.max(...englishScores) * 0.9),
-                totalMaxTarget: Math.round(Math.max(...totalScores) * 0.9),
-                // 示例学生的名次（假设关注某个特定学生，这里用总分第10名举例）
-                sampleStudent: data[Math.min(9, count-1)]
+                // Max 指标（前10%平均分）
+                mathMaxTarget: Math.round(topMathAvg),
+                englishMaxTarget: Math.round(topEngAvg),
+                totalMaxTarget: Math.round(topMathAvg + topEngAvg),
+                // Max学生数据
+                maxStudent: maxStudent
             };
         }
 
@@ -829,6 +892,7 @@
             document.getElementById('displayDate').textContent = record.date;
             
             const stats = record.stats;
+            const maxStudent = record.maxStudent || stats.maxStudent;
             
             // 填充统计表
             document.getElementById('mathAvg').textContent = stats.math.avg;
@@ -846,21 +910,24 @@
             document.getElementById('englishMaxScore').textContent = stats.englishMaxTarget;
             document.getElementById('totalMaxScore').textContent = stats.totalMaxTarget;
             
-            // 示例学生名次（这里需要用户指定关注哪个学生，暂时用第10名示例）
-            const sample = stats.sampleStudent;
-            document.getElementById('mathAbsRank').textContent = `${sample.mathRank}/${stats.count}`;
-            document.getElementById('englishAbsRank').textContent = `${sample.englishRank}/${stats.count}`;
-            document.getElementById('totalAbsRank').textContent = `${sample.totalRank}/${stats.count}`;
-            
-            document.getElementById('mathPctRank').textContent = sample.mathPct + '%';
-            document.getElementById('englishPctRank').textContent = sample.englishPct + '%';
-            document.getElementById('totalPctRank').textContent = sample.totalPct + '%';
+            // Max学生的排名数据
+            if (maxStudent) {
+                document.getElementById('mathAbsRank').textContent = `${maxStudent.mathRank}/${stats.count}`;
+                document.getElementById('englishAbsRank').textContent = `${maxStudent.englishRank}/${stats.count}`;
+                document.getElementById('totalAbsRank').textContent = `${maxStudent.totalRank}/${stats.count}`;
+                
+                document.getElementById('mathPctRank').textContent = maxStudent.mathPct + '%';
+                document.getElementById('englishPctRank').textContent = maxStudent.englishPct + '%';
+                document.getElementById('totalPctRank').textContent = maxStudent.totalPct + '%';
+            }
             
             // 填充详细数据表
             const tbody = document.getElementById('fullDataBody');
-            tbody.innerHTML = record.data.map(d => `
-                <tr>
-                    <td>${d.examId}</td>
+            tbody.innerHTML = record.data.map(d => {
+                const isMax = d.examId === (record.maxStudentId || (record.maxStudent && record.maxStudent.examId));
+                return `
+                <tr style="${isMax ? 'background: rgba(234, 179, 8, 0.2) !important;' : ''}">
+                    <td>${d.examId} ${isMax ? '👤' : ''}</td>
                     <td>${d.math}</td>
                     <td>${d.mathRank}</td>
                     <td>${d.english}</td>
@@ -869,7 +936,7 @@
                     <td><strong>${d.totalRank}</strong></td>
                     <td>${d.totalPct}%</td>
                 </tr>
-            `).join('');
+            `}).join('');
             
             // 渲染图表
             renderCharts();
@@ -880,13 +947,13 @@
             // 准备历史数据（最近14天）
             const dates = historyData.map(h => h.date.slice(4, 6) + '/' + h.date.slice(6, 8));
             
-            // 为每个图表准备数据（这里使用示例学生的数据）
-            const mathRanks = historyData.map(h => h.stats.sampleStudent?.mathRank || 0);
-            const englishRanks = historyData.map(h => h.stats.sampleStudent?.englishRank || 0);
-            const totalRanks = historyData.map(h => h.stats.sampleStudent?.totalRank || 0);
-            const mathPcts = historyData.map(h => parseFloat(h.stats.sampleStudent?.mathPct || 0));
-            const englishPcts = historyData.map(h => parseFloat(h.stats.sampleStudent?.englishPct || 0));
-            const totalPcts = historyData.map(h => parseFloat(h.stats.sampleStudent?.totalPct || 0));
+            // Max的排名数据
+            const mathRanks = historyData.map(h => h.maxStudent?.mathRank || 0);
+            const englishRanks = historyData.map(h => h.maxStudent?.englishRank || 0);
+            const totalRanks = historyData.map(h => h.maxStudent?.totalRank || 0);
+            const mathPcts = historyData.map(h => parseFloat(h.maxStudent?.mathPct || 0));
+            const englishPcts = historyData.map(h => parseFloat(h.maxStudent?.englishPct || 0));
+            const totalPcts = historyData.map(h => parseFloat(h.maxStudent?.totalPct || 0));
             
             // 销毁旧图表
             Object.values(charts).forEach(c => c.destroy());
