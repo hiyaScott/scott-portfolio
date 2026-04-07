@@ -328,6 +328,22 @@
             font-size: 12px;
         }
 
+        .history-item .view-btn {
+            padding: 6px 12px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+
+        .history-item .actions {
+            display: flex;
+            gap: 8px;
+        }
+
         /* Toast */
         .toast {
             position: fixed;
@@ -357,7 +373,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎓 成绩追踪分析系统 <span style="font-size: 14px; color: var(--text-secondary); font-weight: normal;">v2.3</span></h1>
+        <h1>🎓 成绩追踪分析系统 <span style="font-size: 14px; color: var(--text-secondary); font-weight: normal;">v2.4</span></h1>
         <p class="subtitle">追踪学生成绩，生成分析报告</p>
 
         <!-- 学生管理 -->
@@ -575,6 +591,14 @@
             if (!todayId) { alert('请输入今日考号'); return; }
             if (!tempData.math || !tempData.english) { alert('请上传两个成绩表'); return; }
 
+            // 检查是否已存在该日期的记录
+            const existingIdx = records.findIndex(r => r.studentKey === currentStudent && r.date === date.replace(/-/g, ''));
+            if (existingIdx >= 0) {
+                if (!confirm(`⚠️ ${date} 已有记录，是否覆盖？\n\n建议先【查看详情】确认旧数据，或先【删除】旧记录再添加新数据。\n\n点击"确定"覆盖，点击"取消"保留旧数据。`)) {
+                    return;
+                }
+            }
+
             const mathData = parseMathExcel(tempData.math);
             const engData = parseEngExcel(tempData.english);
             const result = mergeAndCalculate(mathData, engData, todayId);
@@ -585,7 +609,7 @@
             }
 
             const record = {
-                id: Date.now().toString(),
+                id: existingIdx >= 0 ? records[existingIdx].id : Date.now().toString(),
                 studentKey: currentStudent,
                 studentName: student.name,
                 examId: todayId,
@@ -597,9 +621,11 @@
                 stats: result.stats
             };
 
-            const idx = records.findIndex(r => r.studentKey === currentStudent && r.date === record.date);
-            if (idx >= 0) records[idx] = record;
-            else records.push(record);
+            if (existingIdx >= 0) {
+                records[existingIdx] = record;
+            } else {
+                records.push(record);
+            }
 
             localStorage.setItem('ga_records', JSON.stringify(records));
             showResult(record);
@@ -610,7 +636,7 @@
             document.getElementById('engBox').classList.remove('has-file');
             document.getElementById('mathFile').value = '';
             document.getElementById('engFile').value = '';
-            showToast('✅ 分析完成');
+            showToast(existingIdx >= 0 ? '✅ 已更新' : '✅ 分析完成');
         }
 
         function parseMathExcel(data) {
@@ -841,10 +867,19 @@
                             </div>
                             <span style="color: var(--text-secondary); font-size: 13px;">排名: ${s.totalRank}/${r.count}</span>
                         </div>
-                        <button class="delete-btn" onclick="deleteRecord('${r.id}')">删除</button>
+                        <div class="actions">
+                            <button class="view-btn" onclick="viewRecord('${r.id}')">查看详情</button>
+                            <button class="delete-btn" onclick="deleteRecord('${r.id}')">删除</button>
+                        </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        function viewRecord(id) {
+            const record = records.find(r => r.id === id);
+            if (!record) return;
+            showResult(record);
         }
 
         function deleteRecord(id) {
@@ -852,6 +887,7 @@
             records = records.filter(r => r.id !== id);
             localStorage.setItem('ga_records', JSON.stringify(records));
             renderHistory();
+            document.getElementById('resultSection').classList.add('hidden');
             showToast('✅ 已删除');
         }
     </script>
