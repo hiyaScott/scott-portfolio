@@ -684,7 +684,7 @@
     <div class="container">
         <div class="header">
             <div>
-                <h1>🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span> <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.11</span></h1>
+                <h1>🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span> <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.12</span></h1>
                 <p class="subtitle">GitHub Gist 云端同步</p>
             </div>
             <div class="header-actions">
@@ -818,6 +818,7 @@
         let students = JSON.parse(localStorage.getItem('ga_students') || '[]');
         let records = JSON.parse(localStorage.getItem('ga_records') || '[]');
         let currentStudent = null;
+        let currentViewingRecord = null;  // 当前正在查看详情的记录ID
         let tempData = { math: null, english: null };
         let charts = {};
         
@@ -897,6 +898,7 @@
 
         function selectStudent(key) {
             currentStudent = key;
+            currentViewingRecord = null;  // 切换学生时重置查看状态
             renderStudents();
             renderHistory();
             renderTrends(); // 渲染排名趋势
@@ -1380,8 +1382,17 @@
         }
 
         function viewRecord(id) {
+            // 如果点击的是当前已展开的记录，则收起
+            if (currentViewingRecord === id) {
+                document.getElementById('detailSection').classList.add('hidden');
+                currentViewingRecord = null;
+                return;
+            }
+            
             const record = records.find(r => r.id === id);
             if (!record) return;
+            
+            currentViewingRecord = id;
             showDetail(record);
             document.getElementById('detailSection').scrollIntoView({ behavior: 'smooth' });
         }
@@ -1390,9 +1401,15 @@
             if (!confirm('确定删除这条记录？')) return;
             records = records.filter(r => r.id !== id);
             localStorage.setItem('ga_records', JSON.stringify(records));
+            
+            // 如果删除的是当前正在查看的记录，收起详情
+            if (currentViewingRecord === id) {
+                currentViewingRecord = null;
+                document.getElementById('detailSection').classList.add('hidden');
+            }
+            
             renderHistory();
             renderTrends();
-            document.getElementById('detailSection').classList.add('hidden');
             showToast('✅ 已删除');
             
             // 如果已连接GitHub，自动同步
