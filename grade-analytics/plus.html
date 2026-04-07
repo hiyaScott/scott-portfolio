@@ -654,7 +654,9 @@
             showToast('✅ 添加成功');
             
             // 如果已连接GitHub，自动同步
-            if (githubToken && gistId) {
+            const token = localStorage.getItem('ga_github_token');
+            const id = localStorage.getItem('ga_gist_id');
+            if (token && id) {
                 syncToGitHub();
             }
         }
@@ -673,7 +675,9 @@
             showToast('✅ 已删除');
             
             // 如果已连接GitHub，自动同步
-            if (githubToken && gistId) {
+            const token = localStorage.getItem('ga_github_token');
+            const id = localStorage.getItem('ga_gist_id');
+            if (token && id) {
                 syncToGitHub();
             }
         }
@@ -761,7 +765,9 @@
             showToast(existingIdx >= 0 ? '✅ 已更新' : '✅ 分析完成');
             
             // 如果已连接GitHub，自动同步
-            if (githubToken && gistId) {
+            const token = localStorage.getItem('ga_github_token');
+            const id = localStorage.getItem('ga_gist_id');
+            if (token && id) {
                 await syncToGitHub();
             }
         }
@@ -1031,7 +1037,9 @@
             showToast('✅ 已删除');
             
             // 如果已连接GitHub，自动同步
-            if (githubToken && gistId) {
+            const token = localStorage.getItem('ga_github_token');
+            const gid = localStorage.getItem('ga_gist_id');
+            if (token && gid) {
                 syncToGitHub();
             }
         }
@@ -1106,7 +1114,8 @@
         }
 
         async function createGist() {
-            if (!githubToken) return;
+            const token = localStorage.getItem('ga_github_token');
+            if (!token) return;
 
             const data = {
                 students: students,
@@ -1118,7 +1127,7 @@
                 const response = await fetch('https://api.github.com/gists', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `token ${githubToken}`,
+                        'Authorization': `token ${token}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -1137,17 +1146,21 @@
                 const result = await response.json();
                 gistId = result.id;
                 localStorage.setItem('ga_gist_id', gistId);
+                githubToken = token; // 确保全局变量设置
                 
                 document.getElementById('createGistBtn').style.display = 'none';
                 showSyncConnected();
-                showToast('✅ Gist 创建成功');
+                showToast('✅ Gist 创建成功并已连接');
             } catch (err) {
                 alert('创建失败: ' + err.message);
             }
         }
 
         async function syncToGitHub() {
-            if (!githubToken || !gistId) {
+            const token = localStorage.getItem('ga_github_token');
+            const id = localStorage.getItem('ga_gist_id');
+            
+            if (!token || !id) {
                 alert('未连接 GitHub');
                 return;
             }
@@ -1159,10 +1172,10 @@
             };
 
             try {
-                const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+                const response = await fetch(`https://api.github.com/gists/${id}`, {
                     method: 'PATCH',
                     headers: {
-                        'Authorization': `token ${githubToken}`,
+                        'Authorization': `token ${token}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -1186,14 +1199,17 @@
         }
 
         async function syncFromGitHub() {
-            if (!githubToken || !gistId) {
+            const token = localStorage.getItem('ga_github_token');
+            const id = localStorage.getItem('ga_gist_id');
+            
+            if (!token || !id) {
                 alert('未连接 GitHub');
                 return;
             }
 
             try {
-                const response = await fetch(`https://api.github.com/gists/${gistId}`, {
-                    headers: { 'Authorization': `token ${githubToken}` }
+                const response = await fetch(`https://api.github.com/gists/${id}`, {
+                    headers: { 'Authorization': `token ${token}` }
                 });
 
                 if (!response.ok) throw new Error('获取失败');
