@@ -650,14 +650,33 @@
         }
 
         function mergeAndCalculate(mathData, engData, targetId) {
+            // 建立所有出现过的考号映射
             const map = new Map();
-            mathData.forEach(d => map.set(d.examId, { examId: d.examId, math: d.score, english: null }));
+            
+            // 先收集数学成绩
+            mathData.forEach(d => {
+                map.set(d.examId, { examId: d.examId, math: d.score, english: null });
+            });
+            
+            // 再收集英语成绩
             engData.forEach(d => {
-                if (map.has(d.examId)) map.get(d.examId).english = d.score;
-                else map.set(d.examId, { examId: d.examId, math: null, english: d.score });
+                if (map.has(d.examId)) {
+                    map.get(d.examId).english = d.score;
+                } else {
+                    map.set(d.examId, { examId: d.examId, math: null, english: d.score });
+                }
             });
 
-            const all = Array.from(map.values()).filter(d => d.math !== null && d.english !== null);
+            // 规则1：未考科目设为0
+            const allRaw = Array.from(map.values()).map(d => ({
+                examId: d.examId,
+                math: d.math !== null ? d.math : 0,
+                english: d.english !== null ? d.english : 0
+            }));
+
+            // 规则2：只要考了一科就纳入统计
+            // 规则3：两科都为0的不计入总排名
+            const all = allRaw.filter(d => d.math > 0 || d.english > 0);
             all.forEach(d => d.total = d.math + d.english);
 
             const count = all.length;
@@ -685,18 +704,20 @@
 
             const student = all.find(d => d.examId === targetId.toUpperCase());
 
-            const mathScores = all.map(d => d.math);
-            const engScores = all.map(d => d.english);
+            // 规则4：某科为0不计入该科平均分
+            const mathValidScores = all.filter(d => d.math > 0).map(d => d.math);
+            const engValidScores = all.filter(d => d.english > 0).map(d => d.english);
 
             const stats = {
-                mathAvg: (mathScores.reduce((s, v) => s + v, 0) / count).toFixed(1),
-                engAvg: (engScores.reduce((s, v) => s + v, 0) / count).toFixed(1),
+                mathAvg: mathValidScores.length > 0 ? (mathValidScores.reduce((s, v) => s + v, 0) / mathValidScores.length).toFixed(1) : '0.0',
+                engAvg: engValidScores.length > 0 ? (engValidScores.reduce((s, v) => s + v, 0) / engValidScores.length).toFixed(1) : '0.0',
                 totalAvg: (all.reduce((s, d) => s + d.total, 0) / count).toFixed(1),
-                mathMax: Math.max(...mathScores),
-                engMax: Math.max(...engScores),
+                mathMax: mathValidScores.length > 0 ? Math.max(...mathValidScores) : 0,
+                engMax: engValidScores.length > 0 ? Math.max(...engValidScores) : 0,
                 first: totalSorted[0]
             };
 
+            console.log('统计人数:', count, '数学有效人数:', mathValidScores.length, '英语有效人数:', engValidScores.length);
             console.log('统计数据:', stats);
             return { all, student, count, stats };
         }
