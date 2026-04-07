@@ -707,7 +707,7 @@
         <div class="header">
             <h1 style="display: flex; align-items: center; gap: 10px;">
                 🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span> 
-                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.15</span>
+                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.16</span>
                 <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" style="margin-left: 8px;">☀️</button>
             </h1>
         </div>
@@ -1063,7 +1063,7 @@
 
             if (!date) { alert('请选择日期'); return; }
             if (!todayId) { alert('请输入今日考号'); return; }
-            if (!tempData.math || !tempData.english) { alert('请上传两个成绩表'); return; }
+            if (!tempData.math && !tempData.english) { alert('请至少上传一个成绩表'); return; }
 
             // 检查是否已存在该日期的记录
             const existingIdx = records.findIndex(r => r.studentKey === currentStudent && r.date === date.replace(/-/g, ''));
@@ -1073,9 +1073,12 @@
                 }
             }
 
-            const mathData = parseMathExcel(tempData.math);
-            const engData = parseEngExcel(tempData.english);
-            const result = mergeAndCalculate(mathData, engData, todayId);
+            // 单科考试处理：获取现有记录用于补全未考试科目
+            const existingRecord = existingIdx >= 0 ? records[existingIdx] : null;
+            
+            const mathData = tempData.math ? parseMathExcel(tempData.math) : [];
+            const engData = tempData.english ? parseEngExcel(tempData.english) : [];
+            const result = mergeAndCalculate(mathData, engData, todayId, existingRecord);
 
             if (!result.student) {
                 alert(`未找到考号 ${todayId} 的成绩，请检查数据`);
@@ -1157,7 +1160,7 @@
             return result;
         }
 
-        function mergeAndCalculate(mathData, engData, targetId) {
+        function mergeAndCalculate(mathData, engData, targetId, existingRecord) {
             // 建立所有出现过的考号映射
             const map = new Map();
             
@@ -1175,7 +1178,7 @@
                 }
             });
 
-            // 规则1：未考科目设为0
+            // 规则1：未考科目设为0（单科考试时会用现有记录补全）
             const allRaw = Array.from(map.values()).map(d => ({
                 examId: d.examId,
                 math: d.math !== null ? d.math : 0,
@@ -1210,7 +1213,21 @@
             const totalSorted = [...all].sort((a, b) => b.total - a.total);
             calcRank(totalSorted, 'total');
 
-            const student = all.find(d => d.examId === targetId.toUpperCase());
+            let student = all.find(d => d.examId === targetId.toUpperCase());
+            
+            // 单科考试处理：如果没有找到学生但在现有记录中有，可能是补考
+            // 或者使用现有记录的未考试科目成绩
+            if (student && existingRecord) {
+                // 如果新数据某科为0，使用现有记录的该科成绩
+                if (student.math === 0 && existingRecord.student.math > 0) {
+                    student.math = existingRecord.student.math;
+                    student.total = student.math + student.english;
+                }
+                if (student.english === 0 && existingRecord.student.english > 0) {
+                    student.english = existingRecord.student.english;
+                    student.total = student.math + student.english;
+                }
+            }
 
             // 规则4：某科为0不计入该科平均分
             const mathValidScores = all.filter(d => d.math > 0).map(d => d.math);
