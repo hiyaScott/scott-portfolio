@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>成绩追踪系统</title>
+    <title>成绩追踪分析系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src='https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js'></script>
     <style>
         :root {
             --bg-primary: #0f172a;
@@ -13,6 +16,10 @@
             --text-secondary: #94a3b8;
             --accent-blue: #3b82f6;
             --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-yellow: #eab308;
+            --accent-orange: #f97316;
+            --border-color: #475569;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -21,98 +28,1046 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            line-height: 1.6;
             padding: 20px;
         }
 
-        .container {
-            text-align: center;
-            max-width: 500px;
-        }
+        .container { max-width: 1400px; margin: 0 auto; }
 
         h1 {
-            font-size: 36px;
+            text-align: center;
             margin-bottom: 10px;
+            font-size: 28px;
         }
 
         .subtitle {
+            text-align: center;
             color: var(--text-secondary);
-            margin-bottom: 40px;
+            margin-bottom: 30px;
+            font-size: 14px;
         }
 
-        .menu {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .menu-item {
-            display: block;
-            padding: 20px 30px;
+        /* 模块卡片 */
+        .card {
             background: var(--bg-secondary);
             border-radius: 12px;
-            text-decoration: none;
-            color: var(--text-primary);
-            transition: all 0.3s;
-            border: 1px solid var(--bg-card);
+            padding: 25px;
+            margin-bottom: 20px;
         }
 
-        .menu-item:hover {
-            background: var(--bg-card);
-            transform: translateY(-2px);
-        }
-
-        .menu-item .icon {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
-        .menu-item .title {
+        .card h2 {
             font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .menu-item .desc {
-            font-size: 14px;
-            color: var(--text-secondary);
+        /* 学生选择器 */
+        .student-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
         }
 
-        .menu-item.primary {
+        .student-tag {
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .student-tag:hover { border-color: var(--accent-blue); }
+        .student-tag.active {
             background: var(--accent-blue);
             border-color: var(--accent-blue);
         }
 
-        .menu-item.primary:hover {
-            opacity: 0.9;
+        .student-tag .delete-btn {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .menu-item.primary .desc {
-            color: rgba(255,255,255,0.8);
+        .student-tag .delete-btn:hover {
+            background: var(--accent-red);
+        }
+
+        /* 添加学生 */
+        .add-student {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .add-student input {
+            padding: 10px 15px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .add-student input[name="name"] { width: 120px; }
+        .add-student input[name="id"] { width: 100px; }
+
+        .btn-small {
+            padding: 10px 20px;
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        /* 上传模式切换 */
+        .mode-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-tab {
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .mode-tab.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        /* 上传区域 */
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .upload-box {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 20px;
+            border: 2px dashed var(--border-color);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-box:hover {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-box .icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .upload-box p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .upload-box .hint {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .upload-box input { display: none; }
+
+        .upload-box.has-file {
+            border-color: var(--accent-green);
+            border-style: solid;
+        }
+
+        /* OCR预览 */
+        .ocr-preview {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .ocr-preview h4 {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .ocr-preview textarea {
+            width: 100%;
+            height: 100px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+
+        /* 按钮 */
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:disabled { background: var(--border-color); cursor: not-allowed; }
+
+        /* 统计表格 */
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .stats-table th,
+        .stats-table td {
+            padding: 14px 16px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .stats-table th {
+            background: var(--bg-card);
+            font-weight: 600;
+        }
+
+        .stats-table td.row-label {
+            background: var(--bg-card);
+            font-weight: 500;
+            text-align: left;
+        }
+
+        .cell-avg { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+        .cell-max { background: rgba(34, 197, 94, 0.15); color: #86efac; }
+        .cell-first { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
+        .cell-rank { background: rgba(234, 179, 8, 0.15); color: #fde047; }
+        .cell-total { background: var(--bg-card); font-weight: 600; }
+
+        /* 图表 */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .chart-box {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .chart-box h3 {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .chart-container { position: relative; height: 200px; }
+
+        /* 历史记录 */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .history-item {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-item .info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .history-item .date {
+            font-weight: 600;
+            min-width: 100px;
+        }
+
+        .history-item .scores {
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+        }
+
+        .history-item .score {
+            padding: 4px 10px;
+            background: var(--bg-primary);
+            border-radius: 15px;
+        }
+
+        .history-item .delete-btn {
+            padding: 6px 12px;
+            background: var(--accent-red);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* 分享链接 */
+        .share-section {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .share-section h2 {
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .share-link {
+            background: rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .share-link input {
+            flex: 1;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            color: white;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .share-link input::placeholder { color: rgba(255,255,255,0.6); }
+
+        .btn-copy {
+            padding: 10px 20px;
+            background: white;
+            color: var(--accent-blue);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-green);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .toast.show { opacity: 1; }
+
+        /* 隐藏 */
+        .hidden { display: none !important; }
+
+        @media (max-width: 768px) {
+            .charts-grid { grid-template-columns: 1fr; }
+            .upload-grid { grid-template-columns: 1fr; }
+            .history-item { flex-direction: column; gap: 10px; align-items: flex-start; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎓 成绩追踪系统</h1>
-        <p class="subtitle">追踪学生成绩，生成分析报告</p>
+        <h1>🎓 成绩追踪分析系统</h1>
+        <p class="subtitle">追踪多个学生成绩，生成分析报告</p>
 
-        <div class="menu">
-            <a href="admin/" class="menu-item primary">
-                <div class="icon">⚙️</div>
-                <div class="title">管理后台</div>
-                <div class="desc">录入成绩、管理学生、查看分析</div>
-            </a>
+        <!-- 学生管理 -->
+        <div class="card">
+            <h2>👥 选择学生</h2>
+            <div class="student-selector" id="studentList">
+                <!-- 动态生成 -->
+            </div>
+            <div class="add-student">
+                <input type="text" name="name" placeholder="姓名（如：Max）" id="newName">
+                <input type="text" name="id" placeholder="编号（如：B078）" id="newId">
+                <button class="btn-small" onclick="addStudent()">添加学生</button>
+            </div>
+        </div>
 
-            <a href="students/" class="menu-item">
-                <div class="icon">📊</div>
-                <div class="title">结果页面</div>
-                <div class="desc">查看学生成绩趋势（需先在管理后台选择学生）</div>
-            </a>
+        <!-- 数据录入 -->
+        <div class="card">
+            <h2>📝 录入成绩 · <span id="currentStudentName">请选择学生</span></h2>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="color: var(--text-secondary); font-size: 14px;">考试日期：</label>
+                <input type="date" id="examDate" style="padding: 8px 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); margin-left: 10px;">
+            </div>
+
+            <div class="mode-tabs">
+                <button class="mode-tab active" onclick="switchMode('excel')">📊 Excel</button>
+                <button class="mode-tab" onclick="switchMode('image')">📷 图片识别</button>
+            </div>
+
+            <!-- Excel上传 -->
+            <div id="excelMode">
+                <div class="upload-grid">
+                    <div class="upload-box" onclick="document.getElementById('mathFile').click()" id="mathBox">
+                        <div class="icon">🧮</div>
+                        <p>点击上传数学成绩表</p>
+                        <p class="hint">支持 .xlsx, .xls</p>
+                        <input type="file" id="mathFile" accept=".xlsx,.xls" onchange="handleFile(this, 'math')">
+                    </div>
+                    <div class="upload-box" onclick="document.getElementById('engFile').click()" id="engBox">
+                        <div class="icon">📝</div>
+                        <p>点击上传英语成绩表</p>
+                        <p class="hint">支持 .xlsx, .xls</p>
+                        <input type="file" id="engFile" accept=".xlsx,.xls" onchange="handleFile(this, 'english')">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图片上传 -->
+            <div id="imageMode" class="hidden">
+                <div class="upload-grid">
+                    <div class="upload-box" onclick="document.getElementById('mathImg').click()" id="mathImgBox">
+                        <div class="icon">🧮</div>
+                        <p>点击上传数学成绩截图</p>
+                        <p class="hint">自动识别文字</p>
+                        <input type="file" id="mathImg" accept="image/*" onchange="handleImage(this, 'math')">
+                    </div>
+                    <div class="upload-box" onclick="document.getElementById('engImg').click()" id="engImgBox">
+                        <div class="icon">📝</div>
+                        <p>点击上传英语成绩截图</p>
+                        <p class="hint">自动识别文字</p>
+                        <input type="file" id="engImg" accept="image/*" onchange="handleImage(this, 'english')">
+                    </div>
+                </div>
+                <div id="ocrResults"></div>
+            </div>
+
+            <button class="btn-primary" onclick="analyze()" id="analyzeBtn">🚀 开始分析</button>
+        </div>
+
+        <!-- 分析结果 -->
+        <div id="resultSection" class="hidden">
+            <!-- 分享链接 -->
+            <div class="share-section">
+                <h2>🔗 分享结果</h2>
+                <div class="share-link">
+                    <input type="text" id="shareUrl" readonly placeholder="点击生成链接...">
+                    <button class="btn-copy" onclick="generateShareLink()">生成链接</button>
+                </div>
+            </div>
+
+            <!-- 统计表格 -->
+            <div class="card">
+                <h2>📈 统计分析 · <span id="resultDate"></span></h2>
+                <table class="stats-table">
+                    <thead>
+                        <tr><th></th><th>数学</th><th>英语</th><th>总分</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="row-label">满分</td><td>50</td><td>50</td><td class="cell-total">100</td></tr>
+                        <tr><td class="row-label">平均分</td><td class="cell-avg" id="statMathAvg">-</td><td class="cell-avg" id="statEngAvg">-</td><td class="cell-total" id="statTotalAvg">-</td></tr>
+                        <tr><td class="row-label">最高分</td><td class="cell-max" id="statMathMax">-</td><td class="cell-max" id="statEngMax">-</td><td class="cell-total">-</td></tr>
+                        <tr><td class="row-label">本次第一</td><td class="cell-first" id="statMathFirst">-</td><td class="cell-first" id="statEngFirst">-</td><td class="cell-total cell-first" id="statTotalFirst">-</td></tr>
+                        <tr style="height: 10px;"><td colspan="4"></td></tr>
+                        <tr><td class="row-label">该生成绩</td><td class="cell-rank" id="studentMath">-</td><td class="cell-rank" id="studentEng">-</td><td class="cell-total cell-rank" id="studentTotal">-</td></tr>
+                        <tr><td class="row-label">绝对名次</td><td class="cell-rank" id="rankMath">-</td><td class="cell-rank" id="rankEng">-</td><td class="cell-total cell-rank" id="rankTotal">-</td></tr>
+                        <tr><td class="row-label">百分比</td><td class="cell-rank" id="pctMath">-</td><td class="cell-rank" id="pctEng">-</td><td class="cell-total cell-rank" id="pctTotal">-</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 趋势图 -->
+            <div class="card">
+                <h2>📉 排名趋势</h2>
+                <div class="charts-grid">
+                    <div class="chart-box"><h3>数学排名</h3><div class="chart-container"><canvas id="chartMath"></canvas></div></div>
+                    <div class="chart-box"><h3>英语排名</h3><div class="chart-container"><canvas id="chartEng"></canvas></div></div>
+                    <div class="chart-box"><h3>总分排名</h3><div class="chart-container"><canvas id="chartTotal"></canvas></div></div>
+                    <div class="chart-box"><h3>百分比趋势</h3><div class="chart-container"><canvas id="chartPct"></canvas></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 历史记录 -->
+        <div class="card">
+            <h2>📚 历史记录 · <span id="historyStudentName">全部</span></h2>
+            <div class="history-list" id="historyList">
+                <p style="color: var(--text-secondary); text-align: center; padding: 40px;">暂无记录</p>
+            </div>
         </div>
     </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // 数据存储
+        let students = JSON.parse(localStorage.getItem('ga_students') || '[{"key":"max","name":"Max","id":"B078"}]');
+        let records = JSON.parse(localStorage.getItem('ga_records') || '[]');
+        let currentStudent = students[0]?.key || null;
+        let tempData = { math: null, english: null, mode: 'excel' };
+        let charts = {};
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('examDate').value = new Date().toISOString().split('T')[0];
+            renderStudents();
+            renderHistory();
+        });
+
+        // 显示Toast
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // 渲染学生列表
+        function renderStudents() {
+            const container = document.getElementById('studentList');
+            container.innerHTML = students.map(s => `
+                <div class="student-tag ${currentStudent === s.key ? 'active' : ''}" onclick="selectStudent('${s.key}')">
+                    <span>${s.name} (${s.id})</span>
+                    <button class="delete-btn" onclick="event.stopPropagation(); deleteStudent('${s.key}')">×</button>
+                </div>
+            `).join('');
+
+            if (currentStudent) {
+                const s = students.find(s => s.key === currentStudent);
+                document.getElementById('currentStudentName').textContent = s ? s.name : '请选择学生';
+                document.getElementById('historyStudentName').textContent = s ? s.name : '全部';
+            }
+        }
+
+        // 选择学生
+        function selectStudent(key) {
+            currentStudent = key;
+            renderStudents();
+            renderHistory();
+            document.getElementById('resultSection').classList.add('hidden');
+        }
+
+        // 添加学生
+        function addStudent() {
+            const name = document.getElementById('newName').value.trim();
+            const id = document.getElementById('newId').value.trim().toUpperCase();
+
+            if (!name || !id) {
+                alert('请输入姓名和编号');
+                return;
+            }
+
+            const key = name.toLowerCase().replace(/\s+/g, '-');
+            if (students.find(s => s.key === key)) {
+                alert('该学生已存在');
+                return;
+            }
+
+            students.push({ key, name, id });
+            localStorage.setItem('ga_students', JSON.stringify(students));
+
+            document.getElementById('newName').value = '';
+            document.getElementById('newId').value = '';
+
+            if (!currentStudent) currentStudent = key;
+            renderStudents();
+            showToast('✅ 添加成功');
+        }
+
+        // 删除学生
+        function deleteStudent(key) {
+            if (!confirm('确定删除该学生？其历史记录也会被删除。')) return;
+
+            students = students.filter(s => s.key !== key);
+            records = records.filter(r => r.studentKey !== key);
+
+            localStorage.setItem('ga_students', JSON.stringify(students));
+            localStorage.setItem('ga_records', JSON.stringify(records));
+
+            if (currentStudent === key) currentStudent = students[0]?.key || null;
+            renderStudents();
+            renderHistory();
+            showToast('✅ 已删除');
+        }
+
+        // 切换上传模式
+        function switchMode(mode) {
+            document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            tempData.mode = mode;
+
+            document.getElementById('excelMode').classList.toggle('hidden', mode !== 'excel');
+            document.getElementById('imageMode').classList.toggle('hidden', mode !== 'image');
+        }
+
+        // 处理Excel文件
+        function handleFile(input, subject) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                    tempData[subject] = jsonData;
+                    document.getElementById(subject === 'math' ? 'mathBox' : 'engBox').classList.add('has-file');
+                    showToast(`✅ ${subject === 'math' ? '数学' : '英语'}成绩表已加载`);
+                } catch (err) {
+                    alert('解析失败: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 处理图片
+        async function handleImage(input, subject) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const imgBox = document.getElementById(subject === 'math' ? 'mathImgBox' : 'engImgBox');
+                imgBox.classList.add('has-file');
+
+                // 显示OCR预览
+                const ocrDiv = document.createElement('div');
+                ocrDiv.className = 'ocr-preview';
+                ocrDiv.id = `ocr-${subject}`;
+                ocrDiv.innerHTML = `
+                    <h4>📝 ${subject === 'math' ? '数学' : '英语'}识别结果（可编辑）</h4>
+                    <div id="ocr-loading-${subject}">识别中...⏳</div>
+                    <textarea id="ocr-text-${subject}" placeholder="格式：学号 分数，每行一条"></textarea>
+                `;
+
+                const container = document.getElementById('ocrResults');
+                const existing = document.getElementById(`ocr-${subject}`);
+                if (existing) existing.remove();
+                container.appendChild(ocrDiv);
+
+                // OCR识别
+                try {
+                    const result = await Tesseract.recognize(e.target.result, 'chi_sim+eng');
+                    const text = result.data.text;
+
+                    // 解析成绩
+                    const grades = [];
+                    text.split('\n').forEach(line => {
+                        const match = line.match(/([A-Z]\d{3})[:\s]+(\d+(?:\.\d+)?)/);
+                        if (match) {
+                            grades.push({ examId: match[1], score: parseFloat(match[2]) });
+                        }
+                    });
+
+                    document.getElementById(`ocr-loading-${subject}`).style.display = 'none';
+                    document.getElementById(`ocr-text-${subject}`).value = grades.map(g => `${g.examId} ${g.score}`).join('\n');
+
+                    tempData[subject] = grades;
+                    showToast(`✅ 识别到 ${grades.length} 条${subject === 'math' ? '数学' : '英语'}成绩`);
+                } catch (err) {
+                    document.getElementById(`ocr-loading-${subject}`).textContent = '识别失败，请手动粘贴';
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 分析数据
+        async function analyze() {
+            if (!currentStudent) {
+                alert('请先选择学生');
+                return;
+            }
+
+            const student = students.find(s => s.key === currentStudent);
+            const date = document.getElementById('examDate').value;
+
+            if (!date) {
+                alert('请选择日期');
+                return;
+            }
+
+            let mathData, engData;
+
+            if (tempData.mode === 'excel') {
+                if (!tempData.math || !tempData.english) {
+                    alert('请上传两个成绩表');
+                    return;
+                }
+                mathData = parseMathExcel(tempData.math);
+                engData = parseEngExcel(tempData.english);
+            } else {
+                // 从OCR文本解析
+                const mathText = document.getElementById('ocr-text-math')?.value || '';
+                const engText = document.getElementById('ocr-text-english')?.value || '';
+                mathData = parseOcrText(mathText);
+                engData = parseOcrText(engText);
+            }
+
+            // 合并计算
+            const result = mergeAndCalculate(mathData, engData, student.id);
+
+            if (!result.student) {
+                alert(`未找到编号 ${student.id} 的成绩，请检查数据`);
+                return;
+            }
+
+            // 保存记录
+            const record = {
+                id: Date.now().toString(),
+                studentKey: currentStudent,
+                date: date.replace(/-/g, ''),
+                dateDisplay: date,
+                data: result.all,
+                student: result.student,
+                count: result.count,
+                stats: result.stats
+            };
+
+            // 替换或添加
+            const idx = records.findIndex(r => r.studentKey === currentStudent && r.date === record.date);
+            if (idx >= 0) records[idx] = record;
+            else records.push(record);
+
+            localStorage.setItem('ga_records', JSON.stringify(records));
+
+            // 显示结果
+            showResult(record);
+            renderHistory();
+
+            // 清空临时数据
+            tempData = { math: null, english: null, mode: tempData.mode };
+            document.getElementById('mathBox')?.classList.remove('has-file');
+            document.getElementById('engBox')?.classList.remove('has-file');
+            document.getElementById('mathImgBox')?.classList.remove('has-file');
+            document.getElementById('engImgBox')?.classList.remove('has-file');
+            document.getElementById('ocrResults').innerHTML = '';
+            document.getElementById('mathFile').value = '';
+            document.getElementById('engFile').value = '';
+            document.getElementById('mathImg').value = '';
+            document.getElementById('engImg').value = '';
+
+            showToast('✅ 分析完成');
+        }
+
+        // 解析数学Excel
+        function parseMathExcel(data) {
+            const result = [];
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (!row) continue;
+                for (let j = 0; j < 12; j += 3) {
+                    const id = row[j]?.toString().trim();
+                    const score = parseFloat(row[j + 1]);
+                    if (id && !isNaN(score)) result.push({ examId: id, score });
+                }
+            }
+            return result;
+        }
+
+        // 解析英语Excel
+        function parseEngExcel(data) {
+            const result = [];
+            for (let i = 3; i < data.length; i++) {
+                const row = data[i];
+                if (!row) continue;
+                [[0, 1], [3, 4], [6, 7], [9, 10]].forEach(([idIdx, scoreIdx]) => {
+                    const id = row[idIdx]?.toString().trim();
+                    const score = parseFloat(row[scoreIdx]);
+                    if (id && !isNaN(score)) result.push({ examId: id, score });
+                });
+            }
+            return result;
+        }
+
+        // 解析OCR文本
+        function parseOcrText(text) {
+            const result = [];
+            text.split('\n').forEach(line => {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length >= 2) {
+                    const id = parts[0];
+                    const score = parseFloat(parts[1]);
+                    if (/^[A-Z]\d{3}$/.test(id) && !isNaN(score)) {
+                        result.push({ examId: id, score });
+                    }
+                }
+            });
+            return result;
+        }
+
+        // 合并计算
+        function mergeAndCalculate(mathData, engData, targetId) {
+            const map = new Map();
+
+            mathData.forEach(d => map.set(d.examId, { examId: d.examId, math: d.score, english: null }));
+            engData.forEach(d => {
+                if (map.has(d.examId)) map.get(d.examId).english = d.score;
+                else map.set(d.examId, { examId: d.examId, math: null, english: d.score });
+            });
+
+            const all = Array.from(map.values()).filter(d => d.math !== null && d.english !== null);
+            all.forEach(d => d.total = d.math + d.english);
+
+            const count = all.length;
+
+            // 排名
+            const mathSorted = [...all].sort((a, b) => b.math - a.math);
+            mathSorted.forEach((d, i) => { d.mathRank = i + 1; d.mathPct = ((i + 1) / count * 100).toFixed(1); });
+
+            const engSorted = [...all].sort((a, b) => b.english - a.english);
+            engSorted.forEach((d, i) => { d.englishRank = i + 1; d.englishPct = ((i + 1) / count * 100).toFixed(1); });
+
+            const totalSorted = [...all].sort((a, b) => b.total - a.total);
+            totalSorted.forEach((d, i) => { d.totalRank = i + 1; d.totalPct = ((i + 1) / count * 100).toFixed(1); });
+
+            const student = all.find(d => d.examId === targetId);
+
+            const stats = {
+                mathAvg: (all.reduce((s, d) => s + d.math, 0) / count).toFixed(1),
+                engAvg: (all.reduce((s, d) => s + d.english, 0) / count).toFixed(1),
+                totalAvg: (all.reduce((s, d) => s + d.total, 0) / count).toFixed(1),
+                mathMax: Math.max(...all.map(d => d.math)),
+                engMax: Math.max(...all.map(d => d.english)),
+                first: totalSorted[0]
+            };
+
+            return { all, student, count, stats };
+        }
+
+        // 显示结果
+        function showResult(record) {
+            document.getElementById('resultSection').classList.remove('hidden');
+            document.getElementById('resultDate').textContent = record.dateDisplay;
+            document.getElementById('shareUrl').value = '';
+
+            const s = record.student;
+            const st = record.stats;
+
+            document.getElementById('statMathAvg').textContent = st.mathAvg;
+            document.getElementById('statEngAvg').textContent = st.engAvg;
+            document.getElementById('statTotalAvg').textContent = st.totalAvg;
+            document.getElementById('statMathMax').textContent = st.mathMax;
+            document.getElementById('statEngMax').textContent = st.engMax;
+            document.getElementById('statMathFirst').textContent = st.first.math;
+            document.getElementById('statEngFirst').textContent = st.first.english;
+            document.getElementById('statTotalFirst').textContent = st.first.total;
+
+            document.getElementById('studentMath').textContent = s.math;
+            document.getElementById('studentEng').textContent = s.english;
+            document.getElementById('studentTotal').textContent = s.total;
+
+            document.getElementById('rankMath').textContent = `${s.mathRank}/${record.count}`;
+            document.getElementById('rankEng').textContent = `${s.englishRank}/${record.count}`;
+            document.getElementById('rankTotal').textContent = `${s.totalRank}/${record.count}`;
+
+            document.getElementById('pctMath').textContent = s.mathPct + '%';
+            document.getElementById('pctEng').textContent = s.englishPct + '%';
+            document.getElementById('pctTotal').textContent = s.totalPct + '%';
+
+            // 滚动到结果
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+
+            renderCharts();
+        }
+
+        // 渲染图表
+        function renderCharts() {
+            if (!currentStudent) return;
+
+            const studentRecords = records
+                .filter(r => r.studentKey === currentStudent)
+                .sort((a, b) => a.date.localeCompare(b.date));
+
+            if (studentRecords.length === 0) return;
+
+            const dates = studentRecords.map(r => r.dateDisplay.slice(5));
+            const mathRanks = studentRecords.map(r => r.student.mathRank);
+            const engRanks = studentRecords.map(r => r.student.englishRank);
+            const totalRanks = studentRecords.map(r => r.student.totalRank);
+            const mathPcts = studentRecords.map(r => parseFloat(r.student.mathPct));
+            const engPcts = studentRecords.map(r => parseFloat(r.student.englishPct));
+            const totalPcts = studentRecords.map(r => parseFloat(r.student.totalPct));
+
+            Object.values(charts).forEach(c => c.destroy());
+
+            const createChart = (id, label, data, color, reverse = true) => {
+                return new Chart(document.getElementById(id), {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label,
+                            data,
+                            borderColor: color,
+                            backgroundColor: color + '20',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { reverse, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#94a3b8' } },
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+            };
+
+            charts.math = createChart('chartMath', '数学排名', mathRanks, '#3b82f6');
+            charts.eng = createChart('chartEng', '英语排名', engRanks, '#22c55e');
+            charts.total = createChart('chartTotal', '总分排名', totalRanks, '#eab308');
+
+            charts.pct = new Chart(document.getElementById('chartPct'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { label: '数学', data: mathPcts, borderColor: '#3b82f6', tension: 0.4 },
+                        { label: '英语', data: engPcts, borderColor: '#22c55e', tension: 0.4 },
+                        { label: '总分', data: totalPcts, borderColor: '#eab308', tension: 0.4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8' } } },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#94a3b8', callback: v => v + '%' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // 渲染历史
+        function renderHistory() {
+            const container = document.getElementById('historyList');
+            const filtered = currentStudent
+                ? records.filter(r => r.studentKey === currentStudent)
+                : records;
+
+            filtered.sort((a, b) => b.date.localeCompare(a.date));
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 40px;">暂无记录</p>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(r => {
+                const s = students.find(st => st.key === r.studentKey);
+                const st = r.student;
+                return `
+                    <div class="history-item">
+                        <div class="info">
+                            <span class="date">${r.dateDisplay}</span>
+                            ${s ? `<span style="color: var(--accent-blue);">${s.name}</span>` : ''}
+                            <div class="scores">
+                                <span class="score">🧮 ${st.math}</span>
+                                <span class="score">📝 ${st.english}</span>
+                                <span class="score">📊 ${st.total}</span>
+                            </div>
+                            <span style="color: var(--text-secondary); font-size: 13px;">
+                                排名: ${st.totalRank}/${r.count}
+                            </span>
+                        </div>
+                        <button class="delete-btn" onclick="deleteRecord('${r.id}')">删除</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 删除记录
+        function deleteRecord(id) {
+            if (!confirm('确定删除这条记录？')) return;
+            records = records.filter(r => r.id !== id);
+            localStorage.setItem('ga_records', JSON.stringify(records));
+            renderHistory();
+            showToast('✅ 已删除');
+        }
+
+        // 生成分享链接
+        function generateShareLink() {
+            if (!currentStudent) return;
+
+            const student = students.find(s => s.key === currentStudent);
+            const data = {
+                student: { name: student.name, id: student.id },
+                records: records.filter(r => r.studentKey === currentStudent)
+            };
+
+            // 创建分享页面内容
+            const shareContent = generateSharePage(data);
+
+            // 复制到剪贴板（简化版：提供数据）
+            const shareData = btoa(JSON.stringify(data));
+            const url = `${window.location.origin}${window.location.pathname}?view=${student.key}#${shareData}`;
+
+            document.getElementById('shareUrl').value = url;
+            navigator.clipboard.writeText(url).then(() => showToast('✅ 链接已复制'));
+        }
+
+        // 生成分享页面HTML
+        function generateSharePage(data) {
+            // 这里可以生成一个完整的只读HTML页面
+            // 简化处理：直接返回数据，实际使用时可以生成静态HTML文件
+            return data;
+        }
+    </script>
 </body>
 </html>
