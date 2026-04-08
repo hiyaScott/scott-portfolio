@@ -897,21 +897,7 @@
         <div id="detailSection" class="hidden">
             <div class="card">
                 <h2>📈 分析 · <span id="detailDate"></span></h2>
-                <table class="stats-table">
-                    <thead>
-                        <tr><th></th><th>数学</th><th>英语</th><th>总分</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr><td class="row-label">满分</td><td>50</td><td>60</td><td class="cell-total">110</td></tr>
-                        <tr><td class="row-label">平均分</td><td class="cell-avg" id="detailMathAvg">-</td><td class="cell-avg" id="detailEngAvg">-</td><td class="cell-total" id="detailTotalAvg">-</td></tr>
-                        <tr><td class="row-label">最高分</td><td class="cell-max" id="detailMathMax">-</td><td class="cell-max" id="detailEngMax">-</td><td class="cell-total">-</td></tr>
-                        <tr><td class="row-label">本次第一</td><td class="cell-first" id="detailMathFirst">-</td><td class="cell-first" id="detailEngFirst">-</td><td class="cell-total cell-first" id="detailTotalFirst">-</td></tr>
-                        <tr style="height: 10px;"><td colspan="4"></td></tr>
-                        <tr><td class="row-label">该生成绩</td><td class="cell-rank" id="detailStudentMath">-</td><td class="cell-rank" id="detailStudentEng">-</td><td class="cell-total cell-rank" id="detailStudentTotal">-</td></tr>
-                        <tr><td class="row-label">绝对名次</td><td class="cell-rank" id="detailRankMath">-</td><td class="cell-rank" id="detailRankEng">-</td><td class="cell-total cell-rank" id="detailRankTotal">-</td></tr>
-                        <tr><td class="row-label">百分比</td><td class="cell-rank" id="detailPctMath">-</td><td class="cell-rank" id="detailPctEng">-</td><td class="cell-total cell-rank" id="detailPctTotal">-</td></tr>
-                    </tbody>
-                </table>
+                <div id="detailTableContainer"></div>
             </div>
         </div>
     </div>
@@ -1431,32 +1417,86 @@
             const month = dateObj.getMonth() + 1;
             const day = dateObj.getDate();
             const seqText = record.sequence > 1 ? ` 第${record.sequence}次` : '';
-            document.getElementById('detailDate').textContent = `${month}月${day}日${seqText}`;
+            
+            // 添加科目标识
+            const subjectTag = record.hasMath && record.hasEnglish ? '' :
+                              record.hasMath ? ' [单科-数学]' : ' [单科-英语]';
+            document.getElementById('detailDate').textContent = `${month}月${day}日${seqText}${subjectTag}`;
 
             const s = record.student;
             const st = record.stats;
+            const hasMath = record.hasMath;
+            const hasEng = record.hasEnglish;
+            const hasTotal = hasMath && hasEng;
 
-            document.getElementById('detailMathAvg').textContent = st.mathAvg;
-            document.getElementById('detailEngAvg').textContent = st.engAvg;
-            document.getElementById('detailTotalAvg').textContent = st.totalAvg;
-            document.getElementById('detailMathMax').textContent = st.mathMax;
-            document.getElementById('detailEngMax').textContent = st.engMax;
-            document.getElementById('detailMathFirst').textContent = st.first.math;
-            document.getElementById('detailEngFirst').textContent = st.first.english;
-            document.getElementById('detailTotalFirst').textContent = st.first.total;
-
-            document.getElementById('detailStudentMath').textContent = s.math;
-            document.getElementById('detailStudentEng').textContent = s.english;
-            document.getElementById('detailStudentTotal').textContent = s.total;
-
-            document.getElementById('detailRankMath').textContent = `${s.mathRank}/${record.count}`;
-            document.getElementById('detailRankEng').textContent = `${s.englishRank}/${record.count}`;
-            document.getElementById('detailRankTotal').textContent = `${s.totalRank}/${record.count}`;
-
-            document.getElementById('detailPctMath').textContent = s.mathPct + '%';
-            document.getElementById('detailPctEng').textContent = s.englishPct + '%';
-            document.getElementById('detailPctTotal').textContent = s.totalPct + '%';
-
+            // 动态构建表格
+            let tableHtml = '<table class="stats-table">';
+            
+            // 表头
+            tableHtml += '<thead><tr><th></th>';
+            if (hasMath) tableHtml += '<th>数学</th>';
+            if (hasEng) tableHtml += '<th>英语</th>';
+            if (hasTotal) tableHtml += '<th>总分</th>';
+            tableHtml += '</tr></thead>';
+            
+            // 表格内容
+            tableHtml += '<tbody>';
+            
+            // 满分行
+            tableHtml += '<tr><td class="row-label">满分</td>';
+            if (hasMath) tableHtml += '<td>50</td>';
+            if (hasEng) tableHtml += '<td>60</td>';
+            if (hasTotal) tableHtml += '<td class="cell-total">110</td>';
+            tableHtml += '</tr>';
+            
+            // 平均分行
+            tableHtml += '<tr><td class="row-label">平均分</td>';
+            if (hasMath) tableHtml += `<td class="cell-avg">${st.mathAvg}</td>`;
+            if (hasEng) tableHtml += `<td class="cell-avg">${st.engAvg}</td>`;
+            if (hasTotal) tableHtml += `<td class="cell-total">${st.totalAvg}</td>`;
+            tableHtml += '</tr>';
+            
+            // 最高分
+            tableHtml += '<tr><td class="row-label">最高分</td>';
+            if (hasMath) tableHtml += `<td class="cell-max">${st.mathMax}</td>`;
+            if (hasEng) tableHtml += `<td class="cell-max">${st.engMax}</td>`;
+            if (hasTotal) tableHtml += '<td class="cell-total">-</td>';
+            tableHtml += '</tr>';
+            
+            // 本次第一
+            tableHtml += '<tr><td class="row-label">本次第一</td>';
+            if (hasMath) tableHtml += `<td class="cell-first">${st.first.math}</td>`;
+            if (hasEng) tableHtml += `<td class="cell-first">${st.first.english}</td>`;
+            if (hasTotal) tableHtml += `<td class="cell-total cell-first">${st.first.total}</td>`;
+            tableHtml += '</tr>';
+            
+            // 分隔行
+            tableHtml += '<tr style="height: 10px;"><td colspan="' + (1 + (hasMath ? 1 : 0) + (hasEng ? 1 : 0) + (hasTotal ? 1 : 0)) + '"></td></tr>';
+            
+            // 该生成绩
+            tableHtml += '<tr><td class="row-label">该生成绩</td>';
+            if (hasMath) tableHtml += `<td class="cell-rank">${s.math}</td>`;
+            if (hasEng) tableHtml += `<td class="cell-rank">${s.english}</td>`;
+            if (hasTotal) tableHtml += `<td class="cell-total cell-rank">${s.total}</td>`;
+            tableHtml += '</tr>';
+            
+            // 绝对名次
+            tableHtml += '<tr><td class="row-label">绝对名次</td>';
+            if (hasMath) tableHtml += `<td class="cell-rank">${s.mathRank}/${record.count}</td>`;
+            if (hasEng) tableHtml += `<td class="cell-rank">${s.englishRank}/${record.count}</td>`;
+            if (hasTotal) tableHtml += `<td class="cell-total cell-rank">${s.totalRank}/${record.count}</td>`;
+            tableHtml += '</tr>';
+            
+            // 百分比
+            tableHtml += '<tr><td class="row-label">百分比</td>';
+            if (hasMath) tableHtml += `<td class="cell-rank">${s.mathPct}%</td>`;
+            if (hasEng) tableHtml += `<td class="cell-rank">${s.englishPct}%</td>`;
+            if (hasTotal) tableHtml += `<td class="cell-total cell-rank">${s.totalPct}%</td>`;
+            tableHtml += '</tr>';
+            
+            tableHtml += '</tbody></table>';
+            
+            document.getElementById('detailTableContainer').innerHTML = tableHtml;
             document.getElementById('detailSection').scrollIntoView({ behavior: 'smooth' });
         }
 
