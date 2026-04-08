@@ -706,8 +706,8 @@
     <div class="container">
         <div class="header">
             <h1 style="display: flex; align-items: center; gap: 10px;">
-                🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span> 
-                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.16</span>
+                🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span>
+                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.17</span>
                 <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" style="margin-left: 8px;">☀️</button>
             </h1>
         </div>
@@ -1065,48 +1065,131 @@
             if (!todayId) { alert('请输入今日考号'); return; }
             if (!tempData.math && !tempData.english) { alert('请至少上传一个成绩表'); return; }
 
-            // 检查是否已存在该日期的记录
-            const existingIdx = records.findIndex(r => r.studentKey === currentStudent && r.date === date.replace(/-/g, ''));
-            if (existingIdx >= 0) {
-                if (!confirm(`⚠️ ${date} 已有记录，是否覆盖？\n\n建议先【查看详情】确认旧数据，或先【删除】旧记录再添加新数据。\n\n点击"确定"覆盖，点击"取消"保留旧数据。`)) {
-                    return;
+            const dateKey = date.replace(/-/g, '');
+            
+            // 查找该日期已有的记录，确定这是第几次考试
+            const sameDateRecords = records.filter(r => r.studentKey === currentStudent && r.date === dateKey);
+            sameDateRecords.sort((a, b) => (a.sequence || 1) - (b.sequence || 1));
+            
+            const maxSequence = sameDateRecords.length > 0 
+                ? Math.max(...sameDateRecords.map(r => r.sequence || 1))
+                : 0;
+            const newSequence = maxSequence + 1;
+            
+            // 检查是否已存在该日期+序号的记录（理论上不会有，除非手动修改数据）
+            const existingIdx = records.findIndex(r => r.studentKey === currentStudent && r.id === `${dateKey}_${newSequence}`);
+            
+            // 单科考试处理：询问用户是否要与同日的其他考试合并
+            let existingRecord = null;
+            if (sameDateRecords.length > 0) {
+                const hasMath = tempData.math !== null;
+                const hasEng = tempData.english !== null;
+                
+                if (hasMath && !hasEng) {
+                    // 只上传数学，询问是否要合并到同日的某次考试
+                    const mathRecords = sameDateRecords.filter(r => !r.hasMath && r.hasEnglish);
+                    if (mathRecords.length > 0) {
+                        const useExisting = confirm(`📅 ${date} 已有 ${sameDateRecords.length} 次考试记录\n\n检测到可以合并的英语记录。\n是否将本次数学成绩合并到「第${mathRecords[0].sequence}次」考试？\n\n点击"确定"合并，点击"取消"创建新的第${newSequence}次考试。`);
+                        if (useExisting) {
+                            existingRecord = mathRecords[0];
+                        }
+                    }
+                } else if (!hasMath && hasEng) {
+                    // 只上传英语，询问是否要合并到同日的某次考试
+                    const engRecords = sameDateRecords.filter(r => r.hasMath && !r.hasEnglish);
+                    if (engRecords.length > 0) {
+                        const useExisting = confirm(`📅 ${date} 已有 ${sameDateRecords.length} 次考试记录\n\n检测到可以合并的数学记录。\n是否将本次英语成绩合并到「第${engRecords[0].sequence}次」考试？\n\n点击"确定"合并，点击"取消"创建新的第${newSequence}次考试。`);
+                        if (useExisting) {
+                            existingRecord = engRecords[0];
+                        }
+                    }
                 }
             }
-
-            // 单科考试处理：获取现有记录用于补全未考试科目
-            const existingRecord = existingIdx >= 0 ? records[existingIdx] : null;
             
             const mathData = tempData.math ? parseMathExcel(tempData.math) : [];
             const engData = tempData.english ? parseEngExcel(tempData.english) : [];
-            const result = mergeAndCalculate(mathData, engData, todayId, existingRecord);
+            
+            // 如果是合并到现有记录，需要合并数据
+            let mergedMathData = mathData;
+            let mergedEngData = engData;
+            
+            if (existingRecord) {
+                // 合并到现有记录时，使用现有记录的未考科目成绩
+                // 这里我们重新解析原始Excel，因为existingRecord.data包含的是所有学生
+                // 我们需要找到目标学生的成绩
+                const targetExamId = todayId;
+                
+                // 如果现有记录有数学成绩而我们没上传，则标记为补全模式
+                if (existingRecord.hasMath && !tempData.math) {
+                    // 将现有记录的数学成绩注入
+                    const existingStudent = existingRecord.data.find(d => d.examId === targetExamId);
+                    if (existingStudent) {
+                        mergedMathData = [{ examId: targetExamId, score: existingStudent.math }];
+                    }
+                }
+                // 如果现有记录有英语成绩而我们没上传，则标记为补全模式
+                if (existingRecord.hasEnglish && !tempData.english) {
+                    const existingStudent = existingRecord.data.find(d => d.examId === targetExamId);
+                    if (existingStudent) {
+                        mergedEngData = [{ examId: targetExamId, score: existingStudent.english }];
+                    }
+                }
+            }
+            
+            const result = mergeAndCalculate(mergedMathData, mergedEngData, todayId, null);
 
             if (!result.student) {
                 alert(`未找到考号 ${todayId} 的成绩，请检查数据`);
                 return;
             }
 
-            const record = {
-                id: existingIdx >= 0 ? records[existingIdx].id : Date.now().toString(),
-                studentKey: currentStudent,
-                studentName: student.name,
-                examId: todayId,
-                date: date.replace(/-/g, ''),
-                dateDisplay: date,
-                data: result.all,
-                student: result.student,
-                count: result.count,
-                stats: result.stats
-            };
+            const hasMath = tempData.math !== null;
+            const hasEnglish = tempData.english !== null;
 
-            if (existingIdx >= 0) {
-                records[existingIdx] = record;
+            let record;
+            
+            if (existingRecord) {
+                // 更新现有记录
+                const recordIdx = records.findIndex(r => r.id === existingRecord.id);
+                
+                record = {
+                    ...existingRecord,
+                    // 合并标记：如果原记录有某科或新上传了某科，则标记为有
+                    hasMath: existingRecord.hasMath || hasMath,
+                    hasEnglish: existingRecord.hasEnglish || hasEnglish,
+                    data: result.all,
+                    student: result.student,
+                    count: result.count,
+                    stats: result.stats,
+                    // 如果是补全单科，保持原考号；如果是新考号，更新
+                    examId: todayId,
+                };
+                
+                records[recordIdx] = record;
             } else {
+                // 创建新记录
+                record = {
+                    id: `${dateKey}_${newSequence}`,
+                    studentKey: currentStudent,
+                    studentName: student.name,
+                    examId: todayId,
+                    date: dateKey,
+                    dateDisplay: date,
+                    sequence: newSequence,
+                    hasMath: hasMath,
+                    hasEnglish: hasEnglish,
+                    data: result.all,
+                    student: result.student,
+                    count: result.count,
+                    stats: result.stats
+                };
+                
                 records.push(record);
             }
 
             localStorage.setItem('ga_records', JSON.stringify(records));
-            renderTrends(); // 更新排名趋势
-            showDetail(record); // 显示单日详情
+            renderTrends();
+            showDetail(record);
             renderHistory();
 
             tempData = { math: null, english: null };
@@ -1114,7 +1197,7 @@
             document.getElementById('engBox').classList.remove('has-file');
             document.getElementById('mathFile').value = '';
             document.getElementById('engFile').value = '';
-            showToast(existingIdx >= 0 ? '✅ 已更新' : '✅ 分析完成');
+            showToast(existingRecord ? '✅ 已合并到同次考试' : `✅ 已添加为第${newSequence}次考试`);
             
             // 如果已连接GitHub，自动同步
             const token = localStorage.getItem('ga_github_token');
@@ -1249,7 +1332,10 @@
 
         function showDetail(record) {
             document.getElementById('detailSection').classList.remove('hidden');
-            document.getElementById('detailDate').textContent = record.dateDisplay;
+            const seqText = record.sequence > 1 ? ` (第${record.sequence}次)` : '';
+            const singleSubjectBadge = (record.hasMath && !record.hasEnglish) ? ' [单科-数学]' : 
+                                      (!record.hasMath && record.hasEnglish) ? ' [单科-英语]' : '';
+            document.getElementById('detailDate').textContent = record.dateDisplay + seqText + singleSubjectBadge;
 
             const s = record.student;
             const st = record.stats;
@@ -1302,16 +1388,34 @@
         let currentTrendData = null;
 
         function renderCharts(studentRecords) {
-            const dates = studentRecords.map(r => r.dateDisplay.slice(5));
+            // 按日期+序号排序，确保时间线正确
+            const sortedRecords = [...studentRecords].sort((a, b) => {
+                const dateCompare = a.date.localeCompare(b.date);
+                if (dateCompare !== 0) return dateCompare;
+                return (a.sequence || 1) - (b.sequence || 1);
+            });
+            
+            const dates = sortedRecords.map(r => {
+                const base = r.dateDisplay.slice(5);
+                return r.sequence > 1 ? `${base}#${r.sequence}` : base;
+            });
             
             currentTrendData = {
                 dates,
-                math: studentRecords.map(r => r.student.mathRank),
-                eng: studentRecords.map(r => r.student.englishRank),
-                total: studentRecords.map(r => r.student.totalRank),
-                mathPct: studentRecords.map(r => parseFloat(r.student.mathPct)),
-                engPct: studentRecords.map(r => parseFloat(r.student.englishPct)),
-                totalPct: studentRecords.map(r => parseFloat(r.student.totalPct))
+                // 数学排名：有数学成绩的记录显示，没有的不显示（用null跳过）
+                math: sortedRecords.map(r => r.hasMath ? r.student.mathRank : null),
+                // 英语排名
+                eng: sortedRecords.map(r => r.hasEnglish ? r.student.englishRank : null),
+                // 总分排名：只有两科都有的才显示
+                total: sortedRecords.map(r => (r.hasMath && r.hasEnglish) ? r.student.totalRank : null),
+                // 百分比
+                mathPct: sortedRecords.map(r => r.hasMath ? parseFloat(r.student.mathPct) : null),
+                engPct: sortedRecords.map(r => r.hasEnglish ? parseFloat(r.student.englishPct) : null),
+                totalPct: sortedRecords.map(r => (r.hasMath && r.hasEnglish) ? parseFloat(r.student.totalPct) : null),
+                // 原始分数用于可能的后续扩展
+                mathScore: sortedRecords.map(r => r.hasMath ? r.student.math : null),
+                engScore: sortedRecords.map(r => r.hasEnglish ? r.student.english : null),
+                totalScore: sortedRecords.map(r => (r.hasMath && r.hasEnglish) ? r.student.total : null)
             };
 
             // 默认显示数学排名
@@ -1320,6 +1424,16 @@
 
         function switchTrend(type) {
             if (!currentTrendData) return;
+            
+            // 更新标签页样式
+            document.querySelectorAll('.trend-tabs label').forEach(label => {
+                label.classList.remove('active');
+            });
+            const activeInput = document.querySelector(`input[name="trendTab"][value="${type}"]`);
+            if (activeInput) {
+                activeInput.checked = true;
+                activeInput.parentElement.classList.add('active');
+            }
             
             if (charts.trend) {
                 charts.trend.destroy();
@@ -1340,17 +1454,29 @@
                     data: {
                         labels: currentTrendData.dates,
                         datasets: [
-                            { label: '数学', data: currentTrendData.mathPct, borderColor: '#3b82f6', tension: 0.4 },
-                            { label: '英语', data: currentTrendData.engPct, borderColor: '#22c55e', tension: 0.4 },
-                            { label: '总分', data: currentTrendData.totalPct, borderColor: '#eab308', tension: 0.4 }
+                            { label: '数学', data: currentTrendData.mathPct, borderColor: '#3b82f6', tension: 0.4, spanGaps: true },
+                            { label: '英语', data: currentTrendData.engPct, borderColor: '#22c55e', tension: 0.4, spanGaps: true },
+                            { label: '总分', data: currentTrendData.totalPct, borderColor: '#eab308', tension: 0.4, spanGaps: true }
                         ]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { labels: { color: '#94a3b8' } } },
+                        plugins: { 
+                            legend: { 
+                                labels: { 
+                                    color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#94a3b8'
+                                } 
+                            } 
+                        },
                         scales: {
-                            y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#94a3b8', callback: v => v + '%' } },
-                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                            y: { 
+                                grid: { color: 'rgba(128,128,128,0.1)' }, 
+                                ticks: { 
+                                    color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#94a3b8',
+                                    callback: v => v + '%' 
+                                } 
+                            },
+                            x: { grid: { display: false }, ticks: { color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#94a3b8' } }
                         }
                     }
                 });
@@ -1365,7 +1491,8 @@
                             borderColor: config.color,
                             backgroundColor: config.color + '20',
                             fill: true,
-                            tension: 0.4
+                            tension: 0.4,
+                            spanGaps: true  // 跳过null值，保持连线
                         }]
                     },
                     options: {
@@ -1374,10 +1501,21 @@
                         scales: {
                             y: {
                                 reverse: config.reverse,
-                                grid: { color: 'rgba(255,255,255,0.1)' },
-                                ticks: { color: '#94a3b8', stepSize: 1, precision: 0 }
+                                grid: { color: 'rgba(128,128,128,0.1)' },
+                                ticks: { 
+                                    color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#94a3b8',
+                                    stepSize: 1, 
+                                    precision: 0 
+                                }
                             },
-                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                            x: { 
+                                grid: { display: false }, 
+                                ticks: { 
+                                    color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#94a3b8',
+                                    maxRotation: 45,
+                                    minRotation: 0
+                                } 
+                            }
                         }
                     }
                 });
@@ -1407,10 +1545,13 @@
 
             container.innerHTML = filtered.map(r => {
                 const s = r.student;
+                const seqBadge = r.sequence > 1 ? `<span style="background: var(--accent-yellow); color: #000; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-left: 4px;">第${r.sequence}次</span>` : '';
+                const singleSubjectBadge = (r.hasMath && !r.hasEnglish) ? '<span style="color: var(--accent-blue); margin-left: 4px;">(数)</span>' : 
+                                          (!r.hasMath && r.hasEnglish) ? '<span style="color: var(--accent-green); margin-left: 4px;">(英)</span>' : '';
                 return `
                     <div class="history-item" onclick="viewRecord('${r.id}')">
                         <div class="info">
-                            <span class="date">${r.dateDisplay.slice(5)}</span>
+                            <span class="date">${r.dateDisplay.slice(5)}${seqBadge}${singleSubjectBadge}</span>
                             <span class="scores">
                                 <span class="score">🧮${s.math}</span>
                                 <span class="score">📝${s.english}</span>
