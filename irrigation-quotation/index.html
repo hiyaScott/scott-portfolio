@@ -743,7 +743,16 @@
                 
                 // 按类型分组（用于电磁阀计算）
                 if (!sprinklerGroups[area.sprinklerType]) {
-                    sprinklerGroups[area.sprinklerType] = { count: 0, flow: 0, flowPerUnit: config.flow };
+                    // 计算该类型的布置间距
+                    let spacing;
+                    if (area.sprinklerType === 'rect78012' || area.sprinklerType === 'rect78004') {
+                        spacing = 3; // 矩形喷头每3米一个
+                    } else if (area.sprinklerType === 'super10003') {
+                        spacing = 10; // 中型旋转每10米一个
+                    } else {
+                        spacing = area.width; // 扇形和小型旋转间距=宽度
+                    }
+                    sprinklerGroups[area.sprinklerType] = { count: 0, flow: 0, flowPerUnit: config.flow, spacing: spacing };
                 }
                 sprinklerGroups[area.sprinklerType].count += count;
                 sprinklerGroups[area.sprinklerType].flow += count * config.flow;
@@ -806,11 +815,13 @@
             });
             mainPipeLength *= 0.8;
             
-            // 支管长度
+            // 支管长度 = 所有喷头布置间距之和
+            // 支管长度 = Σ(每类喷头数量 × 相应布置间距)
             let branchPipeLength = 0;
-            areas.forEach(area => {
-                if (area.sprinklerType && area.sprinklerType !== 'drip' && area.sprinklerType !== 'super10003') {
-                    branchPipeLength += area.sprinklerCount * area.width;
+            Object.values(sprinklerGroups).forEach(group => {
+                // 滴灌管和SuperPRO不需要支管
+                if (group.spacing && group.spacing > 0) {
+                    branchPipeLength += group.count * group.spacing;
                 }
             });
             
