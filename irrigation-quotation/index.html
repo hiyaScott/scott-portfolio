@@ -570,8 +570,8 @@
         
         // 获取喷头选型
         function getSprinklerType(width, type, location) {
-            // <0.5m: 滴灌管
-            if (width < 0.5) {
+            // <1m: 滴灌管 (灌木或花卉)
+            if (width < 1) {
                 if (type === 'shrub' || type === 'flower') {
                     return 'drip';
                 }
@@ -586,11 +586,7 @@
             // 2-5m: 扇形喷头
             if (width >= 2 && width <= 5) {
                 if (type === 'shrub') return 'fan78012';
-            }
-            
-            // 2.5m+ 草坪: 扇形喷头
-            if (width >= 2.5 && type === 'lawn') {
-                return 'fan78004';
+                if (type === 'lawn') return 'fan78004';
             }
             
             // 5-9m: MiniPRO
@@ -703,6 +699,7 @@
             let totalSprinklerCost = 0;
             let totalInstallFee = 0;
             let totalFlow = 0;
+            let dripTotalCost = 0; // 滴灌管总价（用于计算20%管件）
             
             const sprinklerGroups = {};
             
@@ -717,7 +714,7 @@
                 const installFee = config.installFee;
                 const count = area.sprinklerCount;
                 
-                const itemCost = isDrip ? count * unitPrice : count * unitPrice;
+                const itemCost = count * unitPrice;
                 const itemInstallFee = count * installFee;
                 
                 sprinklerDetails.push({
@@ -733,6 +730,11 @@
                 
                 totalSprinklerCost += itemCost;
                 totalInstallFee += itemInstallFee;
+                
+                // 记录滴灌管总价
+                if (isDrip) {
+                    dripTotalCost += itemCost + itemInstallFee;
+                }
                 
                 // 计算流量
                 if (config.flow > 0) {
@@ -854,6 +856,7 @@
                 sprinklerDetails: sprinklerDetails,
                 sprinklerCost: totalSprinklerCost,
                 installFee: totalInstallFee,
+                dripTotalCost: dripTotalCost, // 滴灌管总价（含安装费）
                 buriedCount: buriedCount,
                 qianqiuCost: qianqiuCost,
                 valveCount: valveCount,
@@ -1125,10 +1128,16 @@
             let totalHejia = 0; // 合价总计
             
             // 1. 喷头/滴灌管明细
+            let hasDrip = false;
             quotation.sprinklerDetails.forEach(item => {
                 const unitTotal = item.unitPrice + item.installFee / (item.count || 1);
                 const hejia = item.cost + item.installFee;
                 totalHejia += hejia;
+                
+                // 检查是否有滴灌管
+                if (item.model.includes('滴灌管')) {
+                    hasDrip = true;
+                }
                 
                 data.push([
                     rowNum++,
@@ -1142,6 +1151,24 @@
                     '美国 科雨'
                 ]);
             });
+            
+            // 1.5 滴灌管管件（如有滴灌管，添加20%管件费用）
+            if (hasDrip && quotation.dripTotalCost > 0) {
+                const fittingFee = quotation.dripTotalCost * 0.2;
+                totalHejia += fittingFee;
+                
+                data.push([
+                    rowNum++,
+                    '滴灌管管件',
+                    '1',
+                    '批',
+                    fittingFee,
+                    0,
+                    fittingFee,
+                    fittingFee,
+                    '滴灌管总价的20%'
+                ]);
+            }
             
             // 2. 千秋架
             if (quotation.buriedCount > 0) {
