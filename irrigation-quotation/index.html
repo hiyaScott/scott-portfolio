@@ -420,6 +420,12 @@
                             </label>
                         </div>
                     </div>
+                    
+                    <div class="form-group">
+                        <label>花园绿化周长（米）</label>
+                        <input type="number" id="gardenPerimeter" min="0" step="0.1" placeholder="请输入绿化周长">
+                        <small style="color: #666; display: block; margin-top: 5px;">主管长度 = 绿化周长</small>
+                    </div>
                 </div>
             </div>
             
@@ -694,6 +700,9 @@
             const pipeSize = parseInt(document.querySelector('input[name="pipeSize"]:checked').value);
             const waterFlow = pipeSize === 25 ? 2.5 : 3; // m³/h
             
+            // 获取花园绿化周长
+            const gardenPerimeter = parseFloat(document.getElementById('gardenPerimeter').value) || 0;
+            
             // 1. 计算喷头明细
             const sprinklerDetails = [];
             let totalSprinklerCost = 0;
@@ -806,17 +815,8 @@
             // 6. 雨感器
             const rainSensorCost = controllerCount * (280 + 80);
             
-            // 主管长度 = 每个绿化区域一条长边之和
-            // 减去：长度超过10米，宽度小于2米的灌木带或花卉区域的长边长度
-            let mainPipeLength = 0;
-            areas.forEach(area => {
-                // 排除：长度>10米 且 宽度<2米 的 灌木或花卉区域
-                const isLongNarrowShrubOrFlower = (area.type === 'shrub' || area.type === 'flower') && area.length > 10 && area.width < 2;
-                if (!isLongNarrowShrubOrFlower) {
-                    mainPipeLength += area.length;
-                }
-            });
-            mainPipeLength *= 0.8;
+            // 主管长度 = 花园绿化周长（用户输入）
+            const mainPipeLength = gardenPerimeter;
             
             // 支管长度 = 所有喷头布置间距之和
             // 支管长度 = Σ(每类喷头数量 × 相应布置间距)
@@ -828,10 +828,33 @@
                 }
             });
             
-            const pipe32Price = 13 + 8.5;
-            const pipe25Price = 9 + 8.5;
-            const mainPipeCost = mainPipeLength * (pipeSize === 32 ? pipe32Price : pipe25Price);
-            const branchPipeCost = branchPipeLength * pipe25Price;
+            // 管道选型规则：
+            // 1. 水源32mm：主管=32管，支管=25管
+            // 2. 水源25mm + 电磁阀≤4个：主管=25管，支管=25管
+            // 3. 水源25mm + 电磁阀≥5个：主管=32管，支管=25管
+            
+            // 先计算电磁阀数量（简化版，用于管道选型）
+            let tempValveCount = 0;
+            Object.values(sprinklerGroups).forEach(group => {
+                const groupValves = Math.ceil(group.flow / waterFlow);
+                tempValveCount += groupValves;
+            });
+            tempValveCount = Math.max(1, tempValveCount);
+            
+            // 确定主管规格
+            let mainPipeSize;
+            if (pipeSize === 32) {
+                mainPipeSize = 32; // 水源32mm，主管用32管
+            } else {
+                // 水源25mm，根据电磁阀数量判断
+                mainPipeSize = tempValveCount >= 5 ? 32 : 25;
+            }
+            
+            const pipe32Price = 13 + 8.5; // 材料+安装
+            const pipe25Price = 9 + 8.5;  // 材料+安装
+            
+            const mainPipeCost = mainPipeLength * (mainPipeSize === 32 ? pipe32Price : pipe25Price);
+            const branchPipeCost = branchPipeLength * pipe25Price; // 支管永远用25管
             const totalPipeCost = mainPipeCost + branchPipeCost;
             const totalPipeLength = mainPipeLength + branchPipeLength;
             
@@ -887,6 +910,7 @@
                 decoderCost: decoderCost,
                 rainSensorCost: rainSensorCost,
                 mainPipeLength: mainPipeLength,
+                mainPipeSize: mainPipeSize,
                 branchPipeLength: branchPipeLength,
                 totalPipeLength: totalPipeLength,
                 mainPipeCost: mainPipeCost,
@@ -1087,11 +1111,11 @@
                         </tr>
                         <tr>
                             <td>主管</td>
-                            <td>PPR ${quotation.pipeSize}管</td>
+                            <td>PPR ${quotation.mainPipeSize}管</td>
                             <td class="text-right">${quotation.mainPipeLength.toFixed(1)}米</td>
-                            <td class="text-right">¥${quotation.pipeSize === 32 ? '13' : '9'}</td>
+                            <td class="text-right">¥${quotation.mainPipeSize === 32 ? '13' : '9'}</td>
                             <td class="text-right">¥8.5</td>
-                            <td class="text-right">¥${quotation.pipeSize === 32 ? '21.5' : '17.5'}</td>
+                            <td class="text-right">¥${quotation.mainPipeSize === 32 ? '21.5' : '17.5'}</td>
                             <td class="text-right">¥${quotation.mainPipeCost.toLocaleString()}</td>
                         </tr>
                         <tr>
@@ -1360,7 +1384,7 @@
             ]);
             
             // 8. 主管
-            const mainPipeMaterial = quotation.pipeSize === 32 ? 13 : 9;
+            const mainPipeMaterial = quotation.mainPipeSize === 32 ? 13 : 9;
             const mainPipeInstall = 8.5;
             const mainPipeUnitTotal = mainPipeMaterial + mainPipeInstall;
             const mainPipeHejia = quotation.mainPipeCost;
@@ -1368,7 +1392,7 @@
             
             data.push([
                 rowNum++,
-                `主管 ${quotation.pipeSize}管`,
+                `主管 ${quotation.mainPipeSize}管`,
                 quotation.mainPipeLength.toFixed(1),
                 '米',
                 mainPipeMaterial,
