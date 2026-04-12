@@ -495,6 +495,10 @@
                                 <input type="radio" name="pipeSize" value="32">
                                 <span>32mm (流量 3m³/h)</span>
                             </label>
+                            <label class="radio-item" onclick="selectPipeSize(this, 'river_well')">
+                                <input type="radio" name="pipeSize" value="river_well">
+                                <span>河水/井水 (流量 3.5m³/h)</span>
+                            </label>
                         </div>
                     </div>
                     
@@ -769,8 +773,10 @@
         
         // 计算报价
         function calculateQuotation(areas) {
-            const pipeSize = parseInt(document.querySelector('input[name="pipeSize"]:checked').value);
-            const waterFlow = pipeSize === 25 ? 2.5 : 3; // m³/h
+            const pipeSizeInput = document.querySelector('input[name="pipeSize"]:checked').value;
+            const isRiverWell = pipeSizeInput === 'river_well';
+            const pipeSize = isRiverWell ? 'river_well' : parseInt(pipeSizeInput);
+            const waterFlow = isRiverWell ? 3.5 : (pipeSize === 25 ? 2.5 : 3); // m³/h
             
             // 获取花园绿化周长
             const gardenPerimeter = parseFloat(document.getElementById('gardenPerimeter').value) || 0;
@@ -859,8 +865,8 @@
             });
             valveCount = Math.max(1, valveCount); // 至少1个阀
             
-            const valveModel = pipeSize === 25 ? '7075型' : '7001型';
-            const valveUnitPrice = pipeSize === 25 ? (180 + 115) : (196 + 115);
+            const valveModel = (pipeSize === 25) ? '7075型' : '7001型';
+            const valveUnitPrice = (pipeSize === 25) ? (180 + 115) : (196 + 115);
             const valveCost = valveCount * valveUnitPrice;
             
             // 4. 阀门箱
@@ -915,8 +921,8 @@
             
             // 确定主管规格
             let mainPipeSize;
-            if (pipeSize === 32) {
-                mainPipeSize = 32; // 水源32mm，主管用32管
+            if (pipeSize === 32 || isRiverWell) {
+                mainPipeSize = 32; // 水源32mm或河水/井水，主管用32管
             } else {
                 // 水源25mm，根据电磁阀数量判断
                 mainPipeSize = tempValveCount >= 5 ? 32 : 25;
@@ -950,18 +956,37 @@
             // 10. 穿线管
             const conduitCost = mainPipeLength * (3.5 + 1.5);
             
-            // 11. 增压泵
-            const pumpCost = 1450 + 350;
+            // 11. 增压泵（河水/井水时不计算，改为过滤器、潜水泵、配电箱）
+            let pumpCost = 0;
+            let riverWellEquipment = null;
+            if (isRiverWell) {
+                // 河水/井水：过滤器 + 潜水泵 + 配电箱
+                riverWellEquipment = {
+                    filter: { name: '自动冲洗过滤器', model: '待定', material: 500, install: 180 },
+                    submersiblePump: { name: '灌溉潜水泵', model: '待定', material: 1600, install: 400 },
+                    distributionBox: { name: '防雨配电箱', model: '待定', material: 480, install: 380 }
+                };
+            } else {
+                // 普通水源：增压泵
+                pumpCost = 1450 + 350;
+            }
             
             // 12. 土方开挖和回填
             const excavationCost = totalPipeLength * 14;
             const backfillCost = totalPipeLength * 6;
             
             // 汇总
+            let riverWellCost = 0;
+            if (isRiverWell && riverWellEquipment) {
+                riverWellCost = riverWellEquipment.filter.material + riverWellEquipment.filter.install +
+                               riverWellEquipment.submersiblePump.material + riverWellEquipment.submersiblePump.install +
+                               riverWellEquipment.distributionBox.material + riverWellEquipment.distributionBox.install;
+            }
+            
             const totalCost = totalSprinklerCost + totalInstallFee + qianqiuCost + valveCost + 
                             valveBoxCost + controllerCost + decoderCost + rainSensorCost + 
                             totalPipeCost + fittingCost + controlLineCost + conduitCost + 
-                            pumpCost + excavationCost + backfillCost;
+                            pumpCost + riverWellCost + excavationCost + backfillCost;
             
             return {
                 areas: areas,
@@ -993,6 +1018,8 @@
                 controlLineCost: controlLineCost,
                 conduitCost: conduitCost,
                 pumpCost: pumpCost,
+                isRiverWell: isRiverWell,
+                riverWellEquipment: riverWellEquipment,
                 excavationCost: excavationCost,
                 backfillCost: backfillCost,
                 totalCost: totalCost
@@ -1226,6 +1253,35 @@
                             <td class="text-right">¥5</td>
                             <td class="text-right">¥${Math.round(quotation.conduitCost).toLocaleString()}</td>
                         </tr>
+                        ${quotation.isRiverWell ? `
+                        <tr>
+                            <td>自动冲洗过滤器</td>
+                            <td>${quotation.riverWellEquipment.filter.model}</td>
+                            <td class="text-right">1台</td>
+                            <td class="text-right">¥${quotation.riverWellEquipment.filter.material.toLocaleString()}</td>
+                            <td class="text-right">¥${quotation.riverWellEquipment.filter.install.toLocaleString()}</td>
+                            <td class="text-right">¥${(quotation.riverWellEquipment.filter.material + quotation.riverWellEquipment.filter.install).toLocaleString()}</td>
+                            <td class="text-right">¥${(quotation.riverWellEquipment.filter.material + quotation.riverWellEquipment.filter.install).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                            <td>灌溉潜水泵</td>
+                            <td>${quotation.riverWellEquipment.submersiblePump.model}</td>
+                            <td class="text-right">1台</td>
+                            <td class="text-right">¥${quotation.riverWellEquipment.submersiblePump.material.toLocaleString()}</td>
+                            <td class="text-right">¥${quotation.riverWellEquipment.submersiblePump.install.toLocaleString()}</td>
+                            <td class="text-right">¥${(quotation.riverWellEquipment.submersiblePump.material + quotation.riverWellEquipment.submersiblePump.install).toLocaleString()}</td>
+                            <td class="text-right">¥${(quotation.riverWellEquipment.submersiblePump.material + quotation.riverWellEquipment.submersiblePump.install).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                            <td>防雨配电箱</td>
+                            <td>${quotation.riverWellEquipment.distributionBox.model}</td>
+                            <td class="text-right">1台</td>
+                            <td class="text-right">¥${quotation.riverWellEquipment.distributionBox.material.toLocaleString()}</td>
+                            <td class="text-right">¥${quotation.riverWellEquipment.distributionBox.install.toLocaleString()}</td>
+                            <td class="text-right">¥${(quotation.riverWellEquipment.distributionBox.material + quotation.riverWellEquipment.distributionBox.install).toLocaleString()}</td>
+                            <td class="text-right">¥${(quotation.riverWellEquipment.distributionBox.material + quotation.riverWellEquipment.distributionBox.install).toLocaleString()}</td>
+                        </tr>
+                        ` : `
                         <tr>
                             <td>增压泵</td>
                             <td>CM-5自动增压泵</td>
@@ -1235,6 +1291,7 @@
                             <td class="text-right">¥1,800</td>
                             <td class="text-right">¥${quotation.pumpCost.toLocaleString()}</td>
                         </tr>
+                        `}
                         <tr>
                             <td>土方开挖</td>
                             <td>-</td>
@@ -1547,24 +1604,70 @@
                 '国产'
             ]);
             
-            // 13. 增压泵
-            const pumpMaterial = 1450;
-            const pumpInstall = 350;
-            const pumpUnitTotal = pumpMaterial + pumpInstall;
-            const pumpHejia = quotation.pumpCost;
-            totalHejia += pumpHejia;
-            
-            data.push([
-                rowNum++,
-                '增压泵 CM-5自动增压泵',
-                1,
-                '台',
-                pumpMaterial,
-                pumpInstall,
-                pumpUnitTotal,
-                pumpHejia,
-                '国产'
-            ]);
+            // 13. 增压泵 或 河水/井水设备
+            if (quotation.isRiverWell && quotation.riverWellEquipment) {
+                // 河水/井水：过滤器 + 潜水泵 + 配电箱
+                const filter = quotation.riverWellEquipment.filter;
+                data.push([
+                    rowNum++,
+                    '自动冲洗过滤器 ' + filter.model,
+                    1,
+                    '台',
+                    filter.material,
+                    filter.install,
+                    filter.material + filter.install,
+                    filter.material + filter.install,
+                    '待定'
+                ]);
+                totalHejia += filter.material + filter.install;
+                
+                const pump = quotation.riverWellEquipment.submersiblePump;
+                data.push([
+                    rowNum++,
+                    '灌溉潜水泵 ' + pump.model,
+                    1,
+                    '台',
+                    pump.material,
+                    pump.install,
+                    pump.material + pump.install,
+                    pump.material + pump.install,
+                    '待定'
+                ]);
+                totalHejia += pump.material + pump.install;
+                
+                const box = quotation.riverWellEquipment.distributionBox;
+                data.push([
+                    rowNum++,
+                    '防雨配电箱 ' + box.model,
+                    1,
+                    '台',
+                    box.material,
+                    box.install,
+                    box.material + box.install,
+                    box.material + box.install,
+                    '待定'
+                ]);
+                totalHejia += box.material + box.install;
+            } else {
+                // 普通水源：增压泵
+                const pumpMaterial = 1450;
+                const pumpInstall = 350;
+                const pumpUnitTotal = pumpMaterial + pumpInstall;
+                const pumpHejia = quotation.pumpCost;
+                totalHejia += pumpHejia;
+                
+                data.push([
+                    rowNum++,
+                    '增压泵 CM-5自动增压泵',
+                    1,
+                    '台',
+                    pumpMaterial,
+                    pumpInstall,
+                    pumpUnitTotal,
+                    pumpHejia,
+                    '国产'
+                ]);
+            }
             
             // 14. 土方开挖
             const excavateMaterial = 0;
