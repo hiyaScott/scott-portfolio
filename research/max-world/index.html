@@ -178,6 +178,109 @@
             z-index: 50;
         }
         
+        /* 移动端控制按钮 */
+        #mobile-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .mobile-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 255, 136, 0.2);
+            border: 2px solid #00ff88;
+            border-radius: 50%;
+            color: #00ff88;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        
+        .mobile-btn:active {
+            background: rgba(0, 255, 136, 0.4);
+        }
+        
+        .mobile-btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        /* 快速跳转按钮 */
+        #quick-jump {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .jump-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .jump-btn.active {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+        }
+        
+        @media (max-width: 768px) {
+            #mobile-controls {
+                display: flex;
+            }
+            
+            #quick-jump {
+                display: flex;
+            }
+            
+            #controls-hint {
+                display: none;
+            }
+            
+            .zone-label {
+                font-size: 8px;
+            }
+            
+            #info-panel {
+                width: calc(100% - 40px);
+                right: -100%;
+                max-height: 70vh;
+            }
+            
+            #info-panel.active {
+                right: 20px;
+            }
+            
+            .loading-text {
+                font-size: 16px;
+            }
+            
+            .start-btn {
+                padding: 15px 30px;
+                font-size: 14px;
+            }
+        }
+        
         #zone-labels {
             position: fixed;
             top: 20px;
@@ -292,6 +395,31 @@
         
         <div id="controls-hint">
             鼠标拖动旋转 | 滚轮缩放 | 点击探索
+        </div>
+        
+        <!-- 移动端控制按钮 -->
+        <div id="mobile-controls">
+            <div class="mobile-btn-row">
+                <div class="mobile-btn" id="btn-up">↑</div>
+            </div>
+            <div class="mobile-btn-row">
+                <div class="mobile-btn" id="btn-left">←</div>
+                <div class="mobile-btn" id="btn-zoom-in">+</div>
+                <div class="mobile-btn" id="btn-right">→</div>
+            </div>
+            <div class="mobile-btn-row">
+                <div class="mobile-btn" id="btn-down">↓</div>
+            </div>
+            <div class="mobile-btn-row" style="margin-top: 10px;">
+                <div class="mobile-btn" id="btn-zoom-out">−</div>
+            </div>
+        </div>
+        
+        <!-- 快速跳转按钮 -->
+        <div id="quick-jump">
+            <div class="jump-btn" data-zone="about" title="关于">👤</div>
+            <div class="jump-btn" data-zone="projects" title="作品">🎮</div>
+            <div class="jump-btn" data-zone="books" title="阅读">📚</div>
         </div>
     </div>
     
@@ -534,6 +662,210 @@
                     camera.position.x = Math.sin(cameraAngle) * cameraRadius;
                     camera.position.z = Math.cos(cameraAngle) * cameraRadius;
                     camera.lookAt(0, 0, 0);
+                });
+                
+                // ===== 移动端触摸控制 =====
+                let touchStartX = 0, touchStartY = 0;
+                let touchStartDistance = 0;
+                let isTouchDragging = false;
+                
+                // 单指滑动旋转
+                renderer.domElement.addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 1) {
+                        isTouchDragging = true;
+                        touchStartX = e.touches[0].clientX;
+                        touchStartY = e.touches[0].clientY;
+                    } else if (e.touches.length === 2) {
+                        // 双指缩放开始
+                        isTouchDragging = false;
+                        const dx = e.touches[0].clientX - e.touches[1].clientX;
+                        const dy = e.touches[0].clientY - e.touches[1].clientY;
+                        touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+                    }
+                }, { passive: false });
+                
+                renderer.domElement.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    
+                    if (e.touches.length === 1 && isTouchDragging) {
+                        // 单指旋转
+                        const deltaX = e.touches[0].clientX - touchStartX;
+                        const deltaY = e.touches[0].clientY - touchStartY;
+                        
+                        cameraAngle -= deltaX * 0.008;
+                        cameraHeight = Math.max(5, Math.min(30, cameraHeight - deltaY * 0.05));
+                        
+                        camera.position.x = Math.sin(cameraAngle) * cameraRadius;
+                        camera.position.z = Math.cos(cameraAngle) * cameraRadius;
+                        camera.position.y = cameraHeight;
+                        camera.lookAt(0, 0, 0);
+                        
+                        touchStartX = e.touches[0].clientX;
+                        touchStartY = e.touches[0].clientY;
+                        
+                        detectZone();
+                    } else if (e.touches.length === 2) {
+                        // 双指缩放
+                        const dx = e.touches[0].clientX - e.touches[1].clientX;
+                        const dy = e.touches[0].clientY - e.touches[1].clientY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        const scale = touchStartDistance / distance;
+                        cameraRadius = Math.max(10, Math.min(50, cameraRadius * scale));
+                        
+                        camera.position.x = Math.sin(cameraAngle) * cameraRadius;
+                        camera.position.z = Math.cos(cameraAngle) * cameraRadius;
+                        camera.lookAt(0, 0, 0);
+                        
+                        touchStartDistance = distance;
+                    }
+                }, { passive: false });
+                
+                renderer.domElement.addEventListener('touchend', (e) => {
+                    isTouchDragging = false;
+                    
+                    // 点击检测（如果移动距离很小）
+                    if (e.changedTouches.length === 1) {
+                        const touch = e.changedTouches[0];
+                        const rect = renderer.domElement.getBoundingClientRect();
+                        mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+                        mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+                        
+                        raycaster.setFromCamera(mouse, camera);
+                        const intersects = raycaster.intersectObjects(interactables);
+                        
+                        if (intersects.length > 0) {
+                            const type = intersects[0].object.userData.type;
+                            showPanel(type);
+                        }
+                    }
+                });
+                
+                // ===== 移动端按钮控制 =====
+                let btnInterval = null;
+                
+                function setupMobileBtn(btnId, action) {
+                    const btn = document.getElementById(btnId);
+                    if (!btn) return;
+                    
+                    const startAction = () => {
+                        action();
+                        btnInterval = setInterval(action, 50);
+                    };
+                    
+                    const stopAction = () => {
+                        if (btnInterval) {
+                            clearInterval(btnInterval);
+                            btnInterval = null;
+                        }
+                    };
+                    
+                    btn.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        startAction();
+                    });
+                    
+                    btn.addEventListener('touchend', stopAction);
+                    btn.addEventListener('touchcancel', stopAction);
+                    
+                    btn.addEventListener('mousedown', startAction);
+                    btn.addEventListener('mouseup', stopAction);
+                    btn.addEventListener('mouseleave', stopAction);
+                }
+                
+                // 方向按钮
+                setupMobileBtn('btn-left', () => {
+                    cameraAngle -= 0.05;
+                    camera.position.x = Math.sin(cameraAngle) * cameraRadius;
+                    camera.position.z = Math.cos(cameraAngle) * cameraRadius;
+                    camera.lookAt(0, 0, 0);
+                    detectZone();
+                });
+                
+                setupMobileBtn('btn-right', () => {
+                    cameraAngle += 0.05;
+                    camera.position.x = Math.sin(cameraAngle) * cameraRadius;
+                    camera.position.z = Math.cos(cameraAngle) * cameraRadius;
+                    camera.lookAt(0, 0, 0);
+                    detectZone();
+                });
+                
+                setupMobileBtn('btn-up', () => {
+                    cameraHeight = Math.min(30, cameraHeight + 0.5);
+                    camera.position.y = cameraHeight;
+                    camera.lookAt(0, 0, 0);
+                });
+                
+                setupMobileBtn('btn-down', () => {
+                    cameraHeight = Math.max(5, cameraHeight - 0.5);
+                    camera.position.y = cameraHeight;
+                    camera.lookAt(0, 0, 0);
+                });
+                
+                setupMobileBtn('btn-zoom-in', () => {
+                    cameraRadius = Math.max(10, cameraRadius - 0.5);
+                    camera.position.x = Math.sin(cameraAngle) * cameraRadius;
+                    camera.position.z = Math.cos(cameraAngle) * cameraRadius;
+                    camera.lookAt(0, 0, 0);
+                });
+                
+                setupMobileBtn('btn-zoom-out', () => {
+                    cameraRadius = Math.min(50, cameraRadius + 0.5);
+                    camera.position.x = Math.sin(cameraAngle) * cameraRadius;
+                    camera.position.z = Math.cos(cameraAngle) * cameraRadius;
+                    camera.lookAt(0, 0, 0);
+                });
+                
+                // 快速跳转按钮
+                const zoneAngles = {
+                    'about': 1.5,      // 左岛
+                    'projects': 0,     // 中岛
+                    'books': -1.5      // 右岛
+                };
+                
+                document.querySelectorAll('.jump-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const zone = btn.dataset.zone;
+                        const targetAngle = zoneAngles[zone];
+                        
+                        // 平滑过渡动画
+                        const startAngle = cameraAngle;
+                        const startHeight = cameraHeight;
+                        const targetHeight = 15;
+                        const duration = 500;
+                        const startTime = Date.now();
+                        
+                        const animateJump = () => {
+                            const elapsed = Date.now() - startTime;
+                            const progress = Math.min(elapsed / duration, 1);
+                            const easeProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                            
+                            // 计算最短路径
+                            let angleDiff = targetAngle - startAngle;
+                            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                            
+                            cameraAngle = startAngle + angleDiff * easeProgress;
+                            cameraHeight = startHeight + (targetHeight - startHeight) * easeProgress;
+                            
+                            camera.position.x = Math.sin(cameraAngle) * cameraRadius;
+                            camera.position.z = Math.cos(cameraAngle) * cameraRadius;
+                            camera.position.y = cameraHeight;
+                            camera.lookAt(0, 0, 0);
+                            
+                            detectZone();
+                            
+                            if (progress < 1) {
+                                requestAnimationFrame(animateJump);
+                            }
+                        };
+                        
+                        animateJump();
+                        
+                        // 更新按钮状态
+                        document.querySelectorAll('.jump-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                    });
                 });
                 
                 // 动画循环
