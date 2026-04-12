@@ -23,7 +23,6 @@
             line-height: 1.6;
         }
         
-        /* Header */
         .header {
             background: var(--color-header);
             height: var(--header-height);
@@ -37,8 +36,7 @@
         }
         
         .logo-img {
-            width: 44px;
-            height: 44px;
+            width: 44px; height: 44px;
             border-radius: 50%;
             background: #333;
         }
@@ -65,8 +63,7 @@
         }
         
         .social-link {
-            width: 36px;
-            height: 36px;
+            width: 36px; height: 36px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -77,7 +74,7 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
-        /* Hero - 核心布局 */
+        /* Hero */
         .hero {
             padding-top: var(--header-height);
             min-height: 100vh;
@@ -94,24 +91,15 @@
             width: 100%;
             max-width: 1400px;
             padding: 0 60px;
-            position: relative;
         }
         
-        /* 左右文字区域 */
         .side {
             flex: 0 0 320px;
             z-index: 10;
         }
         
-        .side-left {
-            text-align: left;
-            padding-right: 40px;
-        }
-        
-        .side-right {
-            text-align: left;
-            padding-left: 40px;
-        }
+        .side-left { text-align: left; padding-right: 40px; }
+        .side-right { text-align: left; padding-left: 40px; }
         
         .side-title {
             font-size: 72px;
@@ -134,12 +122,13 @@
             max-width: 280px;
         }
         
-        /* 中间头像区域 - Adham Dannaway 效果 */
+        /* 头像 - 核心：两张图片重叠，clip-path 控制显示面积 */
         .avatar-container {
             position: relative;
-            width: 500px;
-            height: 500px;
+            width: 450px;
+            height: 450px;
             flex-shrink: 0;
+            overflow: hidden;
         }
         
         .avatar-image {
@@ -149,26 +138,25 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: clip-path 0.4s ease, transform 0.4s ease, opacity 0.4s ease;
+            transition: clip-path 0.1s linear;
         }
         
-        /* Player 艺术风格 - 默认显示左半边 */
+        /* Player 艺术风格 */
         .avatar-player {
-            clip-path: inset(0 50% 0 0);  /* 显示左边 */
             z-index: 2;
+            /* clip-path 由 JS 动态控制: inset(0 X% 0 0) 显示左边 X% */
         }
         
-        /* Creator 真实风格 - 默认显示右半边 */
+        /* Creator 真实风格 */
         .avatar-creator {
-            clip-path: inset(0 0 0 50%);  /* 显示右边 */
             z-index: 1;
+            /* clip-path 由 JS 动态控制: inset(0 0 0 X%) 显示右边 X% */
         }
         
-        /* Mobile Menu */
+        /* Mobile */
         .menu-btn {
             display: none;
-            width: 40px;
-            height: 40px;
+            width: 40px; height: 40px;
             background: transparent;
             border: none;
             color: white;
@@ -190,6 +178,7 @@
         }
         
         .mobile-nav.active { display: flex; }
+        
         .mobile-nav-link {
             color: rgba(255, 255, 255, 0.8);
             text-decoration: none;
@@ -197,7 +186,6 @@
             font-weight: 500;
         }
         
-        /* Mobile */
         @media (max-width: 1024px) {
             .nav-desktop { display: none; }
             .menu-btn { display: flex; align-items: center; justify-content: center; }
@@ -263,25 +251,24 @@
         <div class="hero-container">
             <div class="side side-left" id="sideLeft">
                 <h1 class="side-title">Player</h1>
-                <p class="side-desc">Game Player who loves exploring virtual worlds and discovering new adventures.</p>
+                <p class="side-desc">Game Player who loves exploring virtual worlds.</p>
             </div>
             
             <div class="avatar-container" id="avatarContainer">
+                <!-- Player: 艺术风格，显示左边 -->
                 <img src="max-player.jpg" alt="Player" class="avatar-image avatar-player" id="avatarPlayer">
+                <!-- Creator: 真实风格，显示右边 -->
                 <img src="max-creator.jpg" alt="Creator" class="avatar-image avatar-creator" id="avatarCreator">
             </div>
             
             <div class="side side-right" id="sideRight">
                 <h1 class="side-title"><small>&lt;</small>Creator<small>&gt;</small></h1>
-                <p class="side-desc">Game Creator who builds worlds with code and brings ideas to life.</p>
+                <p class="side-desc">Game Creator who builds worlds with code.</p>
             </div>
         </div>
     </section>
 
-    <!-- Gyro Button -->
-    <button id="gyroBtn" style="position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: #1a1a1a; color: white; border: none; border-radius: 8px; font-size: 14px; z-index: 1001; cursor: pointer; display: none;" onclick="requestGyroPermission()">
-        📱 启用陀螺仪
-    </button>
+    <button id="gyroBtn" style="position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: #1a1a1a; color: white; border: none; border-radius: 8px; font-size: 14px; z-index: 1001; cursor: pointer; display: none;" onclick="requestGyroPermission()">📱 启用陀螺仪</button>
 
     <script>
         const avatarPlayer = document.getElementById('avatarPlayer');
@@ -293,49 +280,46 @@
         let currentPercent = 0;
         let targetPercent = 0;
         
+        /**
+         * 核心逻辑：两张图片显示面积比例变化
+         * 
+         * 默认 (0):    Player 显示左边 50%, Creator 显示右边 50%
+         * 左倾 (-1):   Player 显示左边 100%, Creator 显示右边 0%
+         * 右倾 (+1):   Player 显示左边 0%,   Creator 显示右边 100%
+         * 
+         * clip-path: inset(top right bottom left)
+         * Player:  inset(0 X% 0 0)  - 从右边裁剪 X%，显示左边 (100-X)%
+         * Creator: inset(0 0 0 X%)  - 从左边裁剪 X%，显示右边 (100-X)%
+         */
         function updateLayout(percent) {
             // percent: -1 (左) 到 1 (右)
-            // -1 = 完全显示 Player, 1 = 完全显示 Creator
+            // 转换为 0~100 的显示比例
             
-            if (percent < 0) {
-                // 向左滑：Player 展开，Creator 收缩
-                const showAmount = Math.abs(percent); // 0 ~ 1
-                
-                // Player: 从显示左半边(50%) 到显示完整(100%)
-                avatarPlayer.style.clipPath = `inset(0 ${50 - showAmount * 50}% 0 0)`;
-                avatarPlayer.style.opacity = '1';
-                
-                // Creator: 从显示右半边 到完全隐藏
-                avatarCreator.style.clipPath = `inset(0 0 0 ${50 + showAmount * 50}%)`;
-                avatarCreator.style.opacity = 1 - showAmount;
-                
-                // 文字
-                sideLeft.style.opacity = 1;
-                sideRight.style.opacity = 0.3;
-                
-            } else if (percent > 0) {
-                // 向右滑：Creator 展开，Player 收缩
-                
-                // Player: 从显示左半边 到完全隐藏
-                avatarPlayer.style.clipPath = `inset(0 ${50 + percent * 50}% 0 0)`;
-                avatarPlayer.style.opacity = 1 - percent;
-                
-                // Creator: 从显示右半边(50%) 到显示完整(100%)
-                avatarCreator.style.clipPath = `inset(0 0 0 ${50 - percent * 50}%)`;
-                avatarCreator.style.opacity = '1';
-                
-                // 文字
-                sideLeft.style.opacity = 0.3;
-                sideRight.style.opacity = 1;
-                
+            // 左倾(-1): playerShow=100, creatorShow=0
+            // 右倾(+1): playerShow=0, creatorShow=100
+            // 中间(0):  playerShow=50, creatorShow=50
+            
+            const playerShow = 50 - percent * 50;  // 0~100
+            const creatorShow = 50 + percent * 50; // 100~0
+            
+            // Player 显示左边 playerShow%
+            // clip-path: inset(0 (100-playerShow)% 0 0)
+            avatarPlayer.style.clipPath = `inset(0 ${100 - playerShow}% 0 0)`;
+            
+            // Creator 显示右边 creatorShow%
+            // clip-path: inset(0 0 0 (100-creatorShow)%)
+            avatarCreator.style.clipPath = `inset(0 0 0 ${100 - creatorShow}%)`;
+            
+            // 文字高亮：哪边显示更多，哪边文字高亮
+            if (playerShow > 60) {
+                sideLeft.style.opacity = '1';
+                sideRight.style.opacity = '0.3';
+            } else if (creatorShow > 60) {
+                sideLeft.style.opacity = '0.3';
+                sideRight.style.opacity = '1';
             } else {
-                // 中间：各显示一半
-                avatarPlayer.style.clipPath = 'inset(0 50% 0 0)';
-                avatarPlayer.style.opacity = '1';
-                avatarCreator.style.clipPath = 'inset(0 0 0 50%)';
-                avatarCreator.style.opacity = '1';
-                sideLeft.style.opacity = 1;
-                sideRight.style.opacity = 1;
+                sideLeft.style.opacity = '1';
+                sideRight.style.opacity = '1';
             }
         }
         
@@ -375,7 +359,7 @@
         
         // 动画循环
         function animate() {
-            currentPercent += (targetPercent - currentPercent) * 0.1;
+            currentPercent += (targetPercent - currentPercent) * 0.15;
             updateLayout(currentPercent);
             requestAnimationFrame(animate);
         }
