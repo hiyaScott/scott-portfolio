@@ -474,14 +474,22 @@
         <p class="footer-text">© 2024 Max Qian</p>
     </footer>
 
+    <!-- iOS 陀螺仪授权按钮 -->
+    <button id="gyroBtn" style="position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: #1a1a1a; color: white; border: none; border-radius: 8px; font-size: 14px; z-index: 1001; cursor: pointer; display: none;"
+    onclick="requestGyroPermission()">
+        📱 启用陀螺仪
+    </button>
+
     <script>
         const avatarWrapper = document.getElementById('avatarWrapper');
         const avatarLeft = document.getElementById('avatarLeft');
         const avatarRight = document.getElementById('avatarRight');
         const sideLeft = document.getElementById('sideLeft');
         const sideRight = document.getElementById('sideRight');
+        const gyroBtn = document.getElementById('gyroBtn');
         
         let currentX = 0, targetX = 0;
+        let gyroEnabled = false;
         
         function updateLayout(percent) {
             const offsetX = percent * -40;
@@ -515,19 +523,55 @@
             }
         }
         
+        // 桌面端鼠标追踪
         document.addEventListener('mousemove', (e) => {
+            if (window.innerWidth <= 768) return;
             const centerX = window.innerWidth / 2;
             const percent = Math.max(-1, Math.min(1, (e.clientX - centerX) / (centerX * 0.8)));
             targetX = percent;
         });
         
-        // 陀螺仪支持
-        if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', (e) => {
-                const gamma = e.gamma || 0;
-                const percent = Math.max(-1, Math.min(1, gamma / 45));
-                targetX = percent;
-            });
+        // 陀螺仪处理函数
+        function handleOrientation(e) {
+            const gamma = e.gamma || 0;
+            const percent = Math.max(-1, Math.min(1, gamma / 45));
+            targetX = percent;
+        }
+        
+        // 启用陀螺仪
+        function enableGyroscope() {
+            window.addEventListener('deviceorientation', handleOrientation);
+            gyroEnabled = true;
+            gyroBtn.style.display = 'none';
+        }
+        
+        // iOS 授权请求
+        function requestGyroPermission() {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            enableGyroscope();
+                        } else {
+                            alert('需要陀螺仪权限才能体验倾斜效果');
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // 非 iOS 13+ 设备直接启用
+                enableGyroscope();
+            }
+        }
+        
+        // 检测是否需要显示授权按钮（iOS 13+）
+        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // iOS 13+ 需要授权，显示按钮
+            if (window.innerWidth <= 768) {
+                gyroBtn.style.display = 'block';
+            }
+        } else if (window.DeviceOrientationEvent) {
+            // 其他支持陀螺仪的设备直接启用
+            enableGyroscope();
         }
         
         function animate() {
