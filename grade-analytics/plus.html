@@ -787,7 +787,7 @@
         <div class="header">
             <h1 style="display: flex; align-items: center; gap: 10px;">
                 🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span> 
-                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.17.6</span>
+                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.18</span>
                 <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" style="margin-left: 8px;">☀️</button>
             </h1>
         </div>
@@ -862,6 +862,15 @@
                         <p>英语</p>
                         <input type="file" id="engFile" accept=".xlsx,.xls" onchange="handleFile(this, 'english')">
                     </div>
+                </div>
+
+                <div style="margin: 15px 0; text-align: center; color: var(--text-secondary); font-size: 13px;">— 或 —</div>
+
+                <div class="upload-box" onclick="document.getElementById('combinedFile').click()" id="combinedBox" style="padding: 20px;">
+                    <div class="icon">📊</div>
+                    <p>汇总成绩表格</p>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">包含考号、数学、英语三列</p>
+                    <input type="file" id="combinedFile" accept=".xlsx,.xls" onchange="handleCombinedFile(this)">
                 </div>
 
                 <button class="btn-primary" onclick="analyze()" id="analyzeBtn">分析</button>
@@ -1175,6 +1184,131 @@
             reader.readAsArrayBuffer(file);
         }
 
+        // 处理汇总成绩表格（包含数学+英语）
+        function handleCombinedFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    
+                    // 解析汇总表格
+                    const parsed = parseCombinedExcel(jsonData);
+                    if (parsed) {
+                        tempData.math = parsed.mathData;
+                        tempData.english = parsed.engData;
+                        document.getElementById('combinedBox').classList.add('has-file');
+                        document.getElementById('mathBox').classList.add('has-file');
+                        document.getElementById('engBox').classList.add('has-file');
+                        showToast(`✅ 汇总表已加载 (${parsed.count}人)`);
+                    }
+                } catch (err) {
+                    alert('解析失败: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 解析汇总成绩表格
+        // 支持格式：考号、数学成绩、英语成绩（或其他常见列名）
+        function parseCombinedExcel(data) {
+            if (!data || data.length < 2) {
+                alert('表格数据为空');
+                return null;
+            }
+
+            // 查找表头行
+            let headerRow = -1;
+            let idCol = -1, mathCol = -1, engCol = -1;
+
+            // 遍历前5行查找表头
+            for (let i = 0; i < Math.min(5, data.length); i++) {
+                const row = data[i];
+                if (!row) continue;
+
+                // 检查每列的表头名称
+                for (let j = 0; j < row.length; j++) {
+                    const cell = String(row[j] || '').trim().toLowerCase();
+                    
+                    // 考号列（支持多种命名）
+                    if (/^(考号|准考证号|学号|编号|序号|id|no|num|code)$/i.test(cell)) {
+                        idCol = j;
+                        headerRow = i;
+                    }
+                    // 数学列
+                    else if (/^(数学|math|数|数学成绩|math score)$/i.test(cell)) {
+                        mathCol = j;
+                        headerRow = i;
+                    }
+                    // 英语列
+                    else if (/^(英语|english|英|外语|英语成绩|english score)$/i.test(cell)) {
+                        engCol = j;
+                        headerRow = i;
+                    }
+                }
+            }
+
+            // 如果没找到表头，尝试按位置推断（第1列考号，第2列数学，第3列英语）
+            if (headerRow === -1) {
+                headerRow = 0;
+                idCol = 0;
+                mathCol = 1;
+                engCol = 2;
+            }
+
+            if (idCol === -1) {
+                alert('未能识别考号列，请确保表格包含"考号"列');
+                return null;
+            }
+
+            console.log(`汇总表解析: 表头在第${headerRow+1}行, 考号列=${idCol+1}, 数学列=${mathCol+1}, 英语列=${engCol+1}`);
+
+            const mathData = [];
+            const engData = [];
+            let count = 0;
+
+            // 从表头下一行开始解析数据
+            for (let i = headerRow + 1; i < data.length; i++) {
+                const row = data[i];
+                if (!row) continue;
+
+                const id = String(row[idCol] || '').trim().toUpperCase();
+                // 只识别 A/B/C/D 开头的考号
+                if (!id || !/^[ABCD]\d{3}$/.test(id)) continue;
+
+                count++;
+
+                // 提取数学成绩
+                if (mathCol >= 0) {
+                    const mathScore = parseFloat(row[mathCol]);
+                    if (!isNaN(mathScore)) {
+                        mathData.push({ examId: id, score: mathScore });
+                    }
+                }
+
+                // 提取英语成绩
+                if (engCol >= 0) {
+                    const engScore = parseFloat(row[engCol]);
+                    if (!isNaN(engScore)) {
+                        engData.push({ examId: id, score: engScore });
+                    }
+                }
+            }
+
+            if (count === 0) {
+                alert('未能解析到有效数据，请检查表格格式');
+                return null;
+            }
+
+            console.log(`解析完成: ${count}人, 数学${mathData.length}条, 英语${engData.length}条`);
+            return { mathData, engData, count };
+        }
+
         async function analyze() {
             if (!currentStudent) {
                 alert('请先选择学生');
@@ -1286,8 +1420,10 @@
             tempData = { math: null, english: null };
             document.getElementById('mathBox').classList.remove('has-file');
             document.getElementById('engBox').classList.remove('has-file');
+            document.getElementById('combinedBox').classList.remove('has-file');
             document.getElementById('mathFile').value = '';
             document.getElementById('engFile').value = '';
+            document.getElementById('combinedFile').value = '';
             
             const seqText = recordSequence === 1 ? '' : ` 第${recordSequence}次`;
             showToast(existingRecord ? '✅ 已更新' : `✅ 已添加${seqText}`);
