@@ -1294,6 +1294,40 @@
             console.log('开始导出Excel...');
             exportToExcel(quotation);
             console.log('Excel导出完成');
+            
+            // 统计埋点 - 记录本次生成
+            trackQuotationGenerate(quotation);
+        }
+        
+        // 统计埋点功能
+        function trackQuotationGenerate(quotation) {
+            try {
+                // 生成唯一ID用于去重
+                const recordId = 'qt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                
+                const record = {
+                    id: recordId,
+                    time: new Date().toISOString(),
+                    areaCount: quotation.areas.length,
+                    totalArea: quotation.areas.reduce((sum, area) => sum + (area.length * area.width), 0),
+                    totalCost: quotation.totalCost,
+                    waterSource: document.getElementById('waterSource').value,
+                    locationType: document.querySelector('input[name="locationType"]:checked')?.value || 'unknown'
+                };
+                
+                // 使用 localStorage 存储（方案1：本地存储）
+                const STORAGE_KEY = 'srain_quotation_stats_v1';
+                let stats = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"records":[],"version":"1.0"}');
+                stats.records.push(record);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+                
+                // 方案2：如配置了 Gist Token，可同步到云端（可选）
+                // syncToGist(record);
+                
+                console.log('[Stats] 统计记录已保存:', record);
+            } catch (e) {
+                console.error('[Stats] 统计记录失败:', e);
+            }
         }
         
         // 显示预览
