@@ -787,7 +787,7 @@
         <div class="header">
             <h1 style="display: flex; align-items: center; gap: 10px;">
                 🎓 成绩追踪 <span style="color: var(--accent-yellow);">PLUS</span> 
-                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.18</span>
+                <span style="font-size: 13px; color: var(--text-secondary); font-weight: normal;">v3.19</span>
                 <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" style="margin-left: 8px;">☀️</button>
             </h1>
         </div>
@@ -1225,6 +1225,7 @@
             // 查找表头行
             let headerRow = -1;
             let idCol = -1, mathCol = -1, engCol = -1;
+            let mathMaxScore = 50, engMaxScore = 60; // 默认满分
 
             // 遍历前5行查找表头
             for (let i = 0; i < Math.min(5, data.length); i++) {
@@ -1250,6 +1251,22 @@
                         engCol = j;
                         headerRow = i;
                     }
+                    // 数学满分列
+                    else if (/^(数学满分|math_max|数学满分值|math full score)$/i.test(cell)) {
+                        const val = parseFloat(row[j + 1]);
+                        if (!isNaN(val) && val > 0) {
+                            mathMaxScore = val;
+                            console.log('汇总表检测到数学满分:', mathMaxScore);
+                        }
+                    }
+                    // 英语满分列
+                    else if (/^(英语满分|english_max|英语满分值|english full score)$/i.test(cell)) {
+                        const val = parseFloat(row[j + 1]);
+                        if (!isNaN(val) && val > 0) {
+                            engMaxScore = val;
+                            console.log('汇总表检测到英语满分:', engMaxScore);
+                        }
+                    }
                 }
             }
 
@@ -1266,7 +1283,7 @@
                 return null;
             }
 
-            console.log(`汇总表解析: 表头在第${headerRow+1}行, 考号列=${idCol+1}, 数学列=${mathCol+1}, 英语列=${engCol+1}`);
+            console.log(`汇总表解析: 表头在第${headerRow+1}行, 考号列=${idCol+1}, 数学列=${mathCol+1}, 英语列=${engCol+1}, 数学满分=${mathMaxScore}, 英语满分=${engMaxScore}`);
 
             const mathData = [];
             const engData = [];
@@ -1306,7 +1323,7 @@
             }
 
             console.log(`解析完成: ${count}人, 数学${mathData.length}条, 英语${engData.length}条`);
-            return { mathData, engData, count };
+            return { mathData, engData, count, mathMaxScore, engMaxScore };
         }
 
         async function analyze() {
@@ -1349,7 +1366,7 @@
             }
 
             // 判断数据来源类型
-            let mathData, engData;
+            let mathData, engData, mathMaxScore = 50, engMaxScore = 60;
             
             // 检查是否是汇总表格式（第一行数据是对象格式 {examId, score}）
             const isCombinedFormat = tempData.math && tempData.math.length > 0 && 
@@ -1360,13 +1377,20 @@
                 // 汇总表格式：数据已经是 {examId, score} 格式
                 mathData = tempData.math || [];
                 engData = tempData.english || [];
+                // 汇总表可能有自定义满分设置（存储在 tempData.mathMaxScore 等）
+                mathMaxScore = tempData.mathMaxScore || 50;
+                engMaxScore = tempData.engMaxScore || 60;
             } else {
                 // 单科表格式：需要解析原始Excel数据
-                mathData = tempData.math ? parseMathExcel(tempData.math) : [];
-                engData = tempData.english ? parseEngExcel(tempData.english) : [];
+                const mathResult = tempData.math ? parseMathExcel(tempData.math) : { scores: [], maxScore: 50 };
+                const engResult = tempData.english ? parseEngExcel(tempData.english) : { scores: [], maxScore: 60 };
+                mathData = mathResult.scores;
+                engData = engResult.scores;
+                mathMaxScore = mathResult.maxScore;
+                engMaxScore = engResult.maxScore;
             }
             
-            // 如果是合并，使用现有记录的未考科目成绩
+            // 如果是合并，使用现有记录的未考科目成绩和满分
             let mergedMathData = mathData;
             let mergedEngData = engData;
             
@@ -1378,6 +1402,8 @@
                         score: d.math
                     }));
                     mergedMathData = existingMath;
+                    // 使用现有记录的满分设置
+                    mathMaxScore = existingRecord.maxScores?.math || 50;
                 }
                 if (!hasEnglish && existingRecord.data) {
                     // 从现有记录提取英语成绩
@@ -1386,10 +1412,12 @@
                         score: d.english
                     }));
                     mergedEngData = existingEng;
+                    // 使用现有记录的满分设置
+                    engMaxScore = existingRecord.maxScores?.english || 60;
                 }
             }
             
-            const result = mergeAndCalculate(mergedMathData, mergedEngData, todayId);
+            const result = mergeAndCalculate(mergedMathData, mergedEngData, todayId, mathMaxScore, engMaxScore);
 
             if (!result.student) {
                 alert(`未找到考号 ${todayId} 的成绩，请检查数据`);
@@ -1412,6 +1440,7 @@
                 dateDisplay: date,
                 hasMath: result.student.math > 0,
                 hasEnglish: result.student.english > 0,
+                maxScores: result.maxScores, // 保存满分设置
                 data: result.all,
                 student: result.student,
                 count: result.count,
@@ -1453,6 +1482,26 @@
 
         function parseMathExcel(data) {
             const result = [];
+            let maxScore = 50; // 默认满分50
+            
+            // 扫描前10行查找满分设置
+            for (let i = 0; i < Math.min(10, data.length); i++) {
+                const row = data[i];
+                if (!row) continue;
+                for (let j = 0; j < row.length - 1; j++) {
+                    const cell = String(row[j] || '').trim();
+                    const nextCell = row[j + 1];
+                    // 支持"数学满分"、"math_max"、"数学满分值"等
+                    if (/^(数学满分|math_max|数学满分值|math full score)$/i.test(cell)) {
+                        const val = parseFloat(nextCell);
+                        if (!isNaN(val) && val > 0) {
+                            maxScore = val;
+                            console.log('检测到数学满分:', maxScore);
+                        }
+                    }
+                }
+            }
+            
             for (let i = 1; i < data.length; i++) {
                 const row = data[i];
                 if (!row) continue;
@@ -1466,12 +1515,32 @@
                     }
                 }
             }
-            console.log('数学成绩解析:', result.length, '条', '最高分:', Math.max(...result.map(d => d.score)));
-            return result;
+            console.log('数学成绩解析:', result.length, '条', '最高分:', result.length > 0 ? Math.max(...result.map(d => d.score)) : 0, '满分设置:', maxScore);
+            return { scores: result, maxScore };
         }
 
         function parseEngExcel(data) {
             const result = [];
+            let maxScore = 60; // 默认满分60
+            
+            // 扫描前10行查找满分设置
+            for (let i = 0; i < Math.min(10, data.length); i++) {
+                const row = data[i];
+                if (!row) continue;
+                for (let j = 0; j < row.length - 1; j++) {
+                    const cell = String(row[j] || '').trim();
+                    const nextCell = row[j + 1];
+                    // 支持"英语满分"、"english_max"、"英语满分值"等
+                    if (/^(英语满分|english_max|英语满分值|english full score|外语满分)$/i.test(cell)) {
+                        const val = parseFloat(nextCell);
+                        if (!isNaN(val) && val > 0) {
+                            maxScore = val;
+                            console.log('检测到英语满分:', maxScore);
+                        }
+                    }
+                }
+            }
+            
             for (let i = 3; i < data.length; i++) {
                 const row = data[i];
                 if (!row) continue;
@@ -1485,11 +1554,11 @@
                     }
                 }
             }
-            console.log('英语成绩解析:', result.length, '条', '最高分:', Math.max(...result.map(d => d.score)));
-            return result;
+            console.log('英语成绩解析:', result.length, '条', '最高分:', result.length > 0 ? Math.max(...result.map(d => d.score)) : 0, '满分设置:', maxScore);
+            return { scores: result, maxScore };
         }
 
-        function mergeAndCalculate(mathData, engData, targetId) {
+        function mergeAndCalculate(mathData, engData, targetId, mathMaxScore = 50, engMaxScore = 60) {
             // 建立所有出现过的考号映射
             const map = new Map();
             
@@ -1561,7 +1630,14 @@
             console.log('所有被统计的考号:', all.map(d => d.examId).sort());
             console.log('被过滤掉的考号(两科都为0):', allRaw.filter(d => d.math === 0 && d.english === 0).map(d => d.examId));
             console.log('统计数据:', stats);
-            return { all, student, count, stats };
+            
+            const maxScores = {
+                math: mathMaxScore,
+                english: engMaxScore,
+                total: mathMaxScore + engMaxScore
+            };
+            
+            return { all, student, count, stats, maxScores };
         }
 
         function showDetail(record) {
@@ -1583,6 +1659,9 @@
             const hasMath = record.hasMath;
             const hasEng = record.hasEnglish;
             const hasTotal = hasMath && hasEng;
+            
+            // 获取满分设置（向后兼容：旧数据没有maxScores时使用默认值）
+            const maxScores = record.maxScores || { math: 50, english: 60, total: 110 };
 
             // 动态构建表格
             let tableHtml = '<table class="stats-table">';
@@ -1599,9 +1678,9 @@
             
             // 满分行
             tableHtml += '<tr><td class="row-label">满分</td>';
-            if (hasMath) tableHtml += '<td>50</td>';
-            if (hasEng) tableHtml += '<td>60</td>';
-            if (hasTotal) tableHtml += '<td class="cell-total">110</td>';
+            if (hasMath) tableHtml += `<td>${maxScores.math}</td>`;
+            if (hasEng) tableHtml += `<td>${maxScores.english}</td>`;
+            if (hasTotal) tableHtml += `<td class="cell-total">${maxScores.total}</td>`;
             tableHtml += '</tr>';
             
             // 平均分行
