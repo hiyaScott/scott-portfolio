@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games Demo V2 - HiyaMax</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --color-bg: #0a0a0a;
+            --color-bg-light: #111;
+            --color-text: #fff;
+            --color-text-dim: rgba(255,255,255,0.5);
+            --color-released: #4facfe;
+            --color-dev: #f093fb;
+            --header-height: 70px;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--header-height);
+            background: rgba(10,10,10,0.9);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        
+        /* Main Container */
+        .main {
+            padding-top: var(--header-height);
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Hero Section - Dual Zone */
+        .hero {
+            min-height: calc(100vh - var(--header-height));
+            position: relative;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* Background Labels */
+        .zone-label {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: clamp(60px, 12vw, 180px);
+            font-weight: 700;
+            letter-spacing: -5px;
+            opacity: 0.03;
+            pointer-events: none;
+            white-space: nowrap;
+            transition: opacity 0.5s ease;
+            will-change: opacity;
+        }
+        
+        .zone-label.left {
+            left: 5%;
+            color: var(--color-released);
+        }
+        
+        .zone-label.right {
+            right: 5%;
+            color: var(--color-dev);
+            text-align: right;
+        }
+        
+        /* Zones */
+        .zone {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px;
+            transition: flex 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            min-width: 0;
+        }
+        
+        .zone::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        
+        .zone.released::before {
+            background: radial-gradient(circle at 30% 50%, rgba(79,172,254,0.06) 0%, transparent 50%);
+        }
+        
+        .zone.dev::before {
+            background: radial-gradient(circle at 70% 50%, rgba(240,147,251,0.06) 0%, transparent 50%);
+        }
+        
+        .zone:hover::before {
+            opacity: 1;
+        }
+        
+        /* Zone Headers */
+        .zone-header {
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .zone-title {
+            font-size: clamp(24px, 4vw, 48px);
+            font-weight: 300;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .zone-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+        
+        .released .zone-badge {
+            background: rgba(79,172,254,0.15);
+            color: var(--color-released);
+            border: 1px solid rgba(79,172,254,0.3);
+        }
+        
+        .dev .zone-badge {
+            background: rgba(240,147,251,0.15);
+            color: var(--color-dev);
+            border: 1px solid rgba(240,147,251,0.3);
+        }
+        
+        .zone-desc {
+            font-size: 14px;
+            color: var(--color-text-dim);
+            max-width: 300px;
+            line-height: 1.6;
+        }
+        
+        /* Game Cards Grid */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* 3D Card - Performance Optimized */
+        .game-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            transform: translateZ(0);
+            will-change: transform;
+            transition: transform 0.15s ease-out, box-shadow 0.3s ease, border-color 0.3s ease;
+            position: relative;
+            contain: layout style paint;
+        }
+        
+        .game-card::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 17px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        .released .game-card::before {
+            background: linear-gradient(135deg, var(--color-released), transparent 50%);
+        }
+        
+        .dev .game-card::before {
+            background: linear-gradient(135deg, var(--color-dev), transparent 50%);
+        }
+        
+        .game-card:hover::before {
+            opacity: 0.4;
+        }
+        
+        .game-card:hover {
+            border-color: rgba(255,255,255,0.15);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+        
+        /* Card Image */
+        .card-image {
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .released .card-image {
+            background: linear-gradient(135deg, rgba(79,172,254,0.08) 0%, rgba(79,172,254,0.02) 100%);
+        }
+        
+        .dev .card-image {
+            background: linear-gradient(135deg, rgba(240,147,251,0.08) 0%, rgba(240,147,251,0.02) 100%);
+        }
+        
+        .card-image::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, transparent 50%, rgba(10,10,10,0.8) 100%);
+            pointer-events: none;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 5px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            z-index: 2;
+        }
+        
+        .released .status-badge {
+            background: rgba(79,172,254,0.9);
+            color: #000;
+        }
+        
+        .dev .status-badge.beta {
+            background: rgba(240,147,251,0.9);
+            color: #000;
+        }
+        
+        .dev .status-badge.coming {
+            background: rgba(255,255,255,0.15);
+            color: var(--color-text);
+        }
+        
+        /* Platform Tag */
+        .platform-tag {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            font-size: 10px;
+            color: var(--color-text-dim);
+            background: rgba(0,0,0,0.5);
+            padding: 4px 8px;
+            border-radius: 4px;
+            z-index: 2;
+        }
+        
+        /* Card Content */
+        .card-content {
+            padding: 20px;
+            position: relative;
+        }
+        
+        .card-title {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .card-meta {
+            font-size: 12px;
+            color: var(--color-text-dim);
+            margin-bottom: 10px;
+        }
+        
+        .card-desc {
+            font-size: 13px;
+            color: var(--color-text-dim);
+            line-height: 1.5;
+        }
+        
+        /* Touch Indicator for Mobile */
+        .touch-hint {
+            display: none;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero {
+                flex-direction: column;
+                min-height: auto;
+            }
+            
+            .zone {
+                padding: 40px 20px;
+                flex: none !important;
+            }
+            
+            .zone-label {
+                display: none;
+            }
+            
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .touch-hint {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 12px;
+                color: var(--color-text-dim);
+                margin-top: 20px;
+                padding: 12px;
+                background: rgba(255,255,255,0.03);
+                border-radius: 8px;
+            }
+            
+            .touch-hint svg {
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
+            }
+        }
+        
+        /* Glow Effect - Simplified */
+        .glow-cursor {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            filter: blur(60px);
+            will-change: transform, opacity;
+            transform: translateZ(0);
+        }
+        
+        .glow-cursor.released-glow {
+            background: radial-gradient(circle, rgba(79,172,254,0.12) 0%, transparent 70%);
+        }
+        
+        .glow-cursor.dev-glow {
+            background: radial-gradient(circle, rgba(240,147,251,0.12) 0%, transparent 70%);
+        }
+        
+        /* Reduced Motion */
+        @media (prefers-reduced-motion: reduce) {
+            .zone,
+            .game-card,
+            .zone-label,
+            .glow-cursor {
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="glow-cursor released-glow" id="releasedGlow"></div>
+    <div class="glow-cursor dev-glow" id="devGlow"></div>
+    
+    <header class="header">
+        <h1>Games</h1>
+    </header>
+    
+    <main class="main">
+        <section class="hero" id="hero">
+            <!-- Background Labels -->
+            <div class="zone-label left">RELEASED</div>
+            <div class="zone-label right">IN DEV</div>
+            
+            <!-- Released Zone -->
+            <div class="zone released" id="releasedZone">
+                <div class="zone-header">
+                    <h2 class="zone-title">
+                        Released
+                        <span class="zone-badge">3 Games</span>
+                    </h2>
+                    <p class="zone-desc">Complete experiences ready to play. From experimental prototypes to polished releases.</p>
+                </div>
+                
+                <div class="games-grid">
+                    <div class="game-card" data-tilt>
+                        <div class="card-image">
+                            🎮
+                            <span class="status-badge">Live</span>
+                            <span class="platform-tag">PC / Mac</span>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Grid Dominion</h3>
+                            <div class="card-meta">Strategy · 2024</div>
+                            <p class="card-desc">A turn-based tactical game where every decision shapes the battlefield.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="game-card" data-tilt>
+                        <div class="card-image">
+                            🎲
+                            <span class="status-badge">Live</span>
+                            <span class="platform-tag">Mobile</span>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Echoes of Silence</h3>
+                            <div class="card-meta">Puzzle · 2025</div>
+                            <p class="card-desc">A narrative puzzle game about memory and choice. Each level unfolds like a journal.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="game-card" data-tilt>
+                        <div class="card-image">
+                            ⚔️
+                            <span class="status-badge">Live</span>
+                            <span class="platform-tag">Browser</span>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Xiangqi Master</h3>
+                            <div class="card-meta">Board · 2023</div>
+                            <p class="card-desc">Modern interpretation of Chinese chess with AI opponents.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="touch-hint" id="touchHintLeft">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 19V5M5 12l7-7 7 7"/>
+                    </svg>
+                    <span>Swipe up to explore Released games</span>
+                </div>
+            </div>
+            
+            <!-- In Development Zone -->
+            <div class="zone dev" id="devZone">
+                <div class="zone-header">
+                    <h2 class="zone-title">
+                        In Development
+                        <span class="zone-badge">2 Projects</span>
+                    </h2>
+                    <p class="zone-desc">Works in progress. Early glimpses into upcoming experiences and experiments.</p>
+                </div>
+                
+                <div class="games-grid">
+                    <div class="game-card" data-tilt>
+                        <div class="card-image">
+                            🌌
+                            <span class="status-badge beta">Beta</span>
+                            <span class="platform-tag">PC</span>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Project Starfield</h3>
+                            <div class="card-meta">Exploration · TBA</div>
+                            <p class="card-desc">Procedural universe exploration. Every star system is uniquely generated.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="game-card" data-tilt>
+                        <div class="card-image">
+                            🌿
+                            <span class="status-badge coming">Soon</span>
+                            <span class="platform-tag">Multi-platform</span>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Rootbound</h3>
+                            <div class="card-meta">Simulation · TBA</div>
+                            <p class="card-desc">A quiet farming sim set in a world where plants remember.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="touch-hint" id="touchHintRight">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 19V5M5 12l7-7 7 7"/>
+                    </svg>
+                    <span>Swipe up to explore In Development projects</span>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <script>
+        // Performance Optimized Interaction System
+        const hero = document.getElementById('hero');
+        const releasedZone = document.getElementById('releasedZone');
+        const devZone = document.getElementById('devZone');
+        const releasedGlow = document.getElementById('releasedGlow');
+        const devGlow = document.getElementById('devGlow');
+        const cards = document.querySelectorAll('.game-card');
+        
+        // Check for touch device
+        const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+        
+        // Throttle function for performance
+        function throttle(func, limit) {
+            let inThrottle;
+            return function(...args) {
+                if (!inThrottle) {
+                    func.apply(this, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            }
+        }
+        
+        // RAF-based smooth updates
+        let rafId = null;
+        let pendingUpdate = null;
+        
+        function scheduleUpdate(updateFn) {
+            pendingUpdate = updateFn;
+            if (!rafId) {
+                rafId = requestAnimationFrame(() => {
+                    if (pendingUpdate) pendingUpdate();
+                    rafId = null;
+                    pendingUpdate = null;
+                });
+            }
+        }
+        
+        // 3D Tilt Effect - Optimized
+        if (!isTouchDevice) {
+            cards.forEach(card => {
+                let currentRotateX = 0;
+                let currentRotateY = 0;
+                let targetRotateX = 0;
+                let targetRotateY = 0;
+                let animationFrame = null;
+                
+                function animate() {
+                    // Smooth interpolation
+                    currentRotateX += (targetRotateX - currentRotateX) * 0.15;
+                    currentRotateY += (targetRotateY - currentRotateY) * 0.15;
+                    
+                    // Stop animation when close to target
+                    if (Math.abs(targetRotateX - currentRotateX) < 0.1 && 
+                        Math.abs(targetRotateY - currentRotateY) < 0.1) {
+                        currentRotateX = targetRotateX;
+                        currentRotateY = targetRotateY;
+                    } else {
+                        animationFrame = requestAnimationFrame(animate);
+                    }
+                    
+                    card.style.transform = `perspective(1000px) rotateX(${currentRotateX}deg) rotateY(${currentRotateY}deg)`;
+                }
+                
+                card.addEventListener('mouseenter', () => {
+                    if (!animationFrame) animate();
+                });
+                
+                card.addEventListener('mousemove', throttle((e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    
+                    // Reduced rotation range for subtlety
+                    targetRotateX = ((y - centerY) / centerY) * 8;
+                    targetRotateY = ((centerX - x) / centerX) * 8;
+                }, 16)); // ~60fps throttle
+                
+                card.addEventListener('mouseleave', () => {
+                    targetRotateX = 0;
+                    targetRotateY = 0;
+                    if (!animationFrame) animate();
+                });
+            });
+        }
+        
+        // Zone Focus Effect - Throttled
+        if (!isTouchDevice) {
+            hero.addEventListener('mousemove', throttle((e) => {
+                const rect = hero.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const width = rect.width;
+                const percent = x / width;
+                
+                scheduleUpdate(() => {
+                    // Update glow positions with transform for GPU acceleration
+                    releasedGlow.style.transform = `translate(${e.clientX - 150}px, ${e.clientY - 150}px)`;
+                    devGlow.style.transform = `translate(${e.clientX - 150}px, ${e.clientY - 150}px)`;
+                    
+                    // Show appropriate glow
+                    if (percent < 0.5) {
+                        releasedGlow.style.opacity = '1';
+                        devGlow.style.opacity = '0';
+                    } else {
+                        releasedGlow.style.opacity = '0';
+                        devGlow.style.opacity = '1';
+                    }
+                    
+                    // Adjust zone sizes - subtle range
+                    const leftFlex = 1 + (0.5 - percent) * 0.15;
+                    const rightFlex = 1 + (percent - 0.5) * 0.15;
+                    
+                    releasedZone.style.flex = Math.max(0.85, Math.min(1.15, leftFlex));
+                    devZone.style.flex = Math.max(0.85, Math.min(1.15, rightFlex));
+                    
+                    // Update label opacity
+                    const leftLabel = document.querySelector('.zone-label.left');
+                    const rightLabel = document.querySelector('.zone-label.right');
+                    
+                    if (leftLabel) leftLabel.style.opacity = percent < 0.5 ? 0.06 : 0.03;
+                    if (rightLabel) rightLabel.style.opacity = percent > 0.5 ? 0.06 : 0.03;
+                });
+            }, 50)); // 20fps is enough for this effect
+            
+            hero.addEventListener('mouseleave', () => {
+                releasedGlow.style.opacity = '0';
+                devGlow.style.opacity = '0';
+                releasedZone.style.flex = '1';
+                devZone.style.flex = '1';
+                
+                const leftLabel = document.querySelector('.zone-label.left');
+                const rightLabel = document.querySelector('.zone-label.right');
+                if (leftLabel) leftLabel.style.opacity = 0.03;
+                if (rightLabel) rightLabel.style.opacity = 0.03;
+            });
+        } else {
+            // Mobile: Hide glow elements
+            releasedGlow.style.display = 'none';
+            devGlow.style.display = 'none';
+        }
+        
+        // Touch support - simplified
+        if (isTouchDevice) {
+            let touchStartY = 0;
+            
+            cards.forEach(card => {
+                card.addEventListener('touchstart', () => {
+                    card.style.transform = 'scale(0.98)';
+                }, { passive: true });
+                
+                card.addEventListener('touchend', () => {
+                    card.style.transform = 'scale(1)';
+                }, { passive: true });
+            });
+        }
+    </script>
+</body>
+</html>
