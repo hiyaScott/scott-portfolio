@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games - Interactive Grid Demo</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --color-header: #1a1a1a;
+            --color-text: #333;
+            --color-text-light: #666;
+            --color-bg: #0a0a0f;
+            --header-height: 70px;
+            --max-content-width: 1200px;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--color-bg);
+            color: #fff;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        /* Grid Background Layer */
+        #gridCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        /* Content Layer */
+        .content-wrapper {
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+            height: var(--header-height);
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .header-inner {
+            max-width: var(--max-content-width);
+            margin: 0 auto;
+            height: 100%;
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #fff;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        /* Main Content */
+        .main {
+            padding-top: var(--header-height);
+        }
+        
+        /* Hero */
+        .hero {
+            padding: 100px 40px 60px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .hero-title {
+            font-size: clamp(40px, 8vw, 80px);
+            font-weight: 700;
+            letter-spacing: -3px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero-desc {
+            font-size: 18px;
+            color: rgba(255,255,255,0.6);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        /* Games Section */
+        .games-section {
+            padding: 40px;
+            max-width: var(--max-content-width);
+            margin: 0 auto;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .section-title h2 {
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        
+        /* Games Grid */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+        }
+        
+        /* Game Card with Glass Effect */
+        .game-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 107, 107, 0.1) 0%, 
+                rgba(254, 202, 87, 0.1) 50%,
+                rgba(72, 219, 251, 0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-12px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.4), 0 0 40px rgba(255, 107, 107, 0.1);
+        }
+        
+        .game-card:hover::before {
+            opacity: 1;
+        }
+        
+        /* Card Image */
+        .card-image {
+            width: 100%;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 56px;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        }
+        
+        .card-image::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        
+        .game-card:hover .card-image::after {
+            opacity: 1;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 2;
+        }
+        
+        .status-badge.beta {
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            border: none;
+        }
+        
+        /* Platform Tag */
+        .platform-tag {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            font-size: 10px;
+            color: rgba(255,255,255,0.8);
+            background: rgba(0,0,0,0.4);
+            padding: 6px 12px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 2;
+        }
+        
+        /* Card Content */
+        .card-content {
+            padding: 24px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #fff;
+        }
+        
+        .card-meta {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+        
+        .card-desc {
+            font-size: 13px;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.6;
+        }
+        
+        /* Footer */
+        .footer {
+            padding: 40px;
+            text-align: center;
+            margin-top: 80px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .footer p {
+            font-size: 13px;
+            color: rgba(255,255,255,0.4);
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .games-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        @media (max-width: 640px) {
+            .hero { padding: 80px 20px 40px; }
+            .games-section { padding: 20px; }
+            .games-grid { grid-template-columns: 1fr; gap: 20px; }
+            .header-inner { padding: 0 20px; }
+        }
+        
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            .game-card { transition: none; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gridCanvas"></canvas>
+    
+    <div class="content-wrapper">
+        <header class="header">
+            <div class="header-inner">
+                <h1>Games</h1>
+            </div>
+        </header>
+        
+        <main class="main">
+            <section class="hero">
+                <h1 class="hero-title">Interactive Grid</h1>
+                <p class="hero-desc">Move your mouse to interact with the grid. Each cell responds to your cursor's proximity.</p>
+            </section>
+            
+            <section class="games-section">
+                <div class="section-title">
+                    <h2>Featured Projects</h2>
+                </div>
+                
+                <div class="games-grid">
+                    <div class="game-card">
+                        <div class="card-image">🎮
+                            <span class="status-badge">Live</span>
+                            <span class="platform-tag">PC / Mac</span>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Grid Dominion</h3>
+                            <div class="card-meta">Strategy · 2024</div>
+                            <p class="card-desc">A turn-based tactical game where every decision shapes the battlefield.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="game-card">
+                        <div class="card-image">🌌
+                            <span class="status-badge beta">Beta</span>
+                            <span class="platform-tag">PC</span>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Project Starfield</h3>
+                            <div class="card-meta">Exploration · TBA</div>
+                            <p class="card-desc">Procedural universe exploration. Every star system uniquely generated.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="game-card">
+                        <div class="card-image">🎲
+                            <span class="status-badge">Live</span>
+                            <span class="platform-tag">Mobile</span>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Echoes of Silence</h3>
+                            <div class="card-meta">Puzzle · 2025</div>
+                            <p class="card-desc">A narrative puzzle game about memory and choice. Each level unfolds like a journal.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <footer class="footer">
+            <p>Move your cursor around to see the grid respond ✨</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Interactive Grid System
+        // Each cell rotates based on mouse proximity
+        
+        const canvas = document.getElementById('gridCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Grid configuration
+        const CELL_SIZE = 40;
+        const CELL_GAP = 4;
+        const MAX_ROTATION = 45; // degrees
+        const INFLUENCE_RADIUS = 250; // pixels
+        
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let targetMouseX = mouseX;
+        let targetMouseY = mouseY;
+        
+        // Grid cells
+        let cols, rows;
+        let cells = [];
+        
+        class GridCell {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.centerX = x + CELL_SIZE / 2;
+                this.centerY = y + CELL_SIZE / 2;
+                this.rotation = 0;
+                this.targetRotation = 0;
+                this.scale = 1;
+                this.targetScale = 1;
+                this.color = this.getGradientColor();
+            }
+            
+            getGradientColor() {
+                // Create gradient based on position
+                const hue = ((this.x / window.innerWidth) * 60 + 340) % 360;
+                return `hsl(${hue}, 70%, 50%)`;
+            }
+            
+            update() {
+                // Calculate distance to mouse
+                const dx = this.centerX - mouseX;
+                const dy = this.centerY - mouseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Calculate rotation based on distance
+                if (distance < INFLUENCE_RADIUS) {
+                    const influence = 1 - (distance / INFLUENCE_RADIUS);
+                    const angle = Math.atan2(dy, dx);
+                    this.targetRotation = angle * (180 / Math.PI) * influence * 0.5;
+                    this.targetScale = 1 + influence * 0.3;
+                } else {
+                    this.targetRotation = 0;
+                    this.targetScale = 1;
+                }
+                
+                // Smooth interpolation
+                this.rotation += (this.targetRotation - this.rotation) * 0.1;
+                this.scale += (this.targetScale - this.scale) * 0.1;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.centerX, this.centerY);
+                ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.scale(this.scale, this.scale);
+                
+                // Draw cell with glow
+                const alpha = 0.3 + (this.scale - 1) * 0.5;
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = alpha;
+                
+                // Glow effect
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = (this.scale - 1) * 20;
+                
+                ctx.fillRect(-CELL_SIZE/2, -CELL_SIZE/2, CELL_SIZE, CELL_SIZE);
+                
+                // Reset shadow
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+                
+                // Border
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.5;
+                ctx.strokeRect(-CELL_SIZE/2, -CELL_SIZE/2, CELL_SIZE, CELL_SIZE);
+                
+                ctx.restore();
+            }
+        }
+        
+        // Initialize grid
+        function initGrid() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            cols = Math.ceil(canvas.width / (CELL_SIZE + CELL_GAP));
+            rows = Math.ceil(canvas.height / (CELL_SIZE + CELL_GAP));
+            
+            cells = [];
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = i * (CELL_SIZE + CELL_GAP);
+                    const y = j * (CELL_SIZE + CELL_GAP);
+                    cells.push(new GridCell(x, y));
+                }
+            }
+        }
+        
+        initGrid();
+        
+        // Smooth mouse tracking
+        document.addEventListener('mousemove', (e) => {
+            targetMouseX = e.clientX;
+            targetMouseY = e.clientY;
+        });
+        
+        // Touch support
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                targetMouseX = e.touches[0].clientX;
+                targetMouseY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+        
+        // Resize handler
+        window.addEventListener('resize', () => {
+            initGrid();
+        });
+        
+        // Animation loop - Optimized
+        let lastTime = 0;
+        const FRAME_INTERVAL = 1000 / 60;
+        
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+            
+            const deltaTime = currentTime - lastTime;
+            if (deltaTime < FRAME_INTERVAL) return;
+            lastTime = currentTime - (deltaTime % FRAME_INTERVAL);
+            
+            // Smooth mouse interpolation
+            mouseX += (targetMouseX - mouseX) * 0.15;
+            mouseY += (targetMouseY - mouseY) * 0.15;
+            
+            // Clear canvas
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update and draw cells
+            // Only update visible cells for performance
+            const visibleCells = cells.filter(cell => {
+                return cell.x > -CELL_SIZE && cell.x < canvas.width + CELL_SIZE &&
+                       cell.y > -CELL_SIZE && cell.y < canvas.height + CELL_SIZE;
+            });
+            
+            // Batch draw for better performance
+            ctx.globalCompositeOperation = 'screen';
+            
+            for (const cell of visibleCells) {
+                cell.update();
+                cell.draw();
+            }
+            
+            ctx.globalCompositeOperation = 'source-over';
+        }
+        
+        animate(0);
+        
+        // Disable on low-power devices
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            cells.forEach(cell => {
+                cell.update = () => {};
+                cell.rotation = 0;
+            });
+        }
+    </script>
+</body>
+</html>
