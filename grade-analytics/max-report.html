@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Max 学业表现可视化报告</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 28px;
+            color: #1a1a2e;
+            margin-bottom: 10px;
+        }
+        .header .meta {
+            color: #666;
+            font-size: 14px;
+        }
+        .header .meta span {
+            margin-right: 20px;
+        }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        .card-math { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .card-english { background: linear-gradient(135deg, #f093fb, #f5576c); }
+        .card-rank { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .card-target { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .card-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .card-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1a1a2e;
+        }
+        .card-sub {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        .chart-container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .chart-title {
+            font-size: 18px;
+            color: #1a1a2e;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        .two-charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .analysis {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .analysis h2 {
+            font-size: 20px;
+            color: #1a1a2e;
+            margin-bottom: 20px;
+        }
+        .analysis-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            background: #f8f9fa;
+        }
+        .analysis-section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .analysis-section p {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        .back-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(102, 126, 234, 0.6);
+        }
+        @media (max-width: 768px) {
+            .two-charts { grid-template-columns: 1fr; }
+            .header h1 { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部信息 -->
+        <div class="header">
+            <h1>📊 Max 学业表现可视化报告</h1>
+            <div class="meta">
+                <span>📅 分析日期: 2026年4月16日</span>
+                <span>🎫 考号: B078</span>
+                <span>📈 数据周期: 4月6日-15日 (13次考试)</span>
+            </div>
+        </div>
+
+        <!-- 核心指标卡片 -->
+        <div class="cards">
+            <div class="card">
+                <div class="card-icon card-math">📐</div>
+                <div class="card-title">数学平均分</div>
+                <div class="card-value">38.5</div>
+                <div class="card-sub">满分50 | 最高分47</div>
+            </div>
+            <div class="card">
+                <div class="card-icon card-english">📝</div>
+                <div class="card-title">英语平均分</div>
+                <div class="card-value">50.7</div>
+                <div class="card-sub">满分60 | 最高分73</div>
+            </div>
+            <div class="card">
+                <div class="card-icon card-rank">🏆</div>
+                <div class="card-title">平均排名</div>
+                <div class="card-value">前13.3%</div>
+                <div class="card-sub">平均第14名/107人</div>
+            </div>
+            <div class="card">
+                <div class="card-icon card-target">🎯</div>
+                <div class="card-title">三公录取评估</div>
+                <div class="card-value" style="font-size: 24px;">竞争力强</div>
+                <div class="card-sub">优于录取线(前20%)</div>
+            </div>
+        </div>
+
+        <!-- 成绩趋势图 -->
+        <div class="chart-container">
+            <div class="chart-title">📈 成绩趋势分析</div>
+            <div class="chart-wrapper">
+                <canvas id="scoreChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 双图表 -->
+        <div class="two-charts">
+            <div class="chart-container">
+                <div class="chart-title">📊 排名变化趋势</div>
+                <div class="chart-wrapper">
+                    <canvas id="rankChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">🎯 排名百分比趋势</div>
+                <div class="chart-wrapper">
+                    <canvas id="pctChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细数据表 -->
+        <div class="chart-container">
+            <div class="chart-title">📋 详细成绩记录</div>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e9ecef;">日期</th>
+                            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e9ecef;">数学</th>
+                            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e9ecef;">排名</th>
+                            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e9ecef;">英语</th>
+                            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e9ecef;">排名</th>
+                            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e9ecef;">总分</th>
+                            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e9ecef;">总排名</th>
+                            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e9ecef;">百分比</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 分析建议 -->
+        <div class="analysis">
+            <h2>💡 深度分析与建议</h2>
+            
+            <div class="analysis-section">
+                <h3><span class="badge badge-success">✅</span> 优势亮点</h3>
+                <p>
+                    • <strong>数学顶尖水平</strong>: 最高47分（满分50），曾获得第3名，具备冲击满分实力<br>
+                    • <strong>英语爆发力强</strong>: 最高73分（超满分10分），展现极强语言天赋<br>
+                    • <strong>总分竞争力</strong>: 13次考试中有7次进入前10%（54%），最高排名达到第2名（前1.9%）<br>
+                    • <strong>三公录取安全</strong>: 平均排名（前13.3%）优于上外附中录取线（前20%）
+                </p>
+            </div>
+            
+            <div class="analysis-section">
+                <h3><span class="badge badge-warning">⚠️</span> 需关注点</h3>
+                <p>
+                    • <strong>数学稳定性</strong>: 有9次考试显示0分，需确认是否缺考或数据异常<br>
+                    • <strong>英语波动</strong>: 最低33分与最高73分差距较大，需加强稳定性<br>
+                    • <strong>排名波动</strong>: 4月13日出现第71名（前69.6%）的低谷，需分析原因
+                </p>
+            </div>
+            
+            <div class="analysis-section">
+                <h3><span class="badge badge-info">📚</span> 备考建议</h3>
+                <p>
+                    <strong>短期（4-5月）:</strong><br>
+                    1. 保持数学手感，维持47+水平，目标满分50<br>
+                    2. 英语稳定在65+，发挥73分的潜力<br>
+                    3. 适应2小时机考节奏（英语→语文→数学）<br><br>
+                    <strong>中期（5-6月）:</strong><br>
+                    1. 重点练习三公真题：数论、组合、几何、因式分解<br>
+                    2. 加强面试准备，上外附中面试占重要比重<br>
+                    3. 心态调整，当前处于安全区，保持自信
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <a href="plus.html" class="back-btn">← 返回成绩追踪系统</a>
+
+    <script>
+        // Max的成绩数据
+        const examData = [
+            { date: '4月6日', math: 33, english: 44, total: 77, mathRank: 16, englishRank: 24, totalRank: 11, pct: 9.8 },
+            { date: '4月7日', math: 0, english: 53, total: 53, mathRank: 1, englishRank: 10, totalRank: 10, pct: 10.3 },
+            { date: '4月7日', math: 0, english: 46, total: 46, mathRank: 1, englishRank: 25, totalRank: 25, pct: 23.4 },
+            { date: '4月8日', math: 47, english: 43, total: 90, mathRank: 3, englishRank: 42, totalRank: 6, pct: 5.4 },
+            { date: '4月9日', math: 0, english: 33, total: 33, mathRank: 1, englishRank: 14, totalRank: 14, pct: 13.0 },
+            { date: '4月9日', math: 0, english: 47, total: 47, mathRank: 1, englishRank: 11, totalRank: 11, pct: 10.8 },
+            { date: '4月10日', math: 0, english: 54, total: 54, mathRank: 1, englishRank: 3, totalRank: 3, pct: 2.9 },
+            { date: '4月11日', math: 39, english: 54, total: 93, mathRank: 3, englishRank: 26, totalRank: 5, pct: 4.5 },
+            { date: '4月13日', math: 0, english: 42, total: 42, mathRank: 1, englishRank: 71, totalRank: 71, pct: 69.6 },
+            { date: '4月13日', math: 0, english: 73, total: 73, mathRank: 1, englishRank: 2, totalRank: 2, pct: 1.9 },
+            { date: '4月14日', math: 35, english: 52, total: 87, mathRank: 14, englishRank: 3, totalRank: 3, pct: 2.6 },
+            { date: '4月15日', math: 0, english: 54, total: 54, mathRank: 1, englishRank: 6, totalRank: 6, pct: 5.8 },
+            { date: '4月15日', math: 0, english: 64, total: 64, mathRank: 1, englishRank: 15, totalRank: 15, pct: 13.4 }
+        ];
+
+        const labels = examData.map(d => d.date);
+        const mathScores = examData.map(d => d.math > 0 ? d.math : null);
+        const englishScores = examData.map(d => d.english);
+        const totalRanks = examData.map(d => d.totalRank);
+        const percentages = examData.map(d => d.pct);
+
+        // 成绩趋势图
+        new Chart(document.getElementById('scoreChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '数学',
+                        data: mathScores,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#667eea'
+                    },
+                    {
+                        label: '英语',
+                        data: englishScores,
+                        borderColor: '#f5576c',
+                        backgroundColor: 'rgba(245, 87, 108, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#f5576c'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { font: { size: 14 } }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 80,
+                        title: { display: true, text: '分数' }
+                    }
+                }
+            }
+        });
+
+        // 排名趋势图
+        new Chart(document.getElementById('rankChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '总排名',
+                    data: totalRanks,
+                    backgroundColor: totalRanks.map(r => r <= 10 ? '#43e97b' : r <= 20 ? '#4facfe' : '#f5576c'),
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        reverse: true,
+                        beginAtZero: true,
+                        title: { display: true, text: '排名（越低越好）' }
+                    }
+                }
+            }
+        });
+
+        // 百分比趋势图（含录取线）
+        new Chart(document.getElementById('pctChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '排名百分比',
+                        data: percentages,
+                        borderColor: '#764ba2',
+                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 5,
+                        fill: true
+                    },
+                    {
+                        label: '三公录取线(20%)',
+                        data: labels.map(() => 20),
+                        borderColor: '#43e97b',
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        borderWidth: 2
+                    },
+                    {
+                        label: '优秀线(10%)',
+                        data: labels.map(() => 10),
+                        borderColor: '#f9ca24',
+                        borderDash: [3, 3],
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 80,
+                        title: { display: true, text: '百分比（%）' }
+                    }
+                }
+            }
+        });
+
+        // 填充数据表
+        const tableBody = document.getElementById('dataTable');
+        examData.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid #e9ecef';
+            const pctColor = row.pct <= 10 ? '#28a745' : row.pct <= 20 ? '#17a2b8' : '#dc3545';
+            tr.innerHTML = `
+                <td style="padding: 12px;">${row.date}</td>
+                <td style="padding: 12px; text-align: center; font-weight: ${row.math >= 45 ? 'bold' : 'normal'}; color: ${row.math >= 45 ? '#667eea' : 'inherit'}">${row.math > 0 ? row.math : '-'}</td>
+                <td style="padding: 12px; text-align: center;">${row.mathRank}</td>
+                <td style="padding: 12px; text-align: center; font-weight: ${row.english >= 60 ? 'bold' : 'normal'}; color: ${row.english >= 60 ? '#f5576c' : 'inherit'}">${row.english}</td>
+                <td style="padding: 12px; text-align: center;">${row.englishRank}</td>
+                <td style="padding: 12px; text-align: center; font-weight: bold;">${row.total}</td>
+                <td style="padding: 12px; text-align: center; font-weight: bold;">${row.totalRank}</td>
+                <td style="padding: 12px; text-align: center; color: ${pctColor}; font-weight: bold;">前${row.pct}%</td>
+            `;
+            tableBody.appendChild(tr);
+        });
+    </script>
+</body>
+</html>
