@@ -276,7 +276,7 @@
             width: 100%;
             position: relative;
             z-index: 2; /* 盖在 GAMES 标题之上 */
-            margin-top: 200px; /* 略低于 GAMES 标题 */
+            margin-top: 150px; /* 紧贴 GAMES 标题下方 */
         }
         
         .games-grid {
@@ -736,41 +736,49 @@
             targetMouseY = e.clientY;
         });
         
-        // Touch support
-        document.addEventListener('touchmove', (e) => {
+        // Touch support - improved mobile detection
+        let isTouching = false;
+        
+        document.addEventListener('touchstart', (e) => {
+            isTouching = true;
             if (e.touches.length > 0) {
                 targetMouseX = e.touches[0].clientX;
                 targetMouseY = e.touches[0].clientY;
             }
         }, { passive: true });
         
-        // Reset when mouse/touch leaves screen
-        document.addEventListener('mouseleave', () => {
-            targetMouseX = window.innerWidth / 2;
-            targetMouseY = window.innerHeight / 2;
-        });
+        document.addEventListener('touchmove', (e) => {
+            isTouching = true;
+            if (e.touches.length > 0) {
+                targetMouseX = e.touches[0].clientX;
+                targetMouseY = e.touches[0].clientY;
+            }
+        }, { passive: true });
         
-        // Touch end/cancel for mobile - reset to center
+        // Reset when touch ends - check all touch end types
         const resetToCenter = () => {
+            isTouching = false;
             targetMouseX = window.innerWidth / 2;
             targetMouseY = window.innerHeight / 2;
         };
         
-        document.addEventListener('touchend', resetToCenter, { passive: true });
-        document.addEventListener('touchcancel', resetToCenter, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) resetToCenter();
+        }, { passive: true });
         
-        // Also reset when all touches end (backup)
-        let lastTouchTime = 0;
-        document.addEventListener('touchstart', () => { lastTouchTime = Date.now(); }, { passive: true });
+        document.addEventListener('touchcancel', (e) => {
+            if (e.touches.length === 0) resetToCenter();
+        }, { passive: true });
         
-        setInterval(() => {
-            // If no touch for 100ms, consider it ended
-            if (Date.now() - lastTouchTime > 100 && lastTouchTime > 0) {
-                if (targetMouseX !== window.innerWidth / 2) {
-                    resetToCenter();
-                }
+        // Mouse support for desktop
+        document.addEventListener('mousemove', (e) => {
+            if (!isTouching) {
+                targetMouseX = e.clientX;
+                targetMouseY = e.clientY;
             }
-        }, 50);
+        });
+        
+        document.addEventListener('mouseleave', resetToCenter);
         
         // Resize handler
         window.addEventListener('resize', () => {
