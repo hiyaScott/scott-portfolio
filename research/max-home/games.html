@@ -627,7 +627,7 @@
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Grid configuration - BRIGHTER for visibility
+        // Grid configuration
         const CELL_SIZE = 30;
         const CELL_GAP = 4;
         const MAX_ROTATION = 25;
@@ -639,9 +639,6 @@
         let targetMouseY = mouseY;
         let scrollY = 0;
         
-        // GAMES text mask path
-        let gamesMaskPath = null;
-        
         class GridCell {
             constructor(x, y) {
                 this.x = x;
@@ -652,100 +649,49 @@
                 this.targetRotation = 0;
                 this.scale = 1;
                 this.targetScale = 1;
-                this.opacity = 1;
-                this.targetOpacity = 1;
             }
             
             update() {
-                // Check if cell is inside GAMES text mask
-                if (gamesMaskPath && ctx.isPointInPath(gamesMaskPath, this.centerX, this.centerY)) {
-                    this.targetOpacity = 0;
+                // Calculate distance to mouse
+                const dx = this.centerX - mouseX;
+                const dy = this.centerY - mouseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Calculate rotation based on distance
+                if (distance < INFLUENCE_RADIUS) {
+                    const influence = 1 - (distance / INFLUENCE_RADIUS);
+                    const angle = Math.atan2(dy, dx);
+                    this.targetRotation = angle * (180 / Math.PI) * influence * 0.3;
+                    this.targetScale = 1 + influence * 0.2;
                 } else {
-                    this.targetOpacity = 1;
-                    
-                    // Calculate distance to mouse
-                    const dx = this.centerX - mouseX;
-                    const dy = this.centerY - mouseY;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    // Calculate rotation based on distance
-                    if (distance < INFLUENCE_RADIUS) {
-                        const influence = 1 - (distance / INFLUENCE_RADIUS);
-                        const angle = Math.atan2(dy, dx);
-                        this.targetRotation = angle * (180 / Math.PI) * influence * 0.3;
-                        this.targetScale = 1 + influence * 0.2;
-                    } else {
-                        this.targetRotation = 0;
-                        this.targetScale = 1;
-                    }
+                    this.targetRotation = 0;
+                    this.targetScale = 1;
                 }
                 
                 // Smooth interpolation
                 this.rotation += (this.targetRotation - this.rotation) * 0.1;
                 this.scale += (this.targetScale - this.scale) * 0.1;
-                this.opacity += (this.targetOpacity - this.opacity) * 0.1;
             }
             
             draw() {
-                if (this.opacity < 0.01) return;
-                
                 ctx.save();
                 ctx.translate(this.centerX, this.centerY);
                 ctx.rotate(this.rotation * Math.PI / 180);
                 ctx.scale(this.scale, this.scale);
                 
-                // FIXED VISIBLE GRAY - no opacity tricks
+                // VISIBLE GRAY BLOCK
                 ctx.fillStyle = '#888888';
-                
                 ctx.fillRect(-CELL_SIZE/2, -CELL_SIZE/2, CELL_SIZE, CELL_SIZE);
                 ctx.restore();
             }
         }
         
         let cells = [];
-        let textBounds = { x: 0, y: 0, width: 0, height: 0 };
-        
-        // Create GAMES text mask
-        function createTextMask() {
-            const fontSize = Math.min(window.innerWidth * 0.15, 180);
-            ctx.font = `800 ${fontSize}px Inter, sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // Position below header
-            const textX = canvas.width / 2;
-            const textY = 70 + 60 + fontSize * 0.6;
-            
-            // Create path for text
-            gamesMaskPath = new Path2D();
-            gamesMaskPath.rect(0, 0, canvas.width, canvas.height);
-            
-            textBounds = {
-                x: textX - 400,
-                y: textY - fontSize * 0.6,
-                width: 800,
-                height: fontSize * 1.2
-            };
-            
-            return { textX, textY, fontSize };
-        }
-        
-        // Simple text collision check
-        function isInsideText(x, y, textInfo) {
-            const { textX, textY, fontSize } = textInfo;
-            const halfWidth = 350;
-            const halfHeight = fontSize * 0.5;
-            
-            return x > textX - halfWidth && x < textX + halfWidth &&
-                   y > textY - halfHeight && y < textY + halfHeight;
-        }
         
         // Initialize grid
         function initGrid() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            
-            const textInfo = createTextMask();
             
             cells = [];
             const cols = Math.ceil(canvas.width / (CELL_SIZE + CELL_GAP)) + 2;
@@ -755,16 +701,7 @@
                 for (let j = -1; j < rows; j++) {
                     const x = i * (CELL_SIZE + CELL_GAP);
                     const y = j * (CELL_SIZE + CELL_GAP);
-                    
-                    const cell = new GridCell(x, y);
-                    
-                    // Check if cell is inside GAMES text area
-                    if (isInsideText(cell.centerX, cell.centerY, textInfo)) {
-                        cell.targetOpacity = 0;
-                        cell.opacity = 0;
-                    }
-                    
-                    cells.push(cell);
+                    cells.push(new GridCell(x, y));
                 }
             }
         }
@@ -785,26 +722,14 @@
             }
         }, { passive: true });
         
-        // Track scroll
-        document.querySelector('.page-container').addEventListener('scroll', (e) => {
-            scrollY = e.target.scrollTop;
-        });
-        
         // Resize handler
         window.addEventListener('resize', () => {
             initGrid();
         });
         
         // Animation loop
-        let lastTime = 0;
-        const FRAME_INTERVAL = 1000 / 60;
-        
-        function animate(currentTime) {
+        function animate() {
             requestAnimationFrame(animate);
-            
-            const deltaTime = currentTime - lastTime;
-            if (deltaTime < FRAME_INTERVAL) return;
-            lastTime = currentTime - (deltaTime % FRAME_INTERVAL);
             
             // Smooth mouse interpolation
             mouseX += (targetMouseX - mouseX) * 0.15;
@@ -821,17 +746,9 @@
             }
         }
         
-        animate(0);
+        animate();
         
-        // Reduced motion support
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            cells.forEach(cell => {
-                cell.targetRotation = 0;
-                cell.targetScale = 1;
-            });
-        }
-        
-        // Mobile menu toggle - Match Homepage
+        // Mobile menu toggle
         function toggleMenu() {
             document.getElementById('mobileNav').classList.toggle('active');
             document.getElementById('mobileNavOverlay').classList.toggle('active');
