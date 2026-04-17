@@ -2,22 +2,81 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>花园灌溉报价计算器V1.0</title>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- 检测CDN加载失败，提示备用站点 -->
+    <!-- 微信兼容性：先加载备用CDN，如果失败再提示 -->
     <script>
-        window.addEventListener('error', function(e) {
-            if (e.target && e.target.src && e.target.src.includes('xlsx')) {
+        // CDN加载检测和备用方案
+        window.xlsxLoaded = false;
+        window.xlsxLoadError = false;
+        
+        function checkXlsxLoaded() {
+            if (typeof XLSX !== 'undefined') {
+                window.xlsxLoaded = true;
+                console.log('[WeChat] XLSX库加载成功');
+            } else {
+                window.xlsxLoadError = true;
+                console.error('[WeChat] XLSX库加载失败');
+                showWechatError();
+            }
+        }
+        
+        function showWechatError() {
+            var ua = navigator.userAgent.toLowerCase();
+            var isWechat = ua.indexOf('micromessenger') !== -1;
+            
+            var errorHtml = '<div style="background:#dc2626;color:white;padding:15px;text-align:center;font-size:14px;line-height:1.6;">';
+            if (isWechat) {
+                errorHtml += '⚠️ 微信浏览器加载失败，请尝试：<br>';
+                errorHtml += '1. 点击右上角 ⋮ 选择"在浏览器打开"<br>';
+                errorHtml += '2. 或复制链接到 Safari/Chrome 打开';
+            } else {
+                errorHtml += '⚠️ 当前网络不稳定，请刷新页面或稍后重试';
+            }
+            errorHtml += '</div>';
+            
+            // 插入到body顶部
+            if (document.body) {
+                var div = document.createElement('div');
+                div.innerHTML = errorHtml;
+                document.body.insertBefore(div.firstChild, document.body.firstChild);
+            } else {
+                // 如果body还没加载，等DOMReady
                 document.addEventListener('DOMContentLoaded', function() {
-                    var warning = document.createElement('div');
-                    warning.innerHTML = '<div style="background:#dc2626;color:white;padding:12px;text-align:center;font-size:14px;">' +
-                        '⚠️ 当前网络不稳定，<a href="https://srain-counter.netlify.app/" style="color:#fff;text-decoration:underline;">点击访问备用站点</a>' +
-                        '</div>';
-                    document.body.insertBefore(warning.firstChild, document.body.firstChild);
+                    var div = document.createElement('div');
+                    div.innerHTML = errorHtml;
+                    document.body.insertBefore(div.firstChild, document.body.firstChild);
                 });
             }
-        }, true);
+        }
+        
+        // 10秒后检查XLSX是否加载成功
+        setTimeout(checkXlsxLoaded, 10000);
+    </script>
+    <!-- 主CDN：jsDelivr -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" 
+            onload="window.xlsxLoaded=true; console.log('[CDN] jsDelivr加载成功');" 
+            onerror="window.xlsxLoadError=true; console.error('[CDN] jsDelivr加载失败');"></script>
+    <!-- 备用CDN：unpkg -->
+    <script>
+        // 如果jsDelivr失败，尝试unpkg
+        setTimeout(function() {
+            if (!window.xlsxLoaded && !window.xlsxLoadError) {
+                console.log('[CDN] 尝试备用CDN: unpkg');
+                var script = document.createElement('script');
+                script.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+                script.onload = function() {
+                    window.xlsxLoaded = true;
+                    console.log('[CDN] unpkg加载成功');
+                };
+                script.onerror = function() {
+                    window.xlsxLoadError = true;
+                    console.error('[CDN] unpkg也加载失败');
+                    showWechatError();
+                };
+                document.head.appendChild(script);
+            }
+        }, 5000);
     </script>
     <style>
         :root {
@@ -39,6 +98,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
         
         body {
@@ -50,6 +110,7 @@
             min-height: 100vh;
             padding: 20px;
             color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
         }
         
         .container {
@@ -77,6 +138,7 @@
             align-items: center;
             justify-content: center;
             gap: 12px;
+            flex-wrap: wrap;
         }
         
         .header-logo {
@@ -225,6 +287,7 @@
             font-size: 15px;
             transition: all 0.3s;
             background: white;
+            -webkit-appearance: none;
         }
         
         input[type="number"]:focus,
@@ -321,6 +384,7 @@
             overflow-x: auto;
             margin-bottom: 20px;
             border-radius: 10px;
+            -webkit-overflow-scrolling: touch;
         }
         
         .preview-title {
@@ -425,159 +489,6 @@
             opacity: 0.5;
         }
         
-        /* 客服链接 */
-        .footer-contact {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-        
-        .contact-link {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--accent-color);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            transition: all 0.3s;
-        }
-        
-        .contact-link:hover {
-            background: var(--accent-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-        }
-        
-        /* 响应式布局 - 手机竖屏 */
-        @media (max-width: 480px) {
-            body {
-                padding: 10px;
-            }
-            
-            .container {
-                border-radius: 12px;
-            }
-            
-            .header {
-                padding: 20px 15px;
-            }
-            
-            .header h1 {
-                font-size: 18px;
-                gap: 8px;
-            }
-            
-            .header-contact-btn {
-                margin-left: 0;
-                margin-top: 8px;
-                padding: 8px 14px;
-                font-size: 12px;
-            }
-            
-            .header-logo {
-                width: 40px;
-                height: 40px;
-            }
-            
-            .header p {
-                font-size: 12px;
-            }
-            
-            .content {
-                padding: 15px;
-            }
-            
-            .section {
-                padding: 15px;
-                margin-bottom: 20px;
-            }
-            
-            .section-title {
-                font-size: 16px;
-            }
-            
-            .form-row {
-                flex-direction: column;
-                gap: 12px;
-            }
-            
-            .form-group {
-                min-width: 100%;
-            }
-            
-            .radio-group {
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .radio-item {
-                width: 100%;
-            }
-            
-            .guide-images-row {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .guide-image-item {
-                min-width: 100%;
-            }
-            
-            .area-card {
-                padding: 15px;
-            }
-            
-            .summary-cards {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
-            }
-            
-            .summary-card {
-                padding: 15px 10px;
-            }
-            
-            .summary-card .value {
-                font-size: 18px;
-            }
-            
-            th, td {
-                padding: 10px 8px;
-                font-size: 12px;
-            }
-            
-            .footer-contact {
-                left: 20px;
-                right: 20px;
-                bottom: 15px;
-            }
-            
-            .contact-link {
-                justify-content: center;
-                padding: 12px;
-            }
-        }
-
-        /* 平板适配 */
-        @media (min-width: 481px) and (max-width: 768px) {
-            .content {
-                padding: 20px;
-            }
-            
-            .section {
-                padding: 20px;
-            }
-            
-            .guide-image-item {
-                min-width: 100%;
-            }
-        }
-
         /* 绿化区域卡片样式 */
         .area-card {
             background: white;
@@ -690,6 +601,135 @@
             color: var(--accent-color);
             background: #fafafa;
         }
+
+        /* 响应式布局 - 手机竖屏 */
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                border-radius: 12px;
+            }
+            
+            .header {
+                padding: 20px 15px;
+            }
+            
+            .header h1 {
+                font-size: 18px;
+                gap: 8px;
+            }
+            
+            .header-contact-btn {
+                margin-left: 0;
+                margin-top: 8px;
+                padding: 8px 14px;
+                font-size: 12px;
+            }
+            
+            .header-logo {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .header p {
+                font-size: 12px;
+            }
+            
+            .content {
+                padding: 15px;
+            }
+            
+            .section {
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .section-title {
+                font-size: 16px;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .form-group {
+                min-width: 100%;
+            }
+            
+            .radio-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .radio-item {
+                width: 100%;
+            }
+            
+            .guide-images-row {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .guide-image-item {
+                min-width: 100%;
+            }
+            
+            .area-card {
+                padding: 15px;
+            }
+            
+            .summary-cards {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .summary-card {
+                padding: 15px 10px;
+            }
+            
+            .summary-card .value {
+                font-size: 18px;
+            }
+            
+            th, td {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+        }
+
+        /* 平板适配 */
+        @media (min-width: 481px) and (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+            
+            .section {
+                padding: 20px;
+            }
+            
+            .guide-image-item {
+                min-width: 100%;
+            }
+        }
+
+        /* 微信提示样式 */
+        .wechat-tip {
+            background: #07c160;
+            color: white;
+            padding: 12px 15px;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .wechat-tip a {
+            color: white;
+            text-decoration: underline;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -794,6 +834,12 @@
     </div>
     
     <script>
+        // 微信兼容性检测
+        var isWechat = /micromessenger/i.test(navigator.userAgent);
+        if (isWechat) {
+            console.log('[WeChat] 检测到微信浏览器');
+        }
+        
         let areaCount = 0;
         let areas = [];
         
@@ -811,126 +857,119 @@
         
         // 选择管径
         function selectPipeSize(el, size) {
-            document.querySelectorAll('.water-source-card').forEach(item => {
+            document.querySelectorAll('.water-source-card').forEach(function(item) {
                 item.classList.remove('selected');
             });
             el.classList.add('selected');
-            el.querySelector('input').checked = true;
+            var input = el.querySelector('input');
+            if (input) input.checked = true;
         }
         
         // 添加绿化区域
         function addArea() {
             areaCount++;
-            const container = document.getElementById('areasContainer');
-            const emptyState = document.getElementById('emptyState');
+            var container = document.getElementById('areasContainer');
+            var emptyState = document.getElementById('emptyState');
             
             if (emptyState) {
                 emptyState.remove();
             }
             
-            const areaCard = document.createElement('div');
+            var areaCard = document.createElement('div');
             areaCard.className = 'area-card';
-            areaCard.id = `area-${areaCount}`;
-            areaCard.innerHTML = `
-                <div class="area-header">
-                    <span class="area-title">绿化区域 #${areaCount}</span>
-                    <button class="btn-delete" onclick="deleteArea(${areaCount})">删除</button>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>长度 (米)</label>
-                        <input type="number" id="length-${areaCount}" min="0.1" step="0.1" placeholder="请输入长度" onchange="updateLocationVisibility(${areaCount})">
-                    </div>
-                    <div class="form-group">
-                        <label>宽度 (米)</label>
-                        <input type="number" id="width-${areaCount}" min="0.1" step="0.1" placeholder="请输入宽度" onchange="updateLocationVisibility(${areaCount})">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>植物类型</label>
-                        <select id="type-${areaCount}">
-                            <option value="shrub">灌木带</option>
-                            <option value="lawn">草坪</option>
-                            <option value="flower">花卉</option>
-                        </select>
-                    </div>
-                    <div class="form-group location-group" id="location-group-${areaCount}">
-                        <label>位置</label>
-                        <select id="location-${areaCount}">
-                            <option value="edge">边上 (1排)</option>
-                            <option value="center">中间 (2排)</option>
-                        </select>
-                    </div>
-                </div>
-            `;
+            areaCard.id = 'area-' + areaCount;
+            areaCard.innerHTML = 
+                '<div class="area-header">' +
+                    '<span class="area-title">绿化区域 #' + areaCount + '</span>' +
+                    '<button class="btn-delete" onclick="deleteArea(' + areaCount + ')">删除</button>' +
+                '</div>' +
+                '<div class="form-row">' +
+                    '<div class="form-group">' +
+                        '<label>长度 (米)</label>' +
+                        '<input type="number" id="length-' + areaCount + '" min="0.1" step="0.1" placeholder="请输入长度" onchange="updateLocationVisibility(' + areaCount + ')">' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                        '<label>宽度 (米)</label>' +
+                        '<input type="number" id="width-' + areaCount + '" min="0.1" step="0.1" placeholder="请输入宽度" onchange="updateLocationVisibility(' + areaCount + ')">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="form-row">' +
+                    '<div class="form-group">' +
+                        '<label>植物类型</label>' +
+                        '<select id="type-' + areaCount + '">' +
+                            '<option value="shrub">灌木带</option>' +
+                            '<option value="lawn">草坪</option>' +
+                            '<option value="flower">花卉</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div class="form-group location-group" id="location-group-' + areaCount + '">' +
+                        '<label>位置</label>' +
+                        '<select id="location-' + areaCount + '">' +
+                            '<option value="edge">边上 (1排)</option>' +
+                            '<option value="center">中间 (2排)</option>' +
+                        '</select>' +
+                    '</div>' +
+                '</div>';
             
             container.appendChild(areaCard);
         }
         
         // 删除绿化区域
         function deleteArea(id) {
-            const card = document.getElementById(`area-${id}`);
+            var card = document.getElementById('area-' + id);
             if (card) {
                 card.remove();
                 
-                // 检查是否没有区域了
-                const container = document.getElementById('areasContainer');
+                var container = document.getElementById('areasContainer');
                 if (container.children.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state" id="emptyState">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                            </svg>
-                            <p>暂无绿化区域，请点击下方按钮添加</p>
-                        </div>
-                    `;
+                    container.innerHTML = 
+                        '<div class="empty-state" id="emptyState">' +
+                            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                                '<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>' +
+                            '</svg>' +
+                            '<p>暂无绿化区域，请点击下方按钮添加</p>' +
+                        '</div>';
                 }
             }
         }
         
         // 更新位置选项可见性
         function updateLocationVisibility(id) {
-            const widthEl = document.getElementById(`width-${id}`);
-            const width = parseFloat(widthEl ? widthEl.value : 0) || 0;
-            const locationGroup = document.getElementById(`location-group-${id}`);
+            var widthEl = document.getElementById('width-' + id);
+            var width = parseFloat(widthEl && widthEl.value) || 0;
+            var locationGroup = document.getElementById('location-group-' + id);
             
             if (width > 3) {
                 locationGroup.classList.add('active');
             } else {
                 locationGroup.classList.remove('active');
-                document.getElementById(`location-${id}`).value = 'edge';
+                document.getElementById('location-' + id).value = 'edge';
             }
         }
         
         // 获取喷头选型
         function getSprinklerType(width, type, location) {
-            // <1m: 滴灌管 (灌木或花卉)
             if (width < 1) {
                 if (type === 'shrub' || type === 'flower') {
                     return 'drip';
                 }
             }
             
-            // 1-1.5m: 矩形喷头
             if (width >= 1 && width <= 1.5) {
                 if (type === 'shrub' || type === 'flower') return 'rect78012';
                 if (type === 'lawn') return 'rect78004';
             }
             
-            // 1.5-5m: 扇形喷头
             if (width > 1.5 && width <= 5) {
                 if (type === 'shrub' || type === 'flower') return 'fan78012';
                 if (type === 'lawn') return 'fan78004';
             }
             
-            // 5-9m: MiniPRO
             if (width >= 5 && width < 9) {
                 if (type === 'shrub' || type === 'flower') return 'mini13012';
                 if (type === 'lawn') return 'mini13003';
             }
 
-            // 9-30m: SuperPRO (仅草坪)
             if (width >= 9 && width <= 30 && type === 'lawn') {
                 return 'super10003';
             }
@@ -941,44 +980,37 @@
         // 计算喷头数量
         function calculateSprinklerCount(length, width, type, sprinklerType, location) {
             if (sprinklerType === 'drip') {
-                // 滴灌管: 长度 × 条数(每0.3m一条)
-                const rows = Math.ceil(width / 0.3);
+                var rows = Math.ceil(width / 0.3);
                 return { count: length * rows, rows: rows };
             }
             
             if (sprinklerType === 'rect78012' || sprinklerType === 'rect78004') {
-                // 矩形喷头: 每3米一个
-                const count = Math.ceil(length / 3);
+                var count = Math.ceil(length / 3);
                 return { count: count, rows: 1 };
             }
             
             if (sprinklerType === 'fan78012' || sprinklerType === 'fan78004') {
-                // 扇形喷头: 间距=宽度
-                let rows = 1;
-                // 双排规则: 宽度>3米时，边上=1排，中间=2排
+                var rows = 1;
                 if (width > 3) {
                     rows = (location === 'center') ? 2 : 1;
                 }
-                // 5-9米统一两排
                 if (width >= 6 && width <= 9) {
                     rows = 2;
                 }
-                const spacing = width;
-                const countPerRow = Math.ceil(length / spacing);
+                var spacing = width;
+                var countPerRow = Math.ceil(length / spacing);
                 return { count: countPerRow * rows, rows: rows };
             }
             
             if (sprinklerType === 'mini13012' || sprinklerType === 'mini13003') {
-                // MiniPRO: 间距=宽度，5-9米统一两排
-                const rows = 2;
-                const spacing = width;
-                const countPerRow = Math.ceil(length / spacing);
+                var rows = 2;
+                var spacing = width;
+                var countPerRow = Math.ceil(length / spacing);
                 return { count: countPerRow * rows, rows: rows };
             }
             
             if (sprinklerType === 'super10003') {
-                // SuperPRO: 每10米，数量=(长/10+1)×(宽/10+1)
-                const count = Math.ceil((length / 10 + 1)) * Math.ceil((width / 10 + 1));
+                var count = Math.ceil((length / 10 + 1)) * Math.ceil((width / 10 + 1));
                 return { count: count, rows: 1 };
             }
             
@@ -987,23 +1019,23 @@
         
         // 收集区域数据
         function collectAreas() {
-            const areas = [];
-            const cards = document.querySelectorAll('.area-card');
+            var areas = [];
+            var cards = document.querySelectorAll('.area-card');
             
-            cards.forEach(card => {
-                const id = parseInt(card.id.split('-')[1]);
-                const lengthEl = document.getElementById(`length-${id}`);
-                const length = parseFloat(lengthEl ? lengthEl.value : 0) || 0;
-                const widthEl = document.getElementById(`width-${id}`);
-                const width = parseFloat(widthEl ? widthEl.value : 0) || 0;
-                const typeEl = document.getElementById(`type-${id}`);
-                const type = typeEl ? typeEl.value : null;
-                const locationEl = document.getElementById(`location-${id}`);
-                const location = locationEl ? locationEl.value : 'edge';
+            cards.forEach(function(card) {
+                var id = parseInt(card.id.split('-')[1]);
+                var lengthEl = document.getElementById('length-' + id);
+                var length = parseFloat(lengthEl && lengthEl.value) || 0;
+                var widthEl = document.getElementById('width-' + id);
+                var width = parseFloat(widthEl && widthEl.value) || 0;
+                var typeEl = document.getElementById('type-' + id);
+                var type = typeEl && typeEl.value;
+                var locationEl = document.getElementById('location-' + id);
+                var location = (locationEl && locationEl.value) || 'edge';
                 
                 if (length > 0 && width > 0) {
-                    const sprinklerType = getSprinklerType(width, type, location);
-                    const sprinklerCount = calculateSprinklerCount(length, width, type, sprinklerType, location);
+                    var sprinklerType = getSprinklerType(width, type, location);
+                    var sprinklerCount = calculateSprinklerCount(length, width, type, sprinklerType, location);
                     
                     areas.push({
                         id: id,
@@ -1026,40 +1058,39 @@
         
         // 计算报价
         function calculateQuotation(areas) {
-            const pipeSizeInput = document.querySelector('input[name="pipeSize"]:checked').value;
-            const isRiverWell = pipeSizeInput === 'river_well';
-            const pipeSize = isRiverWell ? 'river_well' : parseInt(pipeSizeInput);
-            const waterFlow = isRiverWell ? 3.5 : (pipeSize === 25 ? 2.5 : 3); // m³/h
+            var checkedInput = document.querySelector('input[name="pipeSize"]:checked');
+            var pipeSizeInput = checkedInput ? checkedInput.value : '25';
+            var isRiverWell = pipeSizeInput === 'river_well';
+            var pipeSize = isRiverWell ? 'river_well' : parseInt(pipeSizeInput);
+            var waterFlow = isRiverWell ? 3.5 : (pipeSize === 25 ? 2.5 : 3);
             
-            // 获取花园绿化周长
-            const gardenPerimeter = parseFloat(document.getElementById('gardenPerimeter').value) || 0;
+            var gardenPerimeterEl = document.getElementById('gardenPerimeter');
+            var gardenPerimeter = parseFloat(gardenPerimeterEl && gardenPerimeterEl.value) || 0;
             
-            // 1. 计算喷头明细
-            const sprinklerDetails = [];
-            let totalSprinklerCost = 0;
-            let totalInstallFee = 0;
-            let totalFlow = 0;
-            let dripTotalCost = 0; // 滴灌管总价（用于计算20%管件）
+            var sprinklerDetails = [];
+            var totalSprinklerCost = 0;
+            var totalInstallFee = 0;
+            var totalFlow = 0;
+            var dripTotalCost = 0;
             
-            const sprinklerGroups = {};
+            var sprinklerGroups = {};
             
-            areas.forEach(area => {
+            areas.forEach(function(area) {
                 if (!area.sprinklerType) return;
                 
-                const config = sprinklerConfig[area.sprinklerType];
-                const isDrip = area.sprinklerType === 'drip';
+                var config = sprinklerConfig[area.sprinklerType];
+                var isDrip = area.sprinklerType === 'drip';
                 
-                // 单价和安装费
-                const unitPrice = config.price;
-                const installFee = config.installFee;
-                const count = area.sprinklerCount;
+                var unitPrice = config.price;
+                var installFee = config.installFee;
+                var count = area.sprinklerCount;
                 
-                const itemCost = count * unitPrice;
-                const itemInstallFee = count * installFee;
+                var itemCost = count * unitPrice;
+                var itemInstallFee = count * installFee;
                 
                 sprinklerDetails.push({
-                    area: `区域${area.id}(${area.typeName})`,
-                    size: `${area.length}×${area.width}m`,
+                    area: '区域' + area.id + '(' + area.typeName + ')',
+                    size: area.length + '×' + area.width + 'm',
                     model: config.name,
                     count: count,
                     unit: config.unit,
@@ -1071,26 +1102,22 @@
                 totalSprinklerCost += itemCost;
                 totalInstallFee += itemInstallFee;
                 
-                // 记录滴灌管总价
                 if (isDrip) {
                     dripTotalCost += itemCost + itemInstallFee;
                 }
                 
-                // 计算流量
                 if (config.flow > 0) {
                     totalFlow += count * config.flow;
                 }
                 
-                // 按类型分组（用于电磁阀计算）
                 if (!sprinklerGroups[area.sprinklerType]) {
-                    // 计算该类型的布置间距
-                    let spacing;
+                    var spacing;
                     if (area.sprinklerType === 'rect78012' || area.sprinklerType === 'rect78004') {
-                        spacing = 3; // 矩形喷头每3米一个
+                        spacing = 3;
                     } else if (area.sprinklerType === 'super10003') {
-                        spacing = 10; // 中型旋转每10米一个
+                        spacing = 10;
                     } else {
-                        spacing = area.width; // 扇形和小型旋转间距=宽度
+                        spacing = area.width;
                     }
                     sprinklerGroups[area.sprinklerType] = { count: 0, flow: 0, flowPerUnit: config.flow, spacing: spacing };
                 }
@@ -1098,35 +1125,28 @@
                 sprinklerGroups[area.sprinklerType].flow += count * config.flow;
             });
             
-            // 2. 千秋架
-            let buriedCount = 0;
-            areas.forEach(area => {
+            var buriedCount = 0;
+            areas.forEach(function(area) {
                 if (area.sprinklerType && area.sprinklerType !== 'drip') {
                     buriedCount += area.sprinklerCount;
                 }
             });
-            const qianqiuCost = buriedCount * (6 + 1.5);
+            var qianqiuCost = buriedCount * (6 + 1.5);
             
-            // 3. 电磁阀
-            // 电磁阀数量 = ceil(每组流量 / 水源流量)
-            // 不同种类的喷头/滴灌管必须用不同电磁阀
-            let valveCount = 0;
-            Object.values(sprinklerGroups).forEach(group => {
-                // 该组需要的阀数 = ceil(该组总流量 / 水源流量)
-                const groupValves = Math.ceil(group.flow / waterFlow);
+            var valveCount = 0;
+            Object.values(sprinklerGroups).forEach(function(group) {
+                var groupValves = Math.ceil(group.flow / waterFlow);
                 valveCount += groupValves;
             });
-            valveCount = Math.max(1, valveCount); // 至少1个阀
+            valveCount = Math.max(1, valveCount);
             
-            const valveModel = (pipeSize === 25) ? 'K-rain 7075型' : 'K-rain 7001型';
-            const valveUnitPrice = (pipeSize === 25) ? (180 + 115) : (196 + 115);
-            const valveCost = valveCount * valveUnitPrice;
+            var valveModel = (pipeSize === 25) ? 'K-rain 7075型' : 'K-rain 7001型';
+            var valveUnitPrice = (pipeSize === 25) ? (180 + 115) : (196 + 115);
+            var valveCost = valveCount * valveUnitPrice;
             
-            // 4. 阀门箱
-            const valveBoxCost = valveCount * (55 + 20);
+            var valveBoxCost = valveCount * (55 + 20);
             
-            // 5. 控制器
-            let controllerModel, controllerCost, decoderCost = 0;
+            var controllerModel, controllerCost, decoderCost = 0;
             if (valveCount <= 4) {
                 controllerModel = 'K-rain PRO-LC 3104';
                 controllerCost = 1800 + 620;
@@ -1141,102 +1161,81 @@
                 controllerCost = 4000 + 620;
                 decoderCost = valveCount * (530 + 100);
             }
-            const controllerCount = 1;
+            var controllerCount = 1;
             
-            // 6. 雨感器
-            const rainSensorCost = controllerCount * (280 + 80);
+            var rainSensorCost = controllerCount * (280 + 80);
             
-            // 主管长度 = 花园绿化周长（用户输入）
-            const mainPipeLength = gardenPerimeter;
+            var mainPipeLength = gardenPerimeter;
             
-            // 支管长度 = 所有喷头布置间距之和
-            // 支管长度 = Σ(每类喷头数量 × 相应布置间距)
-            let branchPipeLength = 0;
-            Object.values(sprinklerGroups).forEach(group => {
-                // 滴灌管和SuperPRO不需要支管
+            var branchPipeLength = 0;
+            Object.values(sprinklerGroups).forEach(function(group) {
                 if (group.spacing && group.spacing > 0) {
                     branchPipeLength += group.count * group.spacing;
                 }
             });
             
-            // 管道选型规则：
-            // 1. 水源32mm：主管=32管，支管=25管
-            // 2. 水源25mm + 电磁阀≤4个：主管=25管，支管=25管
-            // 3. 水源25mm + 电磁阀≥5个：主管=32管，支管=25管
-            
-            // 先计算电磁阀数量（简化版，用于管道选型）
-            let tempValveCount = 0;
-            Object.values(sprinklerGroups).forEach(group => {
-                const groupValves = Math.ceil(group.flow / waterFlow);
+            var tempValveCount = 0;
+            Object.values(sprinklerGroups).forEach(function(group) {
+                var groupValves = Math.ceil(group.flow / waterFlow);
                 tempValveCount += groupValves;
             });
             tempValveCount = Math.max(1, tempValveCount);
             
-            // 确定主管规格
-            let mainPipeSize;
+            var mainPipeSize;
             if (pipeSize === 32 || isRiverWell) {
-                mainPipeSize = 32; // 水源32mm或河水/井水，主管用32管
+                mainPipeSize = 32;
             } else {
-                // 水源25mm，根据电磁阀数量判断
                 mainPipeSize = tempValveCount >= 5 ? 32 : 25;
             }
             
-            const pipe32Price = 13 + 8.5; // 材料+安装
-            const pipe25Price = 9 + 8.5;  // 材料+安装
+            var pipe32Price = 13 + 8.5;
+            var pipe25Price = 9 + 8.5;
             
-            const mainPipeCost = mainPipeLength * (mainPipeSize === 32 ? pipe32Price : pipe25Price);
-            const branchPipeCost = branchPipeLength * pipe25Price; // 支管永远用25管
-            const totalPipeCost = mainPipeCost + branchPipeCost;
-            const totalPipeLength = mainPipeLength + branchPipeLength;
+            var mainPipeCost = mainPipeLength * (mainPipeSize === 32 ? pipe32Price : pipe25Price);
+            var branchPipeCost = branchPipeLength * pipe25Price;
+            var totalPipeCost = mainPipeCost + branchPipeCost;
+            var totalPipeLength = mainPipeLength + branchPipeLength;
             
-            // 8. PPR管件
-            let fittingRate;
+            var fittingRate;
             if (valveCount < 4) fittingRate = 0.5;
             else if (valveCount <= 10) fittingRate = 0.4;
             else fittingRate = 0.3;
-            const fittingCost = totalPipeCost * fittingRate;
+            var fittingCost = totalPipeCost * fittingRate;
             
-            // 9. 控制线
-            const isPROEX = valveCount > 12;
-            let controlLineLength;
+            var isPROEX = valveCount > 12;
+            var controlLineLength;
             if (isPROEX) {
                 controlLineLength = mainPipeLength;
             } else {
                 controlLineLength = mainPipeLength * valveCount * 0.6;
             }
-            const controlLineCost = controlLineLength * (7 + 3); // 材料7元 + 安装3元
+            var controlLineCost = controlLineLength * (7 + 3);
             
-            // 10. 穿线管
-            const conduitCost = mainPipeLength * (3.5 + 1.5);
+            var conduitCost = mainPipeLength * (3.5 + 1.5);
             
-            // 11. 增压泵（河水/井水时不计算，改为过滤器、潜水泵、配电箱）
-            let pumpCost = 0;
-            let riverWellEquipment = null;
+            var pumpCost = 0;
+            var riverWellEquipment = null;
             if (isRiverWell) {
-                // 河水/井水：过滤器 + 潜水泵 + 配电箱
                 riverWellEquipment = {
                     filter: { name: '自动冲洗过滤器', model: '待定', material: 500, install: 180 },
                     submersiblePump: { name: '灌溉潜水泵', model: '待定', material: 1600, install: 400 },
                     distributionBox: { name: '防雨配电箱', model: '待定', material: 480, install: 380 }
                 };
             } else {
-                // 普通水源：增压泵
                 pumpCost = 1450 + 350;
             }
             
-            // 12. 土方开挖和回填
-            const excavationCost = totalPipeLength * 14;
-            const backfillCost = totalPipeLength * 6;
+            var excavationCost = totalPipeLength * 14;
+            var backfillCost = totalPipeLength * 6;
             
-            // 汇总
-            let riverWellCost = 0;
+            var riverWellCost = 0;
             if (isRiverWell && riverWellEquipment) {
                 riverWellCost = riverWellEquipment.filter.material + riverWellEquipment.filter.install +
                                riverWellEquipment.submersiblePump.material + riverWellEquipment.submersiblePump.install +
                                riverWellEquipment.distributionBox.material + riverWellEquipment.distributionBox.install;
             }
             
-            const totalCost = totalSprinklerCost + totalInstallFee + qianqiuCost + valveCost + 
+            var totalCost = totalSprinklerCost + totalInstallFee + qianqiuCost + valveCost + 
                             valveBoxCost + controllerCost + decoderCost + rainSensorCost + 
                             totalPipeCost + fittingCost + controlLineCost + conduitCost + 
                             pumpCost + riverWellCost + excavationCost + backfillCost;
@@ -1283,7 +1282,13 @@
         
         // 生成报价
         function generateQuotation() {
-            const areas = collectAreas();
+            // 检查XLSX是否加载
+            if (typeof XLSX === 'undefined') {
+                alert('正在加载必要的库，请稍后再试...\n如果持续失败，请用浏览器打开本页面。');
+                return;
+            }
+            
+            var areas = collectAreas();
             
             if (areas.length === 0) {
                 alert('请至少添加一个绿化区域');
@@ -1291,53 +1296,51 @@
             }
             
             console.log('开始生成报价，区域数:', areas.length);
-            const quotation = calculateQuotation(areas);
+            var quotation = calculateQuotation(areas);
             console.log('报价计算完成:', quotation);
             
-            // 显示预览
             displayPreview(quotation);
             
-            // 导出Excel
             console.log('开始导出Excel...');
             exportToExcel(quotation);
             console.log('Excel导出完成');
             
-            // 统计埋点 - 记录本次生成
             trackQuotationGenerate(quotation);
         }
         
-        // 统计埋点功能
+        // 统计埋点功能 - 兼容微信
         function trackQuotationGenerate(quotation) {
             try {
-                // 生成唯一ID用于去重
-                const recordId = 'qt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                var recordId = 'qt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
                 
-                // 获取水源类型
-                const checkedInput = document.querySelector('input[name="pipeSize"]:checked');
-                const pipeSizeInput = checkedInput ? checkedInput.value : '25';
-                const waterSource = pipeSizeInput === 'river_well' ? '河水/井水' : 
+                var checkedInput = document.querySelector('input[name="pipeSize"]:checked');
+                var pipeSizeInput = checkedInput ? checkedInput.value : '25';
+                var waterSource = pipeSizeInput === 'river_well' ? '河水/井水' : 
                                    (pipeSizeInput === '32' ? '自来水32mm' : '自来水25mm');
                 
-                const record = {
+                var totalArea = quotation.areas.reduce(function(sum, area) { return sum + (area.length * area.width); }, 0);
+                
+                var record = {
                     id: recordId,
                     time: new Date().toISOString(),
                     areaCount: quotation.areas.length,
-                    totalArea: quotation.areas.reduce((sum, area) => sum + (area.length * area.width), 0),
+                    totalArea: totalArea,
                     totalCost: quotation.totalCost,
                     waterSource: waterSource,
                     pipeSize: pipeSizeInput
                 };
                 
-                // 使用 localStorage 存储（方案1：本地存储）
-                const STORAGE_KEY = 'srain_quotation_stats_v1';
-                let stats = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"records":[],"version":"1.0"}');
-                stats.records.push(record);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
-                
-                // 方案2：如配置了 Gist Token，可同步到云端（可选）
-                // syncToGist(record);
-                
-                console.log('[Stats] 统计记录已保存:', record);
+                // 微信兼容性：使用try-catch包裹localStorage操作
+                try {
+                    var STORAGE_KEY = 'srain_quotation_stats_v1';
+                    var statsStr = localStorage.getItem(STORAGE_KEY);
+                    var stats = statsStr ? JSON.parse(statsStr) : {records: [], version: '1.0'};
+                    stats.records.push(record);
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+                    console.log('[Stats] 统计记录已保存:', record);
+                } catch (e) {
+                    console.log('[Stats] localStorage不可用（微信常见），跳过统计:', e);
+                }
             } catch (e) {
                 console.error('[Stats] 统计记录失败:', e);
             }
@@ -1345,319 +1348,302 @@
         
         // 显示预览
         function displayPreview(quotation) {
-            const previewSection = document.getElementById('previewSection');
-            const summaryCards = document.getElementById('summaryCards');
-            const tablesContainer = document.getElementById('quotationTables');
+            var previewSection = document.getElementById('previewSection');
+            var summaryCards = document.getElementById('summaryCards');
+            var tablesContainer = document.getElementById('quotationTables');
             
             previewSection.classList.remove('hidden');
             
-            // 汇总卡片
-            const totalSprinklers = quotation.sprinklerDetails
-                .filter(item => !item.model.includes('滴灌管'))
-                .reduce((sum, item) => sum + item.count, 0);
-            const totalDripMeters = quotation.sprinklerDetails
-                .filter(item => item.model.includes('滴灌管'))
-                .reduce((sum, item) => sum + item.count, 0);
-            const totalGreenArea = quotation.areas.reduce((sum, area) => sum + (area.length * area.width), 0);
+            var totalSprinklers = quotation.sprinklerDetails
+                .filter(function(item) { return !item.model.includes('滴灌管'); })
+                .reduce(function(sum, item) { return sum + item.count; }, 0);
+            var totalDripMeters = quotation.sprinklerDetails
+                .filter(function(item) { return item.model.includes('滴灌管'); })
+                .reduce(function(sum, item) { return sum + item.count; }, 0);
+            var totalGreenArea = quotation.areas.reduce(function(sum, area) { return sum + (area.length * area.width); }, 0);
             
-            summaryCards.innerHTML = `
-                <div class="summary-card">
-                    <div class="label">绿化区域</div>
-                    <div class="value">${quotation.areas.length} 个</div>
-                </div>
-                <div class="summary-card">
-                    <div class="label">绿化总面积</div>
-                    <div class="value">${totalGreenArea.toFixed(1)} ㎡</div>
-                </div>
-                <div class="summary-card">
-                    <div class="label">喷头总数</div>
-                    <div class="value">${totalSprinklers} 个</div>
-                </div>
-                ${totalDripMeters > 0 ? `
-                <div class="summary-card">
-                    <div class="label">滴灌管长度</div>
-                    <div class="value">${totalDripMeters.toFixed(1)} 米</div>
-                </div>
-                ` : ''}
-                <div class="summary-card">
-                    <div class="label">管道总长</div>
-                    <div class="value">${quotation.totalPipeLength.toFixed(1)} 米</div>
-                </div>
-                <div class="summary-card total">
-                    <div class="label">总报价</div>
-                    <div class="value">¥${quotation.totalCost.toLocaleString()}</div>
-                </div>
-            `;
+            summaryCards.innerHTML = 
+                '<div class="summary-card">' +
+                    '<div class="label">绿化区域</div>' +
+                    '<div class="value">' + quotation.areas.length + ' 个</div>' +
+                '</div>' +
+                '<div class="summary-card">' +
+                    '<div class="label">绿化总面积</div>' +
+                    '<div class="value">' + totalGreenArea.toFixed(1) + ' ㎡</div>' +
+                '</div>' +
+                '<div class="summary-card">' +
+                    '<div class="label">喷头总数</div>' +
+                    '<div class="value">' + totalSprinklers + ' 个</div>' +
+                '</div>' +
+                (totalDripMeters > 0 ? 
+                '<div class="summary-card">' +
+                    '<div class="label">滴灌管长度</div>' +
+                    '<div class="value">' + totalDripMeters.toFixed(1) + ' 米</div>' +
+                '</div>' : '') +
+                '<div class="summary-card">' +
+                    '<div class="label">管道总长</div>' +
+                    '<div class="value">' + quotation.totalPipeLength.toFixed(1) + ' 米</div>' +
+                '</div>' +
+                '<div class="summary-card total">' +
+                    '<div class="label">总报价</div>' +
+                    '<div class="value">¥' + quotation.totalCost.toLocaleString() + '</div>' +
+                '</div>';
             
             // 喷头明细表
-            let sprinklerTable = `
-                <h3 style="margin: 20px 0 15px; color: #333;">喷头/滴灌管明细</h3>
-                <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>区域</th>
-                            <th>尺寸</th>
-                            <th>型号</th>
-                            <th class="text-right">数量</th>
-                            <th class="text-right">单价</th>
-                            <th class="text-right">金额</th>
-                            <th class="text-right">安装费</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
+            var sprinklerTable = 
+                '<h3 style="margin: 20px 0 15px; color: #333;">喷头/滴灌管明细</h3>' +
+                '<div class="table-wrapper">' +
+                '<table>' +
+                    '<thead>' +
+                        '<tr>' +
+                            '<th>区域</th>' +
+                            '<th>尺寸</th>' +
+                            '<th>型号</th>' +
+                            '<th class="text-right">数量</th>' +
+                            '<th class="text-right">单价</th>' +
+                            '<th class="text-right">金额</th>' +
+                            '<th class="text-right">安装费</th>' +
+                        '</tr>' +
+                    '</thead>' +
+                    '<tbody>';
             
-            quotation.sprinklerDetails.forEach(item => {
-                sprinklerTable += `
-                    <tr>
-                        <td>${item.area}</td>
-                        <td>${item.size}</td>
-                        <td>${item.model}</td>
-                        <td class="text-right">${item.count}${item.unit}</td>
-                        <td class="text-right">¥${item.unitPrice}</td>
-                        <td class="text-right">¥${item.cost.toLocaleString()}</td>
-                        <td class="text-right">¥${item.installFee.toLocaleString()}</td>
-                    </tr>
-                `;
+            quotation.sprinklerDetails.forEach(function(item) {
+                sprinklerTable += 
+                    '<tr>' +
+                        '<td>' + item.area + '</td>' +
+                        '<td>' + item.size + '</td>' +
+                        '<td>' + item.model + '</td>' +
+                        '<td class="text-right">' + item.count + item.unit + '</td>' +
+                        '<td class="text-right">¥' + item.unitPrice + '</td>' +
+                        '<td class="text-right">¥' + item.cost.toLocaleString() + '</td>' +
+                        '<td class="text-right">¥' + item.installFee.toLocaleString() + '</td>' +
+                    '</tr>';
             });
             
-            sprinklerTable += `
-                        <tr style="background: #f0f2ff; font-weight: 600;">
-                            <td colspan="5">小计</td>
-                            <td class="text-right">¥${quotation.sprinklerCost.toLocaleString()}</td>
-                            <td class="text-right">¥${quotation.installFee.toLocaleString()}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                </div>
-            `;
+            sprinklerTable += 
+                        '<tr style="background: #f0f2ff; font-weight: 600;">' +
+                            '<td colspan="5">小计</td>' +
+                            '<td class="text-right">¥' + quotation.sprinklerCost.toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + quotation.installFee.toLocaleString() + '</td>' +
+                        '</tr>' +
+                    '</tbody>' +
+                '</table>' +
+                '</div>';
             
             // 设备明细表
-            let equipmentTable = `
-                <h3 style="margin: 20px 0 15px; color: #333;">设备材料明细</h3>
-                <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>项目</th>
-                            <th>型号/规格</th>
-                            <th class="text-right">数量</th>
-                            <th class="text-right">材料单价</th>
-                            <th class="text-right">安装单价</th>
-                            <th class="text-right">单价小计</th>
-                            <th class="text-right">合价</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>千秋架</td>
-                            <td>4分</td>
-                            <td class="text-right">${quotation.buriedCount}个</td>
-                            <td class="text-right">¥6</td>
-                            <td class="text-right">¥1.5</td>
-                            <td class="text-right">¥7.5</td>
-                            <td class="text-right">¥${quotation.qianqiuCost.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>电磁阀</td>
-                            <td>${quotation.valveModel}</td>
-                            <td class="text-right">${quotation.valveCount}个</td>
-                            <td class="text-right">¥${quotation.pipeSize === 25 ? '180' : '196'}</td>
-                            <td class="text-right">¥115</td>
-                            <td class="text-right">¥${quotation.pipeSize === 25 ? '295' : '311'}</td>
-                            <td class="text-right">¥${quotation.valveCost.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>阀门箱</td>
-                            <td>910优质款</td>
-                            <td class="text-right">${quotation.valveCount}个</td>
-                            <td class="text-right">¥55</td>
-                            <td class="text-right">¥20</td>
-                            <td class="text-right">¥75</td>
-                            <td class="text-right">¥${quotation.valveBoxCost.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>控制器</td>
-                            <td>${quotation.controllerModel}</td>
-                            <td class="text-right">1台</td>
-                            <td class="text-right">¥${quotation.controllerCost - 620}</td>
-                            <td class="text-right">¥620</td>
-                            <td class="text-right">¥${quotation.controllerCost}</td>
-                            <td class="text-right">¥${quotation.controllerCost.toLocaleString()}</td>
-                        </tr>
-                        ${quotation.decoderCost > 0 ? `
-                        <tr>
-                            <td>解码器</td>
-                            <td>-</td>
-                            <td class="text-right">${quotation.valveCount}个</td>
-                            <td class="text-right">¥530</td>
-                            <td class="text-right">¥100</td>
-                            <td class="text-right">¥630</td>
-                            <td class="text-right">¥${quotation.decoderCost.toLocaleString()}</td>
-                        </tr>
-                        ` : ''}
-                        <tr>
-                            <td>雨感器</td>
-                            <td>K-rain 3208-HRS</td>
-                            <td class="text-right">1台</td>
-                            <td class="text-right">¥280</td>
-                            <td class="text-right">¥80</td>
-                            <td class="text-right">¥360</td>
-                            <td class="text-right">¥${quotation.rainSensorCost.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>主管</td>
-                            <td>PPR ${quotation.mainPipeSize}管</td>
-                            <td class="text-right">${quotation.mainPipeLength.toFixed(1)}米</td>
-                            <td class="text-right">¥${quotation.mainPipeSize === 32 ? '13' : '9'}</td>
-                            <td class="text-right">¥8.5</td>
-                            <td class="text-right">¥${quotation.mainPipeSize === 32 ? '21.5' : '17.5'}</td>
-                            <td class="text-right">¥${quotation.mainPipeCost.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>支管</td>
-                            <td>PPR 25管</td>
-                            <td class="text-right">${quotation.branchPipeLength.toFixed(1)}米</td>
-                            <td class="text-right">¥9</td>
-                            <td class="text-right">¥8.5</td>
-                            <td class="text-right">¥17.5</td>
-                            <td class="text-right">¥${quotation.branchPipeCost.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>PPR管件</td>
-                            <td>-</td>
-                            <td class="text-right">1批</td>
-                            <td class="text-right">¥${Math.round(quotation.fittingCost).toLocaleString()}</td>
-                            <td class="text-right">¥0</td>
-                            <td class="text-right">¥${Math.round(quotation.fittingCost).toLocaleString()}</td>
-                            <td class="text-right">¥${Math.round(quotation.fittingCost).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>控制线</td>
-                            <td>2×1.5</td>
-                            <td class="text-right">${quotation.controlLineLength.toFixed(1)}米</td>
-                            <td class="text-right">¥7</td>
-                            <td class="text-right">¥3</td>
-                            <td class="text-right">¥10</td>
-                            <td class="text-right">¥${Math.round(quotation.controlLineCost).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>穿线管</td>
-                            <td>PVC25</td>
-                            <td class="text-right">${quotation.mainPipeLength.toFixed(1)}米</td>
-                            <td class="text-right">¥3.5</td>
-                            <td class="text-right">¥1.5</td>
-                            <td class="text-right">¥5</td>
-                            <td class="text-right">¥${Math.round(quotation.conduitCost).toLocaleString()}</td>
-                        </tr>
-                        ${quotation.isRiverWell ? `
-                        <tr>
-                            <td>自动冲洗过滤器</td>
-                            <td>${quotation.riverWellEquipment.filter.model}</td>
-                            <td class="text-right">1台</td>
-                            <td class="text-right">¥${quotation.riverWellEquipment.filter.material.toLocaleString()}</td>
-                            <td class="text-right">¥${quotation.riverWellEquipment.filter.install.toLocaleString()}</td>
-                            <td class="text-right">¥${(quotation.riverWellEquipment.filter.material + quotation.riverWellEquipment.filter.install).toLocaleString()}</td>
-                            <td class="text-right">¥${(quotation.riverWellEquipment.filter.material + quotation.riverWellEquipment.filter.install).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>灌溉潜水泵</td>
-                            <td>${quotation.riverWellEquipment.submersiblePump.model}</td>
-                            <td class="text-right">1台</td>
-                            <td class="text-right">¥${quotation.riverWellEquipment.submersiblePump.material.toLocaleString()}</td>
-                            <td class="text-right">¥${quotation.riverWellEquipment.submersiblePump.install.toLocaleString()}</td>
-                            <td class="text-right">¥${(quotation.riverWellEquipment.submersiblePump.material + quotation.riverWellEquipment.submersiblePump.install).toLocaleString()}</td>
-                            <td class="text-right">¥${(quotation.riverWellEquipment.submersiblePump.material + quotation.riverWellEquipment.submersiblePump.install).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>防雨配电箱</td>
-                            <td>${quotation.riverWellEquipment.distributionBox.model}</td>
-                            <td class="text-right">1台</td>
-                            <td class="text-right">¥${quotation.riverWellEquipment.distributionBox.material.toLocaleString()}</td>
-                            <td class="text-right">¥${quotation.riverWellEquipment.distributionBox.install.toLocaleString()}</td>
-                            <td class="text-right">¥${(quotation.riverWellEquipment.distributionBox.material + quotation.riverWellEquipment.distributionBox.install).toLocaleString()}</td>
-                            <td class="text-right">¥${(quotation.riverWellEquipment.distributionBox.material + quotation.riverWellEquipment.distributionBox.install).toLocaleString()}</td>
-                        </tr>
-                        ` : `
-                        <tr>
-                            <td>增压泵</td>
-                            <td>CM-5自动增压泵</td>
-                            <td class="text-right">1台</td>
-                            <td class="text-right">¥1,450</td>
-                            <td class="text-right">¥350</td>
-                            <td class="text-right">¥1,800</td>
-                            <td class="text-right">¥${quotation.pumpCost.toLocaleString()}</td>
-                        </tr>
-                        `}
-                        <tr>
-                            <td>土方开挖</td>
-                            <td>-</td>
-                            <td class="text-right">${quotation.totalPipeLength.toFixed(1)}米</td>
-                            <td class="text-right">¥0</td>
-                            <td class="text-right">¥14</td>
-                            <td class="text-right">¥14</td>
-                            <td class="text-right">¥${Math.round(quotation.excavationCost).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td>土方回填</td>
-                            <td>-</td>
-                            <td class="text-right">${quotation.totalPipeLength.toFixed(1)}米</td>
-                            <td class="text-right">¥0</td>
-                            <td class="text-right">¥6</td>
-                            <td class="text-right">¥6</td>
-                            <td class="text-right">¥${Math.round(quotation.backfillCost).toLocaleString()}</td>
-                        </tr>
-                        <tr style="background: var(--accent-color); color: white; font-weight: 700; font-size: 16px;">
-                            <td colspan="6">总计</td>
-                            <td class="text-right">¥${quotation.totalCost.toLocaleString()}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                </div>
-            `;
+            var equipmentTable = 
+                '<h3 style="margin: 20px 0 15px; color: #333;">设备材料明细</h3>' +
+                '<div class="table-wrapper">' +
+                '<table>' +
+                    '<thead>' +
+                        '<tr>' +
+                            '<th>项目</th>' +
+                            '<th>型号/规格</th>' +
+                            '<th class="text-right">数量</th>' +
+                            '<th class="text-right">材料单价</th>' +
+                            '<th class="text-right">安装单价</th>' +
+                            '<th class="text-right">单价小计</th>' +
+                            '<th class="text-right">合价</th>' +
+                        '</tr>' +
+                    '</thead>' +
+                    '<tbody>' +
+                        '<tr>' +
+                            '<td>千秋架</td>' +
+                            '<td>4分</td>' +
+                            '<td class="text-right">' + quotation.buriedCount + '个</td>' +
+                            '<td class="text-right">¥6</td>' +
+                            '<td class="text-right">¥1.5</td>' +
+                            '<td class="text-right">¥7.5</td>' +
+                            '<td class="text-right">¥' + quotation.qianqiuCost.toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>电磁阀</td>' +
+                            '<td>' + quotation.valveModel + '</td>' +
+                            '<td class="text-right">' + quotation.valveCount + '个</td>' +
+                            '<td class="text-right">¥' + (quotation.pipeSize === 25 ? '180' : '196') + '</td>' +
+                            '<td class="text-right">¥115</td>' +
+                            '<td class="text-right">¥' + (quotation.pipeSize === 25 ? '295' : '311') + '</td>' +
+                            '<td class="text-right">¥' + quotation.valveCost.toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>阀门箱</td>' +
+                            '<td>910优质款</td>' +
+                            '<td class="text-right">' + quotation.valveCount + '个</td>' +
+                            '<td class="text-right">¥55</td>' +
+                            '<td class="text-right">¥20</td>' +
+                            '<td class="text-right">¥75</td>' +
+                            '<td class="text-right">¥' + quotation.valveBoxCost.toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>控制器</td>' +
+                            '<td>' + quotation.controllerModel + '</td>' +
+                            '<td class="text-right">1台</td>' +
+                            '<td class="text-right">¥' + (quotation.controllerCost - 620) + '</td>' +
+                            '<td class="text-right">¥620</td>' +
+                            '<td class="text-right">¥' + quotation.controllerCost + '</td>' +
+                            '<td class="text-right">¥' + quotation.controllerCost.toLocaleString() + '</td>' +
+                        '</tr>' +
+                        (quotation.decoderCost > 0 ? 
+                        '<tr>' +
+                            '<td>解码器</td>' +
+                            '<td>-</td>' +
+                            '<td class="text-right">' + quotation.valveCount + '个</td>' +
+                            '<td class="text-right">¥530</td>' +
+                            '<td class="text-right">¥100</td>' +
+                            '<td class="text-right">¥630</td>' +
+                            '<td class="text-right">¥' + quotation.decoderCost.toLocaleString() + '</td>' +
+                        '</tr>' : '') +
+                        '<tr>' +
+                            '<td>雨感器</td>' +
+                            '<td>K-rain 3208-HRS</td>' +
+                            '<td class="text-right">1台</td>' +
+                            '<td class="text-right">¥280</td>' +
+                            '<td class="text-right">¥80</td>' +
+                            '<td class="text-right">¥360</td>' +
+                            '<td class="text-right">¥' + quotation.rainSensorCost.toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>主管</td>' +
+                            '<td>PPR ' + quotation.mainPipeSize + '管</td>' +
+                            '<td class="text-right">' + quotation.mainPipeLength.toFixed(1) + '米</td>' +
+                            '<td class="text-right">¥' + (quotation.mainPipeSize === 32 ? '13' : '9') + '</td>' +
+                            '<td class="text-right">¥8.5</td>' +
+                            '<td class="text-right">¥' + (quotation.mainPipeSize === 32 ? '21.5' : '17.5') + '</td>' +
+                            '<td class="text-right">¥' + quotation.mainPipeCost.toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>支管</td>' +
+                            '<td>PPR 25管</td>' +
+                            '<td class="text-right">' + quotation.branchPipeLength.toFixed(1) + '米</td>' +
+                            '<td class="text-right">¥9</td>' +
+                            '<td class="text-right">¥8.5</td>' +
+                            '<td class="text-right">¥17.5</td>' +
+                            '<td class="text-right">¥' + quotation.branchPipeCost.toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>PPR管件</td>' +
+                            '<td>-</td>' +
+                            '<td class="text-right">1批</td>' +
+                            '<td class="text-right">¥' + Math.round(quotation.fittingCost).toLocaleString() + '</td>' +
+                            '<td class="text-right">¥0</td>' +
+                            '<td class="text-right">¥' + Math.round(quotation.fittingCost).toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + Math.round(quotation.fittingCost).toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>控制线</td>' +
+                            '<td>2×1.5</td>' +
+                            '<td class="text-right">' + quotation.controlLineLength.toFixed(1) + '米</td>' +
+                            '<td class="text-right">¥7</td>' +
+                            '<td class="text-right">¥3</td>' +
+                            '<td class="text-right">¥10</td>' +
+                            '<td class="text-right">¥' + Math.round(quotation.controlLineCost).toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>穿线管</td>' +
+                            '<td>PVC25</td>' +
+                            '<td class="text-right">' + quotation.mainPipeLength.toFixed(1) + '米</td>' +
+                            '<td class="text-right">¥3.5</td>' +
+                            '<td class="text-right">¥1.5</td>' +
+                            '<td class="text-right">¥5</td>' +
+                            '<td class="text-right">¥' + Math.round(quotation.conduitCost).toLocaleString() + '</td>' +
+                        '</tr>' +
+                        (quotation.isRiverWell ? 
+                        '<tr>' +
+                            '<td>自动冲洗过滤器</td>' +
+                            '<td>' + quotation.riverWellEquipment.filter.model + '</td>' +
+                            '<td class="text-right">1台</td>' +
+                            '<td class="text-right">¥' + quotation.riverWellEquipment.filter.material.toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + quotation.riverWellEquipment.filter.install.toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + (quotation.riverWellEquipment.filter.material + quotation.riverWellEquipment.filter.install).toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + (quotation.riverWellEquipment.filter.material + quotation.riverWellEquipment.filter.install).toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>灌溉潜水泵</td>' +
+                            '<td>' + quotation.riverWellEquipment.submersiblePump.model + '</td>' +
+                            '<td class="text-right">1台</td>' +
+                            '<td class="text-right">¥' + quotation.riverWellEquipment.submersiblePump.material.toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + quotation.riverWellEquipment.submersiblePump.install.toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + (quotation.riverWellEquipment.submersiblePump.material + quotation.riverWellEquipment.submersiblePump.install).toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + (quotation.riverWellEquipment.submersiblePump.material + quotation.riverWellEquipment.submersiblePump.install).toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>防雨配电箱</td>' +
+                            '<td>' + quotation.riverWellEquipment.distributionBox.model + '</td>' +
+                            '<td class="text-right">1台</td>' +
+                            '<td class="text-right">¥' + quotation.riverWellEquipment.distributionBox.material.toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + quotation.riverWellEquipment.distributionBox.install.toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + (quotation.riverWellEquipment.distributionBox.material + quotation.riverWellEquipment.distributionBox.install).toLocaleString() + '</td>' +
+                            '<td class="text-right">¥' + (quotation.riverWellEquipment.distributionBox.material + quotation.riverWellEquipment.distributionBox.install).toLocaleString() + '</td>' +
+                        '</tr>' : 
+                        '<tr>' +
+                            '<td>增压泵</td>' +
+                            '<td>CM-5自动增压泵</td>' +
+                            '<td class="text-right">1台</td>' +
+                            '<td class="text-right">¥1,450</td>' +
+                            '<td class="text-right">¥350</td>' +
+                            '<td class="text-right">¥1,800</td>' +
+                            '<td class="text-right">¥' + quotation.pumpCost.toLocaleString() + '</td>' +
+                        '</tr>'
+                        ) +
+                        '<tr>' +
+                            '<td>土方开挖</td>' +
+                            '<td>-</td>' +
+                            '<td class="text-right">' + quotation.totalPipeLength.toFixed(1) + '米</td>' +
+                            '<td class="text-right">¥0</td>' +
+                            '<td class="text-right">¥14</td>' +
+                            '<td class="text-right">¥14</td>' +
+                            '<td class="text-right">¥' + Math.round(quotation.excavationCost).toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr>' +
+                            '<td>土方回填</td>' +
+                            '<td>-</td>' +
+                            '<td class="text-right">' + quotation.totalPipeLength.toFixed(1) + '米</td>' +
+                            '<td class="text-right">¥0</td>' +
+                            '<td class="text-right">¥6</td>' +
+                            '<td class="text-right">¥6</td>' +
+                            '<td class="text-right">¥' + Math.round(quotation.backfillCost).toLocaleString() + '</td>' +
+                        '</tr>' +
+                        '<tr style="background: var(--accent-color); color: white; font-weight: 700; font-size: 16px;">' +
+                            '<td colspan="6">总计</td>' +
+                            '<td class="text-right">¥' + quotation.totalCost.toLocaleString() + '</td>' +
+                        '</tr>' +
+                    '</tbody>' +
+                '</table>' +
+                '</div>';
             
             tablesContainer.innerHTML = sprinklerTable + equipmentTable;
             
-            // 滚动到预览区域
             previewSection.scrollIntoView({ behavior: 'smooth' });
         }
         
         // 导出Excel - 按照模板格式
         function exportToExcel(quotation) {
-            const wb = XLSX.utils.book_new();
+            var wb = XLSX.utils.book_new();
             
-            // 获取当前日期
-            const today = new Date();
-            const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+            var today = new Date();
+            var dateStr = today.getFullYear() + '年' + (today.getMonth() + 1) + '月' + today.getDate() + '日';
             
-            // 创建报价单数据
-            const data = [];
+            var data = [];
             
-            // 标题
             data.push(['灌溉系统 施工报价单', '', '', '', '', '', '', '', '']);
             data.push(['']);
             
-            // 项目信息
             data.push(['项目地址：', '', '', '', '施工报价单位：', '上海新羽农业科技有限公司', '', '', '']);
             data.push(['联系人及电话：', '', '', '', '合作模式：', '供材+施工安装', '', '', '']);
             data.push(['日期：', dateStr, '', '', '', '', '', '', '']);
             data.push(['']);
             
-            // 表头
             data.push(['序号', '名称/型号/规格', '数量', '单位', '材料单价', '安装费', '单价小计', '合价', '备注（品牌/说明）']);
             
-            let rowNum = 1;
-            let totalHejia = 0; // 合价总计
+            var rowNum = 1;
+            var totalHejia = 0;
             
-            // 1. 喷头/滴灌管明细
-            let hasDrip = false;
-            quotation.sprinklerDetails.forEach(item => {
-                const unitTotal = item.unitPrice + item.installFee / (item.count || 1);
-                const hejia = item.cost + item.installFee;
+            var hasDrip = false;
+            quotation.sprinklerDetails.forEach(function(item) {
+                var unitTotal = item.unitPrice + item.installFee / (item.count || 1);
+                var hejia = item.cost + item.installFee;
                 totalHejia += hejia;
                 
-                // 检查是否有滴灌管
                 if (item.model.includes('滴灌管')) {
                     hasDrip = true;
                 }
@@ -1675,9 +1661,8 @@
                 ]);
             });
             
-            // 1.5 滴灌管管件（如有滴灌管，添加20%管件费用）
             if (hasDrip && quotation.dripTotalCost > 0) {
-                const fittingFee = quotation.dripTotalCost * 0.2;
+                var fittingFee = quotation.dripTotalCost * 0.2;
                 totalHejia += fittingFee;
                 
                 data.push([
@@ -1693,12 +1678,11 @@
                 ]);
             }
             
-            // 2. 千秋架
             if (quotation.buriedCount > 0) {
-                const qianqiuMaterial = 6;
-                const qianqiuInstall = 1.5;
-                const unitTotal = qianqiuMaterial + qianqiuInstall;
-                const hejia = quotation.qianqiuCost;
+                var qianqiuMaterial = 6;
+                var qianqiuInstall = 1.5;
+                var unitTotal = qianqiuMaterial + qianqiuInstall;
+                var hejia = quotation.qianqiuCost;
                 totalHejia += hejia;
                 
                 data.push([
@@ -1714,16 +1698,15 @@
                 ]);
             }
             
-            // 3. 电磁阀
-            const valveMaterial = quotation.pipeSize === 25 ? 180 : 196;
-            const valveInstall = 115;
-            const valveUnitTotal = valveMaterial + valveInstall;
-            const valveHejia = quotation.valveCost;
+            var valveMaterial = quotation.pipeSize === 25 ? 180 : 196;
+            var valveInstall = 115;
+            var valveUnitTotal = valveMaterial + valveInstall;
+            var valveHejia = quotation.valveCost;
             totalHejia += valveHejia;
             
             data.push([
                 rowNum++,
-                `电磁阀 ${quotation.valveModel}`,
+                '电磁阀 ' + quotation.valveModel,
                 quotation.valveCount,
                 '个',
                 valveMaterial,
@@ -1733,11 +1716,10 @@
                 '美国 科雨'
             ]);
             
-            // 4. 阀门箱
-            const boxMaterial = 55;
-            const boxInstall = 20;
-            const boxUnitTotal = boxMaterial + boxInstall;
-            const boxHejia = quotation.valveBoxCost;
+            var boxMaterial = 55;
+            var boxInstall = 20;
+            var boxUnitTotal = boxMaterial + boxInstall;
+            var boxHejia = quotation.valveBoxCost;
             totalHejia += boxHejia;
             
             data.push([
@@ -1752,16 +1734,15 @@
                 '国产'
             ]);
             
-            // 5. 控制器
-            const controllerMaterial = quotation.controllerCost - 620;
-            const controllerInstall = 620;
-            const controllerUnitTotal = controllerMaterial + controllerInstall;
-            const controllerHejia = quotation.controllerCost;
+            var controllerMaterial = quotation.controllerCost - 620;
+            var controllerInstall = 620;
+            var controllerUnitTotal = controllerMaterial + controllerInstall;
+            var controllerHejia = quotation.controllerCost;
             totalHejia += controllerHejia;
             
             data.push([
                 rowNum++,
-                `控制器 ${quotation.controllerModel}`,
+                '控制器 ' + quotation.controllerModel,
                 1,
                 '个',
                 controllerMaterial,
@@ -1771,12 +1752,11 @@
                 '国产'
             ]);
             
-            // 6. 解码器（如有）
             if (quotation.decoderCost > 0) {
-                const decoderMaterial = 530;
-                const decoderInstall = 100;
-                const decoderUnitTotal = decoderMaterial + decoderInstall;
-                const decoderHejia = quotation.decoderCost;
+                var decoderMaterial = 530;
+                var decoderInstall = 100;
+                var decoderUnitTotal = decoderMaterial + decoderInstall;
+                var decoderHejia = quotation.decoderCost;
                 totalHejia += decoderHejia;
                 
                 data.push([
@@ -1792,11 +1772,10 @@
                 ]);
             }
             
-            // 7. 雨感器
-            const rainMaterial = 280;
-            const rainInstall = 80;
-            const rainUnitTotal = rainMaterial + rainInstall;
-            const rainHejia = quotation.rainSensorCost;
+            var rainMaterial = 280;
+            var rainInstall = 80;
+            var rainUnitTotal = rainMaterial + rainInstall;
+            var rainHejia = quotation.rainSensorCost;
             totalHejia += rainHejia;
             
             data.push([
@@ -1811,16 +1790,15 @@
                 '国产'
             ]);
             
-            // 8. 主管
-            const mainPipeMaterial = quotation.mainPipeSize === 32 ? 13 : 9;
-            const mainPipeInstall = 8.5;
-            const mainPipeUnitTotal = mainPipeMaterial + mainPipeInstall;
-            const mainPipeHejia = quotation.mainPipeCost;
+            var mainPipeMaterial = quotation.mainPipeSize === 32 ? 13 : 9;
+            var mainPipeInstall = 8.5;
+            var mainPipeUnitTotal = mainPipeMaterial + mainPipeInstall;
+            var mainPipeHejia = quotation.mainPipeCost;
             totalHejia += mainPipeHejia;
             
             data.push([
                 rowNum++,
-                `主管 ${quotation.mainPipeSize}管`,
+                '主管 ' + quotation.mainPipeSize + '管',
                 quotation.mainPipeLength.toFixed(1),
                 '米',
                 mainPipeMaterial,
@@ -1830,11 +1808,10 @@
                 '公元'
             ]);
             
-            // 9. 支管
-            const branchPipeMaterial = 9;
-            const branchPipeInstall = 8.5;
-            const branchPipeUnitTotal = branchPipeMaterial + branchPipeInstall;
-            const branchPipeHejia = quotation.branchPipeCost;
+            var branchPipeMaterial = 9;
+            var branchPipeInstall = 8.5;
+            var branchPipeUnitTotal = branchPipeMaterial + branchPipeInstall;
+            var branchPipeHejia = quotation.branchPipeCost;
             totalHejia += branchPipeHejia;
             
             data.push([
@@ -1849,8 +1826,7 @@
                 '公元'
             ]);
             
-            // 10. PPR管件
-            const fittingHejia = quotation.fittingCost;
+            var fittingHejia = quotation.fittingCost;
             totalHejia += fittingHejia;
             
             data.push([
@@ -1865,11 +1841,10 @@
                 '公元'
             ]);
             
-            // 11. 控制线
-            const controlLineMaterial = 7;
-            const controlLineInstall = 3;
-            const controlLineUnitTotal = 10;
-            const controlLineHejia = quotation.controlLineCost;
+            var controlLineMaterial = 7;
+            var controlLineInstall = 3;
+            var controlLineUnitTotal = 10;
+            var controlLineHejia = quotation.controlLineCost;
             totalHejia += controlLineHejia;
             
             data.push([
@@ -1884,11 +1859,10 @@
                 '国产'
             ]);
             
-            // 12. 穿线管
-            const conduitMaterial = 3.5;
-            const conduitInstall = 1.5;
-            const conduitUnitTotal = conduitMaterial + conduitInstall;
-            const conduitHejia = quotation.conduitCost;
+            var conduitMaterial = 3.5;
+            var conduitInstall = 1.5;
+            var conduitUnitTotal = conduitMaterial + conduitInstall;
+            var conduitHejia = quotation.conduitCost;
             totalHejia += conduitHejia;
             
             data.push([
@@ -1903,10 +1877,8 @@
                 '国产'
             ]);
             
-            // 13. 增压泵 或 河水/井水设备
             if (quotation.isRiverWell && quotation.riverWellEquipment) {
-                // 河水/井水：过滤器 + 潜水泵 + 配电箱
-                const filter = quotation.riverWellEquipment.filter;
+                var filter = quotation.riverWellEquipment.filter;
                 data.push([
                     rowNum++,
                     '自动冲洗过滤器 ' + filter.model,
@@ -1920,7 +1892,7 @@
                 ]);
                 totalHejia += filter.material + filter.install;
                 
-                const pump = quotation.riverWellEquipment.submersiblePump;
+                var pump = quotation.riverWellEquipment.submersiblePump;
                 data.push([
                     rowNum++,
                     '灌溉潜水泵 ' + pump.model,
@@ -1934,7 +1906,7 @@
                 ]);
                 totalHejia += pump.material + pump.install;
                 
-                const box = quotation.riverWellEquipment.distributionBox;
+                var box = quotation.riverWellEquipment.distributionBox;
                 data.push([
                     rowNum++,
                     '防雨配电箱 ' + box.model,
@@ -1948,11 +1920,10 @@
                 ]);
                 totalHejia += box.material + box.install;
             } else {
-                // 普通水源：增压泵
-                const pumpMaterial = 1450;
-                const pumpInstall = 350;
-                const pumpUnitTotal = pumpMaterial + pumpInstall;
-                const pumpHejia = quotation.pumpCost;
+                var pumpMaterial = 1450;
+                var pumpInstall = 350;
+                var pumpUnitTotal = pumpMaterial + pumpInstall;
+                var pumpHejia = quotation.pumpCost;
                 totalHejia += pumpHejia;
                 
                 data.push([
@@ -1968,11 +1939,10 @@
                 ]);
             }
             
-            // 14. 土方开挖
-            const excavateMaterial = 0;
-            const excavateInstall = 14;
-            const excavateUnitTotal = 14;
-            const excavateHejia = quotation.excavationCost;
+            var excavateMaterial = 0;
+            var excavateInstall = 14;
+            var excavateUnitTotal = 14;
+            var excavateHejia = quotation.excavationCost;
             totalHejia += excavateHejia;
             
             data.push([
@@ -1987,11 +1957,10 @@
                 '施工'
             ]);
             
-            // 15. 土方回填
-            const backfillMaterial = 0;
-            const backfillInstall = 6;
-            const backfillUnitTotal = 6;
-            const backfillHejia = quotation.backfillCost;
+            var backfillMaterial = 0;
+            var backfillInstall = 6;
+            var backfillUnitTotal = 6;
+            var backfillHejia = quotation.backfillCost;
             totalHejia += backfillHejia;
             
             data.push([
@@ -2006,47 +1975,36 @@
                 '施工'
             ]);
             
-            // 空行
             data.push(['']);
             
-            // 汇总行
-            // 一、材料和安装费小计
             data.push(['', '一、材料和安装费小计：', '', '', '', '', '', totalHejia, '']);
             
-            // 二、现场维护、材料搬运、材料损耗和人工费（一×8%）
-            const maintenanceFee = totalHejia * 0.08;
+            var maintenanceFee = totalHejia * 0.08;
             data.push(['', '二、现场维护、材料搬运、材料损耗和人工费（一×8%）：', '', '', '', '', '', maintenanceFee, '']);
             
-            // 三、增值税[（一+二）×9%]
-            const subtotal = totalHejia + maintenanceFee;
-            const vat = subtotal * 0.09;
+            var subtotal = totalHejia + maintenanceFee;
+            var vat = subtotal * 0.09;
             data.push(['', '三、增值税[（一+二）×9%]：', '', '', '', '', '', vat, '']);
             
-            // 四、含税总计：（一+二+三）
-            const grandTotal = subtotal + vat;
+            var grandTotal = subtotal + vat;
             data.push(['', '四、含税总计：', '', '', '', '', '', grandTotal, '']);
             
-            // 创建sheet
-            const ws = XLSX.utils.aoa_to_sheet(data);
+            var ws = XLSX.utils.aoa_to_sheet(data);
             
-            // 设置列宽
             ws['!cols'] = [
-                { wch: 8 },   // 序号
-                { wch: 35 },  // 名称/型号/规格
-                { wch: 10 },  // 数量
-                { wch: 8 },   // 单位
-                { wch: 12 },  // 材料单价
-                { wch: 10 },  // 安装费
-                { wch: 12 },  // 单价小计
-                { wch: 12 },  // 合价
-                { wch: 18 }   // 备注
+                { wch: 8 },
+                { wch: 35 },
+                { wch: 10 },
+                { wch: 8 },
+                { wch: 12 },
+                { wch: 10 },
+                { wch: 12 },
+                { wch: 12 },
+                { wch: 18 }
             ];
             
-            // 合并单元格
             ws['!merges'] = [
-                // 标题行
                 { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
-                // 项目信息行
                 { s: { r: 2, c: 1 }, e: { r: 2, c: 3 } },
                 { s: { r: 2, c: 5 }, e: { r: 2, c: 8 } },
                 { s: { r: 3, c: 1 }, e: { r: 3, c: 3 } },
@@ -2056,9 +2014,8 @@
             
             XLSX.utils.book_append_sheet(wb, ws, '施工报价单');
             
-            // 导出
-            const date = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `灌溉系统施工报价单_${date}.xlsx`);
+            var date = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, '灌溉系统施工报价单_' + date + '.xlsx');
         }
         
         // 初始化
