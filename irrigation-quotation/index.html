@@ -807,6 +807,26 @@
                 </div>
             </div>
             
+            <!-- 窄灌木带/花卉/花坛偏好选项 -->
+            <div class="section">
+                <div class="section-title">窄灌木带/花卉/花坛偏好选项</div>
+                <div class="guide-intro">
+                    当绿化区域宽度小于1米时，系统将按此选项进行喷头选型布置。
+                </div>
+                <div class="radio-group">
+                    <div class="radio-item selected" onclick="selectPreference(this, 'drip')">
+                        <input type="radio" name="narrowPreference" value="drip" checked>
+                        <span class="radio-label">💧 滴灌管</span>
+                        <span class="radio-desc">沿绿化长度方向铺设滴灌管，行距0.3米</span>
+                    </div>
+                    <div class="radio-item" onclick="selectPreference(this, 'micro_stake')">
+                        <input type="radio" name="narrowPreference" value="micro_stake">
+                        <span class="radio-label">🔷 地插微喷头</span>
+                        <span class="radio-desc">沿绿化长度方向布置地插微喷头，间距0.6米</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- 绿化区域设置 -->
             <div class="section">
                 <div class="section-title">绿化区域设置</div>
@@ -854,6 +874,7 @@
         // 喷头配置
         const sprinklerConfig = {
             drip: { name: 'K-rain花园专用滴灌管', price: 7, installFee: 2, flow: 0.01, unit: '米' },
+            microStake: { name: '地插微喷头', price: 3.5, installFee: 2, flow: 0.1, unit: '个' },
             rect78012: { name: 'PRO-s-78012-矩形', price: 90, installFee: 20, flow: 0.2, unit: '个' },
             rect78004: { name: 'PRO-s-78004-矩形', price: 30, installFee: 20, flow: 0.2, unit: '个' },
             fan78012: { name: 'PRO-s-78012-扇形', price: 90, installFee: 20, flow: 0.5, unit: '个' },
@@ -866,6 +887,16 @@
         // 选择管径
         function selectPipeSize(el, size) {
             document.querySelectorAll('.water-source-card').forEach(function(item) {
+                item.classList.remove('selected');
+            });
+            el.classList.add('selected');
+            var input = el.querySelector('input');
+            if (input) input.checked = true;
+        }
+        
+        // 选择窄灌木带偏好
+        function selectPreference(el, preference) {
+            document.querySelectorAll('.radio-item').forEach(function(item) {
                 item.classList.remove('selected');
             });
             el.classList.add('selected');
@@ -957,9 +988,12 @@
         
         // 获取喷头选型
         function getSprinklerType(width, type, location) {
+            var preference = document.querySelector('input[name="narrowPreference"]:checked');
+            var narrowType = preference ? preference.value : 'drip';
+            
             if (width < 1) {
                 if (type === 'shrub' || type === 'flower') {
-                    return 'drip';
+                    return narrowType === 'micro_stake' ? 'microStake' : 'drip';
                 }
             }
             
@@ -990,6 +1024,11 @@
             if (sprinklerType === 'drip') {
                 var rows = Math.ceil(width / 0.3);
                 return { count: length * rows, rows: rows };
+            }
+            
+            if (sprinklerType === 'microStake') {
+                var count = Math.ceil(length / 0.6);
+                return { count: count, rows: 1 };
             }
             
             if (sprinklerType === 'rect78012' || sprinklerType === 'rect78004') {
@@ -1080,6 +1119,8 @@
             var totalInstallFee = 0;
             var totalFlow = 0;
             var dripTotalCost = 0;
+            var microStakeTotalCost = 0;
+            var microStakePipeLength = 0;
             
             var sprinklerGroups = {};
             
@@ -1088,6 +1129,7 @@
                 
                 var config = sprinklerConfig[area.sprinklerType];
                 var isDrip = area.sprinklerType === 'drip';
+                var isMicroStake = area.sprinklerType === 'microStake';
                 
                 var unitPrice = config.price;
                 var installFee = config.installFee;
@@ -1114,6 +1156,11 @@
                     dripTotalCost += itemCost + itemInstallFee;
                 }
                 
+                if (isMicroStake) {
+                    microStakeTotalCost += itemCost + itemInstallFee;
+                    microStakePipeLength += area.length;
+                }
+                
                 if (config.flow > 0) {
                     totalFlow += count * config.flow;
                 }
@@ -1124,6 +1171,8 @@
                         spacing = 3;
                     } else if (area.sprinklerType === 'super10003') {
                         spacing = 10;
+                    } else if (area.sprinklerType === 'microStake') {
+                        spacing = 0;
                     } else {
                         spacing = area.width;
                     }
@@ -1135,7 +1184,7 @@
             
             var buriedCount = 0;
             areas.forEach(function(area) {
-                if (area.sprinklerType && area.sprinklerType !== 'drip') {
+                if (area.sprinklerType && area.sprinklerType !== 'drip' && area.sprinklerType !== 'microStake') {
                     buriedCount += area.sprinklerCount;
                 }
             });
@@ -1202,13 +1251,15 @@
             var mainPipeCost = mainPipeLength * (mainPipeSize === 32 ? pipe32Price : pipe25Price);
             var branchPipeCost = branchPipeLength * pipe25Price;
             var totalPipeCost = mainPipeCost + branchPipeCost;
-            var totalPipeLength = mainPipeLength + branchPipeLength;
+            var totalPipeLength = mainPipeLength + branchPipeLength + microStakePipeLength;
             
             var fittingRate;
             if (valveCount < 4) fittingRate = 0.5;
             else if (valveCount <= 10) fittingRate = 0.4;
             else fittingRate = 0.3;
             var fittingCost = totalPipeCost * fittingRate;
+            
+            var microStakePipeCost = microStakePipeLength * (2.5 + 1.5);
             
             var isPROEX = valveCount > 12;
             var controlLineLength;
@@ -1246,7 +1297,7 @@
             var totalCost = totalSprinklerCost + totalInstallFee + qianqiuCost + valveCost + 
                             valveBoxCost + controllerCost + decoderCost + rainSensorCost + 
                             totalPipeCost + fittingCost + controlLineCost + conduitCost + 
-                            pumpCost + riverWellCost + excavationCost + backfillCost;
+                            pumpCost + riverWellCost + excavationCost + backfillCost + microStakePipeCost;
             
             return {
                 areas: areas,
@@ -1284,6 +1335,9 @@
                 excavationCost: excavationCost,
                 backfillCost: backfillCost,
                 dripTotalCost: dripTotalCost,
+                microStakeTotalCost: microStakeTotalCost,
+                microStakePipeLength: microStakePipeLength,
+                microStakePipeCost: microStakePipeCost,
                 totalCost: totalCost
             };
         }
@@ -1363,10 +1417,13 @@
             previewSection.classList.remove('hidden');
             
             var totalSprinklers = quotation.sprinklerDetails
-                .filter(function(item) { return !item.model.includes('滴灌管'); })
+                .filter(function(item) { return !item.model.includes('滴灌管') && !item.model.includes('地插微喷头'); })
                 .reduce(function(sum, item) { return sum + item.count; }, 0);
             var totalDripMeters = quotation.sprinklerDetails
                 .filter(function(item) { return item.model.includes('滴灌管'); })
+                .reduce(function(sum, item) { return sum + item.count; }, 0);
+            var totalMicroStakes = quotation.sprinklerDetails
+                .filter(function(item) { return item.model.includes('地插微喷头'); })
                 .reduce(function(sum, item) { return sum + item.count; }, 0);
             var totalGreenArea = quotation.areas.reduce(function(sum, area) { return sum + (area.length * area.width); }, 0);
             
@@ -1387,6 +1444,16 @@
                 '<div class="summary-card">' +
                     '<div class="label">滴灌管长度</div>' +
                     '<div class="value">' + totalDripMeters.toFixed(1) + ' 米</div>' +
+                '</div>' : '') +
+                (totalMicroStakes > 0 ? 
+                '<div class="summary-card">' +
+                    '<div class="label">地插微喷头</div>' +
+                    '<div class="value">' + totalMicroStakes + ' 个</div>' +
+                '</div>' : '') +
+                (quotation.microStakePipeLength > 0 ? 
+                '<div class="summary-card">' +
+                    '<div class="label">20mm PE支管</div>' +
+                    '<div class="value">' + quotation.microStakePipeLength.toFixed(1) + ' 米</div>' +
                 '</div>' : '') +
                 '<div class="summary-card">' +
                     '<div class="label">管道总长</div>' +
@@ -1528,6 +1595,16 @@
                             '<td class="text-right">¥17.5</td>' +
                             '<td class="text-right">¥' + quotation.branchPipeCost.toLocaleString() + '</td>' +
                         '</tr>' +
+                        (quotation.microStakePipeLength > 0 ?
+                        '<tr>' +
+                            '<td>20mm PE支管</td>' +
+                            '<td>PE 20管（地插微喷头专用）</td>' +
+                            '<td class="text-right">' + quotation.microStakePipeLength.toFixed(1) + '米</td>' +
+                            '<td class="text-right">¥2.5</td>' +
+                            '<td class="text-right">¥1.5</td>' +
+                            '<td class="text-right">¥4</td>' +
+                            '<td class="text-right">¥' + quotation.microStakePipeCost.toLocaleString() + '</td>' +
+                        '</tr>' : '') +
                         '<tr>' +
                             '<td>PPR管件</td>' +
                             '<td>-</td>' +
@@ -1833,6 +1910,26 @@
                 branchPipeHejia,
                 '公元'
             ]);
+            
+            if (quotation.microStakePipeLength > 0) {
+                var microStakePipeMaterial = 2.5;
+                var microStakePipeInstall = 1.5;
+                var microStakePipeUnitTotal = microStakePipeMaterial + microStakePipeInstall;
+                var microStakePipeHejia = quotation.microStakePipeLength * microStakePipeUnitTotal;
+                totalHejia += microStakePipeHejia;
+                
+                data.push([
+                    rowNum++,
+                    '20mm PE支管（地插微喷头专用）',
+                    quotation.microStakePipeLength.toFixed(1),
+                    '米',
+                    microStakePipeMaterial,
+                    microStakePipeInstall,
+                    microStakePipeUnitTotal,
+                    microStakePipeHejia,
+                    '国产'
+                ]);
+            }
             
             var fittingHejia = quotation.fittingCost;
             totalHejia += fittingHejia;
