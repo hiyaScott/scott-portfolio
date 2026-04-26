@@ -850,16 +850,38 @@ def get_cognitive_load():
         'build_details': local_builds
     }
 
-def determine_status(score):
-    # v7.4: 调整阈值匹配新算法
+def determine_status(score, has_active_processing=False, active_task_count=0):
+    """
+    v7.5: 优化状态判断 - 考虑"处理中"状态
+    has_active_processing: 是否有正在进行工具调用/代码编辑的任务
+    active_task_count: 当前活跃会话数量
+    """
+    # 如果有正在处理中的任务，至少显示为中等负载
+    if has_active_processing:
+        if score >= 70:
+            return "high", "🔴 处理中", "正在处理复杂任务"
+        else:
+            return "medium", "🟡 处理中", "正在响应请求"
+    
+    # 如果有多个活跃会话
+    if active_task_count >= 2:
+        if score >= 60:
+            return "high", "🔴 忙碌", "多个任务并行中"
+        else:
+            return "medium", "🟡 忙碌", "有多个活跃会话"
+    
+    # 纯分数判断
     if score >= 85:
         return "high", "🔴 高负载", "建议等待，系统忙碌"
     elif score >= 60:
         return "medium", "🟡 中等负载", "可派简单任务"
     elif score >= 35:
         return "medium", "🟡 轻负载", "30秒内响应"
-    else:
+    elif score >= 15:
         return "low", "🟢 空闲", "可立即响应"
+    else:
+        # v7.5: 真正空闲时显示更明确的状态
+        return "idle", "⚪ 待机", "等待新任务"
 
 def update_redis(data):
     """v5.40: 更新 Redis，添加格式化字段"""
@@ -1166,11 +1188,28 @@ def get_history_data(hours=1, max_points=200):
 
 def main():
     """v6.0: 单次执行模式 - crontab 每分钟调用一次"""
-    print("🧠 Shrimp Jetton v7.2 - 六大任务分类版 - 单次执行模式")
+    print("🧠 Shrimp Jetton v7.5 - 状态感知优化版 - 单次执行模式")
     
     try:
         load = get_cognitive_load()
-        code, text, sug = determine_status(load['cognitive_score'])
+        
+        # v7.5: 检测是否有"处理中"状态的任务
+        has_active_processing = any(
+            '🔄' in t.get('status', '') or '处理中' in t.get('status', '')
+            for t in load.get('task_queue', [])
+        )
+        
+        # v7.5: 计算活跃会话数（最近5分钟有活动的）
+        active_task_count = len([
+            t for t in load.get('task_queue', [])
+            if '前活跃' in t.get('status', '') or '处理中' in t.get('status', '')
+        ])
+        
+        code, text, sug = determine_status(
+            load['cognitive_score'],
+            has_active_processing=has_active_processing,
+            active_task_count=active_task_count
+        )
         
         data = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -1192,7 +1231,10 @@ def main():
             "memory_percent": load['system']['memory_percent'],
             "estimated_wait": load.get('estimated_wait', {"text": "立即", "detail": "可立即响应"}),
             "workflow_details": load['workflow_details'],
-            "build_details": load['build_details']
+            "build_details": load['build_details'],
+            # v7.5: 新增诊断字段
+            "has_active_processing": has_active_processing,
+            "active_task_count": active_task_count
         }
         
         # v6.0: 写入数据仓库
@@ -1207,7 +1249,8 @@ def main():
                            for d in load['task_queue'][:3]])
         wf_info = f" | {load['github_workflows']} CI" if load['github_workflows'] > 0 else ""
         build_info = f" | {load['local_builds']} Build" if load['local_builds'] > 0 else ""
-        print(f"[{ts}] {text} | Score:{load['cognitive_score']} | Queue:{load['processing_count']+load['pending_count']} | {tasks}{wf_info}{build_info}")
+        processing_flag = " [PROC]" if has_active_processing else ""
+        print(f"[{ts}] {text} | Score:{load['cognitive_score']} | Queue:{load['processing_count']+load['pending_count']} | {tasks}{wf_info}{build_info}{processing_flag}")
         
     except Exception as e:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] [ERR] {e}")

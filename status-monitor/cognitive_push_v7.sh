@@ -40,7 +40,7 @@ status=$(grep -o '"status_text":"[^"]*"' "$DATA_FILE" | head -1 | cut -d'"' -f4)
 git commit -m "data: update cognitive status at ${time_str} (score:${score}%, ${status})" >> "$HEALTH_LOG" 2>&1
 
 # 推送
-if git push origin main >> "$HEALTH_LOG" 2>&1; then
+if git push origin master >> "$HEALTH_LOG" 2>&1; then
     echo "[$(date)] ✅ 推送成功 score=${score}%" >> "$HEALTH_LOG"
     rm -f "$FAIL_COUNT_FILE"
     exit 0
