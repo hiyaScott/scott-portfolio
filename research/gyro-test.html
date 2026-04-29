@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>陀螺仪传感器测试 | HiyaMax</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 { font-size: 18px; color: #fff; margin-bottom: 15px; }
+        h2 { font-size: 14px; color: #888; margin: 20px 0 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .section {
+            background: #151515;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #222;
+        }
+        .row:last-child { border-bottom: none; }
+        .label { color: #888; font-size: 13px; }
+        .value { font-family: 'SF Mono', 'Courier New', monospace; font-size: 13px; }
+        .value.ok { color: #4ade80; }
+        .value.fail { color: #f87171; }
+        .value.warn { color: #fbbf24; }
+        .live-data {
+            font-family: 'SF Mono', 'Courier New', monospace;
+            font-size: 16px;
+            color: #4ade80;
+            min-height: 24px;
+        }
+        .hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            padding: 10px;
+            background: #1a1a1a;
+            border-radius: 6px;
+        }
+        .button {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+        }
+        .button:active { background: #1d4ed8; }
+        .button.secondary { background: #374151; }
+        #visualizer {
+            width: 100%;
+            height: 200px;
+            background: #111;
+            border-radius: 8px;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        #ball {
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+            transition: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>陀螺仪传感器测试</h1>
+
+    <div class="section">
+        <h2>环境信息</h2>
+        <div class="row"><span class="label">User Agent</span><span class="value" id="ua">检测中...</span></div>
+        <div class="row"><span class="label">平台</span><span class="value" id="platform">-</span></div>
+        <div class="row"><span class="label">屏幕方向</span><span class="value" id="screenOrient">-</span></div>
+        <div class="row"><span class="label">窗口尺寸</span><span class="value" id="windowSize">-</span></div>
+    </div>
+
+    <div class="section">
+        <h2>API 可用性检测</h2>
+        <div class="row"><span class="label">DeviceOrientationEvent</span><span class="value" id="apiDO">-</span></div>
+        <div class="row"><span class="label">DeviceMotionEvent</span><span class="value" id="apiDM">-</span></div>
+        <div class="row"><span class="label">Accelerometer (Sensor API)</span><span class="value" id="apiAccel">-</span></div>
+        <div class="row"><span class="label">Gyroscope (Sensor API)</span><span class="value" id="apiGyro">-</span></div>
+        <div class="row"><span class="label">requestPermission</span><span class="value" id="apiPerm">-</span></div>
+    </div>
+
+    <div class="section">
+        <h2>事件触发状态</h2>
+        <div class="row"><span class="label">deviceorientation</span><span class="value" id="evtDO">等待中...</span></div>
+        <div class="row"><span class="label">deviceorientationabsolute</span><span class="value" id="evtDOAbs">等待中...</span></div>
+        <div class="row"><span class="label">devicemotion</span><span class="value" id="evtDM">等待中...</span></div>
+    </div>
+
+    <div class="section">
+        <h2>实时数据</h2>
+        <div class="row"><span class="label">gamma (左右倾斜)</span><span class="live-data" id="valGamma">-</span></div>
+        <div class="row"><span class="label">beta (前后倾斜)</span><span class="live-data" id="valBeta">-</span></div>
+        <div class="row"><span class="label">alpha (方位)</span><span class="live-data" id="valAlpha">-</span></div>
+        <div class="row"><span class="label">acc.x</span><span class="live-data" id="valAccX">-</span></div>
+        <div class="row"><span class="label">acc.y</span><span class="live-data" id="valAccY">-</span></div>
+        <div class="row"><span class="label">acc.z</span><span class="live-data" id="valAccZ">-</span></div>
+        <div class="row"><span class="label">活跃数据源</span><span class="value" id="activeSource">无</span></div>
+    </div>
+
+    <div class="section">
+        <h2>可视化</h2>
+        <div id="visualizer"><div id="ball"></div></div>
+        <div class="hint">倾斜手机，小球会跟随移动。如果小球不动，说明传感器未工作。</div>
+    </div>
+
+    <div class="section">
+        <h2>操作</h2>
+        <button class="button" onclick="startListening()">开始监听</button>
+        <button class="button secondary" onclick="stopListening()">停止</button>
+        <button class="button secondary" onclick="clearData()">清零</button>
+    </div>
+
+    <div class="hint">
+        <strong>使用说明：</strong><br>
+        1. 点击「开始监听」按钮启动传感器<br>
+        2. 鸿蒙设备：若 deviceorientation 不触发，会自动尝试 devicemotion<br>
+        3. 将屏幕截图发送给开发者，包含上方所有数据<br>
+        4. 横屏/竖屏都请测试一次
+    </div>
+
+    <script>
+        // ======== 状态跟踪 ========
+        const state = {
+            listening: false,
+            doFired: false,
+            doAbsFired: false,
+            dmFired: false,
+            activeSource: 'none',
+            gamma: 0,
+            beta: 0,
+            alpha: 0,
+            accX: 0,
+            accY: 0,
+            accZ: 0,
+            ballX: 0,
+            ballY: 0
+        };
+
+        let cleanupFns = [];
+
+        // ======== 环境检测 ========
+        function detectEnv() {
+            document.getElementById('ua').textContent = navigator.userAgent.substring(0, 80);
+            document.getElementById('platform').textContent = navigator.platform || 'unknown';
+            updateScreenInfo();
+
+            // API 可用性
+            setApiStatus('apiDO', 'DeviceOrientationEvent' in window);
+            setApiStatus('apiDM', 'DeviceMotionEvent' in window);
+            setApiStatus('apiAccel', 'Accelerometer' in window);
+            setApiStatus('apiGyro', 'Gyroscope' in window);
+
+            const hasDO = 'DeviceOrientationEvent' in window;
+            const hasPerm = hasDO && typeof DeviceOrientationEvent.requestPermission === 'function';
+            setApiStatus('apiPerm', hasPerm);
+        }
+
+        function setApiStatus(id, available) {
+            const el = document.getElementById(id);
+            el.textContent = available ? '✅ 可用' : '❌ 不可用';
+            el.className = 'value ' + (available ? 'ok' : 'fail');
+        }
+
+        function updateScreenInfo() {
+            let orient = '未知';
+            if (screen.orientation && screen.orientation.type) {
+                orient = screen.orientation.type + ' (' + (screen.orientation.angle || 0) + '°)';
+            } else if (typeof window.orientation === 'number') {
+                orient = window.orientation + '°';
+            } else {
+                orient = window.innerWidth > window.innerHeight ? '横屏(推断)' : '竖屏(推断)';
+            }
+            document.getElementById('screenOrient').textContent = orient;
+            document.getElementById('windowSize').textContent = window.innerWidth + '×' + window.innerHeight;
+        }
+
+        // ======== 事件处理 ========
+        function onDeviceOrientation(e) {
+            if (!state.doFired) {
+                state.doFired = true;
+                document.getElementById('evtDO').textContent = '✅ 已触发';
+                document.getElementById('evtDO').className = 'value ok';
+            }
+            state.activeSource = 'deviceorientation';
+            state.gamma = e.gamma || 0;
+            state.beta = e.beta || 0;
+            state.alpha = e.alpha || 0;
+            updateDisplay();
+        }
+
+        function onDeviceOrientationAbs(e) {
+            if (!state.doAbsFired) {
+                state.doAbsFired = true;
+                document.getElementById('evtDOAbs').textContent = '✅ 已触发';
+                document.getElementById('evtDOAbs').className = 'value ok';
+            }
+            if (!state.doFired) {
+                state.activeSource = 'deviceorientationabsolute';
+                state.gamma = e.gamma || 0;
+                state.beta = e.beta || 0;
+                state.alpha = e.alpha || 0;
+                updateDisplay();
+            }
+        }
+
+        function onDeviceMotion(e) {
+            const acc = e.accelerationIncludingGravity;
+            if (!acc || typeof acc.x !== 'number') return;
+
+            if (!state.dmFired) {
+                state.dmFired = true;
+                document.getElementById('evtDM').textContent = '✅ 已触发';
+                document.getElementById('evtDM').className = 'value ok';
+            }
+
+            state.accX = acc.x;
+            state.accY = acc.y;
+            state.accZ = acc.z;
+
+            // 如果 DO 没有在工作，用加速度计反推
+            if (!state.doFired && !state.doAbsFired) {
+                state.activeSource = 'devicemotion';
+                // 从重力计算倾斜
+                const x = acc.x, y = acc.y, z = acc.z || 9.8;
+                state.gamma = Math.atan2(-x, z) * (180 / Math.PI);
+                state.beta = Math.atan2(-y, z) * (180 / Math.PI);
+                updateDisplay();
+            } else {
+                // DO 在工作，只更新 acc 显示
+                document.getElementById('valAccX').textContent = state.accX.toFixed(2);
+                document.getElementById('valAccY').textContent = state.accY.toFixed(2);
+                document.getElementById('valAccZ').textContent = state.accZ.toFixed(2);
+            }
+        }
+
+        function updateDisplay() {
+            document.getElementById('valGamma').textContent = state.gamma.toFixed(1) + '°';
+            document.getElementById('valBeta').textContent = state.beta.toFixed(1) + '°';
+            document.getElementById('valAlpha').textContent = state.alpha.toFixed(1) + '°';
+            document.getElementById('valAccX').textContent = state.accX.toFixed(2);
+            document.getElementById('valAccY').textContent = state.accY.toFixed(2);
+            document.getElementById('valAccZ').textContent = state.accZ.toFixed(2);
+            document.getElementById('activeSource').textContent = state.activeSource;
+
+            // 可视化小球
+            const maxTilt = 45;
+            const clamp = (v) => Math.max(-maxTilt, Math.min(maxTilt, v));
+            const normX = clamp(state.gamma) / maxTilt; // -1 ~ 1
+            const normY = clamp(state.beta) / maxTilt;  // -1 ~ 1
+
+            const viz = document.getElementById('visualizer');
+            const ball = document.getElementById('ball');
+            const w = viz.clientWidth, h = viz.clientHeight;
+
+            ball.style.left = (50 + normX * 45) + '%';
+            ball.style.top = (50 + normY * 45) + '%';
+        }
+
+        // ======== 控制 ========
+        async function startListening() {
+            stopListening();
+            state.listening = true;
+
+            // 先检查是否需要 iOS 权限
+            if ('DeviceOrientationEvent' in window &&
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const result = await DeviceOrientationEvent.requestPermission();
+                    console.log('iOS permission:', result);
+                } catch (err) {
+                    console.log('iOS permission error:', err);
+                }
+            }
+
+            // 注册所有监听器
+            window.addEventListener('deviceorientation', onDeviceOrientation);
+            cleanupFns.push(() => window.removeEventListener('deviceorientation', onDeviceOrientation));
+
+            if ('ondeviceorientationabsolute' in window) {
+                window.addEventListener('deviceorientationabsolute', onDeviceOrientationAbs);
+                cleanupFns.push(() => window.removeEventListener('deviceorientationabsolute', onDeviceOrientationAbs));
+            } else {
+                document.getElementById('evtDOAbs').textContent = '⚠️ API不存在';
+                document.getElementById('evtDOAbs').className = 'value warn';
+            }
+
+            if ('DeviceMotionEvent' in window) {
+                window.addEventListener('devicemotion', onDeviceMotion);
+                cleanupFns.push(() => window.removeEventListener('devicemotion', onDeviceMotion));
+            } else {
+                document.getElementById('evtDM').textContent = '⚠️ API不存在';
+                document.getElementById('evtDM').className = 'value warn';
+            }
+
+            // 5秒后检查
+            const timer = setTimeout(() => {
+                const hasAny = state.doFired || state.doAbsFired || state.dmFired;
+                if (!hasAny) {
+                    document.getElementById('activeSource').textContent = '❌ 无数据（5秒超时）';
+                    document.getElementById('activeSource').className = 'value fail';
+                }
+            }, 5000);
+            cleanupFns.push(() => clearTimeout(timer));
+        }
+
+        function stopListening() {
+            cleanupFns.forEach(fn => fn());
+            cleanupFns = [];
+            state.listening = false;
+        }
+
+        function clearData() {
+            state.doFired = false;
+            state.doAbsFired = false;
+            state.dmFired = false;
+            state.activeSource = 'none';
+            state.gamma = 0; state.beta = 0; state.alpha = 0;
+            state.accX = 0; state.accY = 0; state.accZ = 0;
+
+            ['evtDO', 'evtDOAbs', 'evtDM'].forEach(id => {
+                document.getElementById(id).textContent = '等待中...';
+                document.getElementById(id).className = 'value';
+            });
+            document.getElementById('activeSource').textContent = '无';
+            document.getElementById('activeSource').className = 'value';
+            updateDisplay();
+        }
+
+        // ======== 初始化 ========
+        window.addEventListener('orientationchange', updateScreenInfo);
+        detectEnv();
+        // 自动开始
+        startListening();
+    </script>
+</body>
+</html>
