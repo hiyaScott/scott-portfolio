@@ -687,6 +687,37 @@
         });
         
         // 陀螺仪
+        let gyroActive = false;
+        
+        function initGyroscope() {
+            if (!window.DeviceOrientationEvent) {
+                console.log('DeviceOrientationEvent not supported');
+                return;
+            }
+            
+            // iOS 13+ 需要请求权限
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                document.body.addEventListener('click', function requestIOSPermission() {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientation);
+                                gyroActive = true;
+                            }
+                        })
+                        .catch(err => {
+                            console.log('iOS gyro permission denied:', err);
+                        });
+                    document.body.removeEventListener('click', requestIOSPermission);
+                }, { once: true });
+            } else {
+                // Android / 鸿蒙 / 旧 iOS：直接监听，无需权限请求
+                window.addEventListener('deviceorientation', handleOrientation);
+                gyroActive = true;
+            }
+        }
+        
+        // 陀螺仪事件处理
         function handleOrientation(e) {
             const gamma = e.gamma || 0;  // 竖屏左右倾斜
             const beta = e.beta || 0;    // 横屏左右倾斜
@@ -713,22 +744,38 @@
             targetPercent = percent;
         }
         
-        if (window.DeviceOrientationEvent) {
-            // iOS 13+ 需要请求陀螺仪权限
+        // 陀螺仪初始化（iOS / Android / 鸿蒙 兼容）
+        let gyroActive = false;
+        
+        function initGyroscope() {
+            if (!window.DeviceOrientationEvent) {
+                console.log('DeviceOrientationEvent not supported');
+                return;
+            }
+            
+            // iOS 13+ 需要请求权限
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                // 首次点击页面时请求权限
                 document.body.addEventListener('click', function requestIOSPermission() {
-                    DeviceOrientationEvent.requestPermission().then(permissionState => {
-                        if (permissionState === 'granted') {
-                            window.addEventListener('deviceorientation', handleOrientation);
-                        }
-                    }).catch(console.error);
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientation);
+                                gyroActive = true;
+                            }
+                        })
+                        .catch(err => {
+                            console.log('iOS gyro permission denied:', err);
+                        });
                     document.body.removeEventListener('click', requestIOSPermission);
                 }, { once: true });
             } else {
+                // Android / 鸿蒙 / 旧 iOS：直接监听，无需权限请求
                 window.addEventListener('deviceorientation', handleOrientation);
+                gyroActive = true;
             }
         }
+        
+        initGyroscope();
         
         // 动画循环
         function animate() {
