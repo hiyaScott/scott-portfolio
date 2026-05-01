@@ -1041,19 +1041,114 @@
             URL.revokeObjectURL(url);
         }
         
-        function loadDXF(event) {
+        // API 基础地址
+        const API_BASE = 'http://localhost:8000';
+
+        async function loadDXF(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
-            document.getElementById('fileLabel').innerHTML = 
-                `📄 ${file.name}<br><small>解析中...</small>`;
-            
-            // 这里应该调用后端API解析DXF
-            // 简化版：提示用户使用测试数据
-            setTimeout(() => {
-                document.getElementById('fileLabel').innerHTML = 
-                    `📄 ${file.name}<br><small>暂不支持浏览器端解析，请用「加载测试数据」</small>`;
-            }, 500);
+
+            document.getElementById('fileLabel').innerHTML =
+                `📄 ${file.name}<br><small>正在解析...</small>`;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/parse-dxf`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.error || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 清空旧数据
+                zones = [];
+                sprinklers = [];
+                valves = [];
+                mainPipe = null;
+                branchPipes = [];
+
+                // 加载绿化区域
+                for (const z of data.green_zones || []) {
+                    zones.push({
+                        id: z.layer || 'zone-' + (zones.length + 1),
+                        points: (z.points || []).map(p => [p.x, p.y]),
+                        zone_type: 'green',
+                        plant_type: 'lawn'
+                    });
+                }
+
+                // 加载喷头（提取纯型号如 KXF-8，避免使用带描述的名称）
+                for (const s of data.sprinklers || []) {
+                    const rawType = s.name || s.type?.name || 'KXF-8';
+                    const cleanType = rawType.split(' ')[0];
+                    sprinklers.push({
+                        type: cleanType,
+                        x: s.position?.x || s.x || 0,
+                        y: s.position?.y || s.y || 0
+                    });
+                }
+
+                // 加载阀门
+                for (const v of data.valves || []) {
+                    valves.push({
+                        id: v.name || 'V' + (valves.length + 1),
+                        x: v.position?.x || v.x || 0,
+                        y: v.position?.y || v.y || 0
+                    });
+                }
+
+                // 加载管道
+                for (const p of data.pipes || []) {
+                    if (p.start && p.end) {
+                        branchPipes.push([
+                            [p.start.x, p.start.y],
+                            [p.end.x, p.end.y]
+                        ]);
+                    }
+                }
+
+                // 自动调整视图到图纸边界
+                if (data.bounds) {
+                    const b = data.bounds;
+                    const cx = (b.min_x + b.max_x) / 2;
+                    const cy = (b.min_y + b.max_y) / 2;
+                    const w = b.width || (b.max_x - b.min_x);
+                    const h = b.height || (b.max_y - b.min_y);
+
+                    // 居中
+                    offsetX = canvas.width / 2 - (cx - 400000) * scale;
+                    offsetY = canvas.height / 2 - (cy + 180000) * scale;
+
+                    // 自动缩放适配画布
+                    const padding = 50;
+                    const scaleX = (canvas.width - padding * 2) / (w || 1);
+                    const scaleY = (canvas.height - padding * 2) / (h || 1);
+                    scale = Math.min(scaleX, scaleY, 0.5); // 上限别太大
+                }
+
+                updateZoneList();
+                drawAll();
+
+                const stats = [];
+                if (zones.length) stats.push(`${zones.length}个区域`);
+                if (sprinklers.length) stats.push(`${sprinklers.length}个喷头`);
+                if (valves.length) stats.push(`${valves.length}个阀门`);
+
+                document.getElementById('fileLabel').innerHTML =
+                    `✅ ${file.name}<br><small>${stats.join(' · ')}</small>`;
+
+            } catch (err) {
+                console.error('DXF解析失败:', err);
+                document.getElementById('fileLabel').innerHTML =
+                    `❌ ${file.name}<br><small>解析失败: ${err.message}</small>`;
+            }
         }
         
         // ============== 初始化 ==============
