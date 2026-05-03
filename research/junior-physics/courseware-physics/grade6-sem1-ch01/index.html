@@ -699,14 +699,32 @@
           <div class="meniscus-label" id="meniscus-label">← 读凹液面最低处</div>
         </div>
         <div class="cylinder-controls" id="s3-controls">
-          <div id="s3-text">请读取量筒中液体的体积。</div>
-          <div class="reading-input" id="s3-input-wrap">
-            <input type="text" id="s3-input" placeholder="如: 32.0" autocomplete="off">
-            <span class="unit-label">mL</span>
-            <button class="btn" style="padding:8px 18px;font-size:0.8rem;" onclick="s3check()">提交</button>
+          <div style="font-size:14px;color:var(--accent);margin-bottom:12px;">🧪 排水法测体积</div>
+          
+          <div id="s3-equip-area">
+            <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">装备包</div>
+            <div style="font-size:36px;margin-bottom:8px;">💎</div>
+            <button class="btn" id="s3-toggle-btn" onclick="s3toggle()" style="padding:8px 20px;font-size:0.8rem;">放入量筒</button>
           </div>
-          <div id="s3-action" style="display:none;">
-            <button class="btn" style="padding:10px 24px;font-size:0.85rem;" onclick="s3drop()">放入固体</button>
+          
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,240,200,0.15);">
+            <div style="font-size:11px;color:var(--accent);margin-bottom:10px;letter-spacing:1px;">🔬 实验记录（自己读取并填写）</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <span style="font-size:12px;width:84px;color:var(--text-dim);">初始体积</span>
+              <input type="text" id="s3-v1" style="width:56px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,240,200,0.3);color:var(--accent);padding:4px 6px;border-radius:3px;font-family:inherit;font-size:13px;" placeholder="?" autocomplete="off">
+              <span style="font-size:11px;color:var(--text-dim);">mL</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <span style="font-size:12px;width:84px;color:var(--text-dim);">放入后体积</span>
+              <input type="text" id="s3-v2" style="width:56px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,240,200,0.3);color:var(--accent);padding:4px 6px;border-radius:3px;font-family:inherit;font-size:13px;" placeholder="?" autocomplete="off">
+              <span style="font-size:11px;color:var(--text-dim);">mL</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+              <span style="font-size:12px;width:84px;color:var(--text-dim);">固体体积</span>
+              <input type="text" id="s3-vs" style="width:56px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,240,200,0.3);color:var(--accent);padding:4px 6px;border-radius:3px;font-family:inherit;font-size:13px;" placeholder="自己算" autocomplete="off">
+              <span style="font-size:11px;color:var(--text-dim);">mL</span>
+            </div>
+            <button class="btn" onclick="s3check()" style="padding:8px 28px;font-size:0.85rem;">提交答案</button>
           </div>
         </div>
       </div>
@@ -717,15 +735,9 @@
     <div class="side-panel">
       <div class="info-card">
         <h3>📋 任务简报</h3>
-        <p>读取量筒中液体的体积，注意凹液面最低处。</p>
-        <p style="margin-top:6px;">然后用排水法测量不规则固体的体积。</p>
-        <p class="hint">💡 1 mL = 1 cm³。放入固体后，体积差即为固体体积。</p>
-      </div>
-      <div class="info-card" id="s3-hint-card" style="display:none;">
-        <h3>📝 记录</h3>
-        <p>初始体积: <span id="v1-display" style="color:var(--accent);">--</span> mL</p>
-        <p>放入后体积: <span id="v2-display" style="color:var(--accent);">--</span> mL</p>
-        <p>固体体积: <span id="v-solid" style="color:var(--success);">--</span> mL</p>
+        <p>用排水法测量不规则固体的体积。</p>
+        <p style="margin-top:6px;">步骤：先读初始体积 → 放入固体 → 读放入后体积 → 计算差值。</p>
+        <p class="hint">💡 1 mL = 1 cm³。固体体积 = 放入后体积 − 初始体积。</p>
       </div>
     </div>
   </div>
@@ -1137,12 +1149,11 @@ function s2check() {
 }
 
 /* ===================== STAGE 3: VOLUME ===================== */
-let s3step = 0; // 0=read liquid, 1=displacement
+let s3solidIn = false;
 let s3v1 = 0, s3v2 = 0, s3solidV = 0;
 
 function initS3() {
-  s3step = 0;
-  // Random values
+  s3solidIn = false;
   s3v1 = 28 + Math.floor(Math.random()*5); // 28-32 mL
   s3solidV = 8 + Math.floor(Math.random()*6); // 8-13 mL
   s3v2 = s3v1 + s3solidV;
@@ -1151,10 +1162,9 @@ function initS3() {
 
 function renderS3() {
   const cyl = document.getElementById('cylinder');
-  // Clear old ticks
   cyl.querySelectorAll('.cylinder-tick').forEach(t=>t.remove());
   const maxV = 50;
-  const pxPerMl = 220 / maxV; // 220px height for liquid area
+  const pxPerMl = 220 / maxV;
   for (let v=0; v<=maxV; v+=2) {
     const tick = document.createElement('div');
     tick.className = 'cylinder-tick' + (v%10===0 ? ' major' : '');
@@ -1164,84 +1174,60 @@ function renderS3() {
   }
   const liquid = document.getElementById('liquid');
   const solid = document.getElementById('solid-obj');
-  solid.style.display = 'none';
-  liquid.style.height = (s3v1 * pxPerMl) + 'px';
 
-  document.getElementById('s3-text').textContent = '请读取量筒中液体的体积（凹液面最低处）。';
-  document.getElementById('s3-input').value = '';
-  document.getElementById('s3-input-wrap').style.display = 'flex';
-  document.getElementById('s3-action').style.display = 'none';
-  document.getElementById('s3-hint-card').style.display = 'none';
+  if (s3solidIn) {
+    liquid.style.height = (s3v2 * pxPerMl) + 'px';
+    solid.style.display = 'flex';
+    solid.style.bottom = '4px';
+    solid.style.height = (Math.min(s3solidV, 15) * pxPerMl) + 'px';
+    solid.style.left = '20px';
+    document.getElementById('s3-toggle-btn').textContent = '取出量筒';
+  } else {
+    liquid.style.height = (s3v1 * pxPerMl) + 'px';
+    solid.style.display = 'none';
+    document.getElementById('s3-toggle-btn').textContent = '放入量筒';
+  }
+
+  document.getElementById('s3-v1').value = '';
+  document.getElementById('s3-v2').value = '';
+  document.getElementById('s3-vs').value = '';
   document.getElementById('meniscus-label').classList.add('show');
-  updateDots('s3-dots', 0, 2);
+  updateDots('s3-dots', 0, 1);
+}
+
+function s3toggle() {
+  ensureAudio();
+  s3solidIn = !s3solidIn;
+  renderS3();
+  if (s3solidIn) sndOk(); else sndClick();
 }
 
 function s3check() {
   const panel = document.getElementById('s3-panel');
-  const val = parseFloat(document.getElementById('s3-input').value);
-  if (s3step === 0) {
-    if (isNaN(val)) { sndErr(); panel.classList.add('shake'); showFeedback('请输入数字！', 'err'); setTimeout(()=>panel.classList.remove('shake'),400); return; }
-    if (Math.abs(val - s3v1) <= 0.5) {
-      sndOk(); panel.classList.add('flash-ok');
-      showFeedback(`正确！初始体积 = ${s3v1.toFixed(1)} mL`, 'ok');
-      addScore(10);
-      setTimeout(()=>{
-        panel.classList.remove('flash-ok');
-        s3step = 1;
-        document.getElementById('s3-text').textContent = '现在把不规则固体放入量筒中。';
-        document.getElementById('s3-input-wrap').style.display = 'none';
-        document.getElementById('s3-action').style.display = 'block';
-        document.getElementById('meniscus-label').classList.remove('show');
-        updateDots('s3-dots', 0, 2);
-      }, 700);
-    } else {
-      sndErr(); panel.classList.add('shake');
-      showFeedback('读数不对。注意凹液面最低处！', 'err');
-      setTimeout(()=>panel.classList.remove('shake'),400);
-    }
-  } else if (s3step === 2) {
-    if (isNaN(val)) { sndErr(); panel.classList.add('shake'); showFeedback('请输入数字！', 'err'); setTimeout(()=>panel.classList.remove('shake'),400); return; }
-    if (Math.abs(val - s3v2) <= 0.5) {
-      sndOk(); panel.classList.add('flash-ok');
-      showFeedback(`正确！最终体积 = ${s3v2.toFixed(1)} mL`, 'ok');
-      addScore(10);
-      document.getElementById('v2-display').textContent = s3v2.toFixed(1);
-      document.getElementById('v-solid').textContent = s3solidV.toFixed(1);
-      setTimeout(()=>{
-        panel.classList.remove('flash-ok');
-        goStage(4);
-      }, 900);
-    } else {
-      sndErr(); panel.classList.add('shake');
-      showFeedback('读数不对。再看一眼液面位置。', 'err');
-      setTimeout(()=>panel.classList.remove('shake'),400);
-    }
-  }
-}
+  const v1 = parseFloat(document.getElementById('s3-v1').value);
+  const v2 = parseFloat(document.getElementById('s3-v2').value);
+  const vs = parseFloat(document.getElementById('s3-vs').value);
 
-function s3drop() {
-  const liquid = document.getElementById('liquid');
-  const solid = document.getElementById('solid-obj');
-  const maxV = 50;
-  const pxPerMl = 220 / maxV;
-  solid.style.display = 'flex';
-  solid.style.bottom = '4px';
-  solid.style.height = (Math.min(s3solidV, 15) * pxPerMl) + 'px';
-  solid.style.left = '20px';
-  liquid.style.height = (s3v2 * pxPerMl) + 'px';
-  sndClick();
-  setTimeout(()=>{
-    s3step = 2;
-    document.getElementById('s3-text').textContent = '读取放入固体后的新体积，并计算固体体积。';
-    document.getElementById('s3-input-wrap').style.display = 'flex';
-    document.getElementById('s3-action').style.display = 'none';
-    document.getElementById('s3-input').value = '';
-    document.getElementById('s3-hint-card').style.display = 'block';
-    document.getElementById('v1-display').textContent = s3v1.toFixed(1);
-    document.getElementById('v2-display').textContent = '--';
-    document.getElementById('v-solid').textContent = '--';
-    updateDots('s3-dots', 1, 2);
-  }, 1000);
+  let errs = [];
+  if (isNaN(v1)) errs.push('初始体积未填写');
+  else if (Math.abs(v1 - s3v1) > 0.5) errs.push(`初始体积不对（量筒显示约${s3v1.toFixed(1)}）`);
+
+  if (isNaN(v2)) errs.push('放入后体积未填写');
+  else if (Math.abs(v2 - s3v2) > 0.5) errs.push(`放入后体积不对（当前液面约${s3v2.toFixed(1)}）`);
+
+  if (isNaN(vs)) errs.push('固体体积未填写');
+  else if (Math.abs(vs - s3solidV) > 0.5) errs.push(`固体体积计算不对（应为${s3solidV.toFixed(1)}）`);
+
+  if (errs.length === 0) {
+    sndOk(); panel.classList.add('flash-ok');
+    showFeedback(`正确！固体体积 = ${s3v2.toFixed(1)} − ${s3v1.toFixed(1)} = ${s3solidV.toFixed(1)} mL`, 'ok');
+    addScore(20);
+    setTimeout(()=>{ panel.classList.remove('flash-ok'); goStage(4); }, 1500);
+  } else {
+    sndErr(); panel.classList.add('shake');
+    showFeedback(errs.join('；'), 'err');
+    setTimeout(()=>panel.classList.remove('shake'), 400);
+  }
 }
 
 /* ===================== STAGE 4: DENSITY ===================== */
