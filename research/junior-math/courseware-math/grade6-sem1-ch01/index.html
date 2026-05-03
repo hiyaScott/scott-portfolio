@@ -985,6 +985,14 @@ function submitL1(timeUp = false) {
     else if (shouldSelect && didSelect) { btn.classList.add('correct'); }
   }
 
+  // Time up: no failure at all, skip this round gently
+  if (timeUp) {
+    sfxClick();
+    showFeedback('⏱ 时间到！不扣分，继续下一题', true);
+    setTimeout(nextL1Round, 900);
+    return;
+  }
+
   state.levelTotal[0]++;
   if (isCorrect) {
     l1.combo++;
@@ -992,38 +1000,24 @@ function submitL1(timeUp = false) {
     state.maxCombo = Math.max(state.maxCombo, l1.combo);
     l1.correctCount++;
     const mult = Math.min(1 + Math.floor(l1.combo/3), 5);
-    let pts;
-    if (timeUp) {
-      // Time up: base points only, no combo multiplier, no time bonus
-      pts = 50;
-      sfxCorrect();
-      showFeedback(`时间到！基础分 +${pts}`, true);
-    } else {
-      pts = 100 * mult;
-      sfxCorrect();
-      showFeedback(`+${pts} (连击×${mult})`, true);
-    }
+    const pts = 100 * mult;
+    sfxCorrect();
+    showFeedback(`+${pts} (连击×${mult})`, true);
     state.score += pts;
     state.levelCorrect[0]++;
   } else {
     l1.combo = 0;
     state.combo = 0;
-    if (timeUp) {
-      // Time up and wrong: no life penalty, just no points
-      sfxWrong();
-      showFeedback('时间到！答案错误，不扣分', false);
-    } else {
-      state.lives = Math.max(0, state.lives - 1);
-      sfxWrong();
-      showFeedback('MISS', false);
-      if (state.lives <= 0) {
-        setTimeout(() => gameOver(), 800);
-        return;
-      }
+    state.lives = Math.max(0, state.lives - 1);
+    sfxWrong();
+    showFeedback('MISS', false);
+    if (state.lives <= 0) {
+      setTimeout(() => gameOver(), 800);
+      return;
     }
   }
   updateHUD();
-  setTimeout(nextL1Round, timeUp ? 1200 : 700);
+  setTimeout(nextL1Round, 700);
 }
 
 // ========== LEVEL 2: Prime Hunt ==========
