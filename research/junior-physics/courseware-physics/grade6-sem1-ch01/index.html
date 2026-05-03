@@ -337,6 +337,12 @@
   }
   .balance-pan.left { left: 10px; }
   .balance-pan.right { right: 10px; }
+  .pan-item {
+    position: absolute;
+    bottom: 6px; left: 50%; transform: translateX(-50%);
+    font-size: 28px; z-index: 5; pointer-events: none;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.3));
+  }
   .pan-plate {
     position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
     width: 60px; height: 6px;
@@ -594,7 +600,7 @@
       </div>
       <div class="measure-input-row">
         <span>测量结果：</span>
-        <input type="text" id="s1-input" placeholder="如: 3.46" autocomplete="off">
+        <input type="text" id="s1-input" placeholder="如: 4.7" autocomplete="off">
         <span class="unit-label">cm</span>
         <button class="btn" style="padding:10px 24px;font-size:0.85rem;" onclick="s1check()">提交</button>
       </div>
@@ -606,7 +612,7 @@
       <div class="info-card">
         <h3>📋 任务简报</h3>
         <p>使用虚拟刻度尺测量特工装备的长度。将尺子拖动到装备上方对齐，读取刻度。</p>
-        <p class="hint">💡 刻度尺的最小分度值是 1 mm (0.1 cm)。读数时需要估读到分度值的下一位，即 0.01 cm。</p>
+        <p class="hint">💡 刻度尺的最小分度值是 1 mm (0.1 cm)。读数时精确到毫米即可。</p>
       </div>
       <div class="info-card">
         <h3>🎯 当前目标</h3>
@@ -637,7 +643,7 @@
         <div class="balance-beam-wrap">
           <div class="balance-beam" id="beam">
             <div class="balance-center"></div>
-            <div class="balance-pan left"><div class="pan-string"></div><div class="pan-plate"></div></div>
+            <div class="balance-pan left"><div class="pan-string"></div><div class="pan-plate"></div><div class="pan-item" id="left-item"></div></div>
             <div class="balance-pan right" id="right-pan"><div class="pan-string"></div><div class="pan-plate"></div></div>
             <div class="balance-pointer" id="pointer"></div>
             <div class="right-pan-zone" id="pan-zone"></div>
@@ -950,8 +956,8 @@ function s1check() {
     setTimeout(()=>panel.classList.remove('shake'), 400);
     return;
   }
-  // Accept within 0.03cm tolerance
-  if (Math.abs(val - trueVal) <= 0.03) {
+  // Accept within 0.15cm tolerance (mm precision)
+  if (Math.abs(val - trueVal) <= 0.15) {
     sndOk(); panel.classList.add('flash-ok');
     showFeedback(`正确！${trueVal.toFixed(2)} cm`, 'ok');
     addScore(20);
@@ -966,7 +972,7 @@ function s1check() {
     let hint = '';
     if (val < trueVal - 0.5) hint = '读数偏小，检查尺子对齐方式。';
     else if (val > trueVal + 0.5) hint = '读数偏大，注意起始刻度。';
-    else if (Math.abs(val - trueVal) > 0.1) hint = '接近了！注意估读到 0.01 cm。';
+    else if (Math.abs(val - trueVal) > 0.3) hint = '接近了！注意精确到毫米(0.1 cm)。';
     else hint = '非常接近！再精确一点。';
     showFeedback(`不对。${hint}`, 'err');
     setTimeout(()=>panel.classList.remove('shake'), 400);
@@ -975,9 +981,9 @@ function s1check() {
 
 /* ===================== STAGE 2: BALANCE ===================== */
 const s2Items = [
-  { name: '加密芯片', mass: 37 },
-  { name: '微型电池', mass: 62 },
-  { name: '合金徽章', mass: 95 }
+  { name: '加密芯片', mass: 37, icon: '💾', color: '#4a90d9' },
+  { name: '微型电池', mass: 62, icon: '🔋', color: '#e74c3c' },
+  { name: '合金徽章', mass: 78, icon: '🎖️', color: '#f39c12' }
 ];
 const WEIGHTS = [1,2,5,10,20,50,100];
 let s2idx = 0;
@@ -989,7 +995,10 @@ function initS2() {
   renderS2();
 }
 function renderS2() {
-  document.getElementById('s2-target').textContent = `测量第 ${s2idx+1} 件装备：${s2Items[s2idx].name}`;
+  const item = s2Items[s2idx];
+  document.getElementById('s2-target').textContent = `测量第 ${s2idx+1} 件装备：${item.name}`;
+  const leftItem = document.getElementById('left-item');
+  if (leftItem) { leftItem.textContent = item.icon || '❓'; }
   updateDots('s2-dots', s2idx, 3);
   s2reset();
 }
