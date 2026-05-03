@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特工装备室 — 测量的初步</title>
+<style>
+  :root {
+    --bg: #0a0a12;
+    --panel: #11111f;
+    --panel2: #1a1a2e;
+    --accent: #00f0c8;
+    --accent2: #00d4aa;
+    --danger: #ff2a6d;
+    --warn: #ffc800;
+    --text: #e0e0e8;
+    --text2: #8b8b9a;
+    --grid: rgba(0,240,200,0.06);
+    --success: #39ff14;
+    --glass: rgba(17,17,31,0.92);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; user-select:none; -webkit-user-select:none; }
+  body {
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HUD grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .screen {
+    position: relative; z-index: 1;
+    display: none;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* Header HUD */
+  .hud-header {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(0,240,200,0.25);
+    padding: 12px 16px;
+    background: var(--glass);
+    backdrop-filter: blur(8px);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .hud-header::after {
+    content: '';
+    position: absolute; bottom:-1px; left:0; width:120px; height:2px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .hud-title { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+  .hud-score { font-size: 1rem; color: var(--warn); font-family: monospace; }
+  .hud-score span { color: var(--accent); font-weight: bold; }
+
+  /* Stage badge */
+  .stage-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  /* Intro */
+  #intro-screen {
+    align-items: center; justify-content: center; text-align: center;
+  }
+  .intro-box {
+    max-width: 560px;
+    padding: 40px 32px;
+    background: var(--panel);
+    border: 1px solid rgba(0,240,200,0.2);
+    border-radius: 12px;
+    box-shadow: 0 0 40px rgba(0,240,200,0.08);
+    position: relative;
+  }
+  .intro-box::before {
+    content: 'TOP SECRET';
+    position: absolute; top:12px; right:16px;
+    font-size: 0.65rem; color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 2px 6px;
+    letter-spacing: 2px;
+    transform: rotate(3deg);
+    opacity: 0.8;
+  }
+  .intro-icon { font-size: 3rem; margin-bottom: 16px; }
+  .intro-title { font-size: 1.8rem; font-weight: 800; color: var(--accent); margin-bottom: 8px; letter-spacing: 2px; }
+  .intro-sub { font-size: 1rem; color: var(--text2); margin-bottom: 24px; }
+  .intro-text { font-size: 0.9rem; color: var(--text); line-height: 1.8; margin-bottom: 32px; text-align: left; }
+  .btn {
+    display: inline-block;
+    padding: 14px 36px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,240,200,0.4); }
+  .btn:active { transform: translateY(0); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  .btn-ghost:hover { background: rgba(0,240,200,0.1); }
+
+  /* Work area */
+  .work-area {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .main-panel {
+    flex: 1 1 480px;
+    background: var(--panel);
+    border: 1px solid rgba(0,240,200,0.15);
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .side-panel {
+    flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .info-card {
+    background: var(--panel2);
+    border: 1px solid rgba(0,240,200,0.1);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .info-card h3 { font-size: 0.85rem; color: var(--accent); margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
+  .info-card p { font-size: 0.85rem; color: var(--text2); line-height: 1.6; }
+  .info-card .hint { color: var(--warn); font-size: 0.8rem; margin-top: 6px; }
+
+  /* Feedback overlay */
+  .feedback {
+    position: fixed; top: 80px; left: 50%; transform: translateX(-50%) scale(0.9);
+    padding: 16px 32px; border-radius: 8px; font-weight: bold; font-size: 1.1rem;
+    z-index: 100; pointer-events: none; opacity: 0; transition: all 0.3s;
+    white-space: nowrap;
+  }
+  .feedback.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  .feedback.ok { background: rgba(57,255,20,0.15); border: 1px solid var(--success); color: var(--success); box-shadow: 0 0 20px rgba(57,255,20,0.3); }
+  .feedback.err { background: rgba(255,42,109,0.15); border: 1px solid var(--danger); color: var(--danger); box-shadow: 0 0 20px rgba(255,42,109,0.3); }
+  .feedback.warn { background: rgba(255,200,0,0.15); border: 1px solid var(--warn); color: var(--warn); }
+
+  /* Shake animation */
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+  .shake { animation: shake 0.4s ease; }
+
+  /* Glow flash */
+  @keyframes flashGreen {
+    0% { box-shadow: 0 0 0 rgba(57,255,20,0); }
+    50% { box-shadow: 0 0 30px rgba(57,255,20,0.5); border-color: var(--success); }
+    100% { box-shadow: 0 0 0 rgba(57,255,20,0); }
+  }
+  .flash-ok { animation: flashGreen 0.6s ease; }
+
+  /* ====== STAGE 1: RULER ====== */
+  .ruler-table {
+    width: 100%; height: 320px;
+    background: linear-gradient(180deg, #151525 0%, #0f0f1a 100%);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(0,240,200,0.1);
+  }
+  .ruler-item {
+    position: absolute;
+    background: linear-gradient(135deg, #2a2a4a, #1a1a3a);
+    border: 1px solid rgba(0,240,200,0.25);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; color: var(--text2);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .ruler-item::after {
+    content: attr(data-label);
+    position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+    font-size: 0.65rem; color: var(--accent); white-space: nowrap;
+  }
+
+  .ruler {
+    position: absolute;
+    height: 70px;
+    background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 100%);
+    border-radius: 3px;
+    cursor: grab;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 10;
+    touch-action: none;
+  }
+  .ruler:active { cursor: grabbing; }
+  .ruler-scale {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: flex-start;
+  }
+  .ruler-cm {
+    position: absolute; top: 0; bottom: 0;
+    border-left: 1.5px solid #333;
+    height: 100%;
+  }
+  .ruler-cm::before {
+    content: attr(data-n);
+    position: absolute; top: 2px; left: 3px;
+    font-size: 10px; color: #222; font-weight: 600; font-family: monospace;
+  }
+  .ruler-mm {
+    position: absolute; top: 0;
+    border-left: 1px solid #888;
+    height: 35%;
+  }
+  .ruler-mm.half {
+    border-left: 1px solid #555;
+    height: 55%;
+  }
+
+  .measure-input-row {
+    display: flex; gap: 10px; align-items: center; margin-top: 16px;
+  }
+  .measure-input-row input {
+    width: 120px; padding: 10px 14px;
+    background: var(--panel2); border: 1px solid rgba(0,240,200,0.3);
+    border-radius: 6px; color: var(--text); font-size: 1rem; font-family: monospace;
+    text-align: center;
+  }
+  .measure-input-row input:focus { outline: none; border-color: var(--accent); }
+  .unit-label { color: var(--text2); font-size: 0.9rem; }
+
+  .progress-dots {
+    display: flex; gap: 8px; margin-top: 12px; justify-content: center;
+  }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: rgba(0,240,200,0.2);
+    border: 1px solid rgba(0,240,200,0.3);
+    transition: all 0.3s;
+  }
+  .dot.done { background: var(--success); border-color: var(--success); box-shadow: 0 0 6px var(--success); }
+  .dot.current { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  /* ====== STAGE 2: BALANCE ====== */
+  .balance-container {
+    width: 100%; height: 360px;
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  }
+  .balance-pillar {
+    width: 12px; height: 60px;
+    background: linear-gradient(90deg, #444, #666, #444);
+    border-radius: 2px;
+  }
+  .balance-base {
+    width: 160px; height: 16px;
+    background: linear-gradient(180deg, #3a3a5a, #2a2a4a);
+    border-radius: 4px;
+    border: 1px solid rgba(0,240,200,0.15);
+  }
+  .balance-beam-wrap {
+    position: relative;
+    width: 320px; height: 140px;
+    margin-bottom: -10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .balance-beam {
+    width: 300px; height: 8px;
+    background: linear-gradient(90deg, #555, #777, #555);
+    border-radius: 4px;
+    position: relative;
+    transform-origin: center center;
+    transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .balance-center {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 16px; height: 16px;
+    background: radial-gradient(circle, #888, #444);
+    border-radius: 50%;
+    z-index: 2;
+    border: 2px solid #333;
+  }
+  .balance-pointer {
+    position: absolute; left: 50%; top: -20px; transform: translateX(-50%);
+    width: 4px; height: 24px;
+    background: var(--accent);
+    border-radius: 2px;
+    transform-origin: bottom center;
+    transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .balance-pan {
+    position: absolute; bottom: -50px;
+    width: 70px; height: 8px;
+    background: #666;
+    border-radius: 4px;
+  }
+  .balance-pan.left { left: 10px; }
+  .balance-pan.right { right: 10px; }
+  .pan-plate {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 6px;
+    background: #777;
+    border-radius: 3px;
+  }
+  .pan-string {
+    position: absolute; top: -36px; left: 50%; transform: translateX(-50%);
+    width: 2px; height: 44px;
+    background: #555;
+  }
+
+  .scale-dial {
+    position: absolute; top: -50px; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 30px;
+  }
+  .scale-dial svg { width: 100%; height: 100%; }
+
+  .weight-pool {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+  .weight {
+    width: 48px; height: 32px;
+    background: linear-gradient(180deg, #c9a84c, #a08030);
+    border: 2px solid #d4b85a;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: bold; color: #3a2a00;
+    cursor: grab;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    transition: transform 0.1s;
+    touch-action: none;
+  }
+  .weight:active { cursor: grabbing; transform: scale(1.05); }
+  .weight.on-pan {
+    position: absolute;
+    cursor: grab;
+    z-index: 20;
+  }
+
+  .right-pan-zone {
+    position: absolute;
+    right: 10px; bottom: -50px;
+    width: 70px; height: 80px;
+    border: 2px dashed rgba(0,240,200,0.2);
+    border-radius: 8px;
+    z-index: 5;
+  }
+
+  .current-mass-display {
+    font-family: monospace; font-size: 1.2rem; color: var(--accent);
+    text-align: center; margin-top: 8px;
+  }
+
+  /* ====== STAGE 3: CYLINDER ====== */
+  .cylinder-work {
+    display: flex; gap: 24px; align-items: flex-end; justify-content: center;
+    width: 100%; height: 340px;
+  }
+  .cylinder-wrap {
+    position: relative;
+    width: 100px; height: 280px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .cylinder {
+    position: relative;
+    width: 80px; flex: 1;
+    border-left: 2px solid rgba(0,240,200,0.4);
+    border-right: 2px solid rgba(0,240,200,0.4);
+    border-bottom: 3px solid rgba(0,240,200,0.5);
+    background: rgba(0,240,200,0.03);
+    overflow: hidden;
+  }
+  .cylinder-top {
+    width: 84px; height: 10px;
+    border: 2px solid rgba(0,240,200,0.4);
+    border-radius: 50%;
+    margin-bottom: -5px;
+    background: rgba(0,240,200,0.05);
+  }
+  .liquid {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, rgba(0,200,180,0.35), rgba(0,160,140,0.5));
+    transition: height 1s ease;
+  }
+  .liquid::after {
+    content: '';
+    position: absolute; top: -3px; left: 0; right: 0;
+    height: 6px;
+    background: rgba(0,220,200,0.4);
+    border-radius: 50%;
+    transform: scaleY(0.5);
+  }
+  .meniscus-label {
+    position: absolute;
+    left: 90px;
+    font-size: 0.7rem;
+    color: var(--warn);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .meniscus-label.show { opacity: 1; }
+  .cylinder-tick {
+    position: absolute; left: -12px;
+    width: 10px; border-top: 1px solid rgba(0,240,200,0.35);
+  }
+  .cylinder-tick.major { width: 16px; left: -18px; border-top: 1.5px solid rgba(0,240,200,0.6); }
+  .cylinder-tick.major::after {
+    content: attr(data-v);
+    position: absolute; right: 20px; top: -7px;
+    font-size: 9px; color: var(--accent); font-family: monospace;
+  }
+
+  .solid-object {
+    position: absolute;
+    width: 36px;
+    background: linear-gradient(135deg, #ff6b6b, #c0392b);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    transition: all 1s ease;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; color: rgba(255,255,255,0.6);
+  }
+
+  .cylinder-controls {
+    display: flex; flex-direction: column; gap: 12px;
+    align-items: center;
+  }
+  .reading-input { display: flex; gap: 8px; align-items: center; }
+  .reading-input input {
+    width: 90px; padding: 8px 10px;
+    background: var(--panel2); border: 1px solid rgba(0,240,200,0.3);
+    border-radius: 6px; color: var(--text); font-size: 1rem; font-family: monospace;
+    text-align: center;
+  }
+
+  /* ====== STAGE 4: DENSITY ====== */
+  .density-work {
+    width: 100%;
+    display: flex; flex-direction: column;
+    gap: 20px;
+  }
+  .mystery-box-visual {
+    width: 160px; height: 120px;
+    background: linear-gradient(135deg, #2a2a4a, #151525);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,240,200,0.15);
+  }
+  .mystery-box-visual::after {
+    content: '?';
+    font-size: 3rem; color: var(--accent); font-weight: bold;
+    text-shadow: 0 0 20px var(--accent);
+  }
+  .density-step {
+    background: var(--panel2);
+    border: 1px solid rgba(0,240,200,0.1);
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.3s;
+  }
+  .density-step.active { border-color: var(--accent); }
+  .density-step.done { border-color: var(--success); opacity: 0.7; }
+  .density-step h4 { font-size: 0.85rem; color: var(--accent); margin-bottom: 10px; }
+  .density-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .density-grid input {
+    padding: 8px; background: var(--panel); border: 1px solid rgba(0,240,200,0.2);
+    border-radius: 4px; color: var(--text); font-family: monospace; text-align: center;
+  }
+  .density-grid input:focus { outline: none; border-color: var(--accent); }
+  .density-grid label { font-size: 0.75rem; color: var(--text2); text-align: center; display: block; margin-bottom: 4px; }
+  .density-formula {
+    text-align: center; font-size: 1.1rem; color: var(--text);
+    margin: 12px 0; font-family: monospace;
+  }
+  .density-formula .formula-accent { color: var(--accent); font-weight: bold; }
+  .density-result-input {
+    display: flex; gap: 8px; align-items: center; justify-content: center;
+  }
+  .density-result-input input {
+    width: 120px; padding: 10px; background: var(--panel);
+    border: 1px solid rgba(0,240,200,0.3); border-radius: 6px;
+    color: var(--text); font-size: 1.1rem; font-family: monospace; text-align: center;
+  }
+
+  /* ====== END SCREEN ====== */
+  #end-screen { align-items: center; justify-content: center; text-align: center; }
+  .end-box { max-width: 500px; padding: 40px 32px; background: var(--panel); border-radius: 12px; border: 1px solid rgba(0,240,200,0.2); }
+  .end-score { font-size: 3rem; color: var(--accent); font-weight: 800; margin: 16px 0; text-shadow: 0 0 30px rgba(0,240,200,0.3); }
+  .end-rank {
+    display: inline-block;
+    padding: 12px 32px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    font-size: 1.3rem; font-weight: 700; color: var(--accent);
+    margin: 16px 0;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+  }
+  .end-rank.S { border-color: gold; color: gold; box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+  .end-rank.A { border-color: var(--success); color: var(--success); }
+  .end-rank.B { border-color: var(--accent); color: var(--accent); }
+  .end-rank.C { border-color: var(--warn); color: var(--warn); }
+
+  /* Next / Check buttons */
+  .action-btns { display: flex; gap: 12px; margin-top: 12px; justify-content: center; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .work-area { flex-direction: column; }
+    .side-panel { flex: 1 1 auto; width: 100%; }
+    .cylinder-work { flex-direction: column; align-items: center; height: auto; }
+    .balance-beam-wrap { width: 260px; }
+    .balance-beam { width: 240px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== INTRO ====== -->
+<div class="screen active" id="intro-screen">
+  <div class="intro-box">
+    <div class="intro-icon">🕵️</div>
+    <div class="intro-title">特工装备室</div>
+    <div class="intro-sub">—— 测量的初步 ——</div>
+    <div class="intro-text">
+      <p>欢迎，特工学员。</p>
+      <p>你即将进入装备实验室，完成四项机密测量任务。你的精度将决定任务成败。</p>
+      <p>每一项任务都需要你亲手操作仪器、读取数据、做出判断。</p>
+      <p style="margin-top:12px;color:var(--accent);">准备好了吗？</p>
+    </div>
+    <button class="btn" onclick="goStage(1)">接受任务</button>
+  </div>
+</div>
+
+<!-- ====== STAGE 1: LENGTH ====== -->
+<div class="screen" id="stage1">
+  <div class="hud-header">
+    <div><span class="stage-badge">STAGE 1</span> <span class="hud-title">长度训练营</span></div>
+    <div class="hud-score">SCORE: <span id="score1">0</span></div>
+  </div>
+  <div class="work-area">
+    <div class="main-panel" id="s1-panel">
+      <div class="ruler-table" id="ruler-table">
+        <!-- Items placed by JS -->
+        <!-- Ruler placed by JS -->
+      </div>
+      <div class="measure-input-row">
+        <span>测量结果：</span>
+        <input type="text" id="s1-input" placeholder="如: 3.46" autocomplete="off">
+        <span class="unit-label">cm</span>
+        <button class="btn" style="padding:10px 24px;font-size:0.85rem;" onclick="s1check()">提交</button>
+      </div>
+      <div class="progress-dots" id="s1-dots">
+        <div class="dot current"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+    <div class="side-panel">
+      <div class="info-card">
+        <h3>📋 任务简报</h3>
+        <p>使用虚拟刻度尺测量特工装备的长度。将尺子拖动到装备上方对齐，读取刻度。</p>
+        <p class="hint">💡 刻度尺的最小分度值是 1 mm (0.1 cm)。读数时需要估读到分度值的下一位，即 0.01 cm。</p>
+      </div>
+      <div class="info-card">
+        <h3>🎯 当前目标</h3>
+        <p id="s1-target">测量第一件装备的长度。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== STAGE 2: MASS ====== -->
+<div class="screen" id="stage2">
+  <div class="hud-header">
+    <div><span class="stage-badge">STAGE 2</span> <span class="hud-title">质量实验室</span></div>
+    <div class="hud-score">SCORE: <span id="score2">0</span></div>
+  </div>
+  <div class="work-area">
+    <div class="main-panel" id="s2-panel">
+      <div class="balance-container">
+        <div class="scale-dial">
+          <svg viewBox="0 0 60 30">
+            <path d="M5,25 Q30,5 55,25" fill="none" stroke="rgba(0,240,200,0.3)" stroke-width="1"/>
+            <line x1="5" y1="25" x2="55" y2="25" stroke="rgba(0,240,200,0.2)" stroke-width="1"/>
+            <line x1="30" y1="25" x2="30" y2="8" stroke="rgba(0,240,200,0.3)" stroke-width="1"/>
+            <line x1="20" y1="22" x2="20" y2="18" stroke="rgba(0,240,200,0.2)" stroke-width="1"/>
+            <line x1="40" y1="22" x2="40" y2="18" stroke="rgba(0,240,200,0.2)" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="balance-beam-wrap">
+          <div class="balance-beam" id="beam">
+            <div class="balance-center"></div>
+            <div class="balance-pan left"><div class="pan-string"></div><div class="pan-plate"></div></div>
+            <div class="balance-pan right" id="right-pan"><div class="pan-string"></div><div class="pan-plate"></div></div>
+            <div class="balance-pointer" id="pointer"></div>
+            <div class="right-pan-zone" id="pan-zone"></div>
+          </div>
+        </div>
+        <div class="balance-pillar"></div>
+        <div class="balance-base"></div>
+      </div>
+      <div class="current-mass-display">右盘总质量: <span id="right-mass">0</span> g</div>
+      <div class="weight-pool" id="weight-pool">
+        <!-- Weights generated by JS -->
+      </div>
+      <div class="action-btns">
+        <button class="btn" style="padding:10px 24px;font-size:0.85rem;" onclick="s2check()">天平平衡，记录结果</button>
+        <button class="btn btn-ghost" style="padding:10px 20px;font-size:0.85rem;" onclick="s2reset()">重置砝码</button>
+      </div>
+      <div class="progress-dots" id="s2-dots">
+        <div class="dot current"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+    <div class="side-panel">
+      <div class="info-card">
+        <h3>📋 任务简报</h3>
+        <p>左盘放置了一件神秘特工装备，质量未知。你需要拖拽砝码到右盘，使天平平衡。</p>
+        <p class="hint">💡 观察天平的倾斜方向和角度。右盘更重时指针向右偏，左盘更重时向左偏。</p>
+      </div>
+      <div class="info-card">
+        <h3>🎯 当前目标</h3>
+        <p id="s2-target">测量第一件装备的质量。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== STAGE 3: VOLUME ====== -->
+<div class="screen" id="stage3">
+  <div class="hud-header">
+    <div><span class="stage-badge">STAGE 3</span> <span class="hud-title">体积挑战</span></div>
+    <div class="hud-score">SCORE: <span id="score3">0</span></div>
+  </div>
+  <div class="work-area">
+    <div class="main-panel" id="s3-panel">
+      <div class="cylinder-work">
+        <div class="cylinder-wrap" id="cylinder-wrap">
+          <div class="cylinder-top"></div>
+          <div class="cylinder" id="cylinder">
+            <div class="liquid" id="liquid"></div>
+            <!-- Ticks by JS -->
+            <div class="solid-object" id="solid-obj">固体</div>
+          </div>
+          <div class="meniscus-label" id="meniscus-label">← 读凹液面最低处</div>
+        </div>
+        <div class="cylinder-controls" id="s3-controls">
+          <div id="s3-text">请读取量筒中液体的体积。</div>
+          <div class="reading-input" id="s3-input-wrap">
+            <input type="text" id="s3-input" placeholder="如: 32.0" autocomplete="off">
+            <span class="unit-label">mL</span>
+            <button class="btn" style="padding:8px 18px;font-size:0.8rem;" onclick="s3check()">提交</button>
+          </div>
+          <div id="s3-action" style="display:none;">
+            <button class="btn" style="padding:10px 24px;font-size:0.85rem;" onclick="s3drop()">放入固体</button>
+          </div>
+        </div>
+      </div>
+      <div class="progress-dots" id="s3-dots">
+        <div class="dot current"></div><div class="dot"></div>
+      </div>
+    </div>
+    <div class="side-panel">
+      <div class="info-card">
+        <h3>📋 任务简报</h3>
+        <p>读取量筒中液体的体积，注意凹液面最低处。</p>
+        <p style="margin-top:6px;">然后用排水法测量不规则固体的体积。</p>
+        <p class="hint">💡 1 mL = 1 cm³。放入固体后，体积差即为固体体积。</p>
+      </div>
+      <div class="info-card" id="s3-hint-card" style="display:none;">
+        <h3>📝 记录</h3>
+        <p>初始体积: <span id="v1-display" style="color:var(--accent);">--</span> mL</p>
+        <p>放入后体积: <span id="v2-display" style="color:var(--accent);">--</span> mL</p>
+        <p>固体体积: <span id="v-solid" style="color:var(--success);">--</span> mL</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== STAGE 4: DENSITY ====== -->
+<div class="screen" id="stage4">
+  <div class="hud-header">
+    <div><span class="stage-badge">STAGE 4</span> <span class="hud-title">综合任务：神秘盒子</span></div>
+    <div class="hud-score">SCORE: <span id="score4">0</span></div>
+  </div>
+  <div class="work-area">
+    <div class="main-panel" id="s4-panel">
+      <div class="density-work">
+        <div class="mystery-box-visual"></div>
+
+        <div class="density-step active" id="step-l">
+          <h4>步骤 1：测量长、宽、高（cm）</h4>
+          <div class="density-grid">
+            <div><label>长</label><input type="text" id="d-l" placeholder="如 5.20"></div>
+            <div><label>宽</label><input type="text" id="d-w" placeholder="如 3.40"></div>
+            <div><label>高</label><input type="text" id="d-h" placeholder="如 2.10"></div>
+          </div>
+          <div class="action-btns"><button class="btn" style="padding:8px 20px;font-size:0.8rem;" onclick="s4checkStep('l')">确认</button></div>
+        </div>
+
+        <div class="density-step" id="step-m">
+          <h4>步骤 2：测量质量（g）</h4>
+          <div class="density-formula">使用天平测量神秘盒子的质量</div>
+          <div class="density-result-input">
+            <input type="text" id="d-m" placeholder="如 86.4"><span class="unit-label">g</span>
+            <button class="btn" style="padding:8px 20px;font-size:0.8rem;" onclick="s4checkStep('m')">确认</button>
+          </div>
+        </div>
+
+        <div class="density-step" id="step-v">
+          <h4>步骤 3：测量体积（排水法，cm³）</h4>
+          <div class="density-formula">初始水位: <span class="formula-accent" id="s4-v1">--</span> mL → 放入后: <span class="formula-accent" id="s4-v2">--</span> mL</div>
+          <div class="density-result-input">
+            <input type="text" id="d-v" placeholder="如 37.1"><span class="unit-label">cm³</span>
+            <button class="btn" style="padding:8px 20px;font-size:0.8rem;" onclick="s4checkStep('v')">确认</button>
+          </div>
+        </div>
+
+        <div class="density-step" id="step-rho">
+          <h4>步骤 4：计算密度 ρ = m / V</h4>
+          <div class="density-formula">
+            ρ = <span class="formula-accent" id="rho-m">--</span> g ÷ <span class="formula-accent" id="rho-v">--</span> cm³ = ?
+          </div>
+          <div class="density-result-input">
+            <input type="text" id="d-rho" placeholder="如 2.33"><span class="unit-label">g/cm³</span>
+            <button class="btn" style="padding:8px 20px;font-size:0.8rem;" onclick="s4checkStep('rho')">提交答案</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="side-panel">
+      <div class="info-card">
+        <h3>📋 终极任务</h3>
+        <p>神秘盒子的材料未知。你需要分别测出它的质量与体积，然后计算密度，判断它是什么材料制成的。</p>
+        <p class="hint">💡 密度 = 质量 ÷ 体积。单位：g/cm³。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== END ====== -->
+<div class="screen" id="end-screen">
+  <div class="end-box">
+    <div style="font-size:1.2rem;color:var(--text2);">任务完成</div>
+    <div class="end-score" id="final-score">0</div>
+    <div style="color:var(--text2);">总分 / 100</div>
+    <div class="end-rank" id="final-rank">RANK</div>
+    <div style="margin-top:16px;color:var(--text2);font-size:0.9rem;" id="final-msg"></div>
+    <div style="margin-top:24px;">
+      <button class="btn" onclick="location.reload()">再试一次</button>
+    </div>
+  </div>
+</div>
+
+<!-- Feedback overlay -->
+<div class="feedback" id="feedback"></div>
+
+<script>
+/* ===================== AUDIO ENGINE ===================== */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone(freq, duration, type='square', vol=0.08) {
+  ensureAudio();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + duration);
+}
+function sndOk() {
+  playTone(523, 0.12, 'sine', 0.1);
+  setTimeout(() => playTone(659, 0.15, 'sine', 0.1), 120);
+}
+function sndErr() {
+  playTone(200, 0.25, 'sawtooth', 0.08);
+  setTimeout(() => playTone(150, 0.3, 'sawtooth', 0.08), 200);
+}
+function sndClick() { playTone(880, 0.06, 'square', 0.05); }
+function sndWin() {
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,0.25,'sine',0.1),i*150));
+}
+
+/* ===================== GLOBAL STATE ===================== */
+let score = 0;
+let stage = 0;
+
+function goStage(n) {
+  sndClick();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(n===0?'intro-screen': n===5?'end-screen': 'stage'+n).classList.add('active');
+  stage = n;
+  if (n===1) initS1();
+  if (n===2) initS2();
+  if (n===3) initS3();
+  if (n===4) initS4();
+}
+
+function showFeedback(text, type) {
+  const f = document.getElementById('feedback');
+  f.textContent = text; f.className = 'feedback ' + type;
+  void f.offsetWidth; f.classList.add('show');
+  setTimeout(() => f.classList.remove('show'), 1400);
+}
+
+function addScore(points) {
+  score += points;
+  for (let i=1;i<=4;i++) { const el=document.getElementById('score'+i); if(el) el.textContent = score; }
+}
+
+/* ===================== STAGE 1: RULER ===================== */
+const s1Items = [
+  { name: '激光匕首', label: '激光匕首', w: 160, h: 30, trueLen: 4.72, y: 120, x: 80, color:'#4a90d9' },
+  { name: '隐形绳索', label: '隐形绳索', w: 200, h: 14, trueLen: 6.35, y: 180, x: 60, color:'#8e44ad' },
+  { name: '微型通讯器', label: '通讯器', w: 80, h: 50, trueLen: 2.58, y: 100, x: 200, color:'#27ae60' }
+];
+let s1idx = 0;
+let rulerX = 50, rulerY = 200;
+const RULER_PX_PER_CM = 50; // 1cm = 50px on screen
+const RULER_WIDTH_CM = 10;
+
+function buildRuler() {
+  const r = document.createElement('div');
+  r.className = 'ruler';
+  r.id = 'ruler';
+  r.style.width = (RULER_WIDTH_CM * RULER_PX_PER_CM) + 'px';
+  r.style.left = rulerX + 'px';
+  r.style.top = rulerY + 'px';
+  const sc = document.createElement('div'); sc.className = 'ruler-scale';
+  for (let cm=0; cm<=RULER_WIDTH_CM; cm++) {
+    const tick = document.createElement('div');
+    tick.className = 'ruler-cm';
+    tick.style.left = (cm * RULER_PX_PER_CM) + 'px';
+    tick.setAttribute('data-n', cm);
+    sc.appendChild(tick);
+    if (cm < RULER_WIDTH_CM) {
+      for (let mm=1; mm<10; mm++) {
+        const mmt = document.createElement('div');
+        mmt.className = 'ruler-mm' + (mm===5 ? ' half' : '');
+        mmt.style.left = (cm * RULER_PX_PER_CM + mm * RULER_PX_PER_CM / 10) + 'px';
+        sc.appendChild(mmt);
+      }
+    }
+  }
+  r.appendChild(sc);
+  // drag
+  let dragging=false, dx=0, dy=0;
+  r.addEventListener('mousedown', e=>{ dragging=true; dx=e.clientX-r.offsetLeft; dy=e.clientY-r.offsetTop; });
+  r.addEventListener('touchstart', e=>{ dragging=true; const t=e.touches[0]; dx=t.clientX-r.offsetLeft; dy=t.clientY-r.offsetTop; e.preventDefault(); }, {passive:false});
+  window.addEventListener('mousemove', e=>{
+    if (!dragging) return;
+    rulerX = Math.max(0, Math.min(e.clientX - dx, 600 - RULER_WIDTH_CM*RULER_PX_PER_CM));
+    rulerY = Math.max(0, Math.min(e.clientY - dy, 280));
+    r.style.left = rulerX+'px'; r.style.top = rulerY+'px';
+  });
+  window.addEventListener('touchmove', e=>{
+    if (!dragging) return;
+    const t=e.touches[0];
+    rulerX = Math.max(0, Math.min(t.clientX - dx, 600 - RULER_WIDTH_CM*RULER_PX_PER_CM));
+    rulerY = Math.max(0, Math.min(t.clientY - dy, 280));
+    r.style.left = rulerX+'px'; r.style.top = rulerY+'px';
+    e.preventDefault();
+  }, {passive:false});
+  window.addEventListener('mouseup', ()=>dragging=false);
+  window.addEventListener('touchend', ()=>dragging=false);
+  return r;
+}
+
+function initS1() {
+  s1idx = 0; rulerX = 50; rulerY = 200; score = 0;
+  renderS1();
+}
+function renderS1() {
+  const table = document.getElementById('ruler-table');
+  table.innerHTML = '';
+  const item = s1Items[s1idx];
+  const el = document.createElement('div');
+  el.className = 'ruler-item';
+  el.style.width = item.w + 'px';
+  el.style.height = item.h + 'px';
+  el.style.left = item.x + 'px';
+  el.style.top = item.y + 'px';
+  el.setAttribute('data-label', item.label);
+  el.style.background = `linear-gradient(135deg, ${item.color}44, ${item.color}22)`;
+  el.style.borderColor = item.color;
+  table.appendChild(el);
+  table.appendChild(buildRuler());
+  document.getElementById('s1-input').value = '';
+  document.getElementById('s1-target').textContent = `测量第 ${s1idx+1} 件装备：${item.name} 的长度`;
+  updateDots('s1-dots', s1idx, 3);
+}
+
+function s1check() {
+  const val = parseFloat(document.getElementById('s1-input').value);
+  const trueVal = s1Items[s1idx].trueLen;
+  const panel = document.getElementById('s1-panel');
+  if (isNaN(val)) {
+    sndErr(); panel.classList.add('shake');
+    showFeedback('请输入数字！', 'err');
+    setTimeout(()=>panel.classList.remove('shake'), 400);
+    return;
+  }
+  // Accept within 0.03cm tolerance
+  if (Math.abs(val - trueVal) <= 0.03) {
+    sndOk(); panel.classList.add('flash-ok');
+    showFeedback(`正确！${trueVal.toFixed(2)} cm`, 'ok');
+    addScore(20);
+    setTimeout(()=>{
+      panel.classList.remove('flash-ok');
+      s1idx++;
+      if (s1idx >= s1Items.length) { setTimeout(()=>goStage(2), 800); }
+      else { renderS1(); }
+    }, 700);
+  } else {
+    sndErr(); panel.classList.add('shake');
+    let hint = '';
+    if (val < trueVal - 0.5) hint = '读数偏小，检查尺子对齐方式。';
+    else if (val > trueVal + 0.5) hint = '读数偏大，注意起始刻度。';
+    else if (Math.abs(val - trueVal) > 0.1) hint = '接近了！注意估读到 0.01 cm。';
+    else hint = '非常接近！再精确一点。';
+    showFeedback(`不对。${hint}`, 'err');
+    setTimeout(()=>panel.classList.remove('shake'), 400);
+  }
+}
+
+/* ===================== STAGE 2: BALANCE ===================== */
+const s2Items = [
+  { name: '加密芯片', mass: 37 },
+  { name: '微型电池', mass: 62 },
+  { name: '合金徽章', mass: 95 }
+];
+const WEIGHTS = [1,2,5,10,20,50,100];
+let s2idx = 0;
+let rightMass = 0;
+let panWeights = []; // {value, el}
+
+function initS2() {
+  s2idx = 0; rightMass = 0; panWeights = [];
+  renderS2();
+}
+function renderS2() {
+  document.getElementById('s2-target').textContent = `测量第 ${s2idx+1} 件装备：${s2Items[s2idx].name}`;
+  updateDots('s2-dots', s2idx, 3);
+  s2reset();
+}
+
+function makeWeight(val) {
+  const w = document.createElement('div');
+  w.className = 'weight';
+  w.textContent = val + 'g';
+  w.setAttribute('data-val', val);
+  let dragging=false, ox=0, oy=0;
+  w.addEventListener('mousedown', e=>{ startDragWeight(e, w, val); });
+  w.addEventListener('touchstart', e=>{ startDragWeight(e, w, val); e.preventDefault(); }, {passive:false});
+  return w;
+}
+
+function startDragWeight(e, w, val) {
+  ensureAudio(); sndClick();
+  const rect = w.getBoundingClientRect();
+  const startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+  const startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+  const offsetX = startX - rect.left;
+  const offsetY = startY - rect.top;
+
+  // If already on pan, remove from pan accounting
+  const onPan = w.classList.contains('on-pan');
+  if (onPan) {
+    w.classList.remove('on-pan');
+    w.style.position = ''; w.style.left=''; w.style.top=''; w.style.zIndex='';
+    rightMass -= val;
+    panWeights = panWeights.filter(x=>x.el!==w);
+    updateBeam();
+    // Return to pool
+    document.getElementById('weight-pool').appendChild(w);
+  }
+
+  w.style.position = 'fixed';
+  w.style.left = (startX - offsetX) + 'px';
+  w.style.top = (startY - offsetY) + 'px';
+  w.style.zIndex = 100;
+  w.style.opacity = '0.85';
+
+  function move(ev) {
+    const cx = ev.type.includes('mouse') ? ev.clientX : ev.touches[0].clientX;
+    const cy = ev.type.includes('mouse') ? ev.clientY : ev.touches[0].clientY;
+    w.style.left = (cx - offsetX) + 'px';
+    w.style.top = (cy - offsetY) + 'px';
+  }
+  function up(ev) {
+    const cx = ev.type.includes('mouse') ? ev.clientX : (ev.changedTouches?ev.changedTouches[0].clientX:0);
+    const cy = ev.type.includes('mouse') ? ev.clientY : (ev.changedTouches?ev.changedTouches[0].clientY:0);
+    w.style.opacity = '1';
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    window.removeEventListener('touchmove', move);
+    window.removeEventListener('touchend', up);
+
+    const panZone = document.getElementById('pan-zone');
+    const pz = panZone.getBoundingClientRect();
+    if (cx >= pz.left && cx <= pz.right && cy >= pz.top && cy <= pz.bottom) {
+      // Dropped on pan
+      const rightPan = document.getElementById('right-pan');
+      w.style.position = 'absolute';
+      const stackIdx = panWeights.length;
+      w.style.left = '5px';
+      w.style.top = (-40 - stackIdx * 14) + 'px';
+      w.style.zIndex = 20;
+      w.classList.add('on-pan');
+      rightPan.appendChild(w);
+      rightMass += val;
+      panWeights.push({value: val, el: w});
+      sndClick();
+    } else {
+      // Return to pool
+      w.style.position = ''; w.style.left=''; w.style.top=''; w.style.zIndex='';
+      document.getElementById('weight-pool').appendChild(w);
+    }
+    updateBeam();
+  }
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  window.addEventListener('touchmove', move, {passive:false});
+  window.addEventListener('touchend', up);
+}
+
+function updateBeam() {
+  const target = s2Items[s2idx].mass;
+  const diff = rightMass - target;
+  // diff > 0: right heavier, rotate clockwise (positive)
+  // diff < 0: left heavier, rotate counter-clockwise (negative)
+  let deg = diff * 1.5;
+  deg = Math.max(-25, Math.min(25, deg));
+  document.getElementById('beam').style.transform = `rotate(${deg}deg)`;
+  document.getElementById('pointer').style.transform = `translateX(-50%) rotate(${deg*2}deg)`;
+  document.getElementById('right-mass').textContent = rightMass;
+}
+
+function s2reset() {
+  rightMass = 0;
+  // Move all pan weights back to pool so they get cleaned up
+  const pool = document.getElementById('weight-pool');
+  panWeights.forEach(pw => {
+    const w = pw.el;
+    w.classList.remove('on-pan');
+    w.style.position = ''; w.style.left = ''; w.style.top = ''; w.style.zIndex = '';
+    pool.appendChild(w);
+  });
+  panWeights = [];
+  // Now clear everything and recreate
+  pool.innerHTML = '';
+  WEIGHTS.forEach(v => pool.appendChild(makeWeight(v)));
+  updateBeam();
+}
+
+function s2check() {
+  const target = s2Items[s2idx].mass;
+  const panel = document.getElementById('s2-panel');
+  if (rightMass === target) {
+    sndOk(); panel.classList.add('flash-ok');
+    showFeedback(`天平平衡！质量 = ${target} g`, 'ok');
+    addScore(20);
+    setTimeout(()=>{
+      panel.classList.remove('flash-ok');
+      s2idx++;
+      if (s2idx >= s2Items.length) { setTimeout(()=>goStage(3), 800); }
+      else { renderS2(); }
+    }, 700);
+  } else {
+    sndErr(); panel.classList.add('shake');
+    const diff = rightMass - target;
+    let msg = diff > 0 ? '右盘偏重，请减少砝码。' : '右盘偏轻，请增加砝码。';
+    showFeedback(msg, 'err');
+    setTimeout(()=>panel.classList.remove('shake'), 400);
+  }
+}
+
+/* ===================== STAGE 3: VOLUME ===================== */
+let s3step = 0; // 0=read liquid, 1=displacement
+let s3v1 = 0, s3v2 = 0, s3solidV = 0;
+
+function initS3() {
+  s3step = 0;
+  // Random values
+  s3v1 = 28 + Math.floor(Math.random()*5); // 28-32 mL
+  s3solidV = 8 + Math.floor(Math.random()*6); // 8-13 mL
+  s3v2 = s3v1 + s3solidV;
+  renderS3();
+}
+
+function renderS3() {
+  const cyl = document.getElementById('cylinder');
+  // Clear old ticks
+  cyl.querySelectorAll('.cylinder-tick').forEach(t=>t.remove());
+  const maxV = 50;
+  const pxPerMl = 220 / maxV; // 220px height for liquid area
+  for (let v=0; v<=maxV; v+=2) {
+    const tick = document.createElement('div');
+    tick.className = 'cylinder-tick' + (v%10===0 ? ' major' : '');
+    tick.style.bottom = (v * pxPerMl) + 'px';
+    if (v%10===0) tick.setAttribute('data-v', v);
+    cyl.appendChild(tick);
+  }
+  const liquid = document.getElementById('liquid');
+  const solid = document.getElementById('solid-obj');
+  solid.style.display = 'none';
+  liquid.style.height = (s3v1 * pxPerMl) + 'px';
+
+  document.getElementById('s3-text').textContent = '请读取量筒中液体的体积（凹液面最低处）。';
+  document.getElementById('s3-input').value = '';
+  document.getElementById('s3-input-wrap').style.display = 'flex';
+  document.getElementById('s3-action').style.display = 'none';
+  document.getElementById('s3-hint-card').style.display = 'none';
+  document.getElementById('meniscus-label').classList.add('show');
+  updateDots('s3-dots', 0, 2);
+}
+
+function s3check() {
+  const panel = document.getElementById('s3-panel');
+  const val = parseFloat(document.getElementById('s3-input').value);
+  if (s3step === 0) {
+    if (isNaN(val)) { sndErr(); panel.classList.add('shake'); showFeedback('请输入数字！', 'err'); setTimeout(()=>panel.classList.remove('shake'),400); return; }
+    if (Math.abs(val - s3v1) <= 0.5) {
+      sndOk(); panel.classList.add('flash-ok');
+      showFeedback(`正确！初始体积 = ${s3v1.toFixed(1)} mL`, 'ok');
+      addScore(10);
+      setTimeout(()=>{
+        panel.classList.remove('flash-ok');
+        s3step = 1;
+        document.getElementById('s3-text').textContent = '现在把不规则固体放入量筒中。';
+        document.getElementById('s3-input-wrap').style.display = 'none';
+        document.getElementById('s3-action').style.display = 'block';
+        document.getElementById('meniscus-label').classList.remove('show');
+        updateDots('s3-dots', 0, 2);
+      }, 700);
+    } else {
+      sndErr(); panel.classList.add('shake');
+      showFeedback('读数不对。注意凹液面最低处！', 'err');
+      setTimeout(()=>panel.classList.remove('shake'),400);
+    }
+  } else if (s3step === 2) {
+    if (isNaN(val)) { sndErr(); panel.classList.add('shake'); showFeedback('请输入数字！', 'err'); setTimeout(()=>panel.classList.remove('shake'),400); return; }
+    if (Math.abs(val - s3v2) <= 0.5) {
+      sndOk(); panel.classList.add('flash-ok');
+      showFeedback(`正确！最终体积 = ${s3v2.toFixed(1)} mL`, 'ok');
+      addScore(10);
+      document.getElementById('v2-display').textContent = s3v2.toFixed(1);
+      document.getElementById('v-solid').textContent = s3solidV.toFixed(1);
+      setTimeout(()=>{
+        panel.classList.remove('flash-ok');
+        goStage(4);
+      }, 900);
+    } else {
+      sndErr(); panel.classList.add('shake');
+      showFeedback('读数不对。再看一眼液面位置。', 'err');
+      setTimeout(()=>panel.classList.remove('shake'),400);
+    }
+  }
+}
+
+function s3drop() {
+  const liquid = document.getElementById('liquid');
+  const solid = document.getElementById('solid-obj');
+  const maxV = 50;
+  const pxPerMl = 220 / maxV;
+  solid.style.display = 'flex';
+  solid.style.bottom = '4px';
+  solid.style.height = (Math.min(s3solidV, 15) * pxPerMl) + 'px';
+  solid.style.left = '20px';
+  liquid.style.height = (s3v2 * pxPerMl) + 'px';
+  sndClick();
+  setTimeout(()=>{
+    s3step = 2;
+    document.getElementById('s3-text').textContent = '读取放入固体后的新体积，并计算固体体积。';
+    document.getElementById('s3-input-wrap').style.display = 'flex';
+    document.getElementById('s3-action').style.display = 'none';
+    document.getElementById('s3-input').value = '';
+    document.getElementById('s3-hint-card').style.display = 'block';
+    document.getElementById('v1-display').textContent = s3v1.toFixed(1);
+    document.getElementById('v2-display').textContent = '--';
+    document.getElementById('v-solid').textContent = '--';
+    updateDots('s3-dots', 1, 2);
+  }, 1000);
+}
+
+/* ===================== STAGE 4: DENSITY ===================== */
+const S4_L = 5.20, S4_W = 3.40, S4_H = 2.10;
+const S4_M = 86.4;
+const S4_V = 37.10; // L*W*H ≈ 37.128, rounded
+const S4_DISP_V1 = 30.0;
+const S4_DISP_V2 = 67.1; // 30.0 + 37.1
+const S4_RHO = 2.33; // g/cm3, e.g. like silicon or some alloy
+
+let s4stepPassed = {l:false, m:false, v:false, rho:false};
+
+function initS4() {
+  s4stepPassed = {l:false, m:false, v:false, rho:false};
+  document.querySelectorAll('.density-step').forEach(s=>{ s.classList.remove('active','done'); });
+  document.getElementById('step-l').classList.add('active');
+  ['d-l','d-w','d-h','d-m','d-v','d-rho'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('rho-m').textContent = '--';
+  document.getElementById('rho-v').textContent = '--';
+  document.getElementById('s4-v1').textContent = S4_DISP_V1.toFixed(1);
+  document.getElementById('s4-v2').textContent = S4_DISP_V2.toFixed(1);
+}
+
+function s4checkStep(step) {
+  const panel = document.getElementById('s4-panel');
+  let ok = false, msg = '', val=0;
+  const tolerance = 0.05;
+  if (step==='l') {
+    const l=parseFloat(document.getElementById('d-l').value);
+    const w=parseFloat(document.getElementById('d-w').value);
+    const h=parseFloat(document.getElementById('d-h').value);
+    if (isNaN(l)||isNaN(w)||isNaN(h)) { msg='请填写三个尺寸。'; }
+    else if (Math.abs(l-S4_L)<=tolerance && Math.abs(w-S4_W)<=tolerance && Math.abs(h-S4_H)<=tolerance) {
+      ok=true; msg='尺寸测量正确！';
+    } else { msg='尺寸不对。用刻度尺仔细测量长、宽、高。'; }
+  } else if (step==='m') {
+    val = parseFloat(document.getElementById('d-m').value);
+    if (isNaN(val)) msg='请输入质量。';
+    else if (Math.abs(val-S4_M)<=0.5) { ok=true; msg='质量正确！'; }
+    else { msg='质量不对。回想一下天平的读数方法。'; }
+  } else if (step==='v') {
+    val = parseFloat(document.getElementById('d-v').value);
+    if (isNaN(val)) msg='请输入体积。';
+    else if (Math.abs(val-S4_V)<=0.5) { ok=true; msg='体积正确！'; }
+    else { msg=`体积不对。${S4_DISP_V2.toFixed(1)} - ${S4_DISP_V1.toFixed(1)} = ?`; }
+  } else if (step==='rho') {
+    val = parseFloat(document.getElementById('d-rho').value);
+    if (isNaN(val)) msg='请输入密度。';
+    else if (Math.abs(val-S4_RHO)<=0.1) { ok=true; msg='密度计算正确！任务完成！'; }
+    else { msg='密度不对。ρ = m ÷ V，再算一次。'; }
+  }
+
+  if (ok) {
+    sndOk(); panel.classList.add('flash-ok');
+    showFeedback(msg, 'ok');
+    if (step==='l') addScore(10);
+    else if (step==='m') addScore(10);
+    else if (step==='v') addScore(10);
+    else if (step==='rho') { addScore(20); sndWin(); }
+    s4stepPassed[step] = true;
+    const el = document.getElementById('step-'+step);
+    el.classList.remove('active'); el.classList.add('done');
+    // Unlock next
+    const order = ['l','m','v','rho'];
+    const idx = order.indexOf(step);
+    if (idx < order.length-1) {
+      document.getElementById('step-'+order[idx+1]).classList.add('active');
+    }
+    // Prefill formula
+    if (step==='m') { document.getElementById('rho-m').textContent = S4_M.toFixed(1); }
+    if (step==='v') { document.getElementById('rho-v').textContent = S4_V.toFixed(2); }
+    setTimeout(()=>{
+      panel.classList.remove('flash-ok');
+      if (step==='rho') { setTimeout(()=>showEnd(), 600); }
+    }, 600);
+  } else {
+    sndErr(); panel.classList.add('shake');
+    showFeedback(msg, 'err');
+    setTimeout(()=>panel.classList.remove('shake'),400);
+  }
+}
+
+/* ===================== ENDING ===================== */
+const MAX_SCORE = 190;
+
+function showEnd() {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('end-screen').classList.add('active');
+  const final = Math.min(100, Math.round(score / MAX_SCORE * 100));
+  document.getElementById('final-score').textContent = final;
+  let rank, cls, msg;
+  if (final >= 90) { rank='S 级特工'; cls='S'; msg='完美执行！总部对你赞不绝口。'; }
+  else if (final >= 75) { rank='A 级特工'; cls='A'; msg='出色完成任务，细节还有提升空间。'; }
+  else if (final >= 50) { rank='B 级特工'; cls='B'; msg='任务完成，但有几处失误需要注意。'; }
+  else { rank='C 级学员'; cls='C'; msg='别灰心，再训练一次，你会更强。'; }
+  const r = document.getElementById('final-rank');
+  r.textContent = rank; r.className = 'end-rank ' + cls;
+  document.getElementById('final-msg').textContent = msg;
+}
+
+/* ===================== UTILS ===================== */
+function updateDots(id, current, total) {
+  const box = document.getElementById(id);
+  box.innerHTML = '';
+  for (let i=0;i<total;i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i<current ? ' done' : i===current ? ' current' : '');
+    box.appendChild(d);
+  }
+}
+
+// Keyboard shortcuts
+window.addEventListener('keydown', e=>{
+  if (e.key==='Enter') {
+    if (stage===1) s1check();
+    if (stage===2) s2check();
+    if (stage===3) s3check();
+    // stage 4 handled per step by buttons
+  }
+});
+
+// Initialize
+window.addEventListener('DOMContentLoaded', ()=>{
+  // stay on intro
+});
+</script>
+</body>
+</html>
