@@ -943,9 +943,10 @@ function nextL1Round() {
     const pct = Math.max(0, l1.timeLeft / 3000 * 100);
     document.getElementById('l1-timer').style.width = pct+'%';
     document.getElementById('hud-time').textContent = (l1.timeLeft/1000).toFixed(1)+'s';
-    if (l1.timeLeft <= 0) {
+  if (l1.timeLeft <= 0) {
       clearInterval(l1.timer);
-      submitL1();
+      // Time up - auto submit but no penalty, only base points
+      submitL1(true); // true = timeUp mode
     }
   }, 100);
 }
@@ -959,7 +960,7 @@ function toggleDiv(btn, v) {
     btn.classList.add('selected');
   }
 }
-function submitL1() {
+function submitL1(timeUp = false) {
   clearInterval(l1.timer);
   const n = l1.number;
   const correctSet = new Set();
@@ -988,24 +989,38 @@ function submitL1() {
     state.maxCombo = Math.max(state.maxCombo, l1.combo);
     l1.correctCount++;
     const mult = Math.min(1 + Math.floor(l1.combo/3), 5);
-    const pts = 100 * mult;
+    let pts;
+    if (timeUp) {
+      // Time up: base points only, no combo multiplier, no time bonus
+      pts = 50;
+      sfxCorrect();
+      showFeedback(`时间到！基础分 +${pts}`, true);
+    } else {
+      pts = 100 * mult;
+      sfxCorrect();
+      showFeedback(`+${pts} (连击×${mult})`, true);
+    }
     state.score += pts;
     state.levelCorrect[0]++;
-    sfxCorrect();
-    showFeedback(`+${pts}`, true);
   } else {
     l1.combo = 0;
     state.combo = 0;
-    state.lives = Math.max(0, state.lives - 1);
-    sfxWrong();
-    showFeedback('MISS', false);
-    if (state.lives <= 0) {
-      setTimeout(() => gameOver(), 800);
-      return;
+    if (timeUp) {
+      // Time up and wrong: no life penalty, just no points
+      sfxWrong();
+      showFeedback('时间到！答案错误，不扣分', false);
+    } else {
+      state.lives = Math.max(0, state.lives - 1);
+      sfxWrong();
+      showFeedback('MISS', false);
+      if (state.lives <= 0) {
+        setTimeout(() => gameOver(), 800);
+        return;
+      }
     }
   }
   updateHUD();
-  setTimeout(nextL1Round, 700);
+  setTimeout(nextL1Round, timeUp ? 1200 : 700);
 }
 
 // ========== LEVEL 2: Prime Hunt ==========
