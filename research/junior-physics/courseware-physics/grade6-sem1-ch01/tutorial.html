@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>物理特工装备室 · 特工手册 — 测量的初步</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* App container */
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Title */
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+/* Progress bar */
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 60px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+/* Card */
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,245,212,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+/* Concept box */
+.concept-box {
+  background: rgba(0,245,212,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+/* Animation area */
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ========== RULER ANIMATION ========== */
+.ruler-viz {
+  position: relative;
+  width: 320px;
+  height: 100px;
+  background: rgba(0,245,212,0.05);
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.ruler-scale {
+  position: absolute;
+  bottom: 0;
+  left: 20px;
+  right: 20px;
+  height: 40px;
+  border-top: 2px solid var(--accent);
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+.ruler-tick {
+  width: 1px;
+  background: var(--accent);
+  height: 8px;
+  margin-top: -6px;
+  opacity: 0.6;
+}
+.ruler-tick.major {
+  height: 14px;
+  margin-top: -12px;
+  opacity: 1;
+}
+.ruler-num {
+  position: absolute;
+  bottom: 44px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  color: var(--accent);
+  transform: translateX(-50%);
+}
+.ruler-object {
+  position: absolute;
+  top: 20px;
+  left: 60px;
+  width: 120px;
+  height: 30px;
+  background: linear-gradient(90deg, var(--warning), var(--danger));
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(255,209,102,0.3);
+}
+.ruler-readout {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  color: var(--success);
+}
+
+/* ========== BALANCE ANIMATION ========== */
+.balance-viz {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.balance-beam {
+  display: flex;
+  align-items: flex-start;
+  gap: 40px;
+  position: relative;
+}
+.balance-pan {
+  width: 80px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 4px;
+  position: relative;
+  box-shadow: 0 0 8px var(--accent);
+}
+.balance-pan::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 16px solid var(--accent);
+}
+.balance-pan-content {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text);
+  text-align: center;
+}
+.balance-center {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  background: var(--warning);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--warning);
+}
+.balance-stand {
+  width: 4px;
+  height: 40px;
+  background: var(--text-dim);
+  margin-top: -4px;
+}
+.balance-base {
+  width: 60px;
+  height: 6px;
+  background: var(--text-dim);
+  border-radius: 3px;
+}
+.balance-label {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ========== CYLINDER ANIMATION ========== */
+.cylinder-viz {
+  position: relative;
+  width: 100px;
+  height: 160px;
+  border-left: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+.cylinder-liquid {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: rgba(0,187,249,0.25);
+  border-top: 2px solid var(--accent2);
+}
+.cylinder-meniscus {
+  position: absolute;
+  top: -8px;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: rgba(0,187,249,0.4);
+  border-radius: 50%;
+  transform: scaleY(0.4);
+}
+.cylinder-scale {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.cylinder-tick {
+  width: 8px;
+  height: 1px;
+  background: var(--accent);
+  margin-left: auto;
+}
+.cylinder-tick.major {
+  width: 14px;
+}
+.cylinder-read-line {
+  position: absolute;
+  left: 0;
+  right: 20px;
+  height: 1px;
+  background: var(--warning);
+  box-shadow: 0 0 6px var(--warning);
+  animation: pulseLine 2s ease-in-out infinite;
+}
+.cylinder-label {
+  position: absolute;
+  right: 26px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  color: var(--warning);
+  transform: translateY(-50%);
+}
+
+/* ========== DENSITY MYSTERY BOX ========== */
+.mystery-viz {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.mystery-box {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  color: var(--bg);
+  box-shadow: 0 0 20px rgba(0,245,212,0.3);
+  animation: floatBox 3s ease-in-out infinite;
+}
+.mystery-data {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 16px;
+}
+.mystery-arrow {
+  font-size: 28px;
+  color: var(--warning);
+}
+.mystery-result {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 24px;
+  color: var(--success);
+}
+
+/* Density table */
+.density-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+.density-table th, .density-table td {
+  border: 1px solid rgba(0,245,212,0.2);
+  padding: 10px 14px;
+  text-align: center;
+}
+.density-table th {
+  background: rgba(0,245,212,0.08);
+  color: var(--accent);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+}
+.density-table td {
+  color: var(--text);
+}
+.density-table tr:hover td {
+  background: rgba(0,245,212,0.04);
+}
+
+/* Example list */
+.example-list {
+  margin: 16px 0;
+}
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.example-item:hover {
+  border-color: rgba(0,245,212,0.3);
+  background: rgba(0,245,212,0.03);
+}
+.example-item .q {
+  font-size: 16px; margin-bottom: 8px;
+}
+.example-item .a {
+  font-size: 14px; color: var(--success);
+  display: none;
+  border-top: 1px dashed rgba(0,245,212,0.2);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.example-item.expanded .a { display: block; }
+.example-item .a .step {
+  color: var(--text-dim); font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Quiz */
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-box .quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--warning);
+  margin-bottom: 16px;
+}
+.quiz-question {
+  font-size: 16px; margin-bottom: 14px;
+}
+.quiz-options {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.quiz-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit; font-size: 15px;
+  text-align: left;
+  transition: all 0.2s;
+}
+.quiz-btn:hover {
+  background: rgba(0,187,249,0.15);
+  border-color: var(--accent2);
+}
+.quiz-btn.correct {
+  background: rgba(6,214,160,0.15);
+  border-color: var(--success);
+  color: var(--success);
+  animation: flashGreen 0.5s ease;
+}
+.quiz-btn.wrong {
+  background: rgba(239,71,111,0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: shake 0.4s ease;
+}
+.quiz-feedback {
+  margin-top: 12px; font-size: 14px;
+  min-height: 20px;
+}
+
+/* Buttons */
+.btn-row {
+  display: flex; gap: 16px;
+  justify-content: center;
+  margin-top: 24px;
+}
+.btn {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 14px 36px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 20px var(--accent);
+}
+.btn.btn-ghost {
+  background: transparent;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.btn.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn.btn-warn {
+  background: rgba(255,209,102,0.1);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+.btn.btn-warn:hover {
+  background: rgba(255,209,102,0.2);
+  box-shadow: 0 0 20px var(--warning);
+}
+
+/* Hide/show */
+.hidden { display: none !important; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 30px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+@keyframes pulseLine {
+  0%,100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes floatBox {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .title-bar h1 { font-size: 22px; }
+  #app { padding: 20px 12px; }
+  .card { padding: 18px; }
+  .ruler-viz { width: 260px; }
+  .mystery-viz { gap: 12px; }
+  .mystery-box { width: 60px; height: 60px; font-size: 22px; }
+  .density-table { font-size: 12px; }
+  .density-table th, .density-table td { padding: 6px 8px; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<div id="app">
+
+<!-- ========== HEADER ========== -->
+<div class="title-bar">
+  <h1>📏 物理特工装备室</h1>
+  <div class="subtitle">特工手册 — 测量的初步 · 面向六年级</div>
+  <div style="margin-top:12px;">
+    <a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a>
+  </div>
+</div>
+
+<div class="progress-bar" id="progress-bar">
+  <div class="progress-seg active"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+</div>
+
+<!-- ========== CHAPTER 1: 长度的测量 ========== -->
+<div class="card" id="ch1">
+  <div class="card-header">
+    <h2>长度的测量</h2>
+    <span class="chapter-num">第 1 / 4 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心工具 — 刻度尺</div>
+    <p>使用刻度尺前，先认清三个关键信息：</p>
+    <p>• <strong>零刻度线</strong>：测量的起点，注意是否磨损</p>
+    <p>• <strong>量程</strong>：刻度尺能测量的最大长度</p>
+    <p>• <strong>分度值</strong>：最小一格代表的长度（如 1mm）</p>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">读数方法</div>
+    <p>• 视线与刻度尺刻度线<strong>垂直</strong></p>
+    <p>• 读数要<strong>估读到分度值的下一位</strong></p>
+    <p>• 记录结果 = 准确值 + 估读值 + 单位</p>
+    <div class="formula" style="font-size:16px;">如分度值 1mm → 读到 0.1mm（如 3.25 cm）</div>
+  </div>
+
+  <div class="anim-area">
+    <div class="ruler-viz" id="ruler-viz">
+      <div class="ruler-readout" id="ruler-readout">? cm（点击查看读数）</div>
+      <div class="ruler-object"></div>
+      <div class="ruler-scale" id="ruler-scale"></div>
+    </div>
+    <div style="font-size:14px;color:var(--text-dim);margin-top:8px;">
+      物体左端对齐 2.00 cm，右端对齐 5.25 cm → <span style="color:var(--success)">长度 = 3.25 cm</span>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：刻度尺分度值 1mm，物体左端 0.00 cm，右端 3.25 cm，长度是多少？</div>
+      <div class="a">
+        长度 = 末端读数 − 起始读数 = 3.25 cm − 0.00 cm = <strong style="color:var(--success)">3.25 cm</strong>
+        <div class="step">（注意：3.25 cm 的最后一位"5"是估读值）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：物体左端对齐 1.00 cm，右端对齐 6.00 cm，长度是多少？</div>
+      <div class="a">
+        长度 = 6.00 cm − 1.00 cm = <strong style="color:var(--success)">5.00 cm</strong>（或写作 5.0 cm）
+        <div class="step">（注意：必须保留到分度值的下一位！不能写 5 cm）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：物体左端 0.00 cm，右端 2.80 cm，长度是多少？</div>
+      <div class="a">
+        长度 = 2.80 cm − 0.00 cm = <strong style="color:var(--success)">2.80 cm</strong>
+        <div class="step">（末尾的"0"是估读位，不能省略！写 2.8 cm 就错了）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch1-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">一把刻度尺最小一格是 1mm，它的分度值是多少？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '最小一格就是分度值，1mm = 0.1cm。')">1 cm</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！最小一格是 1mm，所以分度值 = 1mm = 0.1 cm。')">1 mm</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '最小一格就是分度值，1mm = 0.1cm。')">0.01 cm</button>
+    </div>
+    <div class="quiz-feedback" id="ch1-fb1"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">某物体左端对齐 1.00 cm，右端对齐 4.25 cm，这个物体的长度读作？</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'a', false, '不对。4.25 − 1.00 = 3.25 cm。')">4.25 cm</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'b', true, '正确！4.25 − 1.00 = 3.25 cm，注意估读到了 0.01 cm。')">3.25 cm</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'c', false, '不对。4.25 − 1.00 = 3.25 cm。')">3.2 cm</button>
+      </div>
+      <div class="quiz-feedback" id="ch1-fb2"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="goTo(2)">下一章 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 2: 质量的测量 ========== -->
+<div class="card hidden" id="ch2">
+  <div class="card-header">
+    <h2>质量的测量</h2>
+    <span class="chapter-num">第 2 / 4 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心工具 — 托盘天平</div>
+    <p>使用天平的核心口诀：<strong>左物右码</strong></p>
+    <p>• 左盘放<strong>被测物体</strong>，右盘放<strong>砝码</strong></p>
+    <p>• 砝码用镊子夹取，不能用手直接拿</p>
+    <p>• 添加砝码从大到小，最后调节游码</p>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">砝码规格 & 游码读数</div>
+    <p>常见砝码组合：<strong>100g、50g、20g、10g、5g</strong></p>
+    <p>游码读数：看游码左侧对齐的刻度线</p>
+    <div class="formula">总质量 = 砝码质量之和 + 游码读数</div>
+  </div>
+
+  <div class="anim-area">
+    <div class="balance-viz">
+      <div style="display:flex;gap:60px;align-items:flex-end;">
+        <div style="text-align:center;">
+          <div style="font-size:13px;color:var(--text-dim);margin-bottom:4px;">左盘</div>
+          <div style="font-size:24px;">📦</div>
+          <div style="font-size:12px;color:var(--accent);margin-top:4px;">被测物体</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:13px;color:var(--text-dim);margin-bottom:4px;">右盘</div>
+          <div style="font-size:24px;">⚖️</div>
+          <div style="font-size:12px;color:var(--accent);margin-top:4px;">砝码</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:14px;color:var(--text-dim);">
+        口诀：<span style="color:var(--accent)">左物右码</span> — 左盘放物体，右盘放砝码
+      </div>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：右盘有 100g + 50g 砝码，游码读数 0.0g，物体质量是多少？</div>
+      <div class="a">
+        砝码总和 = 100 + 50 = 150 g<br>
+        游码读数 = 0.0 g<br>
+        <strong style="color:var(--success)">→ 物体质量 = 150 + 0.0 = 150.0 g</strong>
+        <div class="step">（注意：游码在零刻度时，读数为 0）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：右盘有 20g + 10g + 5g 砝码，游码读数 2.4g，总质量是多少？</div>
+      <div class="a">
+        砝码总和 = 20 + 10 + 5 = 35 g<br>
+        游码读数 = 2.4 g<br>
+        <strong style="color:var(--success)">→ 总质量 = 35 + 2.4 = 37.4 g</strong>
+        <div class="step">（游码读数要精确到 0.1g）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：右盘有 100g + 20g + 10g 砝码，游码读数 3.6g，总质量是多少？</div>
+      <div class="a">
+        砝码总和 = 100 + 20 + 10 = 130 g<br>
+        游码读数 = 3.6 g<br>
+        <strong style="color:var(--success)">→ 总质量 = 130 + 3.6 = 133.6 g</strong>
+        <div class="step">（逐个相加砝码，别漏了游码！）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch2-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">右盘有 100g + 20g + 5g 砝码，游码在 2.4g 处，总质量是多少？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。100+20+5=125，再加游码2.4g。')">125.0 g</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。100+20+5=125，再加游码2.4g。')">127.0 g</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！100+20+5=125g，加游码2.4g = 127.4g。')">127.4 g</button>
+    </div>
+    <div class="quiz-feedback" id="ch2-fb"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(1)">← 上一章</button>
+    <button class="btn" onclick="goTo(3)">下一章 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 3: 体积的测量 ========== -->
+<div class="card hidden" id="ch3">
+  <div class="card-header">
+    <h2>体积的测量</h2>
+    <span class="chapter-num">第 3 / 4 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">量筒读数</div>
+    <p>量筒是测量液体体积的工具，读数时要注意：</p>
+    <p>• 视线与<strong>凹液面最低处</strong>保持水平</p>
+    <p>• 俯视读数会偏大，仰视读数会偏小</p>
+    <p>• 读数精确到分度值的下一位</p>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">排水法测不规则固体体积</div>
+    <p>对于形状不规则的固体（如石头），可以用排水法：</p>
+    <p>• 先在量筒中倒入适量水，记录体积 <strong>V₁</strong></p>
+    <p>• 将固体完全浸入水中，记录体积 <strong>V₂</strong></p>
+    <div class="formula">固体体积 V = V₂ − V₁</div>
+  </div>
+
+  <div class="anim-area">
+    <div style="display:flex;gap:40px;align-items:flex-end;flex-wrap:wrap;justify-content:center;">
+      <div style="text-align:center;">
+        <div class="cylinder-viz">
+          <div class="cylinder-liquid" style="height:45%;">
+            <div class="cylinder-meniscus"></div>
+          </div>
+          <div class="cylinder-scale">
+            <div class="cylinder-tick major"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick major"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick major"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick major"></div>
+          </div>
+          <div class="cylinder-read-line" style="bottom:45%;">
+            <div class="cylinder-label" style="bottom:45%;">V₁</div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text-dim);margin-top:8px;">放入物体前</div>
+      </div>
+      <div style="font-size:28px;color:var(--warning);margin-bottom:60px;">→</div>
+      <div style="text-align:center;">
+        <div class="cylinder-viz">
+          <div class="cylinder-liquid" style="height:70%;">
+            <div class="cylinder-meniscus"></div>
+          </div>
+          <div class="cylinder-scale">
+            <div class="cylinder-tick major"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick major"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick major"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick"></div>
+            <div class="cylinder-tick major"></div>
+          </div>
+          <div class="cylinder-read-line" style="bottom:70%;">
+            <div class="cylinder-label" style="bottom:70%;">V₂</div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text-dim);margin-top:8px;">放入物体后</div>
+      </div>
+    </div>
+    <div style="font-size:14px;color:var(--accent);margin-top:12px;">
+      固体体积 = V₂ − V₁（视线对准凹液面最低处）
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：量筒中原有水 30.0 mL，放入石块后水面升到 42.0 mL，石块体积是多少？</div>
+      <div class="a">
+        V₁ = 30.0 mL，V₂ = 42.0 mL<br>
+        石块体积 = V₂ − V₁ = 42.0 − 30.0 = <strong style="color:var(--success)">12.0 cm³</strong>
+        <div class="step">（1 mL = 1 cm³，注意单位换算）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：量筒中原有水 25.0 mL，放入金属块后水面升到 38.5 mL，金属块体积是多少？</div>
+      <div class="a">
+        V₁ = 25.0 mL，V₂ = 38.5 mL<br>
+        金属块体积 = 38.5 − 25.0 = <strong style="color:var(--success)">13.5 cm³</strong>
+        <div class="step">（减法时注意小数位对齐）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：量筒中原有水 50.0 mL，放入小铁球后水面升到 56.0 mL，铁球体积是多少？</div>
+      <div class="a">
+        V₁ = 50.0 mL，V₂ = 56.0 mL<br>
+        铁球体积 = 56.0 − 50.0 = <strong style="color:var(--success)">6.0 cm³</strong>
+        <div class="step">（小体积物体也能准确测量）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch3-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">读量筒示数时，视线应该与哪里保持水平？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。液面边缘受表面张力影响，读数不准。')">液面最高处</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！视线应与凹液面最低处保持水平。')">凹液面最低处</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。量筒壁不是读数位置。')">量筒侧壁</button>
+    </div>
+    <div class="quiz-feedback" id="ch3-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">量筒中原有水 20.0 mL，放入物体后水面升到 35.0 mL，物体体积是？</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'a', false, '不对。35.0 − 20.0 = 15.0 cm³。')">20.0 cm³</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'b', false, '不对。35.0 − 20.0 = 15.0 cm³。')">35.0 cm³</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'c', true, '正确！V = 35.0 − 20.0 = 15.0 cm³。')">15.0 cm³</button>
+      </div>
+      <div class="quiz-feedback" id="ch3-fb2"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(2)">← 上一章</button>
+    <button class="btn" onclick="goTo(4)">下一章 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 4: 密度的计算 ========== -->
+<div class="card hidden" id="ch4">
+  <div class="card-header">
+    <h2>密度的计算</h2>
+    <span class="chapter-num">第 4 / 4 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心公式</div>
+    <p>密度是物质的质量与体积之比，是物质的<strong>特性</strong>。</p>
+    <div class="formula">ρ = m / V</div>
+    <p>单位：<strong>g/cm³</strong>（常用）或 <strong>kg/m³</strong></p>
+    <p>密度可以用来<strong>鉴别材料</strong>：不同物质密度一般不同。</p>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">常见物质密度参考表（g/cm³）</div>
+    <table class="density-table">
+      <tr><th>物质</th><th>密度</th><th>物质</th><th>密度</th></tr>
+      <tr><td>水</td><td>1.0</td><td>铝</td><td>2.7</td></tr>
+      <tr><td>铁</td><td>7.9</td><td>铜</td><td>8.9</td></tr>
+      <tr><td>木材（松木）</td><td>≈0.5</td><td>冰</td><td>0.9</td></tr>
+      <tr><td>酒精</td><td>0.8</td><td>水银</td><td>13.6</td></tr>
+    </table>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">神秘盒子 — 鉴别材料</div>
+    <div class="mystery-viz">
+      <div class="mystery-box">?</div>
+      <div class="mystery-data">
+        <div>m = <span style="color:var(--warning)">86.4 g</span></div>
+        <div>V = <span style="color:var(--warning)">37.1 cm³</span></div>
+      </div>
+      <div class="mystery-arrow">→</div>
+      <div style="text-align:center;">
+        <div class="mystery-result" id="mystery-result" style="cursor:pointer;" onclick="revealDensity()">ρ = ?</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">（点击揭晓）</div>
+      </div>
+    </div>
+    <div id="mystery-reveal" style="font-size:14px;color:var(--success);margin-top:8px;opacity:0;transition:opacity 0.5s;">
+      ρ = 86.4 ÷ 37.1 ≈ <strong>2.33 g/cm³</strong> → 接近铝（2.7）或某种合金
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：一块金属质量 54.0 g，体积 20.0 cm³，求密度并判断是什么金属？</div>
+      <div class="a">
+        ρ = m / V = 54.0 / 20.0 = <strong style="color:var(--success)">2.7 g/cm³</strong><br>
+        查表：铝的密度 = 2.7 g/cm³<br>
+        <strong style="color:var(--success)">→ 这块金属是铝 ✅</strong>
+        <div class="step">（密度是物质的"身份证"）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：一个铁块质量 158 g，体积 20 cm³，求密度。是纯铁吗？</div>
+      <div class="a">
+        ρ = 158 / 20 = <strong style="color:var(--success)">7.9 g/cm³</strong><br>
+        查表：铁的密度 = 7.9 g/cm³<br>
+        <strong style="color:var(--success)">→ 是纯铁 ✅</strong>
+        <div class="step">（计算结果与参考值完全吻合）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：一杯水质量 100 g，体积 100 cm³，求密度。</div>
+      <div class="a">
+        ρ = 100 / 100 = <strong style="color:var(--success)">1.0 g/cm³</strong><br>
+        查表：水的密度 = 1.0 g/cm³<br>
+        <strong style="color:var(--success)">→ 确实是水 ✅</strong>
+        <div class="step">（水的密度是基准值，记住它！）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch4-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">质量 86.4 g，体积 37.1 cm³，密度是多少？它可能是什么材料？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。86.4 ÷ 37.1 ≈ 2.33 g/cm³。')">1.0 g/cm³ — 可能是水</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。86.4 ÷ 37.1 ≈ 2.33 g/cm³。')">7.9 g/cm³ — 可能是铁</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！ρ = 86.4 ÷ 37.1 ≈ 2.33 g/cm³，接近铝（2.7）或某种合金。')">≈2.33 g/cm³ — 接近铝或合金</button>
+    </div>
+    <div class="quiz-feedback" id="ch4-fb"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(3)">← 上一章</button>
+    <a class="btn btn-warn" href="index.html">🎮 进入特工装备室</a>
+  </div>
+</div>
+
+<!-- ========== FOOTER ========== -->
+<div style="text-align:center;padding:20px 0;color:var(--text-dim);font-size:12px;letter-spacing:1px;">
+  物理特工装备室 · 沪教版六年级上册 · 测量的初步
+</div>
+
+</div><!-- /app -->
+
+<script>
+// ========== AUDIO ==========
+let audioCtx;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function sfx(type) {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  if (type === 'ok') {
+    osc.type = 'sine'; osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t+0.1);
+    gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+    osc.start(t); osc.stop(t+0.3);
+  } else if (type === 'err') {
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, t);
+    gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+    osc.start(t); osc.stop(t+0.3);
+  } else if (type === 'click') {
+    osc.type = 'square'; osc.frequency.setValueAtTime(800, t);
+    gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.05);
+    osc.start(t); osc.stop(t+0.05);
+  }
+}
+
+// ========== NAVIGATION ==========
+let currentCh = 1;
+function goTo(n) {
+  sfx('click');
+  document.getElementById('ch' + currentCh).classList.add('hidden');
+  document.getElementById('ch' + n).classList.remove('hidden');
+  currentCh = n;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < currentCh) s.classList.add('done');
+    else if (i + 1 === currentCh) s.classList.add('active');
+  });
+}
+
+// ========== QUIZ ==========
+function checkQuiz(btn, correct, msg) {
+  ensureAudio();
+  const opts = btn.closest('.quiz-options');
+  const fb = opts.parentElement.querySelector('.quiz-feedback');
+  opts.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
+  if (correct) {
+    btn.classList.add('correct'); sfx('ok');
+    fb.innerHTML = '<span style="color:var(--success)">✓ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong'); sfx('err');
+    fb.innerHTML = '<span style="color:var(--danger)">✗ ' + msg + '</span>';
+    const correctBtn = Array.from(opts.querySelectorAll('.quiz-btn')).find(b => b.getAttribute('onclick').includes('true'));
+    if (correctBtn) correctBtn.classList.add('correct');
+  }
+}
+
+function checkQuiz2(btn, key, correct, msg) {
+  ensureAudio();
+  const opts = btn.closest('.quiz-options');
+  const fb = opts.parentElement.querySelector('.quiz-feedback');
+  opts.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
+  if (correct) {
+    btn.classList.add('correct'); sfx('ok');
+    fb.innerHTML = '<span style="color:var(--success)">✓ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong'); sfx('err');
+    fb.innerHTML = '<span style="color:var(--danger)">✗ ' + msg + '</span>';
+  }
+}
+
+// ========== RULER ANIMATION ==========
+function buildRuler() {
+  const scale = document.getElementById('ruler-scale');
+  if (!scale) return;
+  for (let i = 0; i <= 10; i++) {
+    const tick = document.createElement('div');
+    tick.className = 'ruler-tick' + (i % 5 === 0 ? ' major' : '');
+    scale.appendChild(tick);
+    if (i % 5 === 0) {
+      const num = document.createElement('div');
+      num.className = 'ruler-num';
+      num.textContent = i;
+      num.style.left = (20 + i * 28) + 'px';
+      scale.appendChild(num);
+    }
+  }
+}
+
+// ========== MYSTERY BOX ==========
+function revealDensity() {
+  sfx('click');
+  const el = document.getElementById('mystery-reveal');
+  const res = document.getElementById('mystery-result');
+  if (el) el.style.opacity = '1';
+  if (res) res.innerHTML = 'ρ ≈ <span style="color:var(--success)">2.33</span>';
+}
+
+// ========== INIT ==========
+buildRuler();
+updateProgress();
+</script>
+</body>
+</html>
