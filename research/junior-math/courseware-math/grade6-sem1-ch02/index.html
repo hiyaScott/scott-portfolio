@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分数特工 — 沪教版六年级</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10,14,26,0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0,245,212,0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  overflow: hidden; height: 100vh; width: 100vw; position: relative;
+}
+
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px; pointer-events: none; z-index: 1;
+}
+
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+#app {
+  position: relative; z-index: 10;
+  height: 100vh; display: flex; flex-direction: column;
+  padding: 40px 60px;
+}
+
+#title-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 12px; margin-bottom: 20px;
+}
+#title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px; letter-spacing: 3px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+#title-bar .badge {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 8px;
+}
+
+#top-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.hud-block { display: flex; gap: 20px; }
+.hud-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.hud-item .label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+.hud-item .value { font-size: 18px; color: var(--accent); font-weight: bold; }
+.hud-item .value.danger { color: var(--danger); }
+.hud-item .value.warning { color: var(--warning); }
+
+/* Level nav */
+.level-nav { 
+  cursor: pointer; font-size: 1.2rem; color: var(--accent);
+  padding: 4px 8px; border: 1px solid rgba(0,245,212,0.3);
+  border-radius: 4px; transition: all 0.2s;
+}
+.level-nav:hover { background: rgba(0,245,212,0.1); }
+.level-nav-panel {
+  position: fixed; top: 70px; right: 20px;
+  background: var(--panel); backdrop-filter: blur(12px);
+  border: 1px solid rgba(0,245,212,0.3); border-radius: 8px;
+  padding: 8px 0; z-index: 200; display: none;
+  min-width: 180px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.level-nav-panel.active { display: block; }
+.level-nav-panel div {
+  padding: 10px 16px; cursor: pointer;
+  font-size: 0.85rem; color: var(--text);
+  transition: all 0.15s; border-left: 3px solid transparent;
+}
+.level-nav-panel div:hover { background: rgba(0,245,212,0.1); color: var(--accent); border-left-color: var(--accent); }
+.level-nav-panel div.current { color: var(--accent); font-weight: bold; }
+
+/* Screens */
+.screen {
+  display: none; flex: 1; flex-direction: column;
+  animation: fadeIn 0.4s ease;
+}
+.screen.active { display: flex; }
+
+/* Intro */
+#intro-screen { align-items: center; justify-content: center; text-align: center; }
+.intro-box { max-width: 500px; }
+.intro-icon { font-size: 5rem; margin-bottom: 20px; }
+.intro-title {
+  font-family: 'Orbitron'; font-size: 2.5rem;
+  color: var(--accent); text-shadow: 0 0 30px var(--accent);
+  margin-bottom: 10px;
+}
+.intro-sub { font-size: 1.1rem; color: var(--accent2); margin-bottom: 30px; }
+.intro-text { font-size: 0.95rem; line-height: 1.7; color: var(--text-dim); margin-bottom: 30px; }
+.intro-text p { margin: 8px 0; }
+
+/* Level screens */
+.level-content {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px;
+}
+
+/* Buttons */
+.btn {
+  background: transparent; border: 1px solid var(--accent); color: var(--accent);
+  padding: 14px 36px; border-radius: 6px; cursor: pointer;
+  font-family: 'Share Tech Mono', monospace; font-size: 14px; letter-spacing: 2px;
+  transition: all 0.3s;
+}
+.btn:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 20px var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Timer bar */
+.timer-bar { width: 100%; max-width: 400px; height: 4px; background: rgba(0,245,212,0.15); border-radius: 2px; overflow: hidden; }
+.timer-fill { height: 100%; background: var(--accent); width: 100%; transition: width 0.1s linear; }
+
+/* Question display */
+.question-display { font-size: 2rem; text-align: center; color: #fff; }
+.question-display .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 8px; }
+.question-display .fraction .num { border-bottom: 2px solid var(--accent); padding: 0 8px; color: var(--accent); }
+.question-display .fraction .den { padding: 0 8px; color: var(--accent2); }
+
+/* L1: Fraction Builder */
+.builder-area { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.builder-inputs { display: flex; align-items: center; gap: 15px; }
+.builder-inputs input {
+  width: 80px; height: 50px; font-size: 24px; text-align: center;
+  background: var(--panel); border: 2px solid var(--accent); color: var(--accent);
+  border-radius: 8px; font-family: 'Share Tech Mono', monospace;
+}
+.builder-inputs .frac-line { width: 60px; height: 2px; background: var(--accent); }
+.builder-label { font-size: 14px; color: var(--text-dim); }
+
+/* Fraction visual (circle) */
+.frac-circle {
+  width: 150px; height: 150px; border: 3px solid var(--accent); border-radius: 50%;
+  position: relative; overflow: hidden; background: rgba(0,245,212,0.05);
+}
+.frac-circle .slice {
+  position: absolute; width: 50%; height: 50%;
+  background: var(--accent); opacity: 0.4;
+  transform-origin: 100% 100%;
+}
+
+/* L2: Comparison */
+.compare-area { display: flex; align-items: center; gap: 30px; }
+.compare-btn {
+  width: 60px; height: 60px; font-size: 24px;
+  background: var(--panel); border: 2px solid var(--accent); color: var(--accent);
+  border-radius: 8px; cursor: pointer; font-family: 'Share Tech Mono', monospace;
+  transition: all 0.2s;
+}
+.compare-btn:hover { background: var(--accent); color: var(--bg); }
+.compare-btn.correct { background: var(--success); border-color: var(--success); color: var(--bg); }
+.compare-btn.wrong { background: var(--danger); border-color: var(--danger); color: var(--bg); animation: shake 0.5s ease; }
+
+/* L3: Operations */
+.ops-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 400px; width: 100%; }
+.ops-btn {
+  padding: 16px; font-size: 18px;
+  background: var(--panel); border: 1px solid rgba(0,245,212,0.2);
+  color: var(--text); border-radius: 8px; cursor: pointer;
+  font-family: 'Share Tech Mono', monospace; transition: all 0.2s;
+}
+.ops-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ops-btn.correct { background: rgba(6,214,160,0.15); border-color: var(--success); color: var(--success); }
+.ops-btn.wrong { background: rgba(239,71,111,0.15); border-color: var(--danger); color: var(--danger); animation: shake 0.5s ease; }
+
+/* L4: Converter */
+.converter-area { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.converter-input {
+  width: 200px; height: 50px; font-size: 20px; text-align: center;
+  background: var(--panel); border: 2px solid var(--accent); color: var(--accent);
+  border-radius: 8px; font-family: 'Share Tech Mono', monospace;
+}
+.converter-hint { font-size: 13px; color: var(--text-dim); }
+
+/* Progress dots */
+.progress-dots { display: flex; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(0,245,212,0.2); transition: all 0.3s; }
+.dot.current { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.dot.done { background: var(--success); }
+
+/* Feedback overlay */
+#feedback-overlay {
+  position: fixed; inset: 0; display: none;
+  align-items: center; justify-content: center;
+  z-index: 300; pointer-events: none;
+}
+#feedback-overlay.active { display: flex; }
+.feedback-text {
+  padding: 20px 40px; border-radius: 8px;
+  font-size: 1.2rem; font-weight: bold;
+  animation: popIn 0.3s ease;
+}
+.feedback-text.ok { background: rgba(6,214,160,0.2); border: 1px solid var(--success); color: var(--success); }
+.feedback-text.wrong { background: rgba(239,71,111,0.2); border: 1px solid var(--danger); color: var(--danger); }
+
+/* Level clear */
+#level-clear-overlay {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg); z-index: 200;
+}
+#level-clear-overlay.active { display: flex; }
+#level-clear-overlay h2 {
+  font-family: 'Orbitron'; font-size: 3rem;
+  color: var(--accent); text-shadow: 0 0 40px var(--accent);
+  margin-bottom: 20px;
+}
+.level-stats { display: flex; gap: 40px; margin-bottom: 30px; }
+
+/* Result screen */
+#result-screen {
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100vh; position: fixed; inset: 0;
+  background: var(--bg); z-index: 250;
+}
+#result-screen.active { display: flex; }
+#result-screen h2 { font-family: 'Orbitron'; font-size: 2.5rem; color: var(--accent); margin-bottom: 20px; }
+.rank-text { font-size: 3rem; font-weight: bold; margin-bottom: 30px; }
+.final-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+.stat-card {
+  background: var(--panel); border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px; padding: 20px; text-align: center;
+}
+.stat-label { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+.stat-val { font-size: 28px; color: var(--accent); font-weight: bold; }
+.restart-btn {
+  background: transparent; border: 2px solid var(--accent); color: var(--accent);
+  padding: 16px 48px; border-radius: 8px; cursor: pointer;
+  font-family: 'Share Tech Mono', monospace; font-size: 16px; letter-spacing: 3px;
+  transition: all 0.3s;
+}
+.restart-btn:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 30px var(--accent); }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+@keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+/* Mobile */
+@media (max-width: 1024px) {
+  #app { padding: 30px 40px; }
+  #title-bar h1 { font-size: 22px; }
+}
+@media (max-width: 768px) {
+  #app { padding: 20px 20px; }
+  #title-bar h1 { font-size: 18px; }
+  .question-display { font-size: 1.5rem; }
+  .ops-options { grid-template-columns: 1fr; }
+  .final-stats { grid-template-columns: repeat(2, 1fr); }
+  .compare-area { gap: 15px; }
+  .compare-btn { width: 50px; height: 50px; font-size: 20px; }
+}
+@media (max-width: 480px) {
+  #app { padding: 12px 16px; }
+  #title-bar { flex-direction: column; gap: 8px; align-items: flex-start; }
+  #title-bar h1 { font-size: 16px; letter-spacing: 1px; }
+  #top-hud { flex-direction: column; gap: 8px; }
+  .hud-block { gap: 12px; }
+  .hud-item .label { font-size: 10px; }
+  .hud-item .value { font-size: 14px; }
+  .question-display { font-size: 1.2rem; }
+  .frac-circle { width: 100px; height: 100px; }
+  .builder-inputs input { width: 60px; height: 40px; font-size: 18px; }
+  .converter-input { width: 160px; height: 40px; font-size: 16px; }
+  .final-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .stat-card { padding: 12px; }
+  .stat-val { font-size: 20px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  #app { padding: 10px 20px; }
+  #title-bar { margin-bottom: 8px; padding-bottom: 6px; }
+  #title-bar h1 { font-size: 16px; }
+  .level-content { gap: 12px; }
+  .frac-circle { width: 80px; height: 80px; }
+}
+@media (min-width: 700px) and (max-width: 900px) and (min-height: 1000px) {
+  #app { padding: 40px 60px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Level Clear Overlay -->
+<div id="level-clear-overlay">
+  <h2>LEVEL CLEAR</h2>
+  <div class="level-stats">
+    <div class="hud-item"><span class="label">关卡得分</span><span class="value" id="lc-score">0</span></div>
+    <div class="hud-item"><span class="label">正确率</span><span class="value" id="lc-accuracy">0%</span></div>
+  </div>
+  <button class="btn" onclick="nextLevel()">继续 →</button>
+</div>
+
+<!-- Feedback -->
+<div id="feedback-overlay"><div class="feedback-text" id="feedback-text"></div></div>
+
+<!-- Result -->
+<div id="result-screen">
+  <h2>任务完成 · 报告</h2>
+  <div class="rank-text" id="final-rank">--</div>
+  <div class="final-stats">
+    <div class="stat-card"><div class="stat-label">总分</div><div class="stat-val" id="rs-total">0</div></div>
+    <div class="stat-card"><div class="stat-label">分数拼图</div><div class="stat-val" id="rs-l1">0</div></div>
+    <div class="stat-card"><div class="stat-label">大小对决</div><div class="stat-val" id="rs-l2">0</div></div>
+    <div class="stat-card"><div class="stat-label">运算迷宫</div><div class="stat-val" id="rs-l3">0</div></div>
+  </div>
+  <button class="restart-btn" onclick="restartGame()">>>> 重新部署</button>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <div id="title-bar">
+    <h1>分数特工</h1>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="badge">FRC-002 // LEVEL <span id="current-level-badge">1</span>/4</span>
+      <div class="level-nav" onclick="toggleLevelNav()">☰</div>
+    </div>
+  </div>
+
+  <!-- Level navigation panel -->
+  <div class="level-nav-panel" id="level-nav-panel">
+    <div onclick="navigateToLevel(1)" data-level="1">LEVEL 1 — 分数拼图</div>
+    <div onclick="navigateToLevel(2)" data-level="2">LEVEL 2 — 大小对决</div>
+    <div onclick="navigateToLevel(3)" data-level="3">LEVEL 3 — 运算迷宫</div>
+    <div onclick="navigateToLevel(4)" data-level="4">LEVEL 4 — 转化大师</div>
+  </div>
+
+  <div id="top-hud">
+    <div class="hud-block">
+      <div class="hud-item"><span class="label">SCORE</span><span class="value" id="hud-score">0</span></div>
+      <div class="hud-item"><span class="label">LIVES</span><span class="value danger" id="hud-lives">♥♥♥</span></div>
+      <div class="hud-item"><span class="label">COMBO</span><span class="value warning" id="hud-combo">0</span></div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-item"><span class="label">TIME</span><span class="value" id="hud-time">--</span></div>
+    </div>
+  </div>
+
+  <!-- Intro -->
+  <div class="screen active" id="intro-screen">
+    <div class="intro-box">
+      <div class="intro-icon">🎯</div>
+      <div class="intro-title">分数特工</div>
+      <div class="intro-sub">—— 分数的运算 ——</div>
+      <div class="intro-text">
+        <p>欢迎，分数特工。</p>
+        <p>你即将进入分数世界，完成四项机密任务。</p>
+        <p>每一项任务都需要你掌握分数的性质、比较和运算。</p>
+        <p style="margin-top:12px;color:var(--accent);">准备好了吗？</p>
+      </div>
+      <button class="btn" onclick="nextLevel()">接受任务</button>
+    </div>
+  </div>
+
+  <!-- Level 1: Fraction Builder -->
+  <div class="screen" id="level1">
+    <div class="level-content">
+      <div class="question-display">目标分数：<span id="l1-target">3/4</span></div>
+      <div class="frac-circle" id="l1-circle"></div>
+      <div class="builder-area">
+        <div class="builder-inputs">
+          <div>
+            <input type="number" id="l1-num" placeholder="分子" min="1">
+            <div class="builder-label">分子</div>
+          </div>
+          <div class="frac-line"></div>
+          <div>
+            <input type="number" id="l1-den" placeholder="分母" min="1">
+            <div class="builder-label">分母</div>
+          </div>
+        </div>
+        <button class="btn" onclick="checkL1()">组装</button>
+      </div>
+      <div class="timer-bar"><div class="timer-fill" id="l1-timer"></div></div>
+      <div class="progress-dots" id="l1-dots">
+        <div class="dot current"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level 2: Fraction Battle -->
+  <div class="screen" id="level2">
+    <div class="level-content">
+      <div class="compare-area">
+        <div class="question-display" id="l2-left">2/3</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="compare-btn" onclick="checkL2('>')">&gt;</button>
+          <button class="compare-btn" onclick="checkL2('=')">=</button>
+          <button class="compare-btn" onclick="checkL2('<')">&lt;</button>
+        </div>
+        <div class="question-display" id="l2-right">3/5</div>
+      </div>
+      <div class="timer-bar"><div class="timer-fill" id="l2-timer"></div></div>
+      <div class="progress-dots" id="l2-dots">
+        <div class="dot current"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level 3: Fraction Ops -->
+  <div class="screen" id="level3">
+    <div class="level-content">
+      <div class="question-display" id="l3-question">1/2 + 1/3 = ?</div>
+      <div class="ops-options" id="l3-options">
+        <button class="ops-btn" onclick="checkL3(0)">2/5</button>
+        <button class="ops-btn" onclick="checkL3(1)">5/6</button>
+        <button class="ops-btn" onclick="checkL3(2)">1/6</button>
+        <button class="ops-btn" onclick="checkL3(3)">3/5</button>
+      </div>
+      <div class="timer-bar"><div class="timer-fill" id="l3-timer"></div></div>
+      <div class="progress-dots" id="l3-dots">
+        <div class="dot current"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level 4: Converter -->
+  <div class="screen" id="level4">
+    <div class="level-content">
+      <div class="question-display" id="l4-question">3/8 = ? (小数)</div>
+      <div class="converter-area">
+        <input type="text" class="converter-input" id="l4-input" placeholder="输入答案">
+        <div class="converter-hint" id="l4-hint">保留3位小数，或用分数表示</div>
+        <button class="btn" onclick="checkL4()">提交</button>
+      </div>
+      <div class="timer-bar"><div class="timer-fill" id="l4-timer"></div></div>
+      <div class="progress-dots" id="l4-dots">
+        <div class="dot current"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ====== AUDIO ======
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+function sfxClick() { initAudio(); const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='square';o.frequency.setValueAtTime(800,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(400,audioCtx.currentTime+0.1);g.gain.setValueAtTime(0.1,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.1);o.start();o.stop(audioCtx.currentTime+0.1); }
+function sfxWin() { initAudio(); const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.setValueAtTime(523,audioCtx.currentTime);o.frequency.setValueAtTime(659,audioCtx.currentTime+0.1);o.frequency.setValueAtTime(784,audioCtx.currentTime+0.2);g.gain.setValueAtTime(0.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.4);o.start();o.stop(audioCtx.currentTime+0.4); }
+function sfxWrong() { initAudio(); const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sawtooth';o.frequency.setValueAtTime(200,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(100,audioCtx.currentTime+0.3);g.gain.setValueAtTime(0.1,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.3);o.start();o.stop(audioCtx.currentTime+0.3); }
+function sfxLevelUp() { initAudio(); [523,659,784,1047].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.setValueAtTime(f,audioCtx.currentTime+i*0.1);g.gain.setValueAtTime(0.15,audioCtx.currentTime+i*0.1);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+i*0.1+0.2);o.start(audioCtx.currentTime+i*0.1);o.stop(audioCtx.currentTime+i*0.1+0.2);}); }
+
+// ====== STATE ======
+const state = {
+  level: 0,
+  score: 0,
+  lives: 3,
+  combo: 0,
+  maxCombo: 0,
+  levelScores: [0,0,0,0],
+  levelCorrect: [0,0,0,0],
+  levelTotal: [0,0,0,0]
+};
+let timerInterval;
+let timeLeft;
+let currentQ = {};
+let qIndex = 0;
+const Q_PER_LEVEL = 10;
+
+// Level data generators
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a;}
+function lcm(a,b){return Math.abs(a*b)/gcd(a,b);}
+
+function genL1() {
+  const den = 3 + Math.floor(Math.random()*8); // 3-10
+  const num = 1 + Math.floor(Math.random()*(den-1)); // 1 to den-1
+  return {num, den, str: `${num}/${den}`};
+}
+
+function genL2() {
+  const types = ['same-den', 'same-num', 'diff', 'mixed'];
+  const type = types[Math.floor(Math.random()*types.length)];
+  let a,b,c,d,ans;
+  if (type === 'same-den') {
+    b = 2 + Math.floor(Math.random()*8);
+    a = 1 + Math.floor(Math.random()*(b-1));
+    c = 1 + Math.floor(Math.random()*(b-1));
+    while (c === a) c = 1 + Math.floor(Math.random()*(b-1));
+    ans = a > c ? '>' : '<';
+  } else if (type === 'same-num') {
+    a = 1 + Math.floor(Math.random()*5);
+    b = 2 + Math.floor(Math.random()*6);
+    d = 2 + Math.floor(Math.random()*6);
+    while (d === b) d = 2 + Math.floor(Math.random()*6);
+    ans = b < d ? '>' : '<';
+  } else if (type === 'diff') {
+    b = 3 + Math.floor(Math.random()*7);
+    a = 1 + Math.floor(Math.random()*(b-1));
+    d = 3 + Math.floor(Math.random()*7);
+    c = 1 + Math.floor(Math.random()*(d-1));
+    const l = lcm(b,d);
+    const left = a * (l/b);
+    const right = c * (l/d);
+    if (left === right) ans = '=';
+    else ans = left > right ? '>' : '<';
+  } else {
+    // mixed: one fraction vs one mixed
+    const whole = 1 + Math.floor(Math.random()*3);
+    b = 2 + Math.floor(Math.random()*5);
+    a = 1 + Math.floor(Math.random()*(b-1));
+    d = b;
+    c = whole * b + a;
+    ans = '<';
+  }
+  return {left: `${a}/${b}`, right: `${c}/${d}`, ans};
+}
+
+function genL3() {
+  const ops = ['+', '-', '*', '/'];
+  const op = ops[Math.floor(Math.random()*ops.length)];
+  let a,b,c,d,ans,ansStr;
+  if (op === '+') {
+    b = 4 + Math.floor(Math.random()*8);
+    a = 1 + Math.floor(Math.random()*(b-1));
+    d = b;
+    c = 1 + Math.floor(Math.random()*(d-1));
+    while (c === a) c = 1 + Math.floor(Math.random()*(d-1));
+    const num = a+c, den = b;
+    const g = gcd(num, den);
+    ansStr = `${num/g}/${den/g}`;
+  } else if (op === '-') {
+    b = 4 + Math.floor(Math.random()*8);
+    a = 2 + Math.floor(Math.random()*(b-2));
+    d = b;
+    c = 1 + Math.floor(Math.random()*(a-1));
+    const num = a-c, den = b;
+    const g = gcd(num, den);
+    ansStr = `${num/g}/${den/g}`;
+  } else if (op === '*') {
+    a = 1 + Math.floor(Math.random()*5);
+    b = 2 + Math.floor(Math.random()*5);
+    c = 1 + Math.floor(Math.random()*5);
+    d = 2 + Math.floor(Math.random()*5);
+    const num = a*c, den = b*d;
+    const g = gcd(num, den);
+    ansStr = `${num/g}/${den/g}`;
+  } else {
+    a = 1 + Math.floor(Math.random()*5);
+    b = 2 + Math.floor(Math.random()*5);
+    c = 1 + Math.floor(Math.random()*5);
+    d = 2 + Math.floor(Math.random()*5);
+    const num = a*d, den = b*c;
+    const g = gcd(num, den);
+    ansStr = `${num/g}/${den/g}`;
+  }
+  // Generate 3 wrong answers
+  const wrong = [];
+  while (wrong.length < 3) {
+    let w;
+    if (Math.random() > 0.5) {
+      const n = 1 + Math.floor(Math.random()*10);
+      const den = 2 + Math.floor(Math.random()*8);
+      w = `${n}/${den}`;
+    } else {
+      w = (Math.random()*3).toFixed(2);
+    }
+    if (w !== ansStr && !wrong.includes(w)) wrong.push(w);
+  }
+  const options = [ansStr, ...wrong].sort(() => Math.random()-0.5);
+  return {q: `${a}/${b} ${op} ${c}/${d}`, ans: ansStr, options};
+}
+
+function genL4() {
+  const type = Math.random() > 0.5 ? 'frac-to-dec' : 'dec-to-frac';
+  if (type === 'frac-to-dec') {
+    const denoms = [2,4,5,8,10,20,25,50];
+    const den = denoms[Math.floor(Math.random()*denoms.length)];
+    const num = 1 + Math.floor(Math.random()*(den-1));
+    const dec = (num/den).toFixed(3);
+    return {q: `${num}/${den} = ?`, ans: dec, hint: '小数', type};
+  } else {
+    const decs = [0.25, 0.5, 0.75, 0.125, 0.375, 0.625, 0.2, 0.4, 0.6, 0.8];
+    const dec = decs[Math.floor(Math.random()*decs.length)];
+    // Convert to fraction
+    const str = dec.toString();
+    const digits = str.length - 2; // after "0."
+    let num = Math.round(dec * Math.pow(10, digits));
+    let den = Math.pow(10, digits);
+    const g = gcd(num, den);
+    const frac = `${num/g}/${den/g}`;
+    return {q: `${dec} = ?`, ans: frac, hint: '分数（最简）', type};
+  }
+}
+
+// ====== LEVEL NAVIGATION ======
+function toggleLevelNav() {
+  document.getElementById('level-nav-panel').classList.toggle('active');
+}
+function navigateToLevel(n) {
+  document.getElementById('level-nav-panel').classList.remove('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  document.getElementById('result-screen').classList.remove('active');
+  state.level = n;
+  document.getElementById('current-level-badge').textContent = n;
+  updateLevelNav();
+  if (n === 1) { document.getElementById('level1').classList.add('active'); startL1(); }
+  if (n === 2) { document.getElementById('level2').classList.add('active'); startL2(); }
+  if (n === 3) { document.getElementById('level3').classList.add('active'); startL3(); }
+  if (n === 4) { document.getElementById('level4').classList.add('active'); startL4(); }
+}
+function updateLevelNav() {
+  document.querySelectorAll('.level-nav-panel div').forEach(d => {
+    d.classList.toggle('current', d.dataset.level == state.level);
+  });
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('level-nav-panel');
+  const btn = document.querySelector('.level-nav');
+  if (nav && nav.classList.contains('active') && !nav.contains(e.target) && !(btn && btn.contains(e.target))) {
+    nav.classList.remove('active');
+  }
+});
+
+// ====== HUD ======
+function updateHUD() {
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-lives').textContent = '♥'.repeat(state.lives) + '♡'.repeat(3-state.lives);
+  document.getElementById('hud-combo').textContent = state.combo;
+}
+
+// ====== TIMER ======
+function startTimer(seconds, fillId, onTimeout) {
+  clearInterval(timerInterval);
+  timeLeft = seconds;
+  const fill = document.getElementById(fillId);
+  fill.style.width = '100%';
+  fill.style.transition = 'none';
+  setTimeout(() => { fill.style.transition = `width ${seconds}s linear`; fill.style.width = '0%'; }, 50);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById('hud-time').textContent = timeLeft + 's';
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      onTimeout();
+    }
+  }, 1000);
+}
+
+// ====== FEEDBACK ======
+function showFeedback(text, type) {
+  const f = document.getElementById('feedback-text');
+  f.textContent = text; f.className = 'feedback-text ' + type;
+  document.getElementById('feedback-overlay').classList.add('active');
+  setTimeout(() => document.getElementById('feedback-overlay').classList.remove('active'), 800);
+}
+
+// ====== SCORE ======
+function addScore(points) {
+  const bonus = Math.floor(state.combo / 3);
+  state.score += points + bonus;
+  updateHUD();
+}
+
+// ====== L1: FRACTION BUILDER ======
+function startL1() {
+  qIndex = 0;
+  state.levelCorrect[0] = 0; state.levelTotal[0] = 0;
+  document.getElementById('l1-num').value = '';
+  document.getElementById('l1-den').value = '';
+  nextL1();
+}
+function nextL1() {
+  if (qIndex >= Q_PER_LEVEL) { showLevelClear(1); return; }
+  currentQ = genL1();
+  document.getElementById('l1-target').textContent = currentQ.str;
+  document.getElementById('l1-num').value = '';
+  document.getElementById('l1-den').value = '';
+  // Draw circle
+  const circle = document.getElementById('l1-circle');
+  circle.innerHTML = '';
+  for (let i = 0; i < currentQ.den; i++) {
+    const slice = document.createElement('div');
+    slice.className = 'slice';
+    slice.style.transform = `rotate(${i * 360/currentQ.den}deg)`;
+    if (i >= currentQ.num) slice.style.opacity = '0.1';
+    circle.appendChild(slice);
+  }
+  startTimer(15, 'l1-timer', () => {
+    showFeedback('⏱ 时间到！', 'wrong');
+    state.combo = 0; updateHUD();
+    state.levelTotal[0]++;
+    qIndex++;
+    setTimeout(nextL1, 800);
+  });
+}
+function checkL1() {
+  clearInterval(timerInterval);
+  const num = parseInt(document.getElementById('l1-num').value);
+  const den = parseInt(document.getElementById('l1-den').value);
+  if (isNaN(num) || isNaN(den)) { showFeedback('请输入分子和分母', 'wrong'); return; }
+  
+  // Check if equivalent (simplified form)
+  const g = gcd(num, den);
+  const simpNum = num/g, simpDen = den/g;
+  const targetG = gcd(currentQ.num, currentQ.den);
+  const targetNum = currentQ.num/targetG, targetDen = currentQ.den/targetG;
+  
+  if (simpNum === targetNum && simpDen === targetDen) {
+    sfxWin(); showFeedback('正确！', 'ok');
+    state.combo++; state.levelCorrect[0]++; state.levelTotal[0]++;
+    addScore(10);
+  } else {
+    sfxWrong(); showFeedback(`错误！正确答案是 ${currentQ.str}`, 'wrong');
+    state.combo = 0; state.lives--;
+    state.levelTotal[0]++;
+    if (state.lives <= 0) { gameOver(); return; }
+  }
+  updateHUD();
+  qIndex++;
+  setTimeout(nextL1, 800);
+}
+
+// ====== L2: FRACTION BATTLE ======
+function startL2() {
+  qIndex = 0;
+  state.levelCorrect[1] = 0; state.levelTotal[1] = 0;
+  nextL2();
+}
+function nextL2() {
+  if (qIndex >= Q_PER_LEVEL) { showLevelClear(2); return; }
+  currentQ = genL2();
+  document.getElementById('l2-left').textContent = currentQ.left;
+  document.getElementById('l2-right').textContent = currentQ.right;
+  // Reset buttons
+  document.querySelectorAll('.compare-btn').forEach(b => { b.classList.remove('correct','wrong'); b.disabled = false; });
+  startTimer(12, 'l2-timer', () => {
+    showFeedback('⏱ 时间到！', 'wrong');
+    state.combo = 0; updateHUD();
+    state.levelTotal[1]++;
+    qIndex++;
+    setTimeout(nextL2, 800);
+  });
+}
+function checkL2(ans) {
+  clearInterval(timerInterval);
+  const btns = document.querySelectorAll('.compare-btn');
+  btns.forEach(b => b.disabled = true);
+  
+  if (ans === currentQ.ans) {
+    sfxWin(); showFeedback('正确！', 'ok');
+    state.combo++; state.levelCorrect[1]++; state.levelTotal[1]++;
+    addScore(10);
+    btns.forEach(b => { if (b.textContent.trim() === ans) b.classList.add('correct'); });
+  } else {
+    sfxWrong(); showFeedback(`错误！${currentQ.left} ${currentQ.ans} ${currentQ.right}`, 'wrong');
+    state.combo = 0; state.lives--;
+    state.levelTotal[1]++;
+    btns.forEach(b => {
+      if (b.textContent.trim() === ans) b.classList.add('wrong');
+      if (b.textContent.trim() === currentQ.ans) b.classList.add('correct');
+    });
+    if (state.lives <= 0) { gameOver(); return; }
+  }
+  updateHUD();
+  qIndex++;
+  setTimeout(nextL2, 1200);
+}
+
+// ====== L3: FRACTION OPS ======
+function startL3() {
+  qIndex = 0;
+  state.levelCorrect[2] = 0; state.levelTotal[2] = 0;
+  nextL3();
+}
+function nextL3() {
+  if (qIndex >= Q_PER_LEVEL) { showLevelClear(3); return; }
+  currentQ = genL3();
+  document.getElementById('l3-question').textContent = currentQ.q + ' = ?';
+  const opts = document.getElementById('l3-options');
+  opts.innerHTML = '';
+  currentQ.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ops-btn'; btn.textContent = opt;
+    btn.onclick = () => checkL3(i);
+    opts.appendChild(btn);
+  });
+  startTimer(20, 'l3-timer', () => {
+    showFeedback('⏱ 时间到！', 'wrong');
+    state.combo = 0; updateHUD();
+    state.levelTotal[2]++;
+    qIndex++;
+    setTimeout(nextL3, 800);
+  });
+}
+function checkL3(idx) {
+  clearInterval(timerInterval);
+  const btns = document.querySelectorAll('.ops-btn');
+  btns.forEach(b => b.disabled = true);
+  const ans = currentQ.options[idx];
+  
+  if (ans === currentQ.ans) {
+    sfxWin(); showFeedback('正确！', 'ok');
+    state.combo++; state.levelCorrect[2]++; state.levelTotal[2]++;
+    addScore(10);
+    btns[idx].classList.add('correct');
+  } else {
+    sfxWrong(); showFeedback(`错误！正确答案是 ${currentQ.ans}`, 'wrong');
+    state.combo = 0; state.lives--;
+    state.levelTotal[2]++;
+    btns[idx].classList.add('wrong');
+    btns.forEach((b,i) => { if (b.textContent === currentQ.ans) b.classList.add('correct'); });
+    if (state.lives <= 0) { gameOver(); return; }
+  }
+  updateHUD();
+  qIndex++;
+  setTimeout(nextL3, 1200);
+}
+
+// ====== L4: CONVERTER ======
+function startL4() {
+  qIndex = 0;
+  state.levelCorrect[3] = 0; state.levelTotal[3] = 0;
+  nextL4();
+}
+function nextL4() {
+  if (qIndex >= Q_PER_LEVEL) { showLevelClear(4); return; }
+  currentQ = genL4();
+  document.getElementById('l4-question').textContent = currentQ.q;
+  document.getElementById('l4-hint').textContent = '请输入' + currentQ.hint;
+  document.getElementById('l4-input').value = '';
+  startTimer(15, 'l4-timer', () => {
+    showFeedback('⏱ 时间到！', 'wrong');
+    state.combo = 0; updateHUD();
+    state.levelTotal[3]++;
+    qIndex++;
+    setTimeout(nextL4, 800);
+  });
+}
+function checkL4() {
+  clearInterval(timerInterval);
+  const input = document.getElementById('l4-input').value.trim();
+  if (!input) { showFeedback('请输入答案', 'wrong'); return; }
+  
+  let ok = false;
+  if (currentQ.type === 'frac-to-dec') {
+    // Compare as numbers
+    const val = parseFloat(input);
+    const target = parseFloat(currentQ.ans);
+    ok = Math.abs(val - target) < 0.01;
+  } else {
+    // Compare fractions - normalize
+    const parts = input.split('/');
+    if (parts.length === 2) {
+      const num = parseInt(parts[0]), den = parseInt(parts[1]);
+      const g = gcd(num, den);
+      const ansParts = currentQ.ans.split('/');
+      const ansNum = parseInt(ansParts[0]), ansDen = parseInt(ansParts[1]);
+      const ansG = gcd(ansNum, ansDen);
+      ok = (num/g === ansNum/ansG) && (den/g === ansDen/ansG);
+    }
+  }
+  
+  if (ok) {
+    sfxWin(); showFeedback('正确！', 'ok');
+    state.combo++; state.levelCorrect[3]++; state.levelTotal[3]++;
+    addScore(10);
+  } else {
+    sfxWrong(); showFeedback(`错误！正确答案是 ${currentQ.ans}`, 'wrong');
+    state.combo = 0; state.lives--;
+    state.levelTotal[3]++;
+    if (state.lives <= 0) { gameOver(); return; }
+  }
+  updateHUD();
+  qIndex++;
+  setTimeout(nextL4, 1200);
+}
+
+// ====== LEVEL MANAGEMENT ======
+function showLevelClear(lvl) {
+  clearInterval(timerInterval);
+  sfxLevelUp();
+  const score = state.levelCorrect[lvl-1] * 10;
+  state.levelScores[lvl-1] = score;
+  const total = state.levelTotal[lvl-1];
+  const correct = state.levelCorrect[lvl-1];
+  const acc = total > 0 ? Math.round(correct/total*100) : 0;
+  document.getElementById('lc-score').textContent = score;
+  document.getElementById('lc-accuracy').textContent = acc + '%';
+  document.getElementById('level-clear-overlay').classList.add('active');
+}
+
+function nextLevel() {
+  sfxClick();
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  state.level++;
+  document.getElementById('current-level-badge').textContent = state.level;
+  updateLevelNav();
+
+  if (state.level === 1) { document.getElementById('level1').classList.add('active'); startL1(); }
+  else if (state.level === 2) { document.getElementById('level2').classList.add('active'); startL2(); }
+  else if (state.level === 3) { document.getElementById('level3').classList.add('active'); startL3(); }
+  else if (state.level === 4) { document.getElementById('level4').classList.add('active'); startL4(); }
+  else { showResult(); }
+}
+
+function gameOver() {
+  sfxWrong();
+  setTimeout(() => {
+    document.getElementById('result-screen').classList.add('active');
+    document.getElementById('final-rank').textContent = '任务失败';
+    document.getElementById('final-rank').style.color = 'var(--danger)';
+    document.getElementById('rs-total').textContent = state.score;
+    document.getElementById('rs-l1').textContent = state.levelScores[0];
+    document.getElementById('rs-l2').textContent = state.levelScores[1];
+    document.getElementById('rs-l3').textContent = state.levelScores[2];
+  }, 500);
+}
+
+function showResult() {
+  sfxWin();
+  document.getElementById('result-screen').classList.add('active');
+  document.getElementById('rs-total').textContent = state.score;
+  document.getElementById('rs-l1').textContent = state.levelScores[0];
+  document.getElementById('rs-l2').textContent = state.levelScores[1];
+  document.getElementById('rs-l3').textContent = state.levelScores[2];
+
+  const totalCorrect = state.levelCorrect.reduce((a,b)=>a+b,0);
+  const totalQ = state.levelTotal.reduce((a,b)=>a+b,0);
+  const acc = totalQ > 0 ? totalCorrect / totalQ : 0;
+
+  let rank, color;
+  if (acc >= 0.95 && state.lives === 3) {
+    rank = 'S级特工'; color = 'var(--warning)';
+  } else if (acc >= 0.85) {
+    rank = 'A级特工'; color = 'var(--accent)';
+  } else if (acc >= 0.7) {
+    rank = 'B级特工'; color = 'var(--accent2)';
+  } else if (acc >= 0.5) {
+    rank = 'C级特工'; color = 'var(--text)';
+  } else {
+    rank = '见习特工'; color = 'var(--text-dim)';
+  }
+  const rankEl = document.getElementById('final-rank');
+  rankEl.textContent = rank;
+  rankEl.style.color = color;
+  if (color === 'var(--warning)') rankEl.style.textShadow = '0 0 50px var(--warning)';
+}
+
+function restartGame() {
+  sfxClick();
+  state.level = 0; state.score = 0; state.lives = 3; state.combo = 0; state.maxCombo = 0;
+  state.levelScores = [0,0,0,0]; state.levelCorrect = [0,0,0,0]; state.levelTotal = [0,0,0,0];
+  updateHUD();
+  document.getElementById('result-screen').classList.remove('active');
+  document.getElementById('intro-screen').style.display = 'flex';
+  document.getElementById('intro-screen').classList.add('active');
+}
+
+// Keyboard support for L4
+window.addEventListener('keydown', (e) => {
+  if (state.level === 4 && e.key === 'Enter') checkL4();
+});
+
+// Initial load
+updateHUD();
+</script>
+</body>
+</html>
