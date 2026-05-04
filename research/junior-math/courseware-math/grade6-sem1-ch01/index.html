@@ -432,6 +432,18 @@ body::before {
   border-color: var(--success);
   background: rgba(6,214,160,0.1);
 }
+.clue-item.active {
+  border-color: var(--accent);
+  background: rgba(0,245,212,0.15);
+  box-shadow: 0 0 12px rgba(0,245,212,0.25), inset 0 0 8px rgba(0,245,212,0.1);
+  transform: scale(1.02);
+}
+.clue-item.solved::after {
+  content: '✓';
+  margin-left: 4px;
+  color: var(--success);
+  font-size: 14px;
+}
 .clue-item.solved .clue-num { color: var(--success); }
 .clue-item .clue-num {
   font-family: 'Orbitron', sans-serif;
@@ -448,11 +460,11 @@ body::before {
 }
 #level4 .password-display {
   font-family: 'Orbitron', sans-serif;
-  font-size: 36px; letter-spacing: 12px;
+  font-size: 28px; letter-spacing: 6px;
   color: var(--accent); margin-bottom: 12px;
 }
 #level4 .password-display .slot {
-  display: inline-block; width: 30px; text-align: center;
+  display: inline-block; min-width: 30px; text-align: center;
   border-bottom: 2px solid var(--text-dim);
   transition: all 0.3s;
 }
@@ -460,6 +472,15 @@ body::before {
   border-color: var(--success);
   color: var(--success);
   text-shadow: 0 0 15px var(--success);
+}
+#level4 .password-display .slot.current {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: slotPulse 1s ease-in-out infinite;
+}
+@keyframes slotPulse {
+  0%, 100% { text-shadow: 0 0 8px var(--accent); opacity: 1; }
+  50% { text-shadow: 0 0 20px var(--accent); opacity: 0.7; }
 }
 #level4 .numpad {
   display: grid; grid-template-columns: repeat(4, 1fr);
@@ -1327,7 +1348,7 @@ function answerL3(val, correct, type, btn) {
 
 // ========== LEVEL 4: Ultimate Password ==========
 let l4 = {
-  clues: [], answers: [], solved: [],
+  clues: [], answers: [], solved: [], inputs: [],
   currentClue: 0, correctCount: 0
 };
 const L4_CLUES = [
@@ -1353,6 +1374,7 @@ function startL4() {
   l4.clues = shuffled.slice(0, 12);
   l4.answers = l4.clues.map(c => c.ans);
   l4.solved = new Array(12).fill(false);
+  l4.inputs = new Array(12).fill('');
   l4.currentClue = 0;
   l4.correctCount = 0;
   state.combo = 0;
@@ -1366,8 +1388,8 @@ function renderL4Clues() {
   l4.clues.forEach((c, i) => {
     const item = document.createElement('div');
     item.className = 'clue-item' + (l4.solved[i] ? ' solved' : '') + (i === l4.currentClue ? ' active' : '');
-    item.innerHTML = `<span class="clue-num">${i+1}</span><span class="clue-text">${c.text}</span><span class="clue-ans">${l4.solved[i]?c.ans:''}</span>`;
-    item.onclick = () => { l4.currentClue = i; renderL4Clues(); document.getElementById('l4-current-clue').textContent = i+1; };
+    item.innerHTML = `<span class="clue-num">${i+1}</span><span class="clue-text">${c.text}</span><span class="clue-ans">${l4.solved[i]?c.ans:(l4.inputs[i]||'')}</span>`;
+    item.onclick = () => { if (!l4.solved[i]) { l4.currentClue = i; renderL4Clues(); updateL4Password(); document.getElementById('l4-current-clue').textContent = i+1; } };
     list.appendChild(item);
   });
   // Scroll to active
@@ -1402,25 +1424,26 @@ function renderL4Numpad() {
 }
 function inputL4(n) {
   sfxClick();
-  const slots = document.querySelectorAll('#l4-password .slot');
+  const idx = l4.currentClue;
   if (n === -1) {
-    // Backspace current clue
-    slots[l4.currentClue].textContent = '_';
-    slots[l4.currentClue].classList.remove('filled');
+    // Backspace: remove last digit
+    l4.inputs[idx] = l4.inputs[idx].slice(0, -1);
   } else {
-    slots[l4.currentClue].textContent = n;
-    slots[l4.currentClue].classList.add('filled');
+    // Append digit (max 3 digits to prevent overflow)
+    if (l4.inputs[idx].length < 3) l4.inputs[idx] += n;
   }
+  updateL4Password();
+  renderL4Clues();
 }
 function submitL4() {
-  const slots = document.querySelectorAll('#l4-password .slot');
-  const valText = slots[l4.currentClue].textContent;
-  if (valText === '_') return;
+  const idx = l4.currentClue;
+  const valText = l4.inputs[idx];
+  if (!valText) return;
   const val = parseInt(valText);
-  const correct = l4.answers[l4.currentClue];
+  const correct = l4.answers[idx];
 
   if (val === correct) {
-    l4.solved[l4.currentClue] = true;
+    l4.solved[idx] = true;
     l4.correctCount++;
     state.combo++;
     const pts = 250;
@@ -1432,8 +1455,7 @@ function submitL4() {
     state.lives = Math.max(0, state.lives - 1);
     sfxWrong();
     showFeedback('错误', false);
-    slots[l4.currentClue].textContent = '_';
-    slots[l4.currentClue].classList.remove('filled');
+    l4.inputs[idx] = '';
     if (state.lives <= 0) { setTimeout(() => gameOver(), 800); return; }
   }
 
@@ -1464,10 +1486,13 @@ function updateL4Password() {
   l4.solved.forEach((s, i) => {
     if (s) {
       slots[i].textContent = l4.answers[i];
-      slots[i].classList.add('filled');
+      slots[i].className = 'slot filled';
+    } else if (l4.inputs[i]) {
+      slots[i].textContent = l4.inputs[i];
+      slots[i].className = 'slot filled' + (i === l4.currentClue ? ' current' : '');
     } else {
       slots[i].textContent = '_';
-      slots[i].classList.remove('filled');
+      slots[i].className = 'slot' + (i === l4.currentClue ? ' current' : '');
     }
   });
 }
