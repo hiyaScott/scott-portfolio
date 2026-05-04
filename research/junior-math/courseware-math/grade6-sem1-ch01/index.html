@@ -34,6 +34,29 @@ body {
   position: relative;
 }
 
+/* Level nav */
+  .level-nav { 
+    cursor: pointer; font-size: 1.2rem; color: var(--accent);
+    padding: 4px 8px; border: 1px solid rgba(0,245,212,0.3);
+    border-radius: 4px; transition: all 0.2s;
+  }
+  .level-nav:hover { background: rgba(0,245,212,0.1); }
+  .level-nav-panel {
+    position: fixed; top: 70px; right: 20px;
+    background: var(--panel); backdrop-filter: blur(12px);
+    border: 1px solid rgba(0,245,212,0.3); border-radius: 8px;
+    padding: 8px 0; z-index: 200; display: none;
+    min-width: 180px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .level-nav-panel.active { display: block; }
+  .level-nav-panel div {
+    padding: 10px 16px; cursor: pointer;
+    font-size: 0.85rem; color: var(--text);
+    transition: all 0.15s; border-left: 3px solid transparent;
+  }
+  .level-nav-panel div:hover { background: rgba(0,245,212,0.1); color: var(--accent); border-left-color: var(--accent); }
+  .level-nav-panel div.current { color: var(--accent); font-weight: bold; }
+
 /* Scanlines */
 body::before {
   content: '';
@@ -623,6 +646,41 @@ body::before {
   #result-screen .final-stats { grid-template-columns: repeat(2, 1fr); }
   #level4 .clue-list { grid-template-columns: 1fr; max-height: 160px; }
 }
+@media (max-width: 1024px) {
+  #app { padding: 30px 40px; }
+  #title-bar h1 { font-size: 22px; }
+}
+@media (max-width: 480px) {
+  #app { padding: 12px 16px; }
+  #title-bar { flex-direction: column; gap: 8px; align-items: flex-start; }
+  #title-bar h1 { font-size: 16px; letter-spacing: 1px; }
+  #top-hud { flex-direction: column; gap: 8px; }
+  .hud-block { gap: 12px; }
+  .hud-item .label { font-size: 10px; }
+  .hud-item .value { font-size: 14px; }
+  .big-number { font-size: 36px; }
+  .num-cell { width: 48px; height: 48px; font-size: 16px; }
+  .div-btn { width: 56px; height: 48px; font-size: 16px; }
+  .btn-group { gap: 6px; }
+  .answer-btns { flex-wrap: wrap; gap: 6px; }
+  .answer-btns button { padding: 8px 12px; font-size: 13px; }
+  .numpad { gap: 6px; }
+  .numpad-btn { width: 48px; height: 48px; font-size: 18px; }
+  .clue-list { grid-template-columns: 1fr; max-height: 140px; }
+  #result-screen .final-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .stat-card { padding: 12px; }
+  .stat-val { font-size: 24px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  #app { padding: 10px 20px; }
+  #title-bar { margin-bottom: 8px; padding-bottom: 6px; }
+  #title-bar h1 { font-size: 16px; }
+  .big-number { font-size: 32px; }
+  .num-cell { width: 40px; height: 40px; font-size: 14px; }
+}
+@media (min-width: 700px) and (max-width: 900px) and (min-height: 1000px) {
+  #app { padding: 40px 60px; }
+}
 </style>
 </head>
 <body>
@@ -630,6 +688,14 @@ body::before {
 <div id="hud-grid"></div>
 <div class="corner-tl"></div><div class="corner-tr"></div>
 <div class="corner-bl"></div><div class="corner-br"></div>
+
+<!-- Level navigation panel -->
+<div class="level-nav-panel" id="level-nav-panel">
+  <div onclick="navigateToLevel(1)" data-level="1">LEVEL 1 — 密码破解</div>
+  <div onclick="navigateToLevel(2)" data-level="2">LEVEL 2 — 整除特征</div>
+  <div onclick="navigateToLevel(3)" data-level="3">LEVEL 3 — GCD暗号</div>
+  <div onclick="navigateToLevel(4)" data-level="4">LEVEL 4 — 质数搜捕</div>
+</div>
 
 <!-- Intro -->
 <div id="intro-screen">
@@ -697,7 +763,10 @@ body::before {
 <div id="app">
   <div id="title-bar">
     <h1>数学特工局</h1>
-    <span class="badge">DIV-001 // LEVEL <span id="current-level-badge">1</span>/4</span>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="badge">DIV-001 // LEVEL <span id="current-level-badge">1</span>/4</span>
+      <div class="level-nav" onclick="toggleLevelNav()">☰</div>
+    </div>
   </div>
   <div id="top-hud">
     <div class="hud-block">
@@ -1430,6 +1499,7 @@ function nextLevel() {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   state.level++;
   document.getElementById('current-level-badge').textContent = state.level;
+  updateLevelNav();
 
   if (state.level === 1) {
     document.getElementById('level1').classList.add('active');
@@ -1446,6 +1516,7 @@ function nextLevel() {
   } else {
     showResult();
   }
+  updateLevelNav();
 }
 function gameOver() {
   sfxWrong();
@@ -1505,6 +1576,212 @@ window.addEventListener('keydown', (e) => {
 
 // Initial load
 updateHUD();
+
+
+/* ====== LEVEL NAVIGATION ====== */
+function toggleLevelNav() {
+  document.getElementById('level-nav-panel').classList.toggle('active');
+}
+function navigateToLevel(n) {
+  document.getElementById('level-nav-panel').classList.remove('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  document.getElementById('result-screen').classList.remove('active');
+  state.level = n;
+  document.getElementById('current-level-badge').textContent = n;
+  updateLevelNav();
+  if (n === 1) { document.getElementById('level1').classList.add('active'); startL1(); }
+  if (n === 2) { document.getElementById('level2').classList.add('active'); startL2(); }
+  if (n === 3) { document.getElementById('level3').classList.add('active'); startL3(); }
+  if (n === 4) { document.getElementById('level4').classList.add('active'); startL4(); }
+}
+function updateLevelNav() {
+  document.querySelectorAll('.level-nav-panel div').forEach(d => {
+    d.classList.toggle('current', d.dataset.level == state.level);
+  });
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('level-nav-panel');
+  const btn = document.querySelector('.level-nav');
+  if (nav && nav.classList.contains('active') && !nav.contains(e.target) && !(btn && btn.contains(e.target))) {
+    nav.classList.remove('active');
+  }
+});
+
+</script>
+</body>
+</html>
+ubmitL4();
+    if (e.key === 'Backspace') inputL4(-1);
+  }
+});
+
+// Initial load
+updateHUD();
+
+
+/* ====== LEVEL NAVIGATION ====== */
+function toggleLevelNav() {
+  document.getElementById('level-nav-panel').classList.toggle('active');
+}
+function navigateToLevel(n) {
+  document.getElementById('level-nav-panel').classList.remove('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  document.getElementById('result-screen').classList.remove('active');
+  state.level = n;
+  document.getElementById('current-level-badge').textContent = n;
+  updateLevelNav();
+  if (n === 1) { document.getElementById('level1').classList.add('active'); startL1(); }
+  if (n === 2) { document.getElementById('level2').classList.add('active'); startL2(); }
+  if (n === 3) { document.getElementById('level3').classList.add('active'); startL3(); }
+  if (n === 4) { document.getElementById('level4').classList.add('active'); startL4(); }
+}
+function updateLevelNav() {
+  document.querySelectorAll('.level-nav-panel div').forEach(d => {
+    d.classList.toggle('current', d.dataset.level == state.level);
+  });
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('level-nav-panel');
+  const btn = document.querySelector('.level-nav');
+  if (nav && nav.classList.contains('active') && !nav.contains(e.target) && !(btn && btn.contains(e.target))) {
+    nav.classList.remove('active');
+  }
+});
+
+</script>
+</body>
+</html>
+l-nav-panel').classList.remove('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  document.getElementById('result-screen').classList.remove('active');
+  state.level = n;
+  document.getElementById('current-level-badge').textContent = n;
+  updateLevelNav();
+  if (n === 1) { document.getElementById('level1').classList.add('active'); startL1(); }
+  if (n === 2) { document.getElementById('level2').classList.add('active'); startL2(); }
+  if (n === 3) { document.getElementById('level3').classList.add('active'); startL3(); }
+  if (n === 4) { document.getElementById('level4').classList.add('active'); startL4(); }
+}
+function updateLevelNav() {
+  document.querySelectorAll('.level-nav-panel div').forEach(d => {
+    d.classList.toggle('current', d.dataset.level == state.level);
+  });
+}
+// Close nav when clicking outside
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('level-nav-panel');
+  const btn = document.querySelector('.level-nav');
+  if (nav && nav.classList.contains('active') && !nav.contains(e.target) && !(btn && btn.contains(e.target))) {
+    nav.classList.remove('active');
+  }
+});
+
+
+/* ====== LEVEL NAVIGATION ====== */
+function toggleLevelNav() {
+  document.getElementById('level-nav-panel').classList.toggle('active');
+}
+function navigateToLevel(n) {
+  document.getElementById('level-nav-panel').classList.remove('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  document.getElementById('result-screen').classList.remove('active');
+  state.level = n;
+  document.getElementById('current-level-badge').textContent = n;
+  updateLevelNav();
+  if (n === 1) { document.getElementById('level1').classList.add('active'); startL1(); }
+  if (n === 2) { document.getElementById('level2').classList.add('active'); startL2(); }
+  if (n === 3) { document.getElementById('level3').classList.add('active'); startL3(); }
+  if (n === 4) { document.getElementById('level4').classList.add('active'); startL4(); }
+}
+function updateLevelNav() {
+  document.querySelectorAll('.level-nav-panel div').forEach(d => {
+    d.classList.toggle('current', d.dataset.level == state.level);
+  });
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('level-nav-panel');
+  const btn = document.querySelector('.level-nav');
+  if (nav && nav.classList.contains('active') && !nav.contains(e.target) && !(btn && btn.contains(e.target))) {
+    nav.classList.remove('active');
+  }
+});
+
+</script>
+</body>
+</html>
+-warning)';
+  } else if (acc >= 0.85) {
+    rank = 'A级特工'; color = 'var(--accent)';
+  } else if (acc >= 0.7) {
+    rank = 'B级特工'; color = 'var(--accent2)';
+  } else if (acc >= 0.5) {
+    rank = 'C级特工'; color = 'var(--text)';
+  } else {
+    rank = '见习特工'; color = 'var(--text-dim)';
+  }
+  const rankEl = document.getElementById('final-rank');
+  rankEl.textContent = rank;
+  rankEl.style.color = color;
+  if (color === 'var(--warning)') rankEl.style.textShadow = '0 0 50px var(--warning)';
+}
+function restartGame() {
+  sfxClick();
+  document.getElementById('result-screen').classList.remove('active');
+  document.getElementById('intro-screen').style.display = 'flex';
+}
+
+// Keyboard support
+window.addEventListener('keydown', (e) => {
+  if (state.level === 4) {
+    if (e.key >= '0' && e.key <= '9') inputL4(parseInt(e.key));
+    if (e.key === 'Enter') submitL4();
+    if (e.key === 'Backspace') inputL4(-1);
+  }
+});
+
+// Initial load
+updateHUD();
+
+
+/* ====== LEVEL NAVIGATION ====== */
+function toggleLevelNav() {
+  document.getElementById('level-nav-panel').classList.toggle('active');
+}
+function navigateToLevel(n) {
+  document.getElementById('level-nav-panel').classList.remove('active');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  document.getElementById('result-screen').classList.remove('active');
+  state.level = n;
+  document.getElementById('current-level-badge').textContent = n;
+  updateLevelNav();
+  if (n === 1) { document.getElementById('level1').classList.add('active'); startL1(); }
+  if (n === 2) { document.getElementById('level2').classList.add('active'); startL2(); }
+  if (n === 3) { document.getElementById('level3').classList.add('active'); startL3(); }
+  if (n === 4) { document.getElementById('level4').classList.add('active'); startL4(); }
+}
+function updateLevelNav() {
+  document.querySelectorAll('.level-nav-panel div').forEach(d => {
+    d.classList.toggle('current', d.dataset.level == state.level);
+  });
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('level-nav-panel');
+  const btn = document.querySelector('.level-nav');
+  if (nav && nav.classList.contains('active') && !nav.contains(e.target) && !(btn && btn.contains(e.target))) {
+    nav.classList.remove('active');
+  }
+});
+
 </script>
 </body>
 </html>
