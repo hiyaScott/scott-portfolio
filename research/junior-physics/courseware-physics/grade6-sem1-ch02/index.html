@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>声波分析中心 — 声</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #06080f;
+    --panel: #11111f;
+    --panel2: #1a1a2e;
+    --accent: #00f0c8;
+    --accent2: #00bbf9;
+    --danger: #ef476f;
+    --warn: #ffd166;
+    --text: #c0c8d8;
+    --text2: #8b8b9a;
+    --grid: rgba(0,240,200,0.06);
+    --success: #06d6a0;
+    --glass: rgba(17,17,31,0.92);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; user-select:none; -webkit-user-select:none; }
+  body {
+    font-family: 'Share Tech Mono', 'Courier New', 'PingFang SC', 'Microsoft YaHei', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 240, 200, 0.03) 2px,
+      rgba(0, 240, 200, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .corner-tl, .corner-tr, .corner-bl, .corner-br {
+    position: fixed;
+    width: 20px; height: 20px;
+    border-color: var(--accent);
+    border-style: solid;
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0.6;
+  }
+  .corner-tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+  .corner-tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+  .corner-bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
+  .corner-br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+
+  .screen {
+    position: relative; z-index: 1;
+    display: none;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .screen.active { display: flex; flex-direction: column; }
+
+  .hud-header {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(0,240,200,0.25);
+    padding: 12px 16px;
+    background: var(--glass);
+    backdrop-filter: blur(8px);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .hud-header::after {
+    content: '';
+    position: absolute; bottom:-1px; left:0; width:120px; height:2px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .hud-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.15rem; color: var(--accent);
+    letter-spacing: 1px;
+  }
+  .hud-score {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem; color: var(--warn);
+    background: rgba(255,209,102,0.08);
+    padding: 4px 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,209,102,0.2);
+  }
+  .stage-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    color: var(--accent);
+    border: 1px solid rgba(0,240,200,0.3);
+    padding: 2px 10px;
+    border-radius: 3px;
+    margin-right: 8px;
+  }
+  .stage-nav {
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--accent);
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+  .stage-nav:hover { background: rgba(0,240,200,0.1); }
+  .stage-nav-panel {
+    display: none;
+    position: fixed; top: 70px; right: 20px;
+    background: var(--glass);
+    border: 1px solid rgba(0,240,200,0.3);
+    border-radius: 8px;
+    padding: 8px 0;
+    z-index: 100;
+    min-width: 220px;
+    backdrop-filter: blur(12px);
+  }
+  .stage-nav-panel.active { display: block; }
+  .stage-nav-panel div {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+    color: var(--text);
+  }
+  .stage-nav-panel div:hover { background: rgba(0,240,200,0.1); color: var(--accent); border-left-color: var(--accent); }
+  .stage-nav-panel div.current { color: var(--accent); font-weight: bold; }
+
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 700px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    padding: 10px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #000;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .btn:hover { box-shadow: 0 0 15px var(--accent); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--accent);
+  }
+  .btn-ghost:hover { background: rgba(0,240,200,0.1); }
+  .btn-warn {
+    background: var(--warn);
+    border-color: var(--warn);
+    color: #000;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid rgba(0,240,200,0.15);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .info-card {
+    background: rgba(0,187,249,0.05);
+    border: 1px solid rgba(0,187,249,0.2);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 0.85rem;
+    color: var(--text2);
+  }
+  .info-card h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    color: var(--accent2);
+    margin-bottom: 6px;
+  }
+  .info-card p { margin-bottom: 6px; line-height: 1.5; }
+  .info-card .hint { color: var(--warn); font-size: 0.8rem; }
+
+  /* ===== Intro ===== */
+  .intro-box {
+    text-align: center;
+    padding: 40px 20px;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .intro-box h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2rem;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent);
+    margin-bottom: 12px;
+  }
+  .intro-box p { color: var(--text2); margin-bottom: 20px; font-size: 0.9rem; line-height: 1.6; }
+
+  /* ===== STAGE 1: 介质判断 ===== */
+  .s1-scene {
+    background: var(--panel2);
+    border: 1px solid rgba(0,240,200,0.2);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .s1-scene-icon { font-size: 3rem; }
+  .s1-scene-name { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; color: var(--accent); }
+  .s1-scene-desc { font-size: 0.85rem; color: var(--text2); }
+  .s1-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .s1-opt {
+    flex: 1;
+    min-width: 140px;
+    max-width: 200px;
+    padding: 14px;
+    background: rgba(0,240,200,0.05);
+    border: 1px solid rgba(0,240,200,0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+  }
+  .s1-opt:hover { border-color: var(--accent); background: rgba(0,240,200,0.1); }
+  .s1-opt.correct { background: rgba(6,214,160,0.15); border-color: var(--success); color: var(--success); }
+  .s1-opt.wrong { background: rgba(239,71,111,0.15); border-color: var(--danger); color: var(--danger); }
+
+  /* ===== STAGE 2: 三要素辨识 ===== */
+  .s2-question {
+    font-size: 1rem;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.6;
+    padding: 16px;
+    background: var(--panel2);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+  }
+  .s2-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .s2-opt {
+    padding: 16px;
+    background: rgba(0,240,200,0.05);
+    border: 1px solid rgba(0,240,200,0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+  }
+  .s2-opt:hover { border-color: var(--accent); background: rgba(0,240,200,0.1); }
+  .s2-opt.correct { background: rgba(6,214,160,0.15); border-color: var(--success); color: var(--success); }
+  .s2-opt.wrong { background: rgba(239,71,111,0.15); border-color: var(--danger); color: var(--danger); }
+
+  /* ===== STAGE 3: 声速计算 ===== */
+  .s3-problem {
+    background: var(--panel2);
+    border: 1px solid rgba(0,240,200,0.2);
+    border-radius: 8px;
+    padding: 20px;
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+  .s3-problem .formula {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    color: var(--warn);
+    margin: 8px 0;
+    text-align: center;
+  }
+  .s3-input-wrap {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 12px;
+  }
+  .s3-input-wrap input {
+    flex: 1;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(0,240,200,0.3);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    padding: 10px 14px;
+    border-radius: 6px;
+    outline: none;
+  }
+  .s3-input-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(0,240,200,0.2); }
+
+  /* ===== STAGE 4: 综合声呐任务 ===== */
+  .s4-step {
+    background: var(--panel2);
+    border: 1px solid rgba(0,240,200,0.15);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .s4-step-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    color: var(--accent2);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  .s4-sonar-viz {
+    position: relative;
+    height: 80px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(0,240,200,0.2);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .s4-sonar-source {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: var(--warn);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--warn);
+  }
+  .s4-sonar-floor {
+    position: absolute;
+    right: 20px;
+    top: 10px;
+    bottom: 10px;
+    width: 4px;
+    background: var(--text2);
+    border-radius: 2px;
+  }
+  .s4-sonar-pulse {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    animation: sonarPulse 2s ease-out infinite;
+  }
+  @keyframes sonarPulse {
+    0% { width: 14px; height: 14px; margin-left: -7px; margin-top: -7px; opacity: 1; }
+    100% { width: 200px; height: 200px; margin-left: -100px; margin-top: -100px; opacity: 0; }
+  }
+
+  .end-box {
+    text-align: center;
+    padding: 40px 20px;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  .end-score {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 4rem;
+    color: var(--accent);
+    text-shadow: 0 0 30px var(--accent);
+    margin: 16px 0;
+  }
+  .end-rank {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.2rem;
+    color: var(--warn);
+    letter-spacing: 2px;
+  }
+
+  .feedback {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: var(--glass);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 16px 32px;
+    border-radius: 8px;
+    font-size: 1rem;
+    z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s;
+    text-align: center;
+    backdrop-filter: blur(12px);
+  }
+  .feedback.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .feedback.ok { border-color: var(--success); color: var(--success); }
+  .feedback.wrong { border-color: var(--danger); color: var(--danger); }
+
+  .flash-ok { animation: flashOk 0.4s ease; }
+  @keyframes flashOk {
+    0%, 100% { background: var(--panel); }
+    50% { background: rgba(6,214,160,0.2); }
+  }
+  .shake { animation: shake 0.4s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Progress dots */
+  .dots { display: flex; gap: 6px; justify-content: center; margin: 8px 0; }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(88,88,122,0.4);
+    transition: all 0.3s;
+  }
+  .dot.active { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot.done { background: var(--success); }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hud-title { font-size: 0.9rem; }
+    .s2-options { grid-template-columns: 1fr; }
+    .s1-options { flex-direction: column; align-items: stretch; }
+    .s1-opt { max-width: 100%; }
+  }
+  @media (max-width: 480px) {
+    .screen { padding: 10px; }
+    .intro-box h1 { font-size: 1.5rem; }
+    .end-score { font-size: 3rem; }
+  }
+  @media (max-height: 500px) and (orientation: landscape) {
+    .intro-box { padding: 20px 10px; }
+    .intro-box h1 { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<!-- ====== STAGE NAV ====== -->
+<div class="stage-nav-panel" id="stage-nav-panel">
+  <div onclick="navigateToStage(1)" data-stage="1">STAGE 1 — 介质判断</div>
+  <div onclick="navigateToStage(2)" data-stage="2">STAGE 2 — 三要素辨识</div>
+  <div onclick="navigateToStage(3)" data-stage="3">STAGE 3 — 声速计算</div>
+  <div onclick="navigateToStage(4)" data-stage="4">STAGE 4 — 声呐任务</div>
+</div>
+
+<!-- ====== INTRO ====== -->
+<div class="screen active" id="intro-screen">
+  <div class="intro-box">
+    <h1>声波分析中心</h1>
+    <p>特工，欢迎进入声波分析中心。<br>你将完成 4 个声学测试任务，验证你对声音传播、三要素和回声测距的掌握。</p>
+    <p style="font-size:0.8rem;color:var(--text2);">任务列表：<br>① 介质判断 ② 三要素辨识 ③ 声速计算 ④ 声呐测距</p>
+    <div style="margin-top:24px;">
+      <button class="btn" onclick="goStage(1)">开始任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== STAGE 1: 介质判断 ====== -->
+<div class="screen" id="stage1">
+  <div class="hud-header">
+    <div><span class="stage-badge">STAGE 1</span> <span class="hud-title">介质判断</span></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="hud-score" id="score1">0</span>
+      <div class="stage-nav" onclick="toggleStageNav()">☰</div>
+    </div>
+  </div>
+  <div class="main-content">
+    <div class="dots" id="s1-dots"></div>
+    <div class="s1-scene" id="s1-scene">
+      <div class="s1-scene-icon" id="s1-icon">🌍</div>
+      <div class="s1-scene-name" id="s1-name">加载中...</div>
+      <div class="s1-scene-desc" id="s1-desc">...</div>
+    </div>
+    <div class="s1-options" id="s1-options"></div>
+    <div class="card" style="font-size:0.85rem;color:var(--text2);">
+      💡 <strong>提示：</strong>声音需要介质传播。真空不能传声。固体传声最快，气体最慢。
+    </div>
+  </div>
+</div>
+
+<!-- ====== STAGE 2: 三要素辨识 ====== -->
+<div class="screen" id="stage2">
+  <div class="hud-header">
+    <div><span class="stage-badge">STAGE 2</span> <span class="hud-title">三要素辨识</span></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="hud-score" id="score2">0</span>
+      <div class="stage-nav" onclick="toggleStageNav()">☰</div>
+    </div>
+  </div>
+  <div class="main-content">
+    <div class="dots" id="s2-dots"></div>
+    <div class="s2-question" id="s2-question">加载中...</div>
+    <div class="s2-options" id="s2-options"></div>
+    <div class="card" style="font-size:0.85rem;color:var(--text2);">
+      💡 <strong>三要素：</strong>响度（振幅/力的大小）| 音调（频率/Hz）| 音色（材料结构）
+    </div>
+  </div>
+</div>
+
+<!-- ====== STAGE 3: 声速计算 ====== -->
+<div class="screen" id="stage3">
+  <div class="hud-header">
+    <div><span class="stage-badge">STAGE 3</span> <span class="hud-title">声速计算</span></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="hud-score" id="score3">0</span>
+      <div class="stage-nav" onclick="toggleStageNav()">☰</div>
+    </div>
+  </div>
+  <div class="main-content">
+    <div class="dots" id="s3-dots"></div>
+    <div class="s3-problem" id="s3-problem">加载中...</div>
+    <div class="s3-input-wrap">
+      <input type="text" id="s3-input" placeholder="输入答案（数字）" onkeydown="if(event.key==='Enter')s3check()">
+      <button class="btn" onclick="s3check()">提交</button>
+    </div>
+    <div class="card" style="font-size:0.85rem;color:var(--text2);">
+      💡 <strong>公式：</strong>v = s / t ｜ 回声测距：s = v × t ÷ 2 ｜ 空气中 v ≈ 340 m/s
+    </div>
+  </div>
+</div>
+
+<!-- ====== STAGE 4: 声呐综合任务 ====== -->
+<div class="screen" id="stage4">
+  <div class="hud-header">
+    <div><span class="stage-badge">STAGE 4</span> <span class="hud-title">声呐测距任务</span></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="hud-score" id="score4">0</span>
+      <div class="stage-nav" onclick="toggleStageNav()">☰</div>
+    </div>
+  </div>
+  <div class="main-content">
+    <div class="side-panel" style="margin-bottom:8px;">
+      <div class="info-card">
+        <h3>📋 终极任务</h3>
+        <p>一艘科考船使用声呐探测海底深度。你需要根据声呐数据计算海底深度，并判断海底地形特征。</p>
+        <p class="hint">💡 声呐在水中速度 1500 m/s，声音走了一个来回。</p>
+      </div>
+    </div>
+
+    <div id="s4-container">
+      <div class="s4-step" id="s4-step1">
+        <div class="s4-step-label">STEP 1 — 基础测深</div>
+        <p style="font-size:0.9rem;color:var(--text);line-height:1.6;">
+          声呐发出超声波，<span id="s4-t1">3.0</span> 秒后接收到回声。水中声速 1500 m/s。
+          海底深度是多少？
+        </p>
+        <div class="s4-sonar-viz">
+          <div class="s4-sonar-source"></div>
+          <div class="s4-sonar-floor"></div>
+          <div class="s4-sonar-pulse"></div>
+        </div>
+        <div class="s3-input-wrap">
+          <input type="text" id="s4-input1" placeholder="深度（m）" onkeydown="if(event.key==='Enter')s4checkStep(1)">
+          <button class="btn" onclick="s4checkStep(1)">提交</button>
+        </div>
+      </div>
+
+      <div class="s4-step" id="s4-step2" style="display:none;">
+        <div class="s4-step-label">STEP 2 — 地形判断</div>
+        <p style="font-size:0.9rem;color:var(--text);line-height:1.6;">
+          船继续航行，在新的位置声呐回声时间为 <span id="s4-t2">2.0</span> 秒。
+          这个新位置的海底深度是多少？比原来深还是浅？
+        </p>
+        <div class="s3-input-wrap">
+          <input type="text" id="s4-input2" placeholder="新深度（m）" onkeydown="if(event.key==='Enter')s4checkStep(2)">
+          <button class="btn" onclick="s4checkStep(2)">提交</button>
+        </div>
+      </div>
+
+      <div class="s4-step" id="s4-step3" style="display:none;">
+        <div class="s4-step-label">STEP 3 — 综合判断</div>
+        <p style="font-size:0.9rem;color:var(--text);line-height:1.6;">
+          根据两次测量结果，这个海域的海底地形最有可能是？
+        </p>
+        <div class="s1-options" style="margin-top:8px;">
+          <button class="s1-opt" onclick="s4checkStep(3, 'a')">A. 海底平坦</button>
+          <button class="s1-opt" onclick="s4checkStep(3, 'b')">B. 海底倾斜上升</button>
+          <button class="s1-opt" onclick="s4checkStep(3, 'c')">C. 海底倾斜下降</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== END ====== -->
+<div class="screen" id="end-screen">
+  <div class="end-box">
+    <div style="font-size:1.2rem;color:var(--text2);">任务完成</div>
+    <div class="end-score" id="final-score">0</div>
+    <div style="color:var(--text2);">总分 / 100</div>
+    <div class="end-rank" id="final-rank">RANK</div>
+    <div style="margin-top:16px;color:var(--text2);font-size:0.9rem;" id="final-msg"></div>
+    <div style="margin-top:24px;">
+      <button class="btn" onclick="location.reload()">再试一次</button>
+    </div>
+  </div>
+</div>
+
+<!-- Feedback overlay -->
+<div class="feedback" id="feedback"></div>
+
+<script>
+/* ===================== AUDIO ENGINE ===================== */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone(freq, duration, type='square', vol=0.08) {
+  ensureAudio();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + duration);
+}
+function sndOk() {
+  playTone(523, 0.12, 'sine', 0.1);
+  setTimeout(() => playTone(659, 0.15, 'sine', 0.1), 120);
+}
+function sndErr() {
+  playTone(200, 0.25, 'sawtooth', 0.08);
+  setTimeout(() => playTone(150, 0.3, 'sawtooth', 0.08), 200);
+}
+function sndClick() { playTone(880, 0.06, 'square', 0.05); }
+function sndWin() {
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,0.25,'sine',0.1),i*150));
+}
+
+/* ===================== GLOBAL STATE ===================== */
+let score = 0;
+let stage = 0;
+
+function goStage(n) {
+  sndClick();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(n===0?'intro-screen': n===5?'end-screen': 'stage'+n).classList.add('active');
+  stage = n;
+  updateStageNav();
+  if (n===1) initS1();
+  if (n===2) initS2();
+  if (n===3) initS3();
+  if (n===4) initS4();
+}
+
+function showFeedback(text, type) {
+  const f = document.getElementById('feedback');
+  f.textContent = text; f.className = 'feedback ' + type;
+  void f.offsetWidth; f.classList.add('show');
+  setTimeout(() => f.classList.remove('show'), 1400);
+}
+
+function addScore(points) {
+  score += points;
+  for (let i=1;i<=4;i++) { const el=document.getElementById('score'+i); if(el) el.textContent = score; }
+}
+
+/* ===================== STAGE NAV ===================== */
+function toggleStageNav() {
+  document.getElementById('stage-nav-panel').classList.toggle('active');
+}
+function updateStageNav() {
+  document.querySelectorAll('.stage-nav-panel div').forEach((d,i)=>{
+    d.classList.toggle('current', i+1 === stage);
+  });
+}
+function navigateToStage(n) {
+  toggleStageNav();
+  if (n < stage) goStage(n);
+  else if (n > stage) showFeedback('请按顺序完成当前任务', '');
+}
+document.addEventListener('click', e=>{
+  const panel = document.getElementById('stage-nav-panel');
+  if (panel.classList.contains('active') && !panel.contains(e.target) && !e.target.classList.contains('stage-nav'))
+    panel.classList.remove('active');
+});
+
+/* ===================== DOTS ===================== */
+function updateDots(id, current, total) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  c.innerHTML = '';
+  for (let i=0; i<total; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i===current?' active': i<current?' done':'');
+    c.appendChild(d);
+  }
+}
+
+/* ===================== STAGE 1: 介质判断 ===================== */
+const s1Data = [
+  { icon: '🌑', name: '月球表面', desc: '宇航员在没有头盔的情况下交谈', question: '他们能听见对方说话吗？', options: ['能，因为月球很大', '不能，月球是真空', '能，宇航员嗓门大'], answer: 1, points: 10, explain: '月球表面是真空，没有介质，声音无法传播。' },
+  { icon: '🏊', name: '游泳池底', desc: '两个人在水下面对面说话', question: '他们能听见对方吗？', options: ['不能，水不传声', '能，而且比空气中清楚', '只能听见一点点'], answer: 1, points: 10, explain: '水是液体，可以传声，且效果比空气更好。' },
+  { icon: '🚂', name: '铁轨旁', desc: '把耳朵贴在铁轨上，远处有火车开来', question: '通过铁轨先听到还是空气先听到？', options: ['空气先听到', '铁轨先听到', '同时听到'], answer: 1, points: 10, explain: '固体传声速度远快于气体，铁轨（钢铁）中声速约5000 m/s，空气中340 m/s。' },
+  { icon: '📢', name: '体育馆', desc: '有人在空旷体育馆大喊一声', question: '为什么会听到多次回响？', options: ['声音在墙壁间多次反射', '体育馆有回声放大器', '那是幻听'], answer: 0, points: 10, explain: '声音遇到墙壁等障碍物会反射，在空旷大空间容易听到回声。' },
+  { icon: '🌊', name: '深海', desc: '潜艇在水下 1000 米处', question: '船员敲船舱壁，外面鱼能听到吗？', options: ['能，水能传声', '不能，太深了', '只有鲸鱼能听到'], answer: 0, points: 10, explain: '水是液体，能够传声，鱼可以听到敲击声。' }
+];
+let s1idx = 0;
+
+function initS1() {
+  s1idx = 0; score = 0;
+  renderS1();
+}
+function renderS1() {
+  const d = s1Data[s1idx];
+  document.getElementById('s1-icon').textContent = d.icon;
+  document.getElementById('s1-name').textContent = d.name;
+  document.getElementById('s1-desc').textContent = d.desc + ' — ' + d.question;
+  const opts = document.getElementById('s1-options');
+  opts.innerHTML = '';
+  d.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 's1-opt';
+    btn.textContent = opt;
+    btn.onclick = () => s1check(i);
+    opts.appendChild(btn);
+  });
+  updateDots('s1-dots', s1idx, s1Data.length);
+}
+function s1check(choice) {
+  const d = s1Data[s1idx];
+  const opts = document.getElementById('s1-options').querySelectorAll('.s1-opt');
+  opts.forEach(b => b.disabled = true);
+  if (choice === d.answer) {
+    sndOk();
+    opts[choice].classList.add('correct');
+    showFeedback('正确！' + d.explain, 'ok');
+    addScore(d.points);
+    setTimeout(() => {
+      s1idx++;
+      if (s1idx >= s1Data.length) setTimeout(() => goStage(2), 800);
+      else renderS1();
+    }, 700);
+  } else {
+    sndErr();
+    opts[choice].classList.add('wrong');
+    opts[d.answer].classList.add('correct');
+    showFeedback(d.explain, 'wrong');
+    setTimeout(() => {
+      s1idx++;
+      if (s1idx >= s1Data.length) setTimeout(() => goStage(2), 800);
+      else renderS1();
+    }, 1200);
+  }
+}
+
+/* ===================== STAGE 2: 三要素辨识 ===================== */
+const s2Data = [
+  { q: '钢琴和小提琴演奏同一个音符（频率相同），我们能分辨出是哪种乐器，依靠的是什么？', options: ['响度', '音调', '音色'], answer: 2, points: 10, explain: '不同乐器的材料和结构不同，音色是声音的"指纹"。' },
+  { q: '用力敲鼓 vs 轻轻敲鼓，声音的什么特征不同？', options: ['响度', '音调', '音色'], answer: 0, points: 10, explain: '用力大小改变振幅，从而改变响度。音调和音色不变。' },
+  { q: '蚊子翅膀振动频率约 500 Hz，蜜蜂约 250 Hz，蚊子声音更尖更细，这说明什么？', options: ['响度更大', '音调更高', '音色更好'], answer: 1, points: 10, explain: '频率越高，音调越高。蚊子频率 500 > 蜜蜂 250，所以音调更高。' },
+  { q: '男低音歌唱家发出的声音低沉浑厚，这描述的是声音的什么特征？', options: ['响度大', '音调低', '音色独特'], answer: 1, points: 10, explain: '低沉 = 频率低 = 音调低。浑厚描述的是音色特质。' },
+  { q: '调节音响的音量旋钮，改变的是声音的什么？', options: ['响度', '音调', '音色'], answer: 0, points: 10, explain: '音量旋钮控制振幅大小，改变响度。不改变音调和音色。' }
+];
+let s2idx = 0;
+
+function initS2() {
+  s2idx = 0;
+  renderS2();
+}
+function renderS2() {
+  const d = s2Data[s2idx];
+  document.getElementById('s2-question').textContent = `【第 ${s2idx+1}/${s2Data.length} 题】${d.q}`;
+  const opts = document.getElementById('s2-options');
+  opts.innerHTML = '';
+  d.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 's2-opt';
+    btn.textContent = opt;
+    btn.onclick = () => s2check(i);
+    opts.appendChild(btn);
+  });
+  updateDots('s2-dots', s2idx, s2Data.length);
+}
+function s2check(choice) {
+  const d = s2Data[s2idx];
+  const opts = document.getElementById('s2-options').querySelectorAll('.s2-opt');
+  opts.forEach(b => b.disabled = true);
+  if (choice === d.answer) {
+    sndOk();
+    opts[choice].classList.add('correct');
+    showFeedback('正确！' + d.explain, 'ok');
+    addScore(d.points);
+    setTimeout(() => {
+      s2idx++;
+      if (s2idx >= s2Data.length) setTimeout(() => goStage(3), 800);
+      else renderS2();
+    }, 700);
+  } else {
+    sndErr();
+    opts[choice].classList.add('wrong');
+    opts[d.answer].classList.add('correct');
+    showFeedback(d.explain, 'wrong');
+    setTimeout(() => {
+      s2idx++;
+      if (s2idx >= s2Data.length) setTimeout(() => goStage(3), 800);
+      else renderS2();
+    }, 1200);
+  }
+}
+
+/* ===================== STAGE 3: 声速计算 ===================== */
+const s3Data = [
+  { problem: '在 15°C 空气中，声音传播 340 m 需要多少时间？', formula: 't = s / v', answer: 1, unit: 's', tolerance: 0.05, points: 10, explain: 't = 340 / 340 = 1 s' },
+  { problem: '对着山崖大喊，2 秒后听到回声。人与山崖的距离是多少？', formula: 's = v × t / 2', answer: 340, unit: 'm', tolerance: 5, points: 10, explain: 's = 340 × 2 / 2 = 340 m（注意除以2！）' },
+  { problem: '声呐发出超声波，4 秒后收到海底回声。水中声速 1500 m/s，海底深度是多少？', formula: 's = v × t / 2', answer: 3000, unit: 'm', tolerance: 10, points: 10, explain: 's = 1500 × 4 / 2 = 3000 m' },
+  { problem: '雷声在闪电后 5 秒传来，人与雷电发生处的距离约多少？', formula: 's = v × t', answer: 1700, unit: 'm', tolerance: 50, points: 10, explain: 's = 340 × 5 = 1700 m（雷声是单程，不用除以2）' },
+  { problem: '钢铁中声速约 5000 m/s，声音在 2.5 km 长的钢管中传播需要多少时间？', formula: 't = s / v', answer: 0.5, unit: 's', tolerance: 0.02, points: 10, explain: 't = 2500 / 5000 = 0.5 s' }
+];
+let s3idx = 0;
+
+function initS3() {
+  s3idx = 0;
+  renderS3();
+}
+function renderS3() {
+  const d = s3Data[s3idx];
+  document.getElementById('s3-problem').innerHTML = `
+    <div style="font-family:'Orbitron',sans-serif;color:var(--accent);margin-bottom:8px;">第 ${s3idx+1}/${s3Data.length} 题</div>
+    ${d.problem}<br>
+    <div class="formula">${d.formula}</div>
+    <div style="font-size:0.85rem;color:var(--text2);">请计算并输入答案（单位：${d.unit}）</div>
+  `;
+  document.getElementById('s3-input').value = '';
+  updateDots('s3-dots', s3idx, s3Data.length);
+}
+function s3check() {
+  const d = s3Data[s3idx];
+  const val = parseFloat(document.getElementById('s3-input').value);
+  const wrap = document.querySelector('#stage3 .s3-input-wrap');
+  if (isNaN(val)) {
+    sndErr(); wrap.classList.add('shake');
+    showFeedback('请输入数字！', 'wrong');
+    setTimeout(()=>wrap.classList.remove('shake'), 400);
+    return;
+  }
+  if (Math.abs(val - d.answer) <= d.tolerance) {
+    sndOk(); wrap.classList.add('flash-ok');
+    showFeedback(`正确！${d.explain}`, 'ok');
+    addScore(d.points);
+    setTimeout(()=>{
+      wrap.classList.remove('flash-ok');
+      s3idx++;
+      if (s3idx >= s3Data.length) setTimeout(()=>goStage(4), 800);
+      else renderS3();
+    }, 700);
+  } else {
+    sndErr(); wrap.classList.add('shake');
+    let hint = '';
+    if (val < d.answer * 0.5) hint = '答案偏小很多，检查公式。';
+    else if (val > d.answer * 2) hint = '答案偏大很多，注意是否需要除以2。';
+    else hint = '接近了！再仔细算一下。';
+    showFeedback(`${hint} ${d.explain}`, 'wrong');
+    setTimeout(()=>wrap.classList.remove('shake'), 400);
+    setTimeout(()=>{
+      s3idx++;
+      if (s3idx >= s3Data.length) setTimeout(()=>goStage(4), 800);
+      else renderS3();
+    }, 1200);
+  }
+}
+
+/* ===================== STAGE 4: 声呐综合任务 ===================== */
+let s4step = 1;
+let s4t1 = 3.0, s4t2 = 2.0;
+
+function initS4() {
+  s4step = 1;
+  s4t1 = 3.0; s4t2 = 2.0;
+  document.getElementById('s4-t1').textContent = s4t1.toFixed(1);
+  document.getElementById('s4-t2').textContent = s4t2.toFixed(1);
+  document.getElementById('s4-step1').style.display = 'block';
+  document.getElementById('s4-step2').style.display = 'none';
+  document.getElementById('s4-step3').style.display = 'none';
+  document.getElementById('s4-input1').value = '';
+  document.getElementById('s4-input2').value = '';
+}
+
+function s4checkStep(step, choice) {
+  if (step === 1) {
+    const val = parseFloat(document.getElementById('s4-input1').value);
+    const correct = 1500 * s4t1 / 2;
+    if (isNaN(val)) { sndErr(); showFeedback('请输入数字！', 'wrong'); return; }
+    if (Math.abs(val - correct) <= 20) {
+      sndOk(); addScore(15);
+      showFeedback(`正确！深度 = 1500 × ${s4t1} / 2 = ${correct} m`, 'ok');
+      setTimeout(()=>{
+        document.getElementById('s4-step1').style.display = 'none';
+        document.getElementById('s4-step2').style.display = 'block';
+      }, 700);
+    } else {
+      sndErr();
+      showFeedback(`正确答案是 ${correct} m。深度 = v × t / 2`, 'wrong');
+      setTimeout(()=>{
+        document.getElementById('s4-step1').style.display = 'none';
+        document.getElementById('s4-step2').style.display = 'block';
+      }, 1200);
+    }
+  } else if (step === 2) {
+    const val = parseFloat(document.getElementById('s4-input2').value);
+    const correct = 1500 * s4t2 / 2;
+    if (isNaN(val)) { sndErr(); showFeedback('请输入数字！', 'wrong'); return; }
+    if (Math.abs(val - correct) <= 20) {
+      sndOk(); addScore(15);
+      showFeedback(`正确！新深度 = 1500 × ${s4t2} / 2 = ${correct} m，比原来浅`, 'ok');
+      setTimeout(()=>{
+        document.getElementById('s4-step2').style.display = 'none';
+        document.getElementById('s4-step3').style.display = 'block';
+      }, 700);
+    } else {
+      sndErr();
+      showFeedback(`正确答案是 ${correct} m。回声时间变短说明海底变浅了。`, 'wrong');
+      setTimeout(()=>{
+        document.getElementById('s4-step2').style.display = 'none';
+        document.getElementById('s4-step3').style.display = 'block';
+      }, 1200);
+    }
+  } else if (step === 3) {
+    const opts = document.querySelectorAll('#s4-step3 .s1-opt');
+    opts.forEach(b => b.disabled = true);
+    if (choice === 'b') {
+      sndOk(); addScore(10);
+      opts[1].classList.add('correct');
+      showFeedback('正确！回声时间从 3s 变到 2s，说明深度变小，海底在倾斜上升。', 'ok');
+    } else {
+      sndErr();
+      opts[choice==='a'?0:2].classList.add('wrong');
+      opts[1].classList.add('correct');
+      showFeedback('回声时间变短说明深度变小，海底在倾斜上升。', 'wrong');
+    }
+    setTimeout(()=>goStage(5), 1500);
+  }
+}
+
+/* ===================== END SCREEN ===================== */
+function showEnd() {
+  document.getElementById('final-score').textContent = score;
+  let rank, msg;
+  if (score >= 90) { rank = 'S 级 · 声学大师'; msg = '完美！你对声音的理解已经达到了专业水平。'; }
+  else if (score >= 75) { rank = 'A 级 · 声学专家'; msg = '出色！大部分概念掌握得很好。'; }
+  else if (score >= 60) { rank = 'B 级 · 声学学徒'; msg = '不错！基础概念已经掌握，再多练习计算题。'; }
+  else if (score >= 40) { rank = 'C 级 · 声学新手'; msg = '还需要加强。建议重新阅读教程后再挑战。'; }
+  else { rank = '见习特工'; msg = '别灰心，去教程里复习一下再来！'; }
+  document.getElementById('final-rank').textContent = rank;
+  document.getElementById('final-msg').textContent = msg;
+}
+
+/* Override goStage for end screen */
+const _goStage = goStage;
+goStage = function(n) {
+  _goStage(n);
+  if (n === 5) { sndWin(); showEnd(); }
+};
+</script>
+</body>
+</html>

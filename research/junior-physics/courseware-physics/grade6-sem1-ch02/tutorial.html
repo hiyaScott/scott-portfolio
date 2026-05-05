@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>声波分析中心 · 特工手册 — 声</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f0c8;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 240, 200, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 80px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,240,200,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,240,200,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+.concept-box {
+  background: rgba(0,240,200,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Wave animation */
+.wave-viz {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 120px;
+  background: rgba(0,240,200,0.03);
+  border: 1px solid rgba(0,240,200,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.wave-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Tuning fork animation */
+.tfork-viz {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+}
+.tfork {
+  width: 60px;
+  height: 80px;
+  position: relative;
+}
+.tfork-prong {
+  position: absolute;
+  width: 8px;
+  height: 60px;
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  border-radius: 4px 4px 0 0;
+  top: 0;
+}
+.tfork-prong.left { left: 8px; animation: tforkVibrate 0.1s ease-in-out infinite alternate; }
+.tfork-prong.right { right: 8px; animation: tforkVibrate 0.1s ease-in-out infinite alternate-reverse; }
+.tfork-base {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 20px;
+  background: var(--text-dim);
+  border-radius: 0 0 4px 4px;
+}
+.tfork-label {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+@keyframes tforkVibrate {
+  from { transform: translateX(0); }
+  to { transform: translateX(2px); }
+}
+
+/* Sound propagation */
+.prop-viz {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 100px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,240,200,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.prop-source {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: var(--warning);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--warning);
+  animation: propPulse 1s ease-out infinite;
+}
+.prop-ring {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: propRing 2s ease-out infinite;
+}
+.prop-ring:nth-child(2) { animation-delay: 0.5s; }
+.prop-ring:nth-child(3) { animation-delay: 1s; }
+.prop-medium {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--text-dim);
+}
+@keyframes propPulse {
+  0%, 100% { transform: translateY(-50%) scale(1); }
+  50% { transform: translateY(-50%) scale(1.2); }
+}
+@keyframes propRing {
+  0% { width: 20px; height: 20px; margin-left: -10px; margin-top: -10px; opacity: 1; }
+  100% { width: 300px; height: 300px; margin-left: -150px; margin-top: -150px; opacity: 0; }
+}
+
+/* Echo animation */
+.echo-viz {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 100px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,240,200,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.echo-source {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: var(--warning);
+  border-radius: 50%;
+}
+.echo-wall {
+  position: absolute;
+  right: 20px;
+  top: 10px;
+  bottom: 10px;
+  width: 6px;
+  background: var(--text-dim);
+  border-radius: 2px;
+}
+.echo-pulse-out {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  animation: echoOut 3s ease-out infinite;
+}
+.echo-pulse-back {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  margin-right: -8px;
+  margin-top: -8px;
+  border: 2px solid var(--accent2);
+  border-radius: 50%;
+  animation: echoBack 3s ease-out infinite;
+  animation-delay: 1.5s;
+  opacity: 0;
+}
+@keyframes echoOut {
+  0% { width: 16px; height: 16px; opacity: 1; }
+  50% { width: 200px; height: 200px; margin-left: -100px; margin-top: -100px; opacity: 0.5; }
+  100% { width: 200px; height: 200px; opacity: 0; }
+}
+@keyframes echoBack {
+  0% { width: 16px; height: 16px; opacity: 0.5; right: 20px; }
+  50% { width: 200px; height: 200px; margin-right: -100px; margin-top: -100px; opacity: 0.5; right: 120px; }
+  100% { width: 16px; height: 16px; opacity: 0; right: 220px; }
+}
+
+.example-list { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,240,200,0.1);
+  border-radius: 6px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.example-item:hover { border-color: rgba(0,240,200,0.3); }
+.example-item .q { font-size: 15px; color: var(--text); }
+.example-item .a {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,240,200,0.1);
+  display: none;
+  line-height: 1.8;
+}
+.example-item.expanded .a { display: block; }
+.example-item .step {
+  font-size: 13px;
+  color: var(--warning);
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.quiz-question {
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.quiz-btn {
+  background: rgba(0,240,200,0.05);
+  border: 1px solid rgba(0,240,200,0.2);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.quiz-btn:hover { background: rgba(0,240,200,0.1); border-color: var(--accent); }
+.quiz-btn.correct { background: rgba(6,214,160,0.15); border-color: var(--success); color: var(--success); }
+.quiz-btn.wrong { background: rgba(239,71,111,0.15); border-color: var(--danger); color: var(--danger); }
+.quiz-feedback {
+  margin-top: 10px;
+  font-size: 14px;
+  min-height: 20px;
+}
+
+.btn-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  gap: 12px;
+}
+.btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s;
+}
+.btn:hover { box-shadow: 0 0 15px var(--accent); }
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.btn-ghost:hover { background: rgba(0,240,200,0.1); }
+.btn-warn {
+  background: var(--warning);
+  color: #000;
+}
+
+.hidden { display: none !important; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .title-bar h1 { font-size: 22px; }
+  .card { padding: 18px; }
+  .progress-seg { width: 50px; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<div id="app">
+
+<div class="title-bar">
+  <h1>声波分析中心</h1>
+  <div class="subtitle">沪教版六年级上册 · 第二章 · 特工手册</div>
+</div>
+
+<div class="progress-bar">
+  <div class="progress-seg active" data-ch="1"></div>
+  <div class="progress-seg" data-ch="2"></div>
+  <div class="progress-seg" data-ch="3"></div>
+</div>
+
+<!-- ========== CHAPTER 1: 声音的产生与传播 ========== -->
+<div class="card" id="ch1">
+  <div class="card-header">
+    <h2>声音的产生与传播</h2>
+    <span class="chapter-num">第 1 / 3 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心概念</div>
+    <p><strong>声音是由物体的振动产生的。</strong>一切发声的物体都在振动，振动停止，发声也停止。</p>
+    <p>声音的传播需要<strong>介质</strong>（固体、液体、气体）。<strong>真空不能传声。</strong></p>
+    <p>声速：空气中约 <strong>340 m/s</strong>（15°C）。固体中声速 > 液体中声速 > 气体中声速。</p>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">音叉振动发声</div>
+    <div class="tfork-viz">
+      <div class="tfork">
+        <div class="tfork-prong left"></div>
+        <div class="tfork-prong right"></div>
+        <div class="tfork-base"></div>
+      </div>
+      <div class="tfork-label">音叉振动 → 产生声波</div>
+    </div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">声波在介质中传播</div>
+    <div class="prop-viz">
+      <div class="prop-source"></div>
+      <div class="prop-ring" style="width:20px;height:20px;"></div>
+      <div class="prop-ring" style="width:20px;height:20px;"></div>
+      <div class="prop-ring" style="width:20px;height:20px;"></div>
+      <div class="prop-medium">空气 / 水 / 固体</div>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：宇航员在月球上面对面交谈，为什么听不见对方说话？</div>
+      <div class="a">
+        月球表面是<strong>真空</strong>环境，没有空气作为传播声音的介质。<br>
+        声音不能在真空中传播，所以听不见。<br>
+        宇航员需要使用<strong>无线电</strong>（电磁波可以在真空中传播）进行交流。
+        <div class="step">（真空不能传声 —— 声音需要介质）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：把耳朵贴在桌面上，能更清楚地听到远处的敲击声，为什么？</div>
+      <div class="a">
+        固体（桌面）传声效果比空气好。<br>
+        声音在固体中的传播速度比在气体中快，能量损失也小。<br>
+        所以通过桌面传声，能听得更清楚。
+        <div class="step">（固体传声效果 > 气体）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：在 15°C 的空气中，声音传播 340 m 需要多少时间？</div>
+      <div class="a">
+        已知：v = 340 m/s，s = 340 m<br>
+        t = s / v = 340 / 340 = <strong style="color:var(--success)">1 s</strong>
+        <div class="step">（t = s ÷ v，注意单位统一）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch1-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">下列哪种环境中声音无法传播？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。水可以传声，而且效果比空气还好。')">深水中</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！真空没有介质，声音无法传播。')">真空中</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。钢管是固体，传声效果很好。')">钢管中</button>
+    </div>
+    <div class="quiz-feedback" id="ch1-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">声音在下列介质中传播最快的是？</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'a', false, '不对。固体中声速最快。')">空气</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'b', false, '不对。固体中声速最快。')">水</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'c', true, '正确！固体中声速 > 液体 > 气体。')">钢铁</button>
+      </div>
+      <div class="quiz-feedback" id="ch1-fb2"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="goTo(2)">下一章 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 2: 声音的三要素 ========== -->
+<div class="card hidden" id="ch2">
+  <div class="card-header">
+    <h2>声音的三要素</h2>
+    <span class="chapter-num">第 2 / 3 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心概念</div>
+    <p>声音有三个基本特征：<strong>响度、音调、音色</strong>。</p>
+    <div class="formula" style="font-size:16px;">
+      🔊 响度 —— 由<strong>振幅</strong>决定。振幅越大，响度越大。<br>
+      🎵 音调 —— 由<strong>频率</strong>决定。频率越高，音调越高。<br>
+      🎸 音色 —— 由发声体的<strong>材料与结构</strong>决定。不同乐器音色不同。
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">响度与振幅</div>
+    <p>振幅是物体振动时离开平衡位置的<strong>最大距离</strong>。</p>
+    <p>用力敲鼓 → 鼓面振幅大 → 声音<strong>响</strong></p>
+    <p>轻轻敲鼓 → 鼓面振幅小 → 声音<strong>轻</strong></p>
+    <p>单位：<strong>分贝（dB）</strong>。0 dB 是人耳能听到的最微弱声音。</p>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">音调与频率</div>
+    <p>频率是物体每秒振动的<strong>次数</strong>，单位 <strong>赫兹（Hz）</strong>。</p>
+    <p>人耳能听到的范围：约 <strong>20 Hz ~ 20000 Hz</strong></p>
+    <p>低于 20 Hz：<strong>次声波</strong>；高于 20000 Hz：<strong>超声波</strong></p>
+    <p>女高音频率高 → 音调高；男低音频率低 → 音调低</p>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">波形对比</div>
+    <div class="wave-viz">
+      <canvas class="wave-canvas" id="waveCanvas" width="400" height="120"></canvas>
+    </div>
+    <div style="display:flex;gap:20px;font-size:13px;color:var(--text-dim);margin-top:8px;">
+      <span style="color:var(--accent)">── 高频率（音调高）</span>
+      <span style="color:var(--accent2)">── 低频率（音调低）</span>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：用大小不同的力敲同一个音叉，声音有什么不同？</div>
+      <div class="a">
+        大力敲 → 音叉振幅大 → <strong style="color:var(--success)">响度大</strong>（声音更响）<br>
+        小力敲 → 音叉振幅小 → <strong>响度小</strong>（声音更轻）<br>
+        音调不变，因为音叉的振动频率不变。
+        <div class="step">（力的大小改变振幅，从而改变响度）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：钢琴和小提琴演奏同一个音符（如中央C，约262Hz），为什么我们能分辨出是哪种乐器？</div>
+      <div class="a">
+        虽然音调（频率）相同，响度也可以相同，<br>
+        但钢琴和小提琴的<strong style="color:var(--success)">音色不同</strong>。<br>
+        音色由发声体的材料、结构决定，是声音的"指纹"。
+        <div class="step">（音色是辨别不同声源的关键）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：蚊子翅膀振动频率约 500 Hz，蜜蜂约 250 Hz，哪个音调更高？</div>
+      <div class="a">
+        蚊子 500 Hz > 蜜蜂 250 Hz<br>
+        频率越高，音调越高。<br>
+        <strong style="color:var(--success)">蚊子的音调更高</strong>，所以蚊子飞起来声音更尖。
+        <div class="step">（频率决定音调：f 越高 → 音调越高）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch2-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">"引吭高歌"中的"高"指的是声音的哪个特征？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。音调高是指频率高，像女高音。')">音调高</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！"引吭高歌"指大声唱歌，是响度大。')">响度大</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。音色是声音的特色，如不同人的嗓音。')">音色好</button>
+    </div>
+    <div class="quiz-feedback" id="ch2-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">人能分辨出钢琴和吉他演奏同一音符，主要依靠的是？</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'a', false, '不对。音调相同的话频率也相同。')">音调不同</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'b', false, '不对。如果演奏同样响，响度也相同。')">响度不同</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'c', true, '正确！不同乐器的材料结构不同，音色不同。')">音色不同</button>
+      </div>
+      <div class="quiz-feedback" id="ch2-fb2"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(1)">← 上一章</button>
+    <button class="btn" onclick="goTo(3)">下一章 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 3: 回声与声速计算 ========== -->
+<div class="card hidden" id="ch3">
+  <div class="card-header">
+    <h2>回声与声速计算</h2>
+    <span class="chapter-num">第 3 / 3 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心概念</div>
+    <p><strong>回声</strong>是声音遇到障碍物被<strong>反射</strong>回来形成的。</p>
+    <p>人耳能区分原声和回声的最小时间间隔约 <strong>0.1 秒</strong>。</p>
+    <p>回声测距：声音从发出到返回走了<strong>两倍距离</strong>。</p>
+    <div class="formula">s = v × t ÷ 2</div>
+    <p>s = 距离，v = 声速，t = 从发声到听到回声的总时间</p>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">回声原理</div>
+    <div class="echo-viz">
+      <div class="echo-source"></div>
+      <div class="echo-pulse-out"></div>
+      <div class="echo-pulse-back"></div>
+      <div class="echo-wall"></div>
+    </div>
+    <div style="font-size:13px;color:var(--text-dim);margin-top:8px;">
+      声波发出 → 遇到墙壁反射 → 返回人耳（走了 2s 的距离）
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：对着山崖大喊，2 秒后听到回声，求人与山崖的距离。（声速 340 m/s）</div>
+      <div class="a">
+        声音走了来回，总路程 = 2 × 距离<br>
+        2s = v × t = 340 × 2 = 680 m<br>
+        s = 680 ÷ 2 = <strong style="color:var(--success)">340 m</strong>
+        <div class="step">（注意：t 是往返总时间，求单程距离要除以 2）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：汽车以 20 m/s 的速度向峭壁行驶，鸣笛 3 秒后听到回声，求鸣笛时汽车与峭壁的距离。</div>
+      <div class="a">
+        设鸣笛时距离为 s。<br>
+        3 秒内：声音走了 s + (s − 20×3) = 2s − 60<br>
+        声音路程 = 340 × 3 = 1020 m<br>
+        2s − 60 = 1020 → 2s = 1080 → s = <strong style="color:var(--success)">540 m</strong>
+        <div class="step">（进阶题：考虑汽车运动，声音走的路程 = 去程 + 返程）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：超声波测海深，从发出到接收用时 4 秒，声速 1500 m/s，求海深。</div>
+      <div class="a">
+        超声波在水中传播，声速 1500 m/s。<br>
+        总路程 = 1500 × 4 = 6000 m<br>
+        海深 = 6000 ÷ 2 = <strong style="color:var(--success)">3000 m</strong>
+        <div class="step">（超声波测距 = 声呐原理，常用于测海深和鱼群）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch3-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">人对着高墙喊话，0.5 秒后听到回声，人与墙的距离是多少？（声速 340 m/s）</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。340 × 0.5 = 170 是来回总路程。')">170 m</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！s = 340 × 0.5 ÷ 2 = 85 m。')">85 m</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。340 × 0.5 ÷ 2 = 85 m。')">340 m</button>
+    </div>
+    <div class="quiz-feedback" id="ch3-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">下列应用中，与回声无关的是？</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'a', false, '不对。声呐就是利用超声波回声测距。')">声呐测海深</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'b', true, '正确！B超是利用超声波穿透人体后的反射成像，虽然也涉及反射，但题目通常认为声呐/雷达是典型的回声应用。如果按严格定义，B超也涉及反射。但此题答案通常设计为B超属于医学成像，与"回声定位"概念区分。')">B超检查</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'c', false, '不对。蝙蝠靠超声波回声定位飞行和捕食。')">蝙蝠导航</button>
+      </div>
+      <div class="quiz-feedback" id="ch3-fb2"></div>
+    </div>
+  </div>
+
+  <div class="concept-box" style="border-left-color:var(--warning);">
+    <div class="label" style="color:var(--warning);">公式总结</div>
+    <div class="formula">声速公式：v = s / t</div>
+    <div class="formula">回声测距：s = v × t / 2</div>
+    <p style="font-size:14px;color:var(--text-dim);margin-top:8px;">
+      v = 声速（m/s）| s = 距离（m）| t = 时间（s）<br>
+      空气中 15°C 时 v ≈ 340 m/s
+    </p>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(2)">← 上一章</button>
+    <a class="btn btn-warn" href="index.html">🎮 进入声波分析中心</a>
+  </div>
+</div>
+
+<!-- ========== FOOTER ========== -->
+<div style="text-align:center;padding:20px 0;color:var(--text-dim);font-size:12px;letter-spacing:1px;">
+  声波分析中心 · 沪教版六年级上册 · 声
+</div>
+
+</div><!-- /app -->
+
+<script>
+let audioCtx;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function sfx(type) {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  if (type === 'ok') {
+    osc.type = 'sine'; osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t+0.1);
+    gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+    osc.start(t); osc.stop(t+0.3);
+  } else if (type === 'err') {
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, t);
+    gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+    osc.start(t); osc.stop(t+0.3);
+  } else if (type === 'click') {
+    osc.type = 'square'; osc.frequency.setValueAtTime(800, t);
+    gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.05);
+    osc.start(t); osc.stop(t+0.05);
+  }
+}
+
+let currentCh = 1;
+function goTo(n) {
+  sfx('click');
+  document.getElementById('ch' + currentCh).classList.add('hidden');
+  document.getElementById('ch' + n).classList.remove('hidden');
+  currentCh = n;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < currentCh) s.classList.add('done');
+    else if (i + 1 === currentCh) s.classList.add('active');
+  });
+}
+
+function checkQuiz(btn, isCorrect, msg) {
+  sfx(isCorrect ? 'ok' : 'err');
+  const fb = btn.closest('.quiz-box').querySelector('.quiz-feedback');
+  fb.textContent = msg;
+  fb.style.color = isCorrect ? 'var(--success)' : 'var(--danger)';
+  btn.parentElement.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    btn.parentElement.querySelectorAll('.quiz-btn').forEach(b => {
+      if (b.onclick && b.onclick.toString().includes('true')) b.classList.add('correct');
+    });
+  }
+}
+
+let quiz2State = {};
+function checkQuiz2(btn, key, isCorrect, msg) {
+  sfx(isCorrect ? 'ok' : 'err');
+  const fb = document.getElementById(key.replace(/[a-c]/, '') + '-fb2');
+  fb.textContent = msg;
+  fb.style.color = isCorrect ? 'var(--success)' : 'var(--danger)';
+  btn.parentElement.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    btn.parentElement.querySelectorAll('.quiz-btn').forEach(b => {
+      if (b.onclick && b.onclick.toString().includes('true')) b.classList.add('correct');
+    });
+  }
+}
+
+// Wave canvas animation
+const waveCanvas = document.getElementById('waveCanvas');
+if (waveCanvas) {
+  const ctx = waveCanvas.getContext('2d');
+  let frame = 0;
+  function drawWaves() {
+    ctx.clearRect(0, 0, 400, 120);
+    ctx.strokeStyle = 'rgba(0, 240, 200, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = 0; x < 400; x++) {
+      const y = 40 + Math.sin((x + frame) * 0.08) * 20;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0, 187, 249, 0.8)';
+    ctx.beginPath();
+    for (let x = 0; x < 400; x++) {
+      const y = 80 + Math.sin((x + frame * 0.5) * 0.04) * 25;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    frame += 2;
+    requestAnimationFrame(drawWaves);
+  }
+  drawWaves();
+}
+</script>
+</body>
+</html>
