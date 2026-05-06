@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学特工局 — 代号：EQUATION</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  overflow: hidden;
+  height: 100vh; width: 100vw;
+  position: relative;
+}
+
+/* Level nav */
+.level-nav {
+  cursor: pointer; font-size: 1.2rem; color: var(--accent);
+  padding: 4px 8px; border: 1px solid rgba(0,245,212,0.3);
+  border-radius: 4px; transition: all 0.2s;
+}
+.level-nav:hover { background: rgba(0,245,212,0.1); }
+.level-nav-panel {
+  position: fixed; top: 70px; right: 20px;
+  background: var(--panel); backdrop-filter: blur(12px);
+  border: 1px solid rgba(0,245,212,0.3); border-radius: 8px;
+  padding: 8px 0; z-index: 200; display: none;
+  min-width: 180px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.level-nav-panel.active { display: block; }
+.level-nav-panel div {
+  padding: 10px 16px; cursor: pointer;
+  font-size: 0.85rem; color: var(--text);
+  transition: all 0.15s; border-left: 3px solid transparent;
+}
+.level-nav-panel div:hover { background: rgba(0,245,212,0.1); color: var(--accent); border-left-color: var(--accent); }
+.level-nav-panel div.current { color: var(--accent); font-weight: bold; }
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* Main container */
+#app {
+  position: relative; z-index: 10;
+  height: 100vh; display: flex; flex-direction: column;
+  padding: 40px 60px;
+}
+
+/* Title */
+#title-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 12px; margin-bottom: 20px;
+}
+#title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px; letter-spacing: 3px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+#title-bar .badge {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 8px;
+}
+
+/* Top HUD stats */
+#top-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.hud-block { display: flex; gap: 20px; }
+.hud-item { display: flex; flex-direction: column; align-items: center; }
+.hud-item .label { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; }
+.hud-item .value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.hud-item .value.danger { color: var(--danger); }
+.hud-item .value.warning { color: var(--warning); }
+.hud-item .value.success { color: var(--success); }
+
+/* Screen sections */
+.screen {
+  display: none; flex: 1; flex-direction: column;
+  animation: fadeIn 0.4s ease;
+}
+.screen.active { display: flex; }
+
+/* Level intro */
+.level-intro {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg);
+  z-index: 200;
+}
+.level-intro.active { display: flex; }
+.level-intro h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 56px; color: var(--accent);
+  text-shadow: 0 0 40px var(--accent);
+  animation: glitchText 0.8s ease infinite alternate;
+}
+.level-intro p {
+  margin-top: 20px; font-size: 18px;
+  color: var(--text-dim); letter-spacing: 2px;
+}
+
+@keyframes glitchText {
+  0% { transform: translate(0); text-shadow: 0 0 40px var(--accent); }
+  20% { transform: translate(-2px, 1px); text-shadow: -2px 0 40px var(--accent); }
+  40% { transform: translate(2px, -1px); text-shadow: 2px 0 40px var(--accent); }
+  60% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -2px); }
+  100% { transform: translate(0); }
+}
+
+/* Level clear overlay */
+#level-clear-overlay {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: rgba(6, 8, 15, 0.95);
+  z-index: 200;
+}
+#level-clear-overlay.active { display: flex; }
+#level-clear-overlay h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 64px; color: var(--success);
+  text-shadow: 0 0 50px var(--success);
+  animation: scaleIn 0.6s ease;
+}
+#level-clear-overlay .level-stats {
+  margin-top: 24px; font-size: 18px;
+  display: flex; gap: 40px;
+}
+
+@keyframes scaleIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ========== BRIEFING ========== */
+#briefing {
+  align-items: center; justify-content: center;
+  text-align: center;
+}
+#briefing .briefing-box {
+  max-width: 700px;
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 12px;
+  padding: 48px;
+}
+#briefing h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px; color: var(--accent);
+  text-shadow: 0 0 30px var(--accent);
+  margin-bottom: 24px;
+}
+#briefing p {
+  font-size: 16px; line-height: 1.8; color: var(--text);
+  margin-bottom: 16px;
+}
+#briefing .classified {
+  display: inline-block;
+  background: rgba(239,71,111,0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 4px 16px;
+  font-size: 12px; letter-spacing: 3px;
+  margin-bottom: 24px;
+}
+#briefing .btn-accept {
+  margin-top: 32px;
+  background: rgba(0,245,212,0.1);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  padding: 16px 48px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px; letter-spacing: 3px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+#briefing .btn-accept:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 30px var(--accent);
+  transform: scale(1.05);
+}
+
+/* ========== LEVEL 1: Equation Recognition ========== */
+#level1 .target-display {
+  text-align: center; margin: 10px 0;
+}
+#level1 .target-display .big-expr {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 56px;
+  color: var(--accent);
+  text-shadow: 0 0 30px var(--accent);
+  animation: pulse 1s ease infinite alternate;
+}
+#level1 .target-display .expr-desc {
+  font-size: 14px; color: var(--text-dim); margin-top: 8px;
+}
+@keyframes pulse {
+  0% { text-shadow: 0 0 20px currentColor; }
+  100% { text-shadow: 0 0 50px currentColor, 0 0 80px currentColor; }
+}
+#level1 .timer-bar {
+  width: 100%; height: 6px;
+  background: rgba(0,245,212,0.15);
+  margin: 10px 0; border-radius: 3px; overflow: hidden;
+}
+#level1 .timer-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--danger), var(--warning), var(--success));
+  transition: width linear 0.1s;
+}
+#level1 .btn-group {
+  display: flex; justify-content: center; gap: 16px;
+  margin-top: 16px; flex-wrap: wrap;
+}
+.eq-btn {
+  width: 140px; height: 80px;
+  border: 2px solid var(--accent2);
+  background: rgba(0, 187, 249, 0.08);
+  color: var(--accent2); font-family: 'Orbitron', sans-serif;
+  font-size: 20px; cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: all 0.2s; border-radius: 4px;
+  position: relative; overflow: hidden;
+}
+.eq-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--accent2); opacity: 0;
+  transition: opacity 0.2s;
+}
+.eq-btn:hover::before { opacity: 0.15; }
+.eq-btn:hover {
+  box-shadow: 0 0 20px var(--accent2);
+  transform: translateY(-2px);
+}
+.eq-btn.selected {
+  border-color: var(--accent);
+  background: rgba(0, 245, 212, 0.2);
+  box-shadow: 0 0 25px var(--accent);
+}
+.eq-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239, 71, 111, 0.2);
+  animation: shake 0.4s ease;
+}
+.eq-btn.correct {
+  border-color: var(--success);
+  background: rgba(6, 214, 160, 0.2);
+  animation: flashGreen 0.5s ease;
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 40px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+#level1 .combo-display {
+  text-align: center; margin-top: 10px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px;
+}
+#level1 .combo-display .combo-count { color: var(--warning); text-shadow: 0 0 15px var(--warning); }
+
+/* ========== LEVEL 2: Term Move ========== */
+#level2 .move-equation {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px;
+  color: var(--accent);
+  text-align: center;
+  margin: 20px 0;
+  text-shadow: 0 0 20px var(--accent);
+}
+#level2 .move-instruction {
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+}
+#level2 .term-bank {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.term-btn {
+  min-width: 60px;
+  height: 50px;
+  border: 2px solid var(--accent2);
+  background: rgba(0, 187, 249, 0.08);
+  color: var(--accent2);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 0 12px;
+  transition: all 0.2s;
+}
+.term-btn:hover {
+  background: rgba(0,187,249,0.15);
+  box-shadow: 0 0 15px var(--accent2);
+}
+.term-btn.used {
+  opacity: 0.3;
+  pointer-events: none;
+}
+#level2 .equation-slot {
+  min-height: 60px;
+  border: 2px dashed rgba(0,245,212,0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  color: var(--text);
+  margin: 16px 0;
+}
+#level2 .equation-slot .slot-part {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+#level2 .move-ops {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* ========== LEVEL 3: Solve Crack ========== */
+#level3 .solve-mission {
+  text-align: center;
+  margin: 16px 0;
+}
+#level3 .solve-expr {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent);
+  margin-bottom: 12px;
+}
+#level3 .solve-steps {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px;
+  text-align: center;
+  min-height: 60px;
+}
+#level3 .numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 80px);
+  gap: 10px;
+  justify-content: center;
+  margin-top: 16px;
+}
+.numpad-btn {
+  height: 60px;
+  border: 2px solid var(--accent2);
+  background: rgba(0, 187, 249, 0.08);
+  color: var(--accent2);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.numpad-btn:hover {
+  background: rgba(0,187,249,0.15);
+  box-shadow: 0 0 15px var(--accent2);
+}
+.numpad-btn.wide {
+  grid-column: span 2;
+}
+
+/* ========== LEVEL 4: Application Decode ========== */
+#level4 .app-story {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0;
+  font-size: 16px;
+  line-height: 1.7;
+}
+#level4 .app-question {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px;
+  color: var(--warning);
+  text-align: center;
+  margin: 16px 0;
+}
+#level4 .app-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+.app-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 14px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: center;
+  transition: all 0.2s;
+}
+.app-btn:hover {
+  border-color: var(--accent2);
+  background: rgba(0,187,249,0.15);
+}
+.app-btn.correct {
+  border-color: var(--success);
+  background: rgba(6,214,160,0.15);
+  color: var(--success);
+}
+.app-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239,71,111,0.15);
+  color: var(--danger);
+}
+
+/* ========== LEVEL 5: Ultimate Equation ========== */
+#level5 .ult-timer {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 48px;
+  color: var(--danger);
+  text-align: center;
+  text-shadow: 0 0 30px var(--danger);
+  margin: 10px 0;
+}
+#level5 .ult-question {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+}
+#level5 .ult-question .q-text {
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+#level5 .ult-question .q-big {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px;
+  color: var(--accent);
+}
+#level5 .ult-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+#level5 .ult-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 14px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: center;
+  transition: all 0.2s;
+}
+#level5 .ult-btn:hover {
+  border-color: var(--accent2);
+  background: rgba(0,187,249,0.15);
+}
+#level5 .ult-btn.correct {
+  border-color: var(--success);
+  background: rgba(6,214,160,0.15);
+  color: var(--success);
+}
+#level5 .ult-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239,71,111,0.15);
+  color: var(--danger);
+}
+#level5 .ult-progress {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+}
+#level5 .ult-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: rgba(88,96,112,0.3);
+  transition: all 0.3s;
+}
+#level5 .ult-dot.done { background: var(--success); box-shadow: 0 0 8px var(--success); }
+#level5 .ult-dot.current { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+/* Common */
+.level-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.level-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+.score-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px;
+  color: var(--success);
+  text-shadow: 0 0 30px var(--success);
+  pointer-events: none;
+  animation: scoreFloat 1s ease forwards;
+  z-index: 300;
+}
+@keyframes scoreFloat {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -150%) scale(1.5); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<!-- Level nav panel -->
+<div class="level-nav-panel" id="level-nav-panel">
+  <div onclick="jumpToLevel(0)">📋 任务简报</div>
+  <div onclick="jumpToLevel(1)">🔍 方程识别</div>
+  <div onclick="jumpToLevel(2)">🔄 移项破解</div>
+  <div onclick="jumpToLevel(3)">🔢 求解密码</div>
+  <div onclick="jumpToLevel(4)">📖 应用破译</div>
+  <div onclick="jumpToLevel(5)">🔐 终极密码</div>
+</div>
+
+<!-- Level Intro Overlay -->
+<div class="level-intro" id="level-intro">
+  <h2 id="intro-title">LEVEL 1</h2>
+  <p id="intro-sub">初始化...</p>
+</div>
+
+<!-- Level Clear Overlay -->
+<div id="level-clear-overlay">
+  <h2>LEVEL CLEAR</h2>
+  <div class="level-stats">
+    <div>得分: <span id="clear-score" style="color:var(--accent)">0</span></div>
+    <div>连击: <span id="clear-combo" style="color:var(--warning)">0</span></div>
+    <div>剩余生命: <span id="clear-lives" style="color:var(--danger)">3</span></div>
+  </div>
+  <div style="margin-top:40px;">
+    <button class="btn-accept" onclick="nextLevel()">下一关 →</button>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app">
+
+<!-- Title bar -->
+<div id="title-bar">
+  <h1>⚖️ 代号：EQUATION</h1>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <span class="badge">方程</span>
+    <div class="level-nav" id="level-nav-btn">⚡ 关卡</div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="top-hud">
+  <div class="hud-block">
+    <div class="hud-item">
+      <div class="label">得分</div>
+      <div class="value" id="score">0</div>
+    </div>
+    <div class="hud-item">
+      <div class="label">生命</div>
+      <div class="value" id="lives">❤️❤️❤️</div>
+    </div>
+    <div class="hud-item">
+      <div class="label">关卡</div>
+      <div class="value" id="level-display">briefing</div>
+    </div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-item">
+      <div class="label">连击</div>
+      <div class="value warning" id="combo">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== BRIEFING SCREEN ========== -->
+<div class="screen active" id="briefing">
+  <div class="briefing-box">
+    <div class="classified">机密等级：B</div>
+    <h2>代号：EQUATION</h2>
+    <p>特工，敌方在核心设施周围部署了加密方程防护系统。只有掌握一元一次方程的特工才能突破防线。</p>
+    <p>基地共 5 层防线，每层都有不同的方程编码机制。你的任务是识别方程、破解移项、求解未知量。</p>
+    <p>准备好了吗？接受任务，开始行动。</p>
+    <button class="btn-accept" onclick="startGame()">接受任务</button>
+  </div>
+</div>
+
+<!-- ========== LEVEL 1: Equation Recognition ========== -->
+<div class="screen" id="level1">
+  <div class="level-title">🔍 LEVEL 1 — 方程识别</div>
+  <div class="level-desc">敌方混淆了等式、方程和不等式。在 3 秒内识别每个表达式的类型！</div>
+
+  <div class="target-display">
+    <div class="big-expr" id="l1-expr">2x+1=7</div>
+    <div class="expr-desc" id="l1-desc">这是什么类型？</div>
+  </div>
+
+  <div class="timer-bar"><div class="timer-fill" id="l1-timer"></div></div>
+
+  <div class="btn-group">
+    <button class="eq-btn" id="l1-eq" onclick="l1Answer('eq')">
+      <span class="value">EQ</span>
+      <span class="label">等式</span>
+    </button>
+    <button class="eq-btn" id="l1-ineq" onclick="l1Answer('ineq')">
+      <span class="value">INEQ</span>
+      <span class="label">不等式</span>
+    </button>
+    <button class="eq-btn" id="l1-neq" onclick="l1Answer('neq')">
+      <span class="value">NOT</span>
+      <span class="label">非等式</span>
+    </button>
+  </div>
+
+  <div class="combo-display">
+    连击: <span class="combo-count" id="l1-combo">0</span>
+  </div>
+</div>
+
+<!-- ========== LEVEL 2: Term Move ========== -->
+<div class="screen" id="level2">
+  <div class="level-title">🔄 LEVEL 2 — 移项破解</div>
+  <div class="level-desc">将正确的项移动到另一边，完成方程变形！</div>
+
+  <div class="move-equation" id="l2-equation">3x + 5 = 14</div>
+  <div class="move-instruction" id="l2-instruction">将常数项移到右边</div>
+
+  <div class="equation-slot" id="l2-slot"></div>
+
+  <div class="term-bank" id="l2-bank">
+    <!-- Generated by JS -->
+  </div>
+
+  <div class="move-ops">
+    <button class="btn-accept" onclick="l2Submit()">确认</button>
+    <button class="btn-accept" onclick="l2Reset()" style="margin-left:12px;">重置</button>
+  </div>
+
+  <div id="l2-feedback" style="text-align:center;margin-top:12px;font-size:16px;min-height:24px;"></div>
+</div>
+
+<!-- ========== LEVEL 3: Solve Crack ========== -->
+<div class="screen" id="level3">
+  <div class="level-title">🔢 LEVEL 3 — 求解密码</div>
+  <div class="level-desc">解方程，求出未知数的值！</div>
+
+  <div class="solve-mission">
+    <div class="solve-expr" id="l3-expr">2x + 3 = 11</div>
+  </div>
+
+  <div class="solve-steps" id="l3-steps">2x = 11 - 3 = 8 → x = ?</div>
+
+  <div class="numpad" id="l3-numpad">
+    <!-- Generated by JS -->
+  </div>
+
+  <div id="l3-feedback" style="text-align:center;margin-top:12px;font-size:16px;min-height:24px;"></div>
+</div>
+
+<!-- ========== LEVEL 4: Application Decode ========== -->
+<div class="screen" id="level4">
+  <div class="level-title">📖 LEVEL 4 — 应用破译</div>
+  <div class="level-desc">根据情报描述，列出方程并求解！</div>
+
+  <div class="app-story" id="l4-story">
+    特工小组缴获了敌方物资清单：3箱武器和额外2把手枪共20件。每箱武器有多少件？
+  </div>
+
+  <div class="app-question" id="l4-question">
+    设每箱武器 x 件，方程是？
+  </div>
+
+  <div class="app-options" id="l4-options">
+    <!-- Generated by JS -->
+  </div>
+
+  <div id="l4-feedback" style="text-align:center;margin-top:12px;font-size:16px;min-height:24px;"></div>
+</div>
+
+<!-- ========== LEVEL 5: Ultimate Equation ========== -->
+<div class="screen" id="level5">
+  <div class="level-title">🔐 LEVEL 5 — 终极密码</div>
+  <div class="level-desc">综合挑战！60 秒内完成 5 道终极方程题！</div>
+
+  <div class="ult-timer" id="l5-timer">60</div>
+
+  <div class="ult-progress" id="l5-progress">
+    <div class="ult-dot current"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+  </div>
+
+  <div class="ult-question" id="l5-question">
+    <div class="q-text">解方程：3x - 5 = 10</div>
+    <div class="q-big">x = ?</div>
+  </div>
+
+  <div class="ult-options" id="l5-options">
+    <!-- Generated by JS -->
+  </div>
+</div>
+
+</div>
+
+<script>
+// ========== GLOBAL STATE ==========
+let score = 0, lives = 3, combo = 0, currentLevel = 0;
+const maxLevels = 5;
+
+function updateHUD() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('lives').textContent = '❤️'.repeat(lives) + '🖤'.repeat(3-lives);
+  document.getElementById('combo').textContent = combo;
+  const names = ['briefing','1','2','3','4','5'];
+  document.getElementById('level-display').textContent = names[currentLevel] || currentLevel;
+}
+
+function showScorePopup(points) {
+  const el = document.createElement('div');
+  el.className = 'score-popup';
+  el.textContent = '+' + points;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function addScore(points) {
+  const bonus = Math.floor(combo / 3);
+  const total = points + bonus * 10;
+  score += total;
+  showScorePopup(total);
+  updateHUD();
+}
+
+function loseLife() {
+  lives--;
+  combo = 0;
+  updateHUD();
+  if (lives <= 0) {
+    alert('任务失败！请重新接受任务。');
+    location.reload();
+  }
+}
+
+// ========== SCREEN / LEVEL MANAGEMENT ==========
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showLevelIntro(num, title, sub) {
+  const el = document.getElementById('level-intro');
+  document.getElementById('intro-title').textContent = 'LEVEL ' + num;
+  document.getElementById('intro-sub').textContent = sub;
+  el.classList.add('active');
+  setTimeout(() => {
+    el.classList.remove('active');
+  }, 2000);
+}
+
+function showLevelClear() {
+  document.getElementById('clear-score').textContent = score;
+  document.getElementById('clear-combo').textContent = combo;
+  document.getElementById('clear-lives').textContent = lives;
+  document.getElementById('level-clear-overlay').classList.add('active');
+}
+
+function nextLevel() {
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  currentLevel++;
+  if (currentLevel > maxLevels) {
+    alert('恭喜！代号：EQUATION 任务全部完成！最终得分: ' + score);
+    location.reload();
+    return;
+  }
+  updateHUD();
+  startCurrentLevel();
+}
+
+function jumpToLevel(n) {
+  document.getElementById('level-nav-panel').classList.remove('active');
+  currentLevel = n;
+  updateHUD();
+  if (n === 0) {
+    showScreen('briefing');
+  } else {
+    startCurrentLevel();
+  }
+}
+
+document.getElementById('level-nav-btn').addEventListener('click', () => {
+  document.getElementById('level-nav-panel').classList.toggle('active');
+});
+
+function startGame() {
+  currentLevel = 1;
+  score = 0; lives = 3; combo = 0;
+  updateHUD();
+  startCurrentLevel();
+}
+
+function startCurrentLevel() {
+  if (currentLevel === 1) { showScreen('level1'); l1Init(); }
+  if (currentLevel === 2) { showScreen('level2'); l2Init(); }
+  if (currentLevel === 3) { showScreen('level3'); l3Init(); }
+  if (currentLevel === 4) { showScreen('level4'); l4Init(); }
+  if (currentLevel === 5) { showScreen('level5'); l5Init(); }
+}
+
+// ========== LEVEL 1: Equation Recognition ==========
+let l1Timer, l1Target, l1Round = 0;
+const l1Rounds = [
+  { expr: '2x+1=7', correct: 'eq', desc: '含未知数x的等式' },
+  { expr: '3+5=8', correct: 'eq', desc: '不含未知数的等式' },
+  { expr: 'x>5', correct: 'ineq', desc: '不等式' },
+  { expr: '2x-3', correct: 'neq', desc: '不是等式（无等号）' },
+  { expr: '4x=12', correct: 'eq', desc: '含未知数x的等式' },
+  { expr: 'x²=9', correct: 'eq', desc: '虽然是等式但不是一次' },
+  { expr: '7-2', correct: 'neq', desc: '不是等式' },
+  { expr: '2x+1≤5', correct: 'ineq', desc: '不等式' },
+];
+
+function l1Init() {
+  l1Round = 0;
+  combo = 0;
+  l1NextRound();
+}
+
+function l1NextRound() {
+  if (l1Round >= l1Rounds.length) {
+    combo = 0;
+    showLevelClear();
+    return;
+  }
+  const r = l1Rounds[l1Round];
+  document.getElementById('l1-expr').textContent = r.expr;
+  document.getElementById('l1-desc').textContent = r.desc;
+  document.getElementById('l1-combo').textContent = combo;
+
+  ['l1-eq','l1-ineq','l1-neq'].forEach(id => {
+    const btn = document.getElementById(id);
+    btn.classList.remove('correct', 'wrong');
+    btn.style.pointerEvents = 'auto';
+  });
+
+  l1Target = r.correct;
+  let timeLeft = 100;
+  clearInterval(l1Timer);
+  l1Timer = setInterval(() => {
+    timeLeft -= 2;
+    document.getElementById('l1-timer').style.width = timeLeft + '%';
+    if (timeLeft <= 0) {
+      clearInterval(l1Timer);
+      l1Answer('timeout');
+    }
+  }, 100);
+}
+
+function l1Answer(ans) {
+  clearInterval(l1Timer);
+  const btns = { eq: 'l1-eq', ineq: 'l1-ineq', neq: 'l1-neq' };
+
+  if (ans === l1Target) {
+    combo++;
+    addScore(100);
+    document.getElementById(btns[ans]).classList.add('correct');
+  } else {
+    if (ans !== 'timeout') {
+      document.getElementById(btns[ans]).classList.add('wrong');
+    }
+    combo = 0;
+    loseLife();
+    document.getElementById(btns[l1Target]).classList.add('correct');
+  }
+
+  ['l1-eq','l1-ineq','l1-neq'].forEach(id => {
+    document.getElementById(id).style.pointerEvents = 'none';
+  });
+
+  l1Round++;
+  setTimeout(() => l1NextRound(), 800);
+}
+
+// ========== LEVEL 2: Term Move ==========
+let l2Round = 0;
+const l2Targets = [
+  { eq: '3x + 5 = 14', instruction: '将常数项移到右边', target: '3x = 14 - 5', parts: ['3x','=','14','-','5','3','x','+'] },
+  { eq: '2x - 7 = 5', instruction: '将常数项移到右边', target: '2x = 5 + 7', parts: ['2x','=','5','+','7','2','x','-'] },
+  { eq: '5x + 3 = 2x + 9', instruction: '将含x项移到左边，常数移到右边', target: '5x - 2x = 9 - 3', parts: ['5x','-','2x','=','9','-','3','5','2','x'] },
+];
+let l2Selected = [];
+
+function l2Init() {
+  l2Round = 0;
+  l2NextRound();
+}
+
+function l2NextRound() {
+  if (l2Round >= l2Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const t = l2Targets[l2Round];
+  document.getElementById('l2-equation').textContent = t.eq;
+  document.getElementById('l2-instruction').textContent = t.instruction;
+  document.getElementById('l2-slot').innerHTML = '';
+  l2Selected = [];
+
+  const bank = document.getElementById('l2-bank');
+  bank.innerHTML = '';
+  const shuffled = [...t.parts].sort(() => Math.random() - 0.5);
+  shuffled.forEach(part => {
+    const btn = document.createElement('button');
+    btn.className = 'term-btn';
+    btn.textContent = part;
+    btn.onclick = () => l2SelectPart(part, btn);
+    bank.appendChild(btn);
+  });
+
+  document.getElementById('l2-feedback').textContent = '';
+}
+
+function l2SelectPart(part, btn) {
+  l2Selected.push(part);
+  btn.classList.add('used');
+  const slot = document.getElementById('l2-slot');
+  const span = document.createElement('span');
+  span.className = 'slot-part';
+  span.textContent = part;
+  slot.appendChild(span);
+}
+
+function l2Submit() {
+  const t = l2Targets[l2Round];
+  const built = l2Selected.join('');
+  const normalized = built.replace(/\s/g, '');
+  const targetNorm = t.target.replace(/\s/g, '');
+
+  if (normalized === targetNorm) {
+    combo++;
+    addScore(150);
+    document.getElementById('l2-feedback').innerHTML = '<span style="color:var(--success)">✅ 移项正确！</span>';
+    l2Round++;
+    setTimeout(() => l2NextRound(), 800);
+  } else {
+    combo = 0;
+    loseLife();
+    document.getElementById('l2-feedback').innerHTML = '<span style="color:var(--danger)">❌ 错误！正确答案是 ' + t.target + '</span>';
+    l2Round++;
+    setTimeout(() => l2NextRound(), 1500);
+  }
+}
+
+function l2Reset() {
+  l2Selected = [];
+  document.getElementById('l2-slot').innerHTML = '';
+  document.querySelectorAll('#l2-bank .term-btn').forEach(b => b.classList.remove('used'));
+  document.getElementById('l2-feedback').textContent = '';
+}
+
+// ========== LEVEL 3: Solve Crack ==========
+let l3Round = 0;
+const l3Targets = [
+  { expr: '2x + 3 = 11', steps: '2x = 11 - 3 = 8 → x = ?', ans: 4 },
+  { expr: '3x - 5 = 10', steps: '3x = 10 + 5 = 15 → x = ?', ans: 5 },
+  { expr: '5x + 2 = 17', steps: '5x = 17 - 2 = 15 → x = ?', ans: 3 },
+  { expr: '4x - 7 = 9', steps: '4x = 9 + 7 = 16 → x = ?', ans: 4 },
+  { expr: 'x/2 + 3 = 7', steps: 'x/2 = 7 - 3 = 4 → x = ?', ans: 8 },
+];
+let l3CurrentInput = '';
+
+function l3Init() {
+  l3Round = 0;
+  l3NextRound();
+}
+
+function l3NextRound() {
+  if (l3Round >= l3Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const t = l3Targets[l3Round];
+  document.getElementById('l3-expr').textContent = t.expr;
+  document.getElementById('l3-steps').textContent = t.steps;
+  l3CurrentInput = '';
+  document.getElementById('l3-feedback').textContent = '';
+  l3BuildNumpad();
+}
+
+function l3BuildNumpad() {
+  const pad = document.getElementById('l3-numpad');
+  pad.innerHTML = '';
+  const keys = ['7','8','9','4','5','6','1','2','3','C','0','Enter'];
+  keys.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'numpad-btn' + (k === 'Enter' ? ' wide' : '');
+    btn.textContent = k;
+    btn.onclick = () => l3KeyPress(k);
+    pad.appendChild(btn);
+  });
+}
+
+function l3KeyPress(k) {
+  if (k === 'C') {
+    l3CurrentInput = '';
+    document.getElementById('l3-steps').textContent = l3Targets[l3Round].steps;
+    return;
+  }
+  if (k === 'Enter') {
+    l3Submit();
+    return;
+  }
+  l3CurrentInput += k;
+  document.getElementById('l3-steps').textContent = l3Targets[l3Round].steps.replace('?', l3CurrentInput);
+}
+
+function l3Submit() {
+  const t = l3Targets[l3Round];
+  const val = parseInt(l3CurrentInput);
+  if (val === t.ans) {
+    combo++;
+    addScore(150);
+    document.getElementById('l3-feedback').innerHTML = '<span style="color:var(--success)">✅ 正确！答案是 ' + t.ans + '</span>';
+    l3Round++;
+    setTimeout(() => l3NextRound(), 800);
+  } else {
+    combo = 0;
+    loseLife();
+    document.getElementById('l3-feedback').innerHTML = '<span style="color:var(--danger)">❌ 错误！正确答案是 ' + t.ans + '</span>';
+    l3Round++;
+    setTimeout(() => l3NextRound(), 1500);
+  }
+}
+
+// ========== LEVEL 4: Application Decode ==========
+let l4Round = 0;
+const l4Targets = [
+  { story: '特工小组缴获了敌方物资清单：3箱武器和额外2把手枪共20件。每箱武器有多少件？', question: '设每箱武器 x 件，方程是？', opts: ['3x+2=20','3x-2=20','3x=20+2','x+3=20'], correct: 0, solve: '3x+2=20 → 3x=18 → x=6' },
+  { story: '敌方通讯站有若干台设备，损坏5台后还剩7台。原来有多少台？', question: '设原来有 x 台，方程是？', opts: ['x+5=7','x-5=7','5x=7','x=7-5'], correct: 1, solve: 'x-5=7 → x=12' },
+  { story: '特工们平分8包情报，每人2包。共有多少名特工？', question: '设共有 x 名特工，方程是？', opts: ['2x=8','x/2=8','8x=2','x+2=8'], correct: 0, solve: '2x=8 → x=4' },
+  { story: '基地第一层有3倍于第二层的兵力，两层共40人。第二层有多少人？', question: '设第二层有 x 人，方程是？', opts: ['3x=40','x+3=40','3x+x=40','3x-x=40'], correct: 2, solve: '4x=40 → x=10' },
+];
+
+function l4Init() {
+  l4Round = 0;
+  l4NextRound();
+}
+
+function l4NextRound() {
+  if (l4Round >= l4Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const t = l4Targets[l4Round];
+  document.getElementById('l4-story').textContent = t.story;
+  document.getElementById('l4-question').textContent = t.question;
+
+  const container = document.getElementById('l4-options');
+  container.innerHTML = '';
+  t.opts.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'app-btn';
+    btn.textContent = opt;
+    btn.onclick = () => l4Answer(i, t.correct, t.solve, btn);
+    container.appendChild(btn);
+  });
+
+  document.getElementById('l4-feedback').textContent = '';
+}
+
+function l4Answer(idx, correct, solve, btn) {
+  const btns = document.querySelectorAll('#l4-options .app-btn');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+
+  if (idx === correct) {
+    combo++;
+    addScore(200);
+    btn.classList.add('correct');
+    document.getElementById('l4-feedback').innerHTML = '<span style="color:var(--success)">✅ 正确！' + solve + '</span>';
+  } else {
+    combo = 0;
+    loseLife();
+    btn.classList.add('wrong');
+    btns[correct].classList.add('correct');
+    document.getElementById('l4-feedback').innerHTML = '<span style="color:var(--danger)">❌ 错误！正确答案是 ' + solve + '</span>';
+  }
+
+  l4Round++;
+  setTimeout(() => l4NextRound(), 1500);
+}
+
+// ========== LEVEL 5: Ultimate Equation ==========
+let l5QuestionIdx = 0, l5Timer, l5TimeLeft;
+const l5Questions = [
+  { q: '解方程：3x - 5 = 10', opts: ['3','4','5','6'], correct: 2 },
+  { q: '解方程：2x + 7 = 15', opts: ['3','4','5','6'], correct: 1 },
+  { q: '解方程：4x = 2x + 8', opts: ['2','3','4','5'], correct: 2 },
+  { q: '一个数的3倍加5等于20，这个数是？', opts: ['4','5','6','7'], correct: 1 },
+  { q: '解方程：x/3 + 2 = 5', opts: ['6','7','8','9'], correct: 3 },
+];
+
+function l5Init() {
+  l5QuestionIdx = 0;
+  l5TimeLeft = 60;
+  l5UpdateTimer();
+  l5ShowQuestion();
+  clearInterval(l5Timer);
+  l5Timer = setInterval(() => {
+    l5TimeLeft--;
+    l5UpdateTimer();
+    if (l5TimeLeft <= 0) {
+      clearInterval(l5Timer);
+      alert('时间到！任务失败。');
+      location.reload();
+    }
+  }, 1000);
+}
+
+function l5UpdateTimer() {
+  const el = document.getElementById('l5-timer');
+  el.textContent = l5TimeLeft;
+  el.style.color = l5TimeLeft <= 10 ? 'var(--danger)' : 'var(--warning)';
+}
+
+function l5ShowQuestion() {
+  if (l5QuestionIdx >= l5Questions.length) {
+    clearInterval(l5Timer);
+    showLevelClear();
+    return;
+  }
+  const q = l5Questions[l5QuestionIdx];
+  document.querySelector('#l5-question .q-text').textContent = q.q;
+
+  const container = document.getElementById('l5-options');
+  container.innerHTML = '';
+  q.opts.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ult-btn';
+    btn.textContent = opt;
+    btn.onclick = () => l5Answer(i, q.correct, btn);
+    container.appendChild(btn);
+  });
+
+  const dots = document.querySelectorAll('#l5-progress .ult-dot');
+  dots.forEach((d, i) => {
+    d.className = 'ult-dot';
+    if (i < l5QuestionIdx) d.classList.add('done');
+    if (i === l5QuestionIdx) d.classList.add('current');
+  });
+}
+
+function l5Answer(idx, correct, btn) {
+  const btns = document.querySelectorAll('#l5-options .ult-btn');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+
+  if (idx === correct) {
+    combo++;
+    addScore(200);
+    btn.classList.add('correct');
+  } else {
+    combo = 0;
+    loseLife();
+    btn.classList.add('wrong');
+    btns[correct].classList.add('correct');
+  }
+
+  l5QuestionIdx++;
+  setTimeout(() => l5ShowQuestion(), 800);
+}
+
+updateHUD();
+</script>
+</body>
+</html>

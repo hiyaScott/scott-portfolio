@@ -1,0 +1,634 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学特工局 — 线段与角</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 60px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,245,212,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+.concept-box {
+  background: rgba(0,245,212,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.example-list { margin: 16px 0; }
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.example-item:hover {
+  border-color: rgba(0,245,212,0.3);
+  background: rgba(0,245,212,0.03);
+}
+.example-item .q { font-size: 16px; margin-bottom: 8px; }
+.example-item .a {
+  font-size: 14px; color: var(--success);
+  display: none;
+  border-top: 1px dashed rgba(0,245,212,0.2);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.example-item.expanded .a { display: block; }
+.example-item .a .step {
+  color: var(--text-dim); font-size: 12px;
+  margin-top: 4px;
+}
+
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-box .quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--warning);
+  margin-bottom: 16px;
+}
+.quiz-question { font-size: 16px; margin-bottom: 14px; }
+.quiz-options { display: flex; flex-direction: column; gap: 10px; }
+.quiz-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit; font-size: 15px;
+  text-align: left;
+  transition: all 0.2s;
+}
+.quiz-btn:hover {
+  background: rgba(0,187,249,0.15);
+  border-color: var(--accent2);
+}
+.quiz-btn.correct {
+  background: rgba(6,214,160,0.15);
+  border-color: var(--success);
+  color: var(--success);
+  animation: flashGreen 0.5s ease;
+}
+.quiz-btn.wrong {
+  background: rgba(239,71,111,0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: shake 0.4s ease;
+}
+.quiz-feedback { margin-top: 12px; font-size: 14px; min-height: 20px; }
+
+.btn-row { display: flex; gap: 16px; justify-content: center; margin-top: 24px; }
+.btn {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 14px 36px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 20px var(--accent);
+}
+.btn.btn-ghost {
+  background: transparent;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.btn.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.hidden { display: none !important; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 30px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@media (max-width: 600px) {
+  .title-bar h1 { font-size: 22px; }
+  #app { padding: 20px 12px; }
+  .card { padding: 18px; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<div id="app">
+
+<div class="title-bar">
+  <h1>📐 数学特工局</h1>
+  <div class="subtitle">特工手册 — 线段与角 · 代号：GEOMETRY · 六年级</div>
+  <div style="margin-top:12px;">
+    <a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a>
+  </div>
+</div>
+
+<div class="progress-bar" id="progress-bar">
+  <div class="progress-seg active"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+</div>
+
+<!-- CHAPTER 0: 任务简报 -->
+<div class="card" id="ch0">
+  <div class="card-header">
+    <h2>🎯 任务简报</h2>
+    <span class="chapter-num">准备阶段</span>
+  </div>
+  <div class="concept-box">
+    <div class="label">机密等级：B</div>
+    <p>特工，敌方在地图上标记了加密坐标系统，只有掌握<strong style="color:var(--accent)">线段与角</strong>的特工才能破译位置信息。</p>
+    <p>你的任务是学会比较线段长度、计算角度、画几何图形。</p>
+    <p style="margin-top:8px;">本次行动需要掌握：</p>
+    <p>• 线段的大小比较</p>
+    <p>• 线段的和、差、倍</p>
+    <p>• 角的概念与表示</p>
+    <p>• 角的大小比较与计算</p>
+    <p>• 角的和、差、倍</p>
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="goTo(1)">接受任务 →</button>
+  </div>
+</div>
+
+<!-- CHAPTER 1: 线段 -->
+<div class="card hidden" id="ch1">
+  <div class="card-header">
+    <h2>线段</h2>
+    <span class="chapter-num">第 1 / 5 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心概念</div>
+    <p><strong>线段</strong>：有两个端点，长度可以测量。如线段 AB。</p>
+    <p><strong>比较方法</strong>：度量法（用尺量）或叠合法（重合比较）。</p>
+    <p><strong>中点</strong>：把线段分成相等两部分的点。</p>
+    <div class="formula">若 M 是 AB 中点，则 AM = MB = AB/2</div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">📏 线段可视化</div>
+    <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center;">
+      <div style="text-align:center;">
+        <div style="width:120px;height:4px;background:var(--accent);position:relative;">
+          <div style="position:absolute;left:0;top:-4px;width:8px;height:12px;background:var(--accent);border-radius:2px;"></div>
+          <div style="position:absolute;right:0;top:-4px;width:8px;height:12px;background:var(--accent);border-radius:2px;"></div>
+          <div style="position:absolute;left:50%;top:-6px;width:12px;height:16px;background:var(--warning);border-radius:50%;transform:translateX(-50%);"></div>
+        </div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:8px;">A——M——B（M是中点）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：AB = 10cm，M 是 AB 中点，求 AM。</div>
+      <div class="a">
+        M 是中点 → AM = AB/2<br>
+        AM = 10 ÷ 2 = 5cm<br>
+        <strong style="color:var(--success)">→ AM = 5cm ✅</strong>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：C 在 AB 上，AC = 3cm，CB = 5cm，求 AB。</div>
+      <div class="a">
+        AB = AC + CB<br>
+        AB = 3 + 5 = 8cm<br>
+        <strong style="color:var(--success)">→ AB = 8cm ✅</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch1-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">AB = 12cm，M 是 AB 中点，AM = ?</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '12÷2=6，不是4。')">4cm</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！中点把线段平分，12÷2=6cm。')">6cm</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '12÷2=6，不是8。')">8cm</button>
+    </div>
+    <div class="quiz-feedback" id="ch1-fb"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(0)">← 简报</button>
+    <button class="btn" onclick="goTo(2)">下一章 →</button>
+  </div>
+</div>
+
+<!-- CHAPTER 2: 角的初步 -->
+<div class="card hidden" id="ch2">
+  <div class="card-header">
+    <h2>角的初步</h2>
+    <span class="chapter-num">第 2 / 5 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">角的定义</div>
+    <p><strong>角</strong>：由公共端点的两条射线组成的图形。</p>
+    <p><strong>顶点</strong>：两条射线的公共端点。</p>
+    <p><strong>边</strong>：组成角的两条射线。</p>
+    <div class="formula">记作 ∠AOB 或 ∠O（顶点字母）</div>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">角的度量</div>
+    <p>单位：<strong>度（°）</strong>，用 protractor（量角器）测量。</p>
+    <p>• 锐角：0° < 角 < 90°</p>
+    <p>• 直角：= 90°</p>
+    <p>• 钝角：90° < 角 < 180°</p>
+    <p>• 平角：= 180°</p>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">📐 角的分类</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
+      <div style="text-align:center;">
+        <div style="width:60px;height:60px;border:3px solid var(--accent);border-radius:50%;border-bottom-color:transparent;border-left-color:transparent;transform:rotate(-45deg);"></div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">锐角</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:60px;height:60px;border:3px solid var(--success);border-radius:0;border-bottom:none;border-right:none;"></div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">直角</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:60px;height:60px;border:3px solid var(--warning);border-radius:50%;border-bottom-color:transparent;border-left-color:transparent;transform:rotate(45deg);"></div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">钝角</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：一个角是 45°，它是什么角？</div>
+      <div class="a">
+        45° < 90°<br>
+        <strong style="color:var(--success)">→ 锐角 ✅</strong>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：∠A = 120°，它是什么角？</div>
+      <div class="a">
+        90° < 120° < 180°<br>
+        <strong style="color:var(--success)">→ 钝角 ✅</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch2-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">150° 的角是什么角？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '150° > 90°，不是锐角。')">锐角</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '150° ≠ 90°，不是直角。')">直角</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！90° < 150° < 180°，是钝角。')">钝角</button>
+    </div>
+    <div class="quiz-feedback" id="ch2-fb"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(1)">← 上一章</button>
+    <button class="btn" onclick="goTo(3)">下一章 →</button>
+  </div>
+</div>
+
+<!-- CHAPTER 3: 角的计算 -->
+<div class="card hidden" id="ch3">
+  <div class="card-header">
+    <h2>角的计算</h2>
+    <span class="chapter-num">第 3 / 5 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">角的和差</div>
+    <p>两个角可以相加或相减。</p>
+    <div class="formula">∠AOC = ∠AOB + ∠BOC</div>
+    <div class="formula">∠AOB = ∠AOC - ∠BOC</div>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">互余与互补</div>
+    <p><strong>互余</strong>：两角之和为 90°。</p>
+    <p><strong>互补</strong>：两角之和为 180°。</p>
+    <div class="formula">若 ∠A + ∠B = 90°，则 ∠A 与 ∠B 互余</div>
+    <div class="formula">若 ∠A + ∠B = 180°，则 ∠A 与 ∠B 互补</div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">📐 角的和演示</div>
+    <div style="font-family:'Orbitron',sans-serif;font-size:24px;color:var(--accent);text-align:center;">
+      ∠AOB = 30° + 45° = 75°
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：∠A = 35°，∠B = 55°，它们互余吗？</div>
+      <div class="a">
+        35° + 55° = 90°<br>
+        <strong style="color:var(--success)">→ 互余 ✅</strong>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：∠A = 120°，求它的补角。</div>
+      <div class="a">
+        补角 = 180° - 120° = 60°<br>
+        <strong style="color:var(--success)">→ 60° ✅</strong>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：∠AOC = 90°，∠AOB = 30°，求 ∠BOC。</div>
+      <div class="a">
+        ∠BOC = ∠AOC - ∠AOB<br>
+        = 90° - 30° = 60°<br>
+        <strong style="color:var(--success)">→ 60° ✅</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch3-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">一个角的余角是 25°，这个角是？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！90°-25°=65°。')">65°</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '互余是和为90°，不是180°。')">155°</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '90°-25°=65°，不是75°。')">75°</button>
+    </div>
+    <div class="quiz-feedback" id="ch3-fb"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(2)">← 上一章</button>
+    <button class="btn" onclick="goTo(4)">下一章 →</button>
+  </div>
+</div>
+
+<!-- CHAPTER 4: 综合演练 -->
+<div class="card hidden" id="ch4">
+  <div class="card-header">
+    <h2>综合演练</h2>
+    <span class="chapter-num">第 4 / 5 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">知识回顾</div>
+    <p>1. <strong>线段</strong>：有两个端点，可度量长度，有中点</p>
+    <p>2. <strong>角</strong>：由公共端点的两条射线组成，用度(°)度量</p>
+    <p>3. <strong>角的分类</strong>：锐角、直角、钝角、平角</p>
+    <p>4. <strong>互余</strong>：和为 90°，<strong>互补</strong>：和为 180°</p>
+    <p>5. <strong>角的和差</strong>：∠AOC = ∠AOB + ∠BOC</p>
+  </div>
+
+  <div class="quiz-box" id="ch4-quiz1">
+    <div class="quiz-title">🎯 综合测试 1/3</div>
+    <div class="quiz-question">AB = 16cm，M 是 AB 中点，N 是 AM 中点，求 MN。</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, 'AM=8，MN=4，不是2。')">2cm</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！AM=8，MN=4cm。')">4cm</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, 'MN=AM/2=4，不是8。')">8cm</button>
+    </div>
+    <div class="quiz-feedback" id="ch4-fb1"></div>
+  </div>
+
+  <div class="quiz-box" id="ch4-quiz2">
+    <div class="quiz-title">🎯 综合测试 2/3</div>
+    <div class="quiz-question">一个角的补角比它本身大 40°，这个角是？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '设x，180-x=x+40，2x=140，x=70。')">60°</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！设x，180-x=x+40，x=70°。')">70°</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '70°的补角是110°，110-70=40。')">80°</button>
+    </div>
+    <div class="quiz-feedback" id="ch4-fb2"></div>
+  </div>
+
+  <div class="quiz-box" id="ch4-quiz3">
+    <div class="quiz-title">🎯 综合测试 3/3</div>
+    <div class="quiz-question">∠A = 35°，它的余角是？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '35+145=180，是补角不是余角。')">145°</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！90°-35°=55°。')">55°</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '90°-35°=55°，不是65°。')">65°</button>
+    </div>
+    <div class="quiz-feedback" id="ch4-fb3"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(3)">← 上一章</button>
+    <a class="btn" href="index.html">🎮 进入挑战模式</a>
+  </div>
+</div>
+
+</div>
+
+<script>
+let currentCh = 0;
+const totalCh = 5;
+
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((seg, i) => {
+    seg.className = 'progress-seg';
+    if (i < currentCh) seg.classList.add('done');
+    if (i === currentCh) seg.classList.add('active');
+  });
+}
+
+function goTo(n) {
+  document.getElementById('ch' + currentCh).classList.add('hidden');
+  document.getElementById('ch' + n).classList.remove('hidden');
+  currentCh = n;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function checkQuiz(btn, isCorrect, msg) {
+  const card = btn.closest('.quiz-box');
+  const fb = card.querySelector('.quiz-feedback');
+  const allBtns = card.querySelectorAll('.quiz-btn');
+  
+  allBtns.forEach(b => b.style.pointerEvents = 'none');
+  
+  if (isCorrect) {
+    btn.classList.add('correct');
+    fb.innerHTML = '<span style="color:var(--success)">✅ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong');
+    fb.innerHTML = '<span style="color:var(--danger)">❌ ' + msg + '</span>';
+  }
+}
+
+updateProgress();
+</script>
+</body>
+</html>

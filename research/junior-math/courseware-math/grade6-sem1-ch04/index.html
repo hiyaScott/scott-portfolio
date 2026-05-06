@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学特工局 — 代号：GEOMETRY</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  overflow: hidden;
+  height: 100vh; width: 100vw;
+  position: relative;
+}
+
+/* Level nav */
+.level-nav {
+  cursor: pointer; font-size: 1.2rem; color: var(--accent);
+  padding: 4px 8px; border: 1px solid rgba(0,245,212,0.3);
+  border-radius: 4px; transition: all 0.2s;
+}
+.level-nav:hover { background: rgba(0,245,212,0.1); }
+.level-nav-panel {
+  position: fixed; top: 70px; right: 20px;
+  background: var(--panel); backdrop-filter: blur(12px);
+  border: 1px solid rgba(0,245,212,0.3); border-radius: 8px;
+  padding: 8px 0; z-index: 200; display: none;
+  min-width: 180px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.level-nav-panel.active { display: block; }
+.level-nav-panel div {
+  padding: 10px 16px; cursor: pointer;
+  font-size: 0.85rem; color: var(--text);
+  transition: all 0.15s; border-left: 3px solid transparent;
+}
+.level-nav-panel div:hover { background: rgba(0,245,212,0.1); color: var(--accent); border-left-color: var(--accent); }
+.level-nav-panel div.current { color: var(--accent); font-weight: bold; }
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* Main container */
+#app {
+  position: relative; z-index: 10;
+  height: 100vh; display: flex; flex-direction: column;
+  padding: 40px 60px;
+}
+
+/* Title */
+#title-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 12px; margin-bottom: 20px;
+}
+#title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px; letter-spacing: 3px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+#title-bar .badge {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 8px;
+}
+
+/* Top HUD stats */
+#top-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.hud-block { display: flex; gap: 20px; }
+.hud-item { display: flex; flex-direction: column; align-items: center; }
+.hud-item .label { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; }
+.hud-item .value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.hud-item .value.danger { color: var(--danger); }
+.hud-item .value.warning { color: var(--warning); }
+.hud-item .value.success { color: var(--success); }
+
+/* Screen sections */
+.screen {
+  display: none; flex: 1; flex-direction: column;
+  animation: fadeIn 0.4s ease;
+}
+.screen.active { display: flex; }
+
+/* Level intro */
+.level-intro {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg);
+  z-index: 200;
+}
+.level-intro.active { display: flex; }
+.level-intro h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 56px; color: var(--accent);
+  text-shadow: 0 0 40px var(--accent);
+  animation: glitchText 0.8s ease infinite alternate;
+}
+.level-intro p {
+  margin-top: 20px; font-size: 18px;
+  color: var(--text-dim); letter-spacing: 2px;
+}
+
+@keyframes glitchText {
+  0% { transform: translate(0); text-shadow: 0 0 40px var(--accent); }
+  20% { transform: translate(-2px, 1px); text-shadow: -2px 0 40px var(--accent); }
+  40% { transform: translate(2px, -1px); text-shadow: 2px 0 40px var(--accent); }
+  60% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -2px); }
+  100% { transform: translate(0); }
+}
+
+/* Level clear overlay */
+#level-clear-overlay {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: rgba(6, 8, 15, 0.95);
+  z-index: 200;
+}
+#level-clear-overlay.active { display: flex; }
+#level-clear-overlay h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 64px; color: var(--success);
+  text-shadow: 0 0 50px var(--success);
+  animation: scaleIn 0.6s ease;
+}
+#level-clear-overlay .level-stats {
+  margin-top: 24px; font-size: 18px;
+  display: flex; gap: 40px;
+}
+
+@keyframes scaleIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ========== BRIEFING ========== */
+#briefing {
+  align-items: center; justify-content: center;
+  text-align: center;
+}
+#briefing .briefing-box {
+  max-width: 700px;
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 12px;
+  padding: 48px;
+}
+#briefing h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px; color: var(--accent);
+  text-shadow: 0 0 30px var(--accent);
+  margin-bottom: 24px;
+}
+#briefing p {
+  font-size: 16px; line-height: 1.8; color: var(--text);
+  margin-bottom: 16px;
+}
+#briefing .classified {
+  display: inline-block;
+  background: rgba(239,71,111,0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 4px 16px;
+  font-size: 12px; letter-spacing: 3px;
+  margin-bottom: 24px;
+}
+#briefing .btn-accept {
+  margin-top: 32px;
+  background: rgba(0,245,212,0.1);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  padding: 16px 48px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px; letter-spacing: 3px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+#briefing .btn-accept:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 30px var(--accent);
+  transform: scale(1.05);
+}
+
+/* ========== LEVEL 1: Distance Measure ========== */
+#level1 .dist-mission {
+  text-align: center;
+  margin: 16px 0;
+}
+#level1 .dist-expr {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent);
+  margin-bottom: 12px;
+}
+#level1 .dist-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+#level1 .dist-visual {
+  width: 100%;
+  max-width: 500px;
+  height: 60px;
+  margin: 0 auto;
+  position: relative;
+}
+#level1 .dist-line {
+  position: absolute;
+  top: 50%;
+  left: 10%;
+  right: 10%;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+#level1 .dist-point {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  background: var(--warning);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px var(--warning);
+}
+#level1 .dist-label {
+  position: absolute;
+  top: 70%;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  transform: translateX(-50%);
+}
+#level1 .dist-options {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.dist-btn {
+  width: 120px;
+  height: 60px;
+  border: 2px solid var(--accent2);
+  background: rgba(0, 187, 249, 0.08);
+  color: var(--accent2);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.dist-btn:hover {
+  background: rgba(0,187,249,0.15);
+  box-shadow: 0 0 15px var(--accent2);
+}
+.dist-btn.correct {
+  border-color: var(--success);
+  background: rgba(6,214,160,0.2);
+  animation: flashGreen 0.5s ease;
+}
+.dist-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239,71,111,0.2);
+  animation: shake 0.4s ease;
+}
+
+/* ========== LEVEL 2: Angle Classify ========== */
+#level2 .angle-display {
+  text-align: center;
+  margin: 20px 0;
+}
+#level2 .angle-visual {
+  width: 150px;
+  height: 150px;
+  margin: 0 auto;
+  position: relative;
+}
+#level2 .angle-arm1 {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  width: 3px;
+  height: 60px;
+  background: var(--accent);
+  transform-origin: bottom center;
+  transform: translateX(-50%) rotate(-90deg);
+}
+#level2 .angle-arm2 {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  width: 3px;
+  height: 60px;
+  background: var(--accent);
+  transform-origin: bottom center;
+  transform: translateX(-50%) rotate(0deg);
+}
+#level2 .angle-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  color: var(--warning);
+  text-align: center;
+  margin-top: 12px;
+}
+#level2 .angle-instruction {
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+#level2 .angle-options {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.angle-btn {
+  width: 100px;
+  height: 50px;
+  border: 2px solid var(--accent2);
+  background: rgba(0, 187, 249, 0.08);
+  color: var(--accent2);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.angle-btn:hover {
+  background: rgba(0,187,249,0.15);
+  box-shadow: 0 0 15px var(--accent2);
+}
+.angle-btn.correct {
+  border-color: var(--success);
+  background: rgba(6,214,160,0.2);
+  animation: flashGreen 0.5s ease;
+}
+.angle-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239,71,111,0.2);
+  animation: shake 0.4s ease;
+}
+
+/* ========== LEVEL 3: Midpoint Locate ========== */
+#level3 .mp-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 20px auto;
+  position: relative;
+  height: 100px;
+}
+#level3 .mp-line {
+  position: absolute;
+  top: 50%;
+  left: 10%;
+  right: 10%;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+#level3 .mp-point {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  background: var(--warning);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px var(--warning);
+}
+#level3 .mp-label {
+  position: absolute;
+  top: 65%;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  transform: translateX(-50%);
+}
+#level3 .mp-target {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--success);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px var(--success);
+  animation: targetPulse 1s infinite;
+}
+@keyframes targetPulse {
+  0%,100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.6; }
+}
+#level3 .mp-click-zone {
+  position: absolute;
+  top: 20%;
+  height: 80%;
+  left: 10%;
+  right: 10%;
+  cursor: crosshair;
+}
+#level3 .mp-instruction {
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-dim);
+  margin: 16px 0;
+}
+#level3 .mp-feedback {
+  text-align: center;
+  font-size: 16px;
+  min-height: 24px;
+  margin-top: 12px;
+}
+
+/* ========== LEVEL 4: Angle Calculate ========== */
+#level4 .calc-mission {
+  text-align: center;
+  margin: 16px 0;
+}
+#level4 .calc-expr {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent);
+  margin-bottom: 8px;
+}
+#level4 .calc-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+#level4 .calc-input-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  text-align: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 24px;
+  min-height: 60px;
+}
+#level4 .numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 80px);
+  gap: 10px;
+  justify-content: center;
+  margin-top: 16px;
+}
+.numpad-btn {
+  height: 60px;
+  border: 2px solid var(--accent2);
+  background: rgba(0, 187, 249, 0.08);
+  color: var(--accent2);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.numpad-btn:hover {
+  background: rgba(0,187,249,0.15);
+  box-shadow: 0 0 15px var(--accent2);
+}
+.numpad-btn.wide {
+  grid-column: span 2;
+}
+#level4 .calc-feedback {
+  text-align: center;
+  font-size: 16px;
+  min-height: 24px;
+  margin-top: 12px;
+}
+
+/* ========== LEVEL 5: Ultimate Geometry ========== */
+#level5 .ult-timer {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 48px;
+  color: var(--danger);
+  text-align: center;
+  text-shadow: 0 0 30px var(--danger);
+  margin: 10px 0;
+}
+#level5 .ult-question {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+}
+#level5 .ult-question .q-text {
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+#level5 .ult-question .q-big {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  color: var(--accent);
+}
+#level5 .ult-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+#level5 .ult-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 14px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: center;
+  transition: all 0.2s;
+}
+#level5 .ult-btn:hover {
+  border-color: var(--accent2);
+  background: rgba(0,187,249,0.15);
+}
+#level5 .ult-btn.correct {
+  border-color: var(--success);
+  background: rgba(6,214,160,0.15);
+  color: var(--success);
+}
+#level5 .ult-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239,71,111,0.15);
+  color: var(--danger);
+}
+#level5 .ult-progress {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+}
+#level5 .ult-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: rgba(88,96,112,0.3);
+  transition: all 0.3s;
+}
+#level5 .ult-dot.done { background: var(--success); box-shadow: 0 0 8px var(--success); }
+#level5 .ult-dot.current { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+/* Common */
+.level-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.level-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+.score-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px;
+  color: var(--success);
+  text-shadow: 0 0 30px var(--success);
+  pointer-events: none;
+  animation: scoreFloat 1s ease forwards;
+  z-index: 300;
+}
+@keyframes scoreFloat {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -150%) scale(1.5); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 40px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<!-- Level nav panel -->
+<div class="level-nav-panel" id="level-nav-panel">
+  <div onclick="jumpToLevel(0)">📋 任务简报</div>
+  <div onclick="jumpToLevel(1)">📏 距离测量</div>
+  <div onclick="jumpToLevel(2)">📐 角度识别</div>
+  <div onclick="jumpToLevel(3)">🎯 中点定位</div>
+  <div onclick="jumpToLevel(4)">🔢 角度计算</div>
+  <div onclick="jumpToLevel(5)">🔐 终极密码</div>
+</div>
+
+<!-- Level Intro Overlay -->
+<div class="level-intro" id="level-intro">
+  <h2 id="intro-title">LEVEL 1</h2>
+  <p id="intro-sub">初始化...</p>
+</div>
+
+<!-- Level Clear Overlay -->
+<div id="level-clear-overlay">
+  <h2>LEVEL CLEAR</h2>
+  <div class="level-stats">
+    <div>得分: <span id="clear-score" style="color:var(--accent)">0</span></div>
+    <div>连击: <span id="clear-combo" style="color:var(--warning)">0</span></div>
+    <div>剩余生命: <span id="clear-lives" style="color:var(--danger)">3</span></div>
+  </div>
+  <div style="margin-top:40px;">
+    <button class="btn-accept" onclick="nextLevel()">下一关 →</button>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app">
+
+<!-- Title bar -->
+<div id="title-bar">
+  <h1>📐 代号：GEOMETRY</h1>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <span class="badge">几何</span>
+    <div class="level-nav" id="level-nav-btn">⚡ 关卡</div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="top-hud">
+  <div class="hud-block">
+    <div class="hud-item">
+      <div class="label">得分</div>
+      <div class="value" id="score">0</div>
+    </div>
+    <div class="hud-item">
+      <div class="label">生命</div>
+      <div class="value" id="lives">❤️❤️❤️</div>
+    </div>
+    <div class="hud-item">
+      <div class="label">关卡</div>
+      <div class="value" id="level-display">briefing</div>
+    </div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-item">
+      <div class="label">连击</div>
+      <div class="value warning" id="combo">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== BRIEFING SCREEN ========== -->
+<div class="screen active" id="briefing">
+  <div class="briefing-box">
+    <div class="classified">机密等级：B</div>
+    <h2>代号：GEOMETRY</h2>
+    <p>特工，敌方在地图上标记了加密坐标系统。只有掌握线段与角的测量方法，才能破译位置信息。</p>
+    <p>基地共 5 层防线，每层都涉及不同的几何测量任务。你的任务是测量距离、识别角度、定位中点。</p>
+    <p>准备好了吗？接受任务，开始测绘。</p>
+    <button class="btn-accept" onclick="startGame()">接受任务</button>
+  </div>
+</div>
+
+<!-- ========== LEVEL 1: Distance Measure ========== -->
+<div class="screen" id="level1">
+  <div class="level-title">📏 LEVEL 1 — 距离测量</div>
+  <div class="level-desc">根据线段长度关系，选择正确的答案！</div>
+
+  <div class="dist-mission">
+    <div class="dist-expr" id="l1-expr">AB = 12cm，M 是中点，AM = ?</div>
+    <div class="dist-desc" id="l1-desc">选择正确答案</div>
+  </div>
+
+  <div class="dist-visual" id="l1-visual">
+    <div class="dist-line"></div>
+    <div class="dist-point" style="left:10%"></div>
+    <div class="dist-label" style="left:10%">A</div>
+    <div class="dist-point" style="left:50%;background:var(--success)"></div>
+    <div class="dist-label" style="left:50%">M</div>
+    <div class="dist-point" style="left:90%"></div>
+    <div class="dist-label" style="left:90%">B</div>
+  </div>
+
+  <div class="dist-options" id="l1-options">
+    <!-- Generated by JS -->
+  </div>
+</div>
+
+<!-- ========== LEVEL 2: Angle Classify ========== -->
+<div class="screen" id="level2">
+  <div class="level-title">📐 LEVEL 2 — 角度识别</div>
+  <div class="level-desc">判断每个角度属于什么类型！</div>
+
+  <div class="angle-display">
+    <div class="angle-visual" id="l2-visual">
+      <div class="angle-arm1" id="l2-arm1"></div>
+      <div class="angle-arm2" id="l2-arm2"></div>
+    </div>
+    <div class="angle-value" id="l2-value">45°</div>
+  </div>
+
+  <div class="angle-instruction" id="l2-instruction">这个角是什么类型？</div>
+
+  <div class="angle-options" id="l2-options">
+    <!-- Generated by JS -->
+  </div>
+</div>
+
+<!-- ========== LEVEL 3: Midpoint Locate ========== -->
+<div class="screen" id="level3">
+  <div class="level-title">🎯 LEVEL 3 — 中点定位</div>
+  <div class="level-desc">在数轴上点击正确位置，标记出线段的中点！</div>
+
+  <div class="mp-instruction" id="l3-instruction">
+    点击数轴标记 AB 的中点位置
+  </div>
+
+  <div class="mp-container">
+    <div class="mp-click-zone" id="l3-click-zone"></div>
+    <div class="mp-line"></div>
+    <div class="mp-point" id="l3-a" style="left:20%"></div>
+    <div class="mp-label" style="left:20%">A</div>
+    <div class="mp-point" id="l3-b" style="left:80%"></div>
+    <div class="mp-label" style="left:80%">B</div>
+    <div class="mp-target" id="l3-target" style="left:50%"></div>
+  </div>
+
+  <div class="mp-feedback" id="l3-feedback"></div>
+</div>
+
+<!-- ========== LEVEL 4: Angle Calculate ========== -->
+<div class="screen" id="level4">
+  <div class="level-title">🔢 LEVEL 4 — 角度计算</div>
+  <div class="level-desc">计算互余、互补或角的和差！</div>
+
+  <div class="calc-mission">
+    <div class="calc-expr" id="l4-expr">∠A = 35°，求它的余角</div>
+  </div>
+
+  <div class="calc-input-area" id="l4-input">?</div>
+
+  <div class="numpad" id="l4-numpad">
+    <!-- Generated by JS -->
+  </div>
+
+  <div class="calc-feedback" id="l4-feedback"></div>
+</div>
+
+<!-- ========== LEVEL 5: Ultimate Geometry ========== -->
+<div class="screen" id="level5">
+  <div class="level-title">🔐 LEVEL 5 — 终极密码</div>
+  <div class="level-desc">综合挑战！60 秒内完成 5 道终极几何题！</div>
+
+  <div class="ult-timer" id="l5-timer">60</div>
+
+  <div class="ult-progress" id="l5-progress">
+    <div class="ult-dot current"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+  </div>
+
+  <div class="ult-question" id="l5-question">
+    <div class="q-text">AB = 16cm，M 是 AB 中点，AM = ?</div>
+    <div class="q-big"></div>
+  </div>
+
+  <div class="ult-options" id="l5-options">
+    <!-- Generated by JS -->
+  </div>
+</div>
+
+</div>
+
+<script>
+// ========== GLOBAL STATE ==========
+let score = 0, lives = 3, combo = 0, currentLevel = 0;
+const maxLevels = 5;
+
+function updateHUD() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('lives').textContent = '❤️'.repeat(lives) + '🖤'.repeat(3-lives);
+  document.getElementById('combo').textContent = combo;
+  const names = ['briefing','1','2','3','4','5'];
+  document.getElementById('level-display').textContent = names[currentLevel] || currentLevel;
+}
+
+function showScorePopup(points) {
+  const el = document.createElement('div');
+  el.className = 'score-popup';
+  el.textContent = '+' + points;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function addScore(points) {
+  const bonus = Math.floor(combo / 3);
+  const total = points + bonus * 10;
+  score += total;
+  showScorePopup(total);
+  updateHUD();
+}
+
+function loseLife() {
+  lives--;
+  combo = 0;
+  updateHUD();
+  if (lives <= 0) {
+    alert('任务失败！请重新接受任务。');
+    location.reload();
+  }
+}
+
+// ========== SCREEN / LEVEL MANAGEMENT ==========
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showLevelIntro(num, title, sub) {
+  const el = document.getElementById('level-intro');
+  document.getElementById('intro-title').textContent = 'LEVEL ' + num;
+  document.getElementById('intro-sub').textContent = sub;
+  el.classList.add('active');
+  setTimeout(() => {
+    el.classList.remove('active');
+  }, 2000);
+}
+
+function showLevelClear() {
+  document.getElementById('clear-score').textContent = score;
+  document.getElementById('clear-combo').textContent = combo;
+  document.getElementById('clear-lives').textContent = lives;
+  document.getElementById('level-clear-overlay').classList.add('active');
+}
+
+function nextLevel() {
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  currentLevel++;
+  if (currentLevel > maxLevels) {
+    alert('恭喜！代号：GEOMETRY 任务全部完成！最终得分: ' + score);
+    location.reload();
+    return;
+  }
+  updateHUD();
+  startCurrentLevel();
+}
+
+function jumpToLevel(n) {
+  document.getElementById('level-nav-panel').classList.remove('active');
+  currentLevel = n;
+  updateHUD();
+  if (n === 0) {
+    showScreen('briefing');
+  } else {
+    startCurrentLevel();
+  }
+}
+
+document.getElementById('level-nav-btn').addEventListener('click', () => {
+  document.getElementById('level-nav-panel').classList.toggle('active');
+});
+
+function startGame() {
+  currentLevel = 1;
+  score = 0; lives = 3; combo = 0;
+  updateHUD();
+  startCurrentLevel();
+}
+
+function startCurrentLevel() {
+  if (currentLevel === 1) { showScreen('level1'); l1Init(); }
+  if (currentLevel === 2) { showScreen('level2'); l2Init(); }
+  if (currentLevel === 3) { showScreen('level3'); l3Init(); }
+  if (currentLevel === 4) { showScreen('level4'); l4Init(); }
+  if (currentLevel === 5) { showScreen('level5'); l5Init(); }
+}
+
+// ========== LEVEL 1: Distance Measure ==========
+let l1Round = 0;
+const l1Targets = [
+  { expr: 'AB = 12cm，M 是中点，AM = ?', options: ['4cm','6cm','8cm','12cm'], correct: 1, solve: 'AM = 12÷2 = 6cm' },
+  { expr: 'AC = 5cm，CB = 7cm，AB = ?', options: ['10cm','11cm','12cm','13cm'], correct: 2, solve: 'AB = 5+7 = 12cm' },
+  { expr: 'AB = 18cm，M 是中点，N 是 MB 中点，MN = ?', options: ['3cm','4.5cm','6cm','9cm'], correct: 1, solve: 'MB=9，MN=4.5cm' },
+  { expr: 'CD = 20cm，E 是 CD 中点，CE = ?', options: ['5cm','8cm','10cm','12cm'], correct: 2, solve: 'CE = 20÷2 = 10cm' },
+];
+
+function l1Init() {
+  l1Round = 0;
+  l1NextRound();
+}
+
+function l1NextRound() {
+  if (l1Round >= l1Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const t = l1Targets[l1Round];
+  document.getElementById('l1-expr').textContent = t.expr;
+  document.getElementById('l1-desc').textContent = '选择正确答案';
+
+  const container = document.getElementById('l1-options');
+  container.innerHTML = '';
+  t.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'dist-btn';
+    btn.textContent = opt;
+    btn.onclick = () => l1Answer(i, t.correct, t.solve, btn);
+    container.appendChild(btn);
+  });
+}
+
+function l1Answer(idx, correct, solve, btn) {
+  const btns = document.querySelectorAll('#l1-options .dist-btn');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+
+  if (idx === correct) {
+    combo++;
+    addScore(150);
+    btn.classList.add('correct');
+  } else {
+    combo = 0;
+    loseLife();
+    btn.classList.add('wrong');
+    btns[correct].classList.add('correct');
+  }
+
+  l1Round++;
+  setTimeout(() => l1NextRound(), 1000);
+}
+
+// ========== LEVEL 2: Angle Classify ==========
+let l2Round = 0;
+const l2Targets = [
+  { value: 45, correct: 0, options: ['锐角','直角','钝角','平角'] },
+  { value: 90, correct: 1, options: ['锐角','直角','钝角','平角'] },
+  { value: 120, correct: 2, options: ['锐角','直角','钝角','平角'] },
+  { value: 180, correct: 3, options: ['锐角','直角','钝角','平角'] },
+  { value: 30, correct: 0, options: ['锐角','直角','钝角','平角'] },
+  { value: 150, correct: 2, options: ['锐角','直角','钝角','平角'] },
+];
+
+function l2Init() {
+  l2Round = 0;
+  l2NextRound();
+}
+
+function l2NextRound() {
+  if (l2Round >= l2Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const t = l2Targets[l2Round];
+  document.getElementById('l2-value').textContent = t.value + '°';
+
+  // Update visual
+  const arm2 = document.getElementById('l2-arm2');
+  const angle = t.value;
+  arm2.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+
+  const container = document.getElementById('l2-options');
+  container.innerHTML = '';
+  t.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'angle-btn';
+    btn.textContent = opt;
+    btn.onclick = () => l2Answer(i, t.correct, btn);
+    container.appendChild(btn);
+  });
+}
+
+function l2Answer(idx, correct, btn) {
+  const btns = document.querySelectorAll('#l2-options .angle-btn');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+
+  if (idx === correct) {
+    combo++;
+    addScore(100);
+    btn.classList.add('correct');
+  } else {
+    combo = 0;
+    loseLife();
+    btn.classList.add('wrong');
+    btns[correct].classList.add('correct');
+  }
+
+  l2Round++;
+  setTimeout(() => l2NextRound(), 800);
+}
+
+// ========== LEVEL 3: Midpoint Locate ==========
+let l3Round = 0;
+const l3Targets = [
+  { a: 20, b: 80, target: 50 },
+  { a: 10, b: 70, target: 40 },
+  { a: 30, b: 90, target: 60 },
+  { a: 15, b: 55, target: 35 },
+  { a: 25, b: 85, target: 55 },
+];
+
+function l3Init() {
+  l3Round = 0;
+  l3NextRound();
+}
+
+function l3NextRound() {
+  if (l3Round >= l3Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const t = l3Targets[l3Round];
+  document.getElementById('l3-a').style.left = t.a + '%';
+  document.querySelector('#l3-a + .mp-label').style.left = t.a + '%';
+  document.getElementById('l3-b').style.left = t.b + '%';
+  document.querySelector('#l3-b + .mp-label').style.left = t.b + '%';
+  document.getElementById('l3-target').style.left = t.target + '%';
+  document.getElementById('l3-target').style.display = 'block';
+
+  document.getElementById('l3-click-zone').style.pointerEvents = 'auto';
+  document.getElementById('l3-feedback').textContent = '';
+}
+
+document.getElementById('l3-click-zone').addEventListener('click', (e) => {
+  const zone = document.getElementById('l3-click-zone');
+  if (zone.style.pointerEvents === 'none') return;
+
+  const rect = zone.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const pct = 10 + (clickX / rect.width) * 80; // 10% to 90% range
+
+  const t = l3Targets[l3Round];
+  const targetPct = t.target;
+
+  zone.style.pointerEvents = 'none';
+
+  if (Math.abs(pct - targetPct) <= 5) {
+    combo++;
+    addScore(200);
+    document.getElementById('l3-feedback').innerHTML = '<span style="color:var(--success)">✅ 定位准确！</span>';
+  } else {
+    combo = 0;
+    loseLife();
+    document.getElementById('l3-feedback').innerHTML = '<span style="color:var(--danger)">❌ 偏差太大！中点应在 ' + targetPct + '% 位置</span>';
+  }
+
+  l3Round++;
+  setTimeout(() => l3NextRound(), 1200);
+});
+
+// ========== LEVEL 4: Angle Calculate ==========
+let l4Round = 0;
+const l4Targets = [
+  { expr: '∠A = 35°，求它的余角', ans: 55, type: 'comp' },
+  { expr: '∠B = 120°，求它的补角', ans: 60, type: 'supp' },
+  { expr: '∠A = 45°，∠B = 45°，∠A + ∠B = ?', ans: 90, type: 'sum' },
+  { expr: '∠C = 150°，求它的补角', ans: 30, type: 'supp' },
+  { expr: '∠D = 25°，求它的余角', ans: 65, type: 'comp' },
+];
+let l4CurrentInput = '';
+
+function l4Init() {
+  l4Round = 0;
+  l4NextRound();
+}
+
+function l4NextRound() {
+  if (l4Round >= l4Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const t = l4Targets[l4Round];
+  document.getElementById('l4-expr').textContent = t.expr;
+  l4CurrentInput = '';
+  document.getElementById('l4-input').textContent = '?';
+  document.getElementById('l4-feedback').textContent = '';
+  l4BuildNumpad();
+}
+
+function l4BuildNumpad() {
+  const pad = document.getElementById('l4-numpad');
+  pad.innerHTML = '';
+  const keys = ['7','8','9','4','5','6','1','2','3','C','0','Enter'];
+  keys.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'numpad-btn' + (k === 'Enter' ? ' wide' : '');
+    btn.textContent = k;
+    btn.onclick = () => l4KeyPress(k);
+    pad.appendChild(btn);
+  });
+}
+
+function l4KeyPress(k) {
+  if (k === 'C') {
+    l4CurrentInput = '';
+    document.getElementById('l4-input').textContent = '?';
+    return;
+  }
+  if (k === 'Enter') {
+    l4Submit();
+    return;
+  }
+  l4CurrentInput += k;
+  document.getElementById('l4-input').textContent = l4CurrentInput + '°';
+}
+
+function l4Submit() {
+  const t = l4Targets[l4Round];
+  const val = parseInt(l4CurrentInput);
+  if (val === t.ans) {
+    combo++;
+    addScore(150);
+    document.getElementById('l4-feedback').innerHTML = '<span style="color:var(--success)">✅ 正确！答案是 ' + t.ans + '°</span>';
+    l4Round++;
+    setTimeout(() => l4NextRound(), 800);
+  } else {
+    combo = 0;
+    loseLife();
+    document.getElementById('l4-feedback').innerHTML = '<span style="color:var(--danger)">❌ 错误！正确答案是 ' + t.ans + '°</span>';
+    l4Round++;
+    setTimeout(() => l4NextRound(), 1500);
+  }
+}
+
+// ========== LEVEL 5: Ultimate Geometry ==========
+let l5QuestionIdx = 0, l5Timer, l5TimeLeft;
+const l5Questions = [
+  { q: 'AB = 16cm，M 是 AB 中点，AM = ?', opts: ['6cm','8cm','10cm','12cm'], correct: 1 },
+  { q: '45° 的角是什么角？', opts: ['锐角','直角','钝角','平角'], correct: 0 },
+  { q: '∠A = 60°，求它的补角', opts: ['30°','60°','90°','120°'], correct: 3 },
+  { q: '120° 的角是什么角？', opts: ['锐角','直角','钝角','平角'], correct: 2 },
+  { q: '∠A = 25°，∠B = 65°，它们互余吗？', opts: ['是','否','不确定','互补'], correct: 0 },
+];
+
+function l5Init() {
+  l5QuestionIdx = 0;
+  l5TimeLeft = 60;
+  l5UpdateTimer();
+  l5ShowQuestion();
+  clearInterval(l5Timer);
+  l5Timer = setInterval(() => {
+    l5TimeLeft--;
+    l5UpdateTimer();
+    if (l5TimeLeft <= 0) {
+      clearInterval(l5Timer);
+      alert('时间到！任务失败。');
+      location.reload();
+    }
+  }, 1000);
+}
+
+function l5UpdateTimer() {
+  const el = document.getElementById('l5-timer');
+  el.textContent = l5TimeLeft;
+  el.style.color = l5TimeLeft <= 10 ? 'var(--danger)' : 'var(--warning)';
+}
+
+function l5ShowQuestion() {
+  if (l5QuestionIdx >= l5Questions.length) {
+    clearInterval(l5Timer);
+    showLevelClear();
+    return;
+  }
+  const q = l5Questions[l5QuestionIdx];
+  document.querySelector('#l5-question .q-text').textContent = q.q;
+
+  const container = document.getElementById('l5-options');
+  container.innerHTML = '';
+  q.opts.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ult-btn';
+    btn.textContent = opt;
+    btn.onclick = () => l5Answer(i, q.correct, btn);
+    container.appendChild(btn);
+  });
+
+  const dots = document.querySelectorAll('#l5-progress .ult-dot');
+  dots.forEach((d, i) => {
+    d.className = 'ult-dot';
+    if (i < l5QuestionIdx) d.classList.add('done');
+    if (i === l5QuestionIdx) d.classList.add('current');
+  });
+}
+
+function l5Answer(idx, correct, btn) {
+  const btns = document.querySelectorAll('#l5-options .ult-btn');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+
+  if (idx === correct) {
+    combo++;
+    addScore(200);
+    btn.classList.add('correct');
+  } else {
+    combo = 0;
+    loseLife();
+    btn.classList.add('wrong');
+    btns[correct].classList.add('correct');
+  }
+
+  l5QuestionIdx++;
+  setTimeout(() => l5ShowQuestion(), 800);
+}
+
+updateHUD();
+</script>
+</body>
+</html>
