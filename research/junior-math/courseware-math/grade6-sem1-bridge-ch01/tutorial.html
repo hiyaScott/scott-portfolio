@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学特工局 · 特工手册 — 数的整除</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* App container */
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Title */
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+/* Progress bar */
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 60px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+/* Card */
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,245,212,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+/* Concept box */
+.concept-box {
+  background: rgba(0,245,212,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+/* Animation area */
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Division animation */
+.div-viz {
+  display: flex; align-items: center; gap: 16px;
+  flex-wrap: wrap; justify-content: center;
+}
+.div-viz .num-box {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px; color: var(--accent);
+  background: rgba(0,245,212,0.1);
+  border: 2px solid var(--accent);
+  width: 70px; height: 70px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+}
+.div-viz .op {
+  font-size: 28px; color: var(--warning);
+}
+.div-viz .res {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px; color: var(--success);
+  background: rgba(6,214,160,0.1);
+  border: 2px solid var(--success);
+  width: 70px; height: 70px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+}
+.div-viz .remainder {
+  font-size: 14px; color: var(--danger);
+  margin-top: 4px;
+}
+
+/* Rule cards */
+.rule-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin: 16px 0;
+}
+.rule-card {
+  background: rgba(0,187,249,0.05);
+  border: 1px solid rgba(0,187,249,0.2);
+  border-radius: 6px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.rule-card:hover {
+  border-color: var(--accent2);
+  background: rgba(0,187,249,0.1);
+}
+.rule-card .rule-icon {
+  font-size: 28px; margin-bottom: 8px;
+}
+.rule-card .rule-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--accent2);
+  margin-bottom: 6px;
+}
+.rule-card .rule-desc {
+  font-size: 13px; color: var(--text);
+  line-height: 1.5;
+}
+
+/* Number matrix */
+.num-matrix {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+  margin: 16px 0;
+  max-width: 500px;
+  margin-left: auto; margin-right: auto;
+}
+.m-cell {
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 13px;
+  border: 1px solid rgba(88,96,112,0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(88,96,112,0.1);
+}
+.m-cell:hover { border-color: var(--accent2); }
+.m-cell.prime { background: rgba(6,214,160,0.2); border-color: var(--success); color: var(--success); }
+.m-cell.composite { background: rgba(239,71,111,0.15); border-color: var(--danger); color: var(--danger); }
+.m-cell.one { background: rgba(255,209,102,0.15); border-color: var(--warning); color: var(--warning); }
+
+/* Example list */
+.example-list {
+  margin: 16px 0;
+}
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.example-item:hover {
+  border-color: rgba(0,245,212,0.3);
+  background: rgba(0,245,212,0.03);
+}
+.example-item .q {
+  font-size: 16px; margin-bottom: 8px;
+}
+.example-item .a {
+  font-size: 14px; color: var(--success);
+  display: none;
+  border-top: 1px dashed rgba(0,245,212,0.2);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.example-item.expanded .a { display: block; }
+.example-item .a .step {
+  color: var(--text-dim); font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Quiz */
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-box .quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--warning);
+  margin-bottom: 16px;
+}
+.quiz-question {
+  font-size: 16px; margin-bottom: 14px;
+}
+.quiz-options {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.quiz-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit; font-size: 15px;
+  text-align: left;
+  transition: all 0.2s;
+}
+.quiz-btn:hover {
+  background: rgba(0,187,249,0.15);
+  border-color: var(--accent2);
+}
+.quiz-btn.correct {
+  background: rgba(6,214,160,0.15);
+  border-color: var(--success);
+  color: var(--success);
+  animation: flashGreen 0.5s ease;
+}
+.quiz-btn.wrong {
+  background: rgba(239,71,111,0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: shake 0.4s ease;
+}
+.quiz-feedback {
+  margin-top: 12px; font-size: 14px;
+  min-height: 20px;
+}
+
+/* Bar visualization */
+.bar-viz {
+  display: flex; align-items: flex-end;
+  gap: 16px;
+  height: 140px;
+  margin: 16px 0;
+  justify-content: center;
+}
+.bar-item {
+  display: flex; flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.bar-rect {
+  width: 60px;
+  border-radius: 4px 4px 0 0;
+  transition: height 1s ease;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 6px;
+  font-size: 12px; color: #000; font-weight: bold;
+}
+.bar-rect.a { background: linear-gradient(to top, var(--danger), var(--warning)); }
+.bar-rect.b { background: linear-gradient(to top, var(--accent), var(--accent2)); }
+.bar-label {
+  font-size: 14px; color: var(--text-dim);
+}
+.bar-op {
+  font-size: 24px; color: var(--warning);
+  margin-bottom: 40px;
+}
+
+/* Buttons */
+.btn-row {
+  display: flex; gap: 16px;
+  justify-content: center;
+  margin-top: 24px;
+}
+.btn {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 14px 36px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 20px var(--accent);
+}
+.btn.btn-ghost {
+  background: transparent;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.btn.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn.btn-warn {
+  background: rgba(255,209,102,0.1);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+.btn.btn-warn:hover {
+  background: rgba(255,209,102,0.2);
+  box-shadow: 0 0 20px var(--warning);
+}
+
+/* Hide/show */
+.hidden { display: none !important; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 30px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .title-bar h1 { font-size: 22px; }
+  .rule-grid { grid-template-columns: 1fr; }
+  .num-matrix { grid-template-columns: repeat(5, 1fr); }
+  .bar-viz { height: 100px; }
+  .bar-rect { width: 40px; }
+  #app { padding: 20px 12px; }
+  .card { padding: 18px; }
+}
+/* ====== RESPONSIVE ====== */
+@media (max-width: 1024px) {
+  #app { padding: 40px 30px; }
+  .title-bar h1 { font-size: 22px; }
+  .card { padding: 24px; }
+}
+@media (max-width: 768px) {
+  #app { padding: 24px 20px; }
+  .title-bar h1 { font-size: 20px; }
+  .card { padding: 20px; }
+  .progress-bar { gap: 8px; }
+  .progress-seg { width: 48px; }
+  .btn-row { gap: 12px; }
+  .btn { padding: 12px 28px; font-size: 14px; }
+  .ruler-viz { transform: scale(0.85); transform-origin: left center; }
+  .div-viz .num-box { width: 56px; height: 56px; font-size: 28px; }
+  .div-viz .op { font-size: 22px; }
+  .div-viz .res { width: 56px; height: 56px; font-size: 28px; }
+  .bar-viz { height: 110px; gap: 12px; }
+  .bar-rect { width: 48px; }
+  .bar-op { font-size: 20px; }
+  .rule-grid { gap: 12px; }
+  .num-matrix { max-width: 100%; }
+  .concept-box { padding: 12px 16px; }
+  .concept-box .formula { font-size: 17px; }
+  .quiz-options { gap: 8px; }
+  .quiz-btn { padding: 10px 16px; font-size: 14px; }
+}
+@media (max-width: 480px) {
+  #app { padding: 16px 12px; }
+  .title-bar h1 { font-size: 18px; }
+  .card { padding: 16px; border-radius: 10px; }
+  .card-header h2 { font-size: 16px; }
+  .progress-bar { padding: 0; }
+  .progress-seg { width: 36px; }
+  .btn-row { gap: 8px; padding: 0; }
+  .btn { padding: 10px 20px; font-size: 13px; }
+  .ruler-viz, .cylinder-viz { transform: scale(0.7); }
+  .div-viz .num-box { width: 44px; height: 44px; font-size: 22px; }
+  .div-viz .op { font-size: 18px; }
+  .div-viz .res { width: 44px; height: 44px; font-size: 22px; }
+  .bar-viz { height: 90px; gap: 8px; }
+  .bar-rect { width: 36px; font-size: 10px; }
+  .bar-op { font-size: 16px; margin-bottom: 30px; }
+  .rule-grid { gap: 8px; }
+  .rule-card { padding: 12px; }
+  .num-matrix { grid-template-columns: repeat(5, 1fr); }
+  .concept-box { padding: 10px 14px; }
+  .concept-box .formula { font-size: 15px; }
+  .quiz-btn { padding: 8px 12px; font-size: 13px; width: 100%; }
+  .quiz-feedback { font-size: 14px; padding: 10px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  #app { padding: 16px 20px; }
+  .title-bar h1 { font-size: 16px; }
+  .card { padding: 14px; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<div id="app">
+
+<!-- ========== HEADER ========== -->
+<div class="title-bar">
+  <h1>📐 数学特工局</h1>
+  <div class="subtitle">特工手册 — 数的整除 · 面向六年级</div>
+  <div style="margin-top:12px;">
+    <a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a>
+  </div>
+</div>
+
+<div class="progress-bar" id="progress-bar">
+  <div class="progress-seg active"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+</div>
+
+<!-- ========== CHAPTER 1: 整除的概念 ========== -->
+<div class="card" id="ch1">
+  <div class="card-header">
+    <h2>整除的概念</h2>
+    <span class="chapter-num">第 1 / 4 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心定义</div>
+    <p>如果整数 <strong>a</strong> 除以整数 <strong>b</strong>（b ≠ 0），得到的商是整数，并且<strong>余数为 0</strong>，我们就说 <strong>a 能被 b 整除</strong>。</p>
+    <div class="formula">a ÷ b = 整数 … 余数 0</div>
+  </div>
+
+  <div class="anim-area">
+    <div class="div-viz" id="ch1-anim">
+      <div class="num-box">12</div>
+      <div class="op">÷</div>
+      <div class="num-box">3</div>
+      <div class="op">=</div>
+      <div class="res">4</div>
+    </div>
+    <div style="font-size:14px;color:var(--text-dim);margin-top:8px;">
+      12 ÷ 3 = 4，没有剩余 → <span style="color:var(--success)">✓ 能整除</span>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">注意区分</div>
+    <p>"除尽"和"整除"不一样：</p>
+    <p>• 6 ÷ 4 = 1.5 → 除尽了（没有余数），但<strong>不是整除</strong>（商不是整数）</p>
+    <p>• 6 ÷ 4 = 1 … 2 → 有余数 → <strong>不能整除</strong></p>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：15 ÷ 3 能整除吗？</div>
+      <div class="a">
+        15 ÷ 3 = 5，商是整数，余数为 0。<br>
+        <strong style="color:var(--success)">→ 15 能被 3 整除 ✅</strong>
+        <div class="step">（3 是 15 的因数，15 是 3 的倍数）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：17 ÷ 3 能整除吗？</div>
+      <div class="a">
+        17 ÷ 3 = 5 … 2，有余数 2。<br>
+        <strong style="color:var(--danger)">→ 17 不能被 3 整除 ❌</strong>
+        <div class="step">（17 不是 3 的倍数）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：24 ÷ 6 能整除吗？</div>
+      <div class="a">
+        24 ÷ 6 = 4，商是整数，余数为 0。<br>
+        <strong style="color:var(--success)">→ 24 能被 6 整除 ✅</strong>
+        <div class="step">（6 是 24 的因数，24 是 6 的倍数）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch1-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">20 ÷ 5 能整除吗？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '20 ÷ 5 = 4，没有余数，能整除！')">能整除</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '20 ÷ 5 = 4，余数为0，是能整除的。')">不能整除</button>
+    </div>
+    <div class="quiz-feedback" id="ch1-fb"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="goTo(2)">下一章 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 2: 整除特征 ========== -->
+<div class="card hidden" id="ch2">
+  <div class="card-header">
+    <h2>2、3、5、9 的整除特征</h2>
+    <span class="chapter-num">第 2 / 4 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">快速判断法</div>
+    <p>不需要真的做除法，看数字的某一位或某几位就能判断！</p>
+  </div>
+
+  <div class="rule-grid">
+    <div class="rule-card">
+      <div class="rule-icon">2️⃣</div>
+      <div class="rule-title">被 2 整除</div>
+      <div class="rule-desc">个位是 <strong>0、2、4、6、8</strong><br>→ 偶数都能被2整除</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-icon">5️⃣</div>
+      <div class="rule-title">被 5 整除</div>
+      <div class="rule-desc">个位是 <strong>0 或 5</strong><br>→ 末尾只有这两种</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-icon">3️⃣</div>
+      <div class="rule-title">被 3 整除</div>
+      <div class="rule-desc"><strong>各位数字之和</strong>能被3整除<br>→ 如 123：1+2+3=6 ✓</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-icon">9️⃣</div>
+      <div class="rule-title">被 9 整除</div>
+      <div class="rule-desc"><strong>各位数字之和</strong>能被9整除<br>→ 如 234：2+3+4=9 ✓</div>
+    </div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">试试判断 240 能被哪些数整除？</div>
+    <div style="font-family:'Orbitron',sans-serif;font-size:32px;color:var(--accent);margin-bottom:12px;">2 4 0</div>
+    <div style="font-size:14px;color:var(--text-dim);">
+      个位=0 → 能被2整除 ✅ 能被5整除 ✅<br>
+      2+4+0=6 → 能被3整除 ✅ 但不能被9整除 ❌
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 判断 126 能否被 3 整除？</div>
+      <div class="a">
+        1 + 2 + 6 = 9，9 能被 3 整除。<br>
+        <strong style="color:var(--success)">→ 126 能被 3 整除 ✅</strong>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 判断 450 能否被 9 整除？</div>
+      <div class="a">
+        4 + 5 + 0 = 9，9 能被 9 整除。<br>
+        <strong style="color:var(--success)">→ 450 能被 9 整除 ✅</strong>
+        <div class="step">（同时也能被2、3、5整除！）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch2-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">375 能被 3 整除吗？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '3+7+5=15，15能被3整除，所以375能被3整除。')">不能</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！3+7+5=15，15÷3=5，所以375能被3整除。')">能</button>
+    </div>
+    <div class="quiz-feedback" id="ch2-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">210 能被哪些数整除？（多选）</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="toggleMulti(this, '2')">2</button>
+        <button class="quiz-btn" onclick="toggleMulti(this, '3')">3</button>
+        <button class="quiz-btn" onclick="toggleMulti(this, '5')">5</button>
+        <button class="quiz-btn" onclick="toggleMulti(this, '9')">9</button>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:10px;padding:8px 20px;font-size:13px;" onclick="checkMulti210()">提交答案</button>
+      <div class="quiz-feedback" id="ch2-fb2"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(1)">← 上一章</button>
+    <button class="btn" onclick="goTo(3)">下一章 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 3: 质数与合数 ========== -->
+<div class="card hidden" id="ch3">
+  <div class="card-header">
+    <h2>质数与合数</h2>
+    <span class="chapter-num">第 3 / 4 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心定义</div>
+    <p><strong style="color:var(--success)">质数</strong>：只有 <strong>1</strong> 和它<strong>本身</strong>两个因数的数</p>
+    <p><strong style="color:var(--danger)">合数</strong>：除了 1 和它本身，还<strong>有其他因数</strong>的数</p>
+    <p><strong style="color:var(--warning)">1</strong>：既不是质数，也不是合数</p>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:16px;">展开因数，看看属于哪一类：</div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;">
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron';font-size:28px;color:var(--success);">7</div>
+        <div style="font-size:13px;color:var(--text-dim);">因数: 1, 7</div>
+        <div style="font-size:14px;color:var(--success);margin-top:4px;">→ 质数 ✅</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron';font-size:28px;color:var(--danger);">12</div>
+        <div style="font-size:13px;color:var(--text-dim);">因数: 1,2,3,4,6,12</div>
+        <div style="font-size:14px;color:var(--danger);margin-top:4px;">→ 合数 ❌</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron';font-size:28px;color:var(--warning);">1</div>
+        <div style="font-size:13px;color:var(--text-dim);">因数: 1</div>
+        <div style="font-size:14px;color:var(--warning);margin-top:4px;">→ 都不是</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">100以内的质数表（共25个）</div>
+    <p style="font-size:14px;">点击数字查看分类：</p>
+  </div>
+
+  <div class="num-matrix" id="prime-matrix"></div>
+  <div style="text-align:center;font-size:13px;color:var(--text-dim);margin-top:8px;">
+    <span style="color:var(--success)">■ 质数</span>　
+    <span style="color:var(--danger)">■ 合数</span>　
+    <span style="color:var(--warning)">■ 1（特殊）</span>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题：判断 29 是质数还是合数？</div>
+      <div class="a">
+        尝试找因数：29 ÷ 2 = 14.5，29 ÷ 3 ≈ 9.67，29 ÷ 5 = 5.8…<br>
+        试到 √29 ≈ 5.4，没有找到整除的数。<br>
+        <strong style="color:var(--success)">→ 29 是质数 ✅</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch3-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">判断下列数字的类型：</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！13的因数只有1和13，是质数。')">13 是质数</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '13的因数只有1和13，是质数不是合数。')">13 是合数</button>
+    </div>
+    <div class="quiz-feedback" id="ch3-fb1"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">9 是什么数？</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'prime', false, '9=3×3，除了1和9还有因数3，是合数。')">质数</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'composite', true, '正确！9=3×3，是合数。')">合数</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'one', false, '9不是1。')">既不是</button>
+      </div>
+      <div class="quiz-feedback" id="ch3-fb2"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(2)">← 上一章</button>
+    <button class="btn" onclick="goTo(4)">下一章 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 4: GCD & LCM ========== -->
+<div class="card hidden" id="ch4">
+  <div class="card-header">
+    <h2>最大公约数与最小公倍数</h2>
+    <span class="chapter-num">第 4 / 4 章</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">最大公约数（GCD）</div>
+    <p>几个数<strong>共有的因数</strong>中，最大的那个。</p>
+    <p>求法：<strong>辗转相除法</strong>（也叫欧几里得算法）</p>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">用辗转相除法求 GCD(42, 18)：</div>
+    <div class="div-viz" style="gap:12px;">
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron';font-size:24px;">42 ÷ 18 = 2 … 6</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">余数 6 ≠ 0，继续</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron';font-size:24px;color:var(--success);">18 ÷ 6 = 3 … 0</div>
+        <div style="font-size:12px;color:var(--success);margin-top:4px;">余数 0 → 结束！</div>
+      </div>
+    </div>
+    <div style="font-size:18px;color:var(--accent);margin-top:12px;">
+      GCD(42, 18) = <strong style="color:var(--success);">6</strong>
+    </div>
+  </div>
+
+  <div class="bar-viz">
+    <div class="bar-item">
+      <div class="bar-rect a" id="bar-a" style="height:42px;">42</div>
+      <div class="bar-label">A = 42</div>
+    </div>
+    <div class="bar-op">÷</div>
+    <div class="bar-item">
+      <div class="bar-rect b" id="bar-b" style="height:18px;">18</div>
+      <div class="bar-label">B = 18</div>
+    </div>
+    <div class="bar-op">=</div>
+    <div class="bar-item">
+      <div class="bar-rect a" style="height:6px;background:var(--success);">6</div>
+      <div class="bar-label" style="color:var(--success);">GCD</div>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">最小公倍数（LCM）</div>
+    <p>几个数<strong>共有的倍数</strong>中，最小的那个。</p>
+    <div class="formula">LCM(a, b) = a × b ÷ GCD(a, b)</div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;">求 LCM(4, 6)：</div>
+    <div style="font-size:14px;color:var(--text-dim);margin-top:8px;">
+      先求 GCD(4, 6)：6 ÷ 4 = 1 … 2，4 ÷ 2 = 2 … 0 → GCD = 2<br>
+      再算 LCM = 4 × 6 ÷ 2 = <strong style="color:var(--success);">12</strong>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题：求 GCD(36, 24)</div>
+      <div class="a">
+        36 ÷ 24 = 1 … 12<br>
+        24 ÷ 12 = 2 … 0<br>
+        <strong style="color:var(--success)">→ GCD(36, 24) = 12</strong>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题：求 LCM(4, 6)</div>
+      <div class="a">
+        GCD(4, 6) = 2<br>
+        LCM = 4 × 6 ÷ 2 = 24 ÷ 2 = <strong style="color:var(--success)">12</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch4-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">GCD(12, 8) = ?</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。12÷8=1…4，8÷4=2…0，GCD=4。')">2</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！12÷8=1余4，8÷4=2余0，GCD=4。')">4</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。12÷8=1…4，8÷4=2…0，GCD=4。')">8</button>
+    </div>
+    <div class="quiz-feedback" id="ch4-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">LCM(3, 5) = ?（已知 GCD(3,5)=1）</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'a', true, '正确！3×5÷1=15。')">15</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'b', false, '不对。LCM=3×5÷1=15。')">8</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'c', false, '不对。LCM=3×5÷1=15。')">3</button>
+      </div>
+      <div class="quiz-feedback" id="ch4-fb2"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(3)">← 上一章</button>
+    <a class="btn btn-warn" href="index.html">🎮 开始挑战 →</a>
+  </div>
+</div>
+
+<!-- ========== FOOTER ========== -->
+<div style="text-align:center;padding:20px 0;color:var(--text-dim);font-size:12px;letter-spacing:1px;">
+  数学特工局 · 沪教版六年级上册 · 数的整除
+</div>
+
+</div><!-- /app -->
+
+<script>
+// ========== AUDIO ==========
+let audioCtx;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function sfx(type) {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  if (type === 'ok') {
+    osc.type = 'sine'; osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t+0.1);
+    gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+    osc.start(t); osc.stop(t+0.3);
+  } else if (type === 'err') {
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, t);
+    gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+    osc.start(t); osc.stop(t+0.3);
+  } else if (type === 'click') {
+    osc.type = 'square'; osc.frequency.setValueAtTime(800, t);
+    gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.05);
+    osc.start(t); osc.stop(t+0.05);
+  }
+}
+
+// ========== NAVIGATION ==========
+let currentCh = 1;
+function goTo(n) {
+  sfx('click');
+  document.getElementById('ch' + currentCh).classList.add('hidden');
+  document.getElementById('ch' + n).classList.remove('hidden');
+  currentCh = n;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < currentCh) s.classList.add('done');
+    else if (i + 1 === currentCh) s.classList.add('active');
+  });
+}
+
+// ========== QUIZ ==========
+function checkQuiz(btn, correct, msg) {
+  ensureAudio();
+  const opts = btn.closest('.quiz-options');
+  const fb = opts.parentElement.querySelector('.quiz-feedback');
+  opts.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
+  if (correct) {
+    btn.classList.add('correct'); sfx('ok');
+    fb.innerHTML = '<span style="color:var(--success)">✓ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong'); sfx('err');
+    fb.innerHTML = '<span style="color:var(--danger)">✗ ' + msg + '</span>';
+    // Highlight correct answer within same options group
+    const correctBtn = Array.from(opts.querySelectorAll('.quiz-btn')).find(b => b.getAttribute('onclick').includes('true'));
+    if (correctBtn) correctBtn.classList.add('correct');
+  }
+}
+
+let multi210 = new Set();
+function toggleMulti(btn, val) {
+  sfx('click');
+  if (multi210.has(val)) { multi210.delete(val); btn.classList.remove('correct'); }
+  else { multi210.add(val); btn.classList.add('correct'); }
+}
+function checkMulti210() {
+  const fb = document.getElementById('ch2-fb2');
+  const correct = new Set(['2', '3', '5']);
+  if (multi210.size === 3 && ['2', '3', '5'].every(v => multi210.has(v))) {
+    sfx('ok'); fb.innerHTML = '<span style="color:var(--success)">✓ 正确！210能被2、3、5整除（2+1+0=3，个位是0），但不能被9整除（2+1+0=3≠9的倍数）。</span>';
+  } else {
+    sfx('err'); fb.innerHTML = '<span style="color:var(--danger)">✗ 210的个位是0→能被2和5整除；2+1+0=3→能被3整除。但不能被9整除。正确答案是 2、3、5。</span>';
+  }
+}
+
+let quiz2State = {};
+function checkQuiz2(btn, key, correct, msg) {
+  ensureAudio();
+  const opts = btn.closest('.quiz-options');
+  const fb = opts.parentElement.querySelector('.quiz-feedback');
+  opts.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
+  if (correct) {
+    btn.classList.add('correct'); sfx('ok');
+    fb.innerHTML = '<span style="color:var(--success)">✓ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong'); sfx('err');
+    fb.innerHTML = '<span style="color:var(--danger)">✗ ' + msg + '</span>';
+  }
+}
+
+// ========== PRIME MATRIX ==========
+function buildPrimeMatrix() {
+  const container = document.getElementById('prime-matrix');
+  for (let i = 1; i <= 100; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'm-cell';
+    cell.textContent = i;
+    if (i === 1) cell.classList.add('one');
+    else if (isPrime(i)) cell.classList.add('prime');
+    else cell.classList.add('composite');
+    cell.onclick = () => {
+      sfx('click');
+      const factors = getFactors(i);
+      alert(i + ' 的因数：' + factors.join(', ') + '\n' + (i===1 ? '既不是质数也不是合数' : isPrime(i) ? '是质数 ✅' : '是合数 ❌'));
+    };
+    container.appendChild(cell);
+  }
+}
+function isPrime(n) {
+  if (n < 2) return false;
+  for (let i = 2; i * i <= n; i++) if (n % i === 0) return false;
+  return true;
+}
+function getFactors(n) {
+  const f = [];
+  for (let i = 1; i <= n; i++) if (n % i === 0) f.push(i);
+  return f;
+}
+
+// ========== INIT ==========
+buildPrimeMatrix();
+updateProgress();
+</script>
+</body>
+</html>
