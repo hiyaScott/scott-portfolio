@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代数密码破译 | 简单的代数式</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --neon-cyan: #00ffff; --neon-pink: #ff00ff; --neon-green: #39ff14;
+            --neon-yellow: #ffff00; --neon-purple: #9d00ff; --dark: #0a0a0a;
+        }
+        body {
+            background: var(--dark); color: #fff;
+            font-family: 'Noto Sans SC', sans-serif;
+            min-height: 100vh; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px);
+            pointer-events: none; z-index: 9999;
+        }
+        .game-container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; padding: 20px 0; border-bottom: 1px solid rgba(157,0,255,0.2); margin-bottom: 20px; }
+        .header h1 { font-size: 2rem; color: var(--neon-purple); text-shadow: 0 0 20px var(--neon-purple); }
+        .header .subtitle { color: #888; margin-top: 8px; }
+        .level-indicator { display: flex; justify-content: center; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
+        .level-dot {
+            width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: center; font-size: 0.75rem;
+            font-family: 'Share Tech Mono', monospace; cursor: pointer; transition: all 0.3s;
+        }
+        .level-dot.active { border-color: var(--neon-purple); background: rgba(157,0,255,0.1); color: var(--neon-purple); box-shadow: 0 0 10px var(--neon-purple); }
+        .level-dot.completed { border-color: var(--neon-green); background: rgba(57,255,20,0.1); color: var(--neon-green); }
+        .level-dot:hover:not(.completed) { border-color: var(--neon-yellow); }
+        .game-area {
+            background: rgba(0,0,0,0.85); border: 1px solid rgba(157,0,255,0.2);
+            border-radius: 15px; padding: 30px; margin-bottom: 20px;
+        }
+        .mission-title { font-size: 1.3rem; color: var(--neon-yellow); margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .mission-title .icon { font-size: 1.5rem; }
+        .mission-desc { color: #aaa; margin-bottom: 20px; line-height: 1.6; }
+        .code-terminal {
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(157,0,255,0.3);
+            border-radius: 10px; padding: 20px; margin: 20px 0;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .code-line { color: var(--neon-cyan); margin: 8px 0; font-size: 1.1rem; }
+        .code-line .var { color: var(--neon-pink); }
+        .code-line .num { color: var(--neon-yellow); }
+        .code-line .op { color: var(--neon-green); }
+        .input-area { display: flex; gap: 15px; align-items: center; margin: 20px 0; flex-wrap: wrap; }
+        .input-area input {
+            background: rgba(0,0,0,0.5); border: 1px solid var(--neon-purple); color: #fff;
+            padding: 12px 20px; border-radius: 8px; font-size: 1.1rem; font-family: 'Share Tech Mono', monospace;
+            width: 200px; outline: none;
+        }
+        .input-area input:focus { box-shadow: 0 0 10px var(--neon-purple); }
+        .btn {
+            background: rgba(157,0,255,0.1); border: 1px solid var(--neon-purple); color: var(--neon-purple);
+            padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 1rem;
+            transition: all 0.3s; font-family: 'Share Tech Mono', monospace;
+        }
+        .btn:hover { background: var(--neon-purple); color: #000; box-shadow: 0 0 15px var(--neon-purple); }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .feedback { margin: 15px 0; padding: 15px; border-radius: 8px; font-size: 1rem; min-height: 50px; }
+        .feedback.correct { background: rgba(57,255,20,0.1); border: 1px solid var(--neon-green); color: var(--neon-green); }
+        .feedback.wrong { background: rgba(255,0,64,0.1); border: 1px solid var(--neon-red); color: var(--neon-red); }
+        .feedback.info { background: rgba(157,0,255,0.05); border: 1px solid rgba(157,0,255,0.2); color: #aaa; }
+        .score-board { display: flex; justify-content: space-between; margin-bottom: 20px; font-family: 'Share Tech Mono', monospace; }
+        .score-item { text-align: center; }
+        .score-item .label { color: #888; font-size: 0.8rem; }
+        .score-item .value { color: var(--neon-purple); font-size: 1.5rem; }
+        .options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+        .option-btn {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; padding: 15px; border-radius: 10px; cursor: pointer;
+            transition: all 0.3s; text-align: center; font-family: 'Share Tech Mono', monospace;
+        }
+        .option-btn:hover { border-color: var(--neon-purple); background: rgba(157,0,255,0.05); }
+        .option-btn.selected { border-color: var(--neon-purple); background: rgba(157,0,255,0.1); }
+        .option-btn.correct { border-color: var(--neon-green); background: rgba(57,255,20,0.1); }
+        .option-btn.wrong { border-color: var(--neon-red); background: rgba(255,0,64,0.1); }
+        .tutorial-box {
+            background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2);
+            border-radius: 10px; padding: 20px; margin: 20px 0;
+        }
+        .tutorial-box h3 { color: var(--neon-cyan); margin-bottom: 10px; }
+        .tutorial-box p { color: #aaa; line-height: 1.6; margin-bottom: 8px; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .slide-in { animation: slideIn 0.5s ease; }
+        .typing-effect::after {
+            content: '|'; animation: blink 1s infinite; color: var(--neon-purple);
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @media (max-width: 600px) {
+            .game-container { padding: 10px; }
+            .header h1 { font-size: 1.5rem; }
+            .options { grid-template-columns: 1fr; }
+            .input-area { flex-direction: column; align-items: stretch; }
+            .input-area input { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>🔐 代数密码破译</h1>
+            <p class="subtitle">第2章 简单的代数式 · 沪教版2024新版 · 六年级上册</p>
+        </div>
+
+        <div class="level-indicator" id="levelIndicator"></div>
+
+        <div class="score-board">
+            <div class="score-item">
+                <div class="label">SCORE</div>
+                <div class="value" id="score">0</div>
+            </div>
+            <div class="score-item">
+                <div class="label">LEVEL</div>
+                <div class="value" id="currentLevel">1/5</div>
+            </div>
+            <div class="score-item">
+                <div class="label">DECODED</div>
+                <div class="value" id="decoded">0</div>
+            </div>
+        </div>
+
+        <div class="game-area" id="gameArea"></div>
+    </div>
+
+    <script>
+        // 游戏状态
+        const gameState = {
+            currentLevel: 0,
+            score: 0,
+            decoded: 0,
+            completed: new Set(),
+            levels: [
+                { id: 1, name: '符号解码', icon: '🔤', desc: '用字母表示数，理解符号的抽象意义' },
+                { id: 2, name: '表达式拼装', icon: '🔧', desc: '将文字描述转化为代数式' },
+                { id: 3, name: '数值破译', icon: '🔢', desc: '代入具体数值，求代数式的值' },
+                { id: 4, name: '一次式拆解', icon: '⚡', desc: '识别一次式的系数和常数项' },
+                { id: 5, name: '终极密码', icon: '🎯', desc: '综合运用代数式知识破解最终密码' }
+            ]
+        };
+
+        // 关卡数据生成器
+        const levelGenerators = {
+            // 关卡1: 用字母表示数
+            1: () => {
+                const problems = [
+                    { q: '若 a 表示一个有理数，那么它的相反数可以表示为？', a: '-a', options: ['-a', '1/a', 'a⁻¹', '|a|'] },
+                    { q: '某商品原价 x 元，打 8 折后的售价是？', a: '0.8x', options: ['0.8x', '8x', 'x+0.8', 'x-0.8'] },
+                    { q: '一个两位数，十位数字是 a，个位数字是 b，这个数可以表示为？', a: '10a+b', options: ['10a+b', 'a+b', 'ab', 'a×10b'] },
+                    { q: '正方形的边长为 a，则周长为？', a: '4a', options: ['4a', 'a⁴', '2a', 'a²'] }
+                ];
+                return problems[Math.floor(Math.random() * problems.length)];
+            },
+            // 关卡2: 代数式拼装
+            2: () => {
+                const problems = [
+                    { q: '"x 的 3 倍与 5 的和" 用代数式表示为？', a: '3x+5', options: ['3x+5', '3(x+5)', '3x-5', '3+5x'] },
+                    { q: '"a 与 b 的差除以 2" 用代数式表示为？', a: '(a-b)/2', options: ['(a-b)/2', 'a-b/2', '2/(a-b)', '2(a-b)'] },
+                    { q: '"m 的平方与 n 的立方的和" 用代数式表示为？', a: 'm²+n³', options: ['m²+n³', 'm2+n3', '(m+n)²', 'm²×n³'] },
+                    { q: '"比 x 的相反数大 3 的数" 用代数式表示为？', a: '-x+3', options: ['-x+3', '-(x+3)', 'x+3', '3-x'] }
+                ];
+                return problems[Math.floor(Math.random() * problems.length)];
+            },
+            // 关卡3: 代入求值
+            3: () => {
+                const problems = [
+                    { q: '已知 a = 3，求 2a + 5 的值', a: '11', options: ['11', '8', '15', '6'] },
+                    { q: '已知 x = -2，求 x² + 3x - 1 的值', a: '-3', options: ['-3', '9', '3', '1'] },
+                    { q: '已知 m = 4, n = 2，求 3m - 2n 的值', a: '8', options: ['8', '6', '10', '14'] },
+                    { q: '已知 a = -1, b = 3，求 (a+b)² 的值', a: '4', options: ['4', '2', '8', '16'] }
+                ];
+                return problems[Math.floor(Math.random() * problems.length)];
+            },
+            // 关卡4: 一次式
+            4: () => {
+                const problems = [
+                    { q: '一次式 3x + 7 的系数是？', a: '3', options: ['3', '7', '3x', '10'] },
+                    { q: '一次式 -2y + 5 的常数项是？', a: '5', options: ['5', '-2', '-2y', '7'] },
+                    { q: '"5a - 3" 这个一次式中，a 的系数是？', a: '5', options: ['5', '-3', '5a', '2'] },
+                    { q: '下列哪个是一次式？', a: '2x+1', options: ['2x+1', 'x²+1', '1/x', 'x²'] }
+                ];
+                return problems[Math.floor(Math.random() * problems.length)];
+            },
+            // 关卡5: 综合
+            5: () => {
+                const problems = [
+                    { q: '已知 x = -3，求 |2x + 1| - x² 的值', a: '-2', options: ['-2', '8', '2', '-8'] },
+                    { q: '梯形的上底为 a，下底为 b，高为 h。当 a=3, b=5, h=4 时，面积 = ?', a: '16', options: ['16', '60', '8', '12'] },
+                    { q: '若 2x + 3 = 11，则 x = ?', a: '4', options: ['4', '5', '8', '7'] },
+                    { q: '已知 a = 2, b = -3，求 a² - 2ab + b² 的值', a: '25', options: ['25', '1', '13', '7'] }
+                ];
+                return problems[Math.floor(Math.random() * problems.length)];
+            }
+        };
+
+        // 渲染关卡指示器
+        function renderLevelIndicator() {
+            const container = document.getElementById('levelIndicator');
+            container.innerHTML = gameState.levels.map((level, idx) => {
+                let cls = 'level-dot';
+                if (gameState.completed.has(level.id)) cls += ' completed';
+                else if (idx === gameState.currentLevel) cls += ' active';
+                return `<div class="${cls}" onclick="jumpToLevel(${idx})">${level.id}</div>`;
+            }).join('');
+        }
+
+        // 渲染游戏区域
+        function renderGame() {
+            const level = gameState.levels[gameState.currentLevel];
+            const area = document.getElementById('gameArea');
+            document.getElementById('currentLevel').textContent = `${level.id}/5`;
+
+            let html = `
+                <div class="slide-in">
+                    <div class="mission-title">
+                        <span class="icon">${level.icon}</span>
+                        <span>任务 ${level.id}: ${level.name}</span>
+                    </div>
+                    <p class="mission-desc">${level.desc}</p>
+            `;
+
+            const data = levelGenerators[level.id]();
+            
+            // 教程提示
+            const tips = {
+                1: '用字母表示数：字母可以代表任何数。如 a 表示一个有理数，-a 就是它的相反数。',
+                2: '代数式：由数、字母和运算符号组成的式子。如 3x+5、2a-b 都是代数式。',
+                3: '代数式的值：用具体数值代替代数式中的字母，计算得出的结果。',
+                4: '一次式：形如 ax + b（a≠0）的代数式。a 是系数，b 是常数项。',
+                5: '综合运用：注意运算顺序——先乘方，再乘除，后加减，有括号先算括号。'
+            };
+
+            html += `<div class="tutorial-box"><h3>💡 知识点</h3><p>${tips[level.id]}</p></div>`;
+            
+            html += `<div class="code-terminal">`;
+            html += `<div class="code-line"><span class="var">任务</span> <span class="op">=</span> <span class="num">"${data.q}"</span></div>`;
+            html += `</div>`;
+
+            html += `<div class="options">${data.options.map(opt => 
+                `<div class="option-btn" onclick="checkAnswer(this, '${data.a}', '${opt}')">${opt}</div>`
+            ).join('')}</div>`;
+
+            html += `<div class="feedback info" id="feedback">选择正确答案破译密码...</div>`;
+            html += `</div>`;
+            area.innerHTML = html;
+        }
+
+        // 检查答案
+        function checkAnswer(element, correct, selected) {
+            const feedback = document.getElementById('feedback');
+            const allOptions = document.querySelectorAll('.option-btn');
+            
+            allOptions.forEach(btn => btn.style.pointerEvents = 'none');
+            
+            if (selected === correct) {
+                element.classList.add('correct');
+                feedback.className = 'feedback correct';
+                feedback.textContent = '✅ 密码破译成功！机密信息已解密！';
+                gameState.score += 100 + (gameState.completed.size * 20);
+                gameState.decoded++;
+                gameState.completed.add(gameState.currentLevel + 1);
+                document.getElementById('score').textContent = gameState.score;
+                document.getElementById('decoded').textContent = gameState.decoded;
+                
+                setTimeout(() => {
+                    if (gameState.currentLevel < 4) {
+                        gameState.currentLevel++;
+                        renderLevelIndicator();
+                        renderGame();
+                    } else {
+                        showVictory();
+                    }
+                }, 1500);
+            } else {
+                element.classList.add('wrong');
+                feedback.className = 'feedback wrong';
+                feedback.textContent = `❌ 破译失败！正确答案是 ${correct}`;
+            }
+        }
+
+        // 跳转到关卡
+        function jumpToLevel(idx) {
+            gameState.currentLevel = idx;
+            renderGame();
+        }
+
+        // 胜利画面
+        function showVictory() {
+            const area = document.getElementById('gameArea');
+            area.innerHTML = `
+                <div class="slide-in" style="text-align:center;padding:40px;">
+                    <div style="font-size:4rem;margin-bottom:20px;">🎉</div>
+                    <h2 style="color:var(--neon-green);font-size:2rem;margin-bottom:15px;">全部密码已破译！</h2>
+                    <p style="color:#aaa;margin-bottom:20px;">你已掌握用字母表示数、代数式和一次式</p>
+                    <div style="font-family:'Share Tech Mono',monospace;font-size:1.5rem;color:var(--neon-purple);margin-bottom:30px;">
+                        最终得分: ${gameState.score} | 破译密码: ${gameState.decoded} 条
+                    </div>
+                    <button class="btn" onclick="resetGame()" style="font-size:1.2rem;padding:15px 40px;">
+                        🔄 再次挑战
+                    </button>
+                </div>
+            `;
+        }
+
+        // 重置游戏
+        function resetGame() {
+            gameState.currentLevel = 0;
+            gameState.score = 0;
+            gameState.decoded = 0;
+            gameState.completed.clear();
+            document.getElementById('score').textContent = '0';
+            document.getElementById('decoded').textContent = '0';
+            renderLevelIndicator();
+            renderGame();
+        }
+
+        // 初始化
+        renderLevelIndicator();
+        renderGame();
+    </script>
+</body>
+</html>
