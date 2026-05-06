@@ -1,501 +1,1231 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数轴特工 | 有理数</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Share+Tech+Mono&display=swap');
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
-            --neon-cyan: #00ffff; --neon-pink: #ff00ff; --neon-green: #39ff14;
-            --neon-yellow: #ffff00; --neon-red: #ff0040; --neon-purple: #9d00ff;
-            --dark: #0a0a0a; --panel: rgba(0,0,0,0.85);
-        }
-        body {
-            background: var(--dark); color: #fff;
-            font-family: 'Noto Sans SC', sans-serif;
-            min-height: 100vh; overflow-x: hidden;
-        }
-        body::before {
-            content: ''; position: fixed; inset: 0;
-            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px);
-            pointer-events: none; z-index: 9999;
-        }
-        .game-container { max-width: 900px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; padding: 20px 0; border-bottom: 1px solid rgba(0,255,255,0.2); margin-bottom: 20px; }
-        .header h1 { font-size: 2rem; color: var(--neon-cyan); text-shadow: 0 0 20px var(--neon-cyan); }
-        .header .subtitle { color: #888; margin-top: 8px; }
-        .level-indicator { display: flex; justify-content: center; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
-        .level-dot {
-            width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2);
-            display: flex; align-items: center; justify-content: center; font-size: 0.75rem;
-            font-family: 'Share Tech Mono', monospace; cursor: pointer; transition: all 0.3s;
-        }
-        .level-dot.active { border-color: var(--neon-cyan); background: rgba(0,255,255,0.1); color: var(--neon-cyan); box-shadow: 0 0 10px var(--neon-cyan); }
-        .level-dot.completed { border-color: var(--neon-green); background: rgba(57,255,20,0.1); color: var(--neon-green); }
-        .level-dot:hover:not(.completed) { border-color: var(--neon-yellow); }
-        .game-area {
-            background: var(--panel); border: 1px solid rgba(0,255,255,0.2);
-            border-radius: 15px; padding: 30px; margin-bottom: 20px;
-        }
-        .mission-title { font-size: 1.3rem; color: var(--neon-yellow); margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
-        .mission-title .icon { font-size: 1.5rem; }
-        .mission-desc { color: #aaa; margin-bottom: 20px; line-height: 1.6; }
-        /* 数轴样式 */
-        .number-line-container { margin: 30px 0; position: relative; height: 200px; }
-        .number-line {
-            position: absolute; top: 50%; left: 0; right: 0; height: 3px;
-            background: linear-gradient(90deg, var(--neon-red) 0%, #fff 50%, var(--neon-green) 100%);
-            border-radius: 2px;
-        }
-        .number-line-labels {
-            position: absolute; top: 50%; left: 0; right: 0; display: flex; justify-content: space-between;
-            transform: translateY(15px); font-family: 'Share Tech Mono', monospace; font-size: 0.8rem;
-        }
-        .number-line-labels span { color: #888; }
-        .number-line-labels span.zero { color: #fff; font-weight: bold; }
-        .number-line-labels span.positive { color: var(--neon-green); }
-        .number-line-labels span.negative { color: var(--neon-red); }
-        .agent {
-            position: absolute; top: 50%; width: 20px; height: 20px;
-            background: var(--neon-cyan); border-radius: 50%;
-            transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--neon-cyan);
-            transition: left 0.5s ease; z-index: 10;
-        }
-        .agent::after {
-            content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
-            border-left: 8px solid transparent; border-right: 8px solid transparent;
-            border-top: 10px solid var(--neon-cyan);
-        }
-        .target {
-            position: absolute; top: 50%; width: 16px; height: 16px;
-            background: var(--neon-yellow); border-radius: 50%;
-            transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--neon-yellow);
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.3); } }
-        /* 输入区域 */
-        .input-area { display: flex; gap: 15px; align-items: center; margin: 20px 0; flex-wrap: wrap; }
-        .input-area input {
-            background: rgba(0,0,0,0.5); border: 1px solid var(--neon-cyan); color: #fff;
-            padding: 12px 20px; border-radius: 8px; font-size: 1.1rem; font-family: 'Share Tech Mono', monospace;
-            width: 150px; outline: none;
-        }
-        .input-area input:focus { box-shadow: 0 0 10px var(--neon-cyan); }
-        .btn {
-            background: rgba(0,255,255,0.1); border: 1px solid var(--neon-cyan); color: var(--neon-cyan);
-            padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 1rem;
-            transition: all 0.3s; font-family: 'Share Tech Mono', monospace;
-        }
-        .btn:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 15px var(--neon-cyan); }
-        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        /* 反馈 */
-        .feedback { margin: 15px 0; padding: 15px; border-radius: 8px; font-size: 1rem; min-height: 50px; }
-        .feedback.correct { background: rgba(57,255,20,0.1); border: 1px solid var(--neon-green); color: var(--neon-green); }
-        .feedback.wrong { background: rgba(255,0,64,0.1); border: 1px solid var(--neon-red); color: var(--neon-red); }
-        .feedback.info { background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); color: #aaa; }
-        /* 得分板 */
-        .score-board { display: flex; justify-content: space-between; margin-bottom: 20px; font-family: 'Share Tech Mono', monospace; }
-        .score-item { text-align: center; }
-        .score-item .label { color: #888; font-size: 0.8rem; }
-        .score-item .value { color: var(--neon-cyan); font-size: 1.5rem; }
-        /* 选项按钮 */
-        .options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
-        .option-btn {
-            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
-            color: #fff; padding: 15px; border-radius: 10px; cursor: pointer;
-            transition: all 0.3s; text-align: center;
-        }
-        .option-btn:hover { border-color: var(--neon-cyan); background: rgba(0,255,255,0.05); }
-        .option-btn.selected { border-color: var(--neon-cyan); background: rgba(0,255,255,0.1); }
-        .option-btn.correct { border-color: var(--neon-green); background: rgba(57,255,20,0.1); }
-        .option-btn.wrong { border-color: var(--neon-red); background: rgba(255,0,64,0.1); }
-        /* 教程区域 */
-        .tutorial-box {
-            background: rgba(157,0,255,0.05); border: 1px solid rgba(157,0,255,0.3);
-            border-radius: 10px; padding: 20px; margin: 20px 0;
-        }
-        .tutorial-box h3 { color: var(--neon-purple); margin-bottom: 10px; }
-        .tutorial-box p { color: #aaa; line-height: 1.6; margin-bottom: 8px; }
-        .tutorial-box code {
-            background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px;
-            color: var(--neon-cyan); font-family: 'Share Tech Mono', monospace;
-        }
-        /* 动画 */
-        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .slide-in { animation: slideIn 0.5s ease; }
-        /* 移动端 */
-        @media (max-width: 600px) {
-            .game-container { padding: 10px; }
-            .header h1 { font-size: 1.5rem; }
-            .options { grid-template-columns: 1fr; }
-            .input-area { flex-direction: column; align-items: stretch; }
-            .input-area input { width: 100%; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学特工局 — 极地行动</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  overflow: hidden;
+  height: 100vh; width: 100vw;
+  position: relative;
+}
+
+/* Level nav */
+.level-nav {
+  cursor: pointer; font-size: 1.2rem; color: var(--accent);
+  padding: 4px 8px; border: 1px solid rgba(0,245,212,0.3);
+  border-radius: 4px; transition: all 0.2s;
+}
+.level-nav:hover { background: rgba(0,245,212,0.1); }
+.level-nav-panel {
+  position: fixed; top: 70px; right: 20px;
+  background: var(--panel); backdrop-filter: blur(12px);
+  border: 1px solid rgba(0,245,212,0.3); border-radius: 8px;
+  padding: 8px 0; z-index: 200; display: none;
+  min-width: 180px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.level-nav-panel.active { display: block; }
+.level-nav-panel div {
+  padding: 10px 16px; cursor: pointer;
+  font-size: 0.85rem; color: var(--text);
+  transition: all 0.15s; border-left: 3px solid transparent;
+}
+.level-nav-panel div:hover { background: rgba(0,245,212,0.1); color: var(--accent); border-left-color: var(--accent); }
+.level-nav-panel div.current { color: var(--accent); font-weight: bold; }
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* Main container */
+#app {
+  position: relative; z-index: 10;
+  height: 100vh; display: flex; flex-direction: column;
+  padding: 40px 60px;
+}
+
+/* Title */
+#title-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 12px; margin-bottom: 20px;
+}
+#title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px; letter-spacing: 3px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+#title-bar .badge {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 8px;
+}
+
+/* Top HUD stats */
+#top-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.hud-block { display: flex; gap: 20px; }
+.hud-item { display: flex; flex-direction: column; align-items: center; }
+.hud-item .label { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; }
+.hud-item .value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.hud-item .value.danger { color: var(--danger); }
+.hud-item .value.warning { color: var(--warning); }
+.hud-item .value.success { color: var(--success); }
+
+/* Screen sections */
+.screen {
+  display: none; flex: 1; flex-direction: column;
+  animation: fadeIn 0.4s ease;
+}
+.screen.active { display: flex; }
+
+/* Level intro */
+.level-intro {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg);
+  z-index: 200;
+}
+.level-intro.active { display: flex; }
+.level-intro h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 56px; color: var(--accent);
+  text-shadow: 0 0 40px var(--accent);
+  animation: glitchText 0.8s ease infinite alternate;
+}
+.level-intro p {
+  margin-top: 20px; font-size: 18px;
+  color: var(--text-dim); letter-spacing: 2px;
+}
+
+@keyframes glitchText {
+  0% { transform: translate(0); text-shadow: 0 0 40px var(--accent); }
+  20% { transform: translate(-2px, 1px); text-shadow: -2px 0 40px var(--accent); }
+  40% { transform: translate(2px, -1px); text-shadow: 2px 0 40px var(--accent); }
+  60% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -2px); }
+  100% { transform: translate(0); }
+}
+
+/* Level clear overlay */
+#level-clear-overlay {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: rgba(6, 8, 15, 0.95);
+  z-index: 200;
+}
+#level-clear-overlay.active { display: flex; }
+#level-clear-overlay h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 64px; color: var(--success);
+  text-shadow: 0 0 50px var(--success);
+  animation: scaleIn 0.6s ease;
+}
+#level-clear-overlay .level-stats {
+  margin-top: 24px; font-size: 18px;
+  display: flex; gap: 40px;
+}
+
+@keyframes scaleIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ========== BRIEFING ========== */
+#briefing {
+  align-items: center; justify-content: center;
+  text-align: center;
+}
+#briefing .briefing-box {
+  max-width: 700px;
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 12px;
+  padding: 48px;
+}
+#briefing h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px; color: var(--accent);
+  text-shadow: 0 0 30px var(--accent);
+  margin-bottom: 24px;
+}
+#briefing p {
+  font-size: 16px; line-height: 1.8; color: var(--text);
+  margin-bottom: 16px;
+}
+#briefing .classified {
+  display: inline-block;
+  background: rgba(239,71,111,0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 4px 16px;
+  font-size: 12px; letter-spacing: 3px;
+  margin-bottom: 24px;
+}
+#briefing .btn-accept {
+  margin-top: 32px;
+  background: rgba(0,245,212,0.1);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  padding: 16px 48px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px; letter-spacing: 3px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+#briefing .btn-accept:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 30px var(--accent);
+  transform: scale(1.05);
+}
+
+/* ========== LEVEL 1: Temperature Decode ========== */
+#level1 .target-display {
+  text-align: center; margin: 10px 0;
+}
+#level1 .target-display .big-temp {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 72px;
+  text-shadow: 0 0 30px currentColor;
+  animation: pulse 1s ease infinite alternate;
+}
+#level1 .target-display .temp-label {
+  font-size: 14px; color: var(--text-dim); margin-top: 8px;
+}
+@keyframes pulse {
+  0% { text-shadow: 0 0 20px currentColor; }
+  100% { text-shadow: 0 0 50px currentColor, 0 0 80px currentColor; }
+}
+#level1 .timer-bar {
+  width: 100%; height: 6px;
+  background: rgba(0,245,212,0.15);
+  margin: 10px 0; border-radius: 3px; overflow: hidden;
+}
+#level1 .timer-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--danger), var(--warning), var(--success));
+  transition: width linear 0.1s;
+}
+#level1 .btn-group {
+  display: flex; justify-content: center; gap: 16px;
+  margin-top: 16px; flex-wrap: wrap;
+}
+.temp-btn {
+  width: 140px; height: 80px;
+  border: 2px solid var(--accent2);
+  background: rgba(0, 187, 249, 0.08);
+  color: var(--accent2); font-family: 'Orbitron', sans-serif;
+  font-size: 28px; cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: all 0.2s; border-radius: 4px;
+  position: relative; overflow: hidden;
+}
+.temp-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--accent2); opacity: 0;
+  transition: opacity 0.2s;
+}
+.temp-btn:hover::before { opacity: 0.15; }
+.temp-btn:hover {
+  box-shadow: 0 0 20px var(--accent2);
+  transform: translateY(-2px);
+}
+.temp-btn.selected {
+  border-color: var(--accent);
+  background: rgba(0, 245, 212, 0.2);
+  box-shadow: 0 0 25px var(--accent);
+}
+.temp-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239, 71, 111, 0.2);
+  animation: shake 0.4s ease;
+}
+.temp-btn.correct {
+  border-color: var(--success);
+  background: rgba(6, 214, 160, 0.2);
+  animation: flashGreen 0.5s ease;
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 40px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+#level1 .combo-display {
+  text-align: center; margin-top: 10px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px;
+}
+#level1 .combo-display .combo-count { color: var(--warning); text-shadow: 0 0 15px var(--warning); }
+
+/* ========== LEVEL 2: Number Line Scout ========== */
+#level2 .nl-container {
+  width: 100%; max-width: 700px;
+  margin: 20px auto;
+  position: relative;
+}
+#level2 .nl-line {
+  height: 4px;
+  background: linear-gradient(90deg, var(--danger), #fff 50%, var(--success));
+  border-radius: 2px;
+  position: relative;
+}
+#level2 .nl-ticks {
+  display: flex; justify-content: space-between;
+  margin-top: 8px;
+  font-family: 'Orbitron', sans-serif; font-size: 14px;
+  position: relative;
+}
+#level2 .nl-tick { position: absolute; transform: translateX(-50%); }
+#level2 .nl-tick.neg { color: var(--danger); }
+#level2 .nl-tick.pos { color: var(--success); }
+#level2 .nl-tick.zero { color: #fff; font-weight: bold; }
+#level2 .nl-agent {
+  position: absolute; top: -10px; width: 24px; height: 24px;
+  background: var(--warning); border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 15px var(--warning);
+  cursor: pointer;
+  transition: left 0.5s ease;
+}
+#level2 .nl-target {
+  position: absolute; top: -10px; width: 20px; height: 20px;
+  border: 2px solid var(--accent); border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 10px var(--accent);
+  animation: targetPulse 1s infinite;
+}
+@keyframes targetPulse {
+  0%,100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  50% { transform: translateX(-50%) scale(1.3); opacity: 0.6; }
+}
+#level2 .nl-click-zone {
+  position: absolute; top: -20px; height: 44px; width: 100%;
+  cursor: crosshair;
+}
+#level2 .mission-text {
+  text-align: center; font-size: 18px; margin: 16px 0;
+}
+#level2 .mission-text .target-num {
+  font-family: 'Orbitron', sans-serif; font-size: 36px;
+  color: var(--accent); text-shadow: 0 0 20px var(--accent);
+}
+
+/* ========== LEVEL 3: Mirror Crack ========== */
+#level3 .mirror-pair {
+  display: flex; align-items: center; justify-content: center;
+  gap: 40px; margin: 20px 0; flex-wrap: wrap;
+}
+#level3 .mirror-num {
+  font-family: 'Orbitron', sans-serif; font-size: 48px;
+  width: 100px; height: 100px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--accent); border-radius: 8px;
+  background: rgba(0,245,212,0.05);
+}
+#level3 .mirror-connector {
+  font-size: 32px; color: var(--accent);
+}
+#level3 .mirror-input {
+  background: rgba(0,0,0,0.3);
+  border: 2px solid var(--accent2);
+  color: var(--accent2);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px; width: 120px; height: 80px;
+  text-align: center;
+  border-radius: 8px;
+}
+#level3 .mirror-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent);
+}
+#level3 .mirror-submit {
+  margin-top: 16px;
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 12px 32px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; cursor: pointer;
+  border-radius: 4px;
+}
+#level3 .mirror-submit:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 15px var(--accent);
+}
+
+/* ========== LEVEL 4: Distance Scanner ========== */
+#level4 .dist-display {
+  display: flex; align-items: center; justify-content: center;
+  gap: 30px; margin: 20px 0; flex-wrap: wrap;
+}
+#level4 .dist-point {
+  text-align: center;
+}
+#level4 .dist-point .num {
+  font-family: 'Orbitron', sans-serif; font-size: 42px;
+}
+#level4 .dist-point .label {
+  font-size: 12px; color: var(--text-dim);
+}
+#level4 .dist-arrow {
+  font-size: 24px; color: var(--accent);
+}
+#level4 .abs-formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px; color: var(--warning);
+  text-align: center; margin: 16px 0;
+}
+#level4 .abs-options {
+  display: flex; justify-content: center; gap: 16px;
+  flex-wrap: wrap; margin-top: 16px;
+}
+#level4 .abs-btn {
+  width: 100px; height: 60px;
+  border: 2px solid var(--accent2);
+  background: rgba(0,187,249,0.08);
+  color: var(--accent2); font-family: 'Orbitron', sans-serif;
+  font-size: 24px; cursor: pointer;
+  border-radius: 4px; transition: all 0.2s;
+}
+#level4 .abs-btn:hover {
+  background: rgba(0,187,249,0.15);
+  box-shadow: 0 0 15px var(--accent2);
+}
+#level4 .abs-btn.correct {
+  border-color: var(--success);
+  background: rgba(6,214,160,0.2);
+  animation: flashGreen 0.5s ease;
+}
+#level4 .abs-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239,71,111,0.2);
+  animation: shake 0.4s ease;
+}
+
+/* ========== LEVEL 5: Ultimate Code ========== */
+#level5 .ult-timer {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 48px; color: var(--danger);
+  text-align: center;
+  text-shadow: 0 0 30px var(--danger);
+  margin: 10px 0;
+}
+#level5 .ult-question {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+}
+#level5 .ult-question .q-text {
+  font-size: 18px; margin-bottom: 12px;
+}
+#level5 .ult-question .q-big {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px; color: var(--accent);
+}
+#level5 .ult-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+#level5 .ult-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 14px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; cursor: pointer;
+  border-radius: 6px; text-align: center;
+  transition: all 0.2s;
+}
+#level5 .ult-btn:hover {
+  border-color: var(--accent2);
+  background: rgba(0,187,249,0.15);
+}
+#level5 .ult-btn.correct {
+  border-color: var(--success);
+  background: rgba(6,214,160,0.15);
+  color: var(--success);
+}
+#level5 .ult-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239,71,111,0.15);
+  color: var(--danger);
+}
+#level5 .ult-progress {
+  display: flex; gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+}
+#level5 .ult-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: rgba(88,96,112,0.3);
+  transition: all 0.3s;
+}
+#level5 .ult-dot.done { background: var(--success); box-shadow: 0 0 8px var(--success); }
+#level5 .ult-dot.current { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+/* Common */
+.level-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--accent);
+  margin-bottom: 8px;
+}
+.level-desc {
+  font-size: 14px; color: var(--text-dim);
+  margin-bottom: 16px;
+}
+.score-popup {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px; color: var(--success);
+  text-shadow: 0 0 30px var(--success);
+  pointer-events: none;
+  animation: scoreFloat 1s ease forwards;
+  z-index: 300;
+}
+@keyframes scoreFloat {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -150%) scale(1.5); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+</style>
 </head>
 <body>
-    <div class="game-container">
-        <div class="header">
-            <h1>🔢 数轴特工</h1>
-            <p class="subtitle">第1章 有理数 · 沪教版2024新版 · 六年级上册</p>
-        </div>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
 
-        <div class="level-indicator" id="levelIndicator"></div>
+<!-- Level nav panel -->
+<div class="level-nav-panel" id="level-nav-panel">
+  <div onclick="jumpToLevel(0)">📋 任务简报</div>
+  <div onclick="jumpToLevel(1)">❄️ 温度解码</div>
+  <div onclick="jumpToLevel(2)">📍 数轴定位</div>
+  <div onclick="jumpToLevel(3)">🪞 镜像破解</div>
+  <div onclick="jumpToLevel(4)">📏 测距系统</div>
+  <div onclick="jumpToLevel(5)">🔐 终极密码</div>
+</div>
 
-        <div class="score-board">
-            <div class="score-item">
-                <div class="label">SCORE</div>
-                <div class="value" id="score">0</div>
-            </div>
-            <div class="score-item">
-                <div class="label">LEVEL</div>
-                <div class="value" id="currentLevel">1/8</div>
-            </div>
-            <div class="score-item">
-                <div class="label">STREAK</div>
-                <div class="value" id="streak">0</div>
-            </div>
-        </div>
+<!-- Level Intro Overlay -->
+<div class="level-intro" id="level-intro">
+  <h2 id="intro-title">LEVEL 1</h2>
+  <p id="intro-sub">初始化...</p>
+</div>
 
-        <div class="game-area" id="gameArea">
-            <!-- 游戏内容动态生成 -->
-        </div>
+<!-- Level Clear Overlay -->
+<div id="level-clear-overlay">
+  <h2>LEVEL CLEAR</h2>
+  <div class="level-stats">
+    <div>得分: <span id="clear-score" style="color:var(--accent)">0</span></div>
+    <div>连击: <span id="clear-combo" style="color:var(--warning)">0</span></div>
+    <div>剩余生命: <span id="clear-lives" style="color:var(--danger)">3</span></div>
+  </div>
+  <div style="margin-top:40px;">
+    <button class="btn-accept" onclick="nextLevel()">下一关 →</button>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app">
+
+<!-- Title bar -->
+<div id="title-bar">
+  <h1>❄️ 极地行动</h1>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <span class="badge">有理数</span>
+    <div class="level-nav" id="level-nav-btn">⚡ 关卡</div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="top-hud">
+  <div class="hud-block">
+    <div class="hud-item">
+      <div class="label">得分</div>
+      <div class="value" id="score">0</div>
     </div>
+    <div class="hud-item">
+      <div class="label">生命</div>
+      <div class="value" id="lives">❤️❤️❤️</div>
+    </div>
+    <div class="hud-item">
+      <div class="label">关卡</div>
+      <div class="value" id="level-display"> briefing</div>
+    </div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-item">
+      <div class="label">连击</div>
+      <div class="value warning" id="combo">0</div>
+    </div>
+  </div>
+</div>
 
-    <script>
-        // 游戏状态
-        const gameState = {
-            currentLevel: 0,
-            score: 0,
-            streak: 0,
-            completed: new Set(),
-            levels: [
-                { id: 1, name: '正负号解码', icon: '🔐', desc: '识别正数与负数，理解相反意义的量' },
-                { id: 2, name: '数轴定位', icon: '📍', desc: '在数轴上找到正确的位置' },
-                { id: 3, name: '镜像破解', icon: '🪞', desc: '找出相反数，破解对称密码' },
-                { id: 4, name: '测距系统', icon: '📏', desc: '计算绝对值，测量目标距离' },
-                { id: 5, name: '位移运算', icon: '↔️', desc: '有理数的加法与减法' },
-                { id: 6, name: '火力覆盖', icon: '💥', desc: '有理数的乘法与除法' },
-                { id: 7, name: '爆破密码', icon: '🔐', desc: '有理数的乘方运算' },
-                { id: 8, name: '终极任务', icon: '🎯', desc: '有理数的混合运算' }
-            ]
-        };
+<!-- ========== BRIEFING SCREEN ========== -->
+<div class="screen active" id="briefing">
+  <div class="briefing-box">
+    <div class="classified">机密等级：A</div>
+    <h2>极地行动</h2>
+    <p>特工，敌方在极地建立了秘密温度控制站，利用有理数编码系统保护核心设施。</p>
+    <p>你的任务是渗透基地，破解所有有理数密码。基地共 5 层防线，每层都有不同的编码机制。</p>
+    <p>准备好了吗？接受任务，开始行动。</p>
+    <button class="btn-accept" onclick="startGame()">接受任务</button>
+  </div>
+</div>
 
-        // 关卡数据生成器
-        const levelGenerators = {
-            // 关卡1: 正数与负数
-            1: () => {
-                const scenarios = [
-                    { q: '零上 5°C 记作 +5，那么零下 3°C 记作？', a: '-3', options: ['3', '-3', '+3', '0'] },
-                    { q: '存入 500 元记作 +500，那么支出 200 元记作？', a: '-200', options: ['200', '-200', '+200', '0'] },
-                    { q: '向东走 10 米记作 +10，那么向西走 8 米记作？', a: '-8', options: ['8', '-8', '+8', '0'] },
-                    { q: '高于海平面 100 米记作 +100，那么低于海平面 50 米记作？', a: '-50', options: ['50', '-50', '+50', '0'] }
-                ];
-                return scenarios[Math.floor(Math.random() * scenarios.length)];
-            },
-            // 关卡2: 数轴定位
-            2: () => {
-                const target = Math.floor(Math.random() * 17) - 8; // -8 到 8
-                return { target, range: 10 };
-            },
-            // 关卡3: 相反数
-            3: () => {
-                const nums = [5, -3, 7, -9, 4, -6, 8, -2];
-                const num = nums[Math.floor(Math.random() * nums.length)];
-                const correct = (-num).toString();
-                const wrong = [
-                    (num).toString(),
-                    (num * 2).toString(),
-                    (-num * 2).toString()
-                ];
-                return { q: `${num} 的相反数是？`, a: correct, options: [correct, ...wrong].sort(() => Math.random() - 0.5) };
-            },
-            // 关卡4: 绝对值
-            4: () => {
-                const nums = [-5, 3, -8, 12, -15, 7, -9, 20];
-                const num = nums[Math.floor(Math.random() * nums.length)];
-                const correct = Math.abs(num).toString();
-                const wrong = [
-                    num.toString(),
-                    (-Math.abs(num)).toString(),
-                    (Math.abs(num) + 1).toString()
-                ];
-                return { q: `|${num}| = ?`, a: correct, options: [correct, ...wrong].sort(() => Math.random() - 0.5) };
-            },
-            // 关卡5: 加减法
-            5: () => {
-                const ops = [
-                    { q: '(-3) + 5 = ?', a: '2' },
-                    { q: '7 + (-4) = ?', a: '3' },
-                    { q: '(-6) - 2 = ?', a: '-8' },
-                    { q: '5 - (-3) = ?', a: '8' },
-                    { q: '(-4) + (-7) = ?', a: '-11' },
-                    { q: '(-9) - (-5) = ?', a: '-4' }
-                ];
-                const problem = ops[Math.floor(Math.random() * ops.length)];
-                const correct = problem.a;
-                const wrong = [
-                    (parseInt(correct) + 1).toString(),
-                    (parseInt(correct) - 1).toString(),
-                    (-parseInt(correct)).toString()
-                ];
-                return { ...problem, options: [correct, ...wrong].sort(() => Math.random() - 0.5) };
-            },
-            // 关卡6: 乘除法
-            6: () => {
-                const ops = [
-                    { q: '(-3) × 4 = ?', a: '-12' },
-                    { q: '(-5) × (-6) = ?', a: '30' },
-                    { q: '24 ÷ (-3) = ?', a: '-8' },
-                    { q: '(-36) ÷ (-9) = ?', a: '4' },
-                    { q: '(-2) × 7 = ?', a: '-14' },
-                    { q: '(-45) ÷ 5 = ?', a: '-9' }
-                ];
-                const problem = ops[Math.floor(Math.random() * ops.length)];
-                const correct = problem.a;
-                const wrong = [
-                    (parseInt(correct) * -1).toString(),
-                    (parseInt(correct) + 10).toString(),
-                    (parseInt(correct) - 5).toString()
-                ];
-                return { ...problem, options: [correct, ...wrong].sort(() => Math.random() - 0.5) };
-            },
-            // 关卡7: 乘方
-            7: () => {
-                const ops = [
-                    { q: '2³ = ?', a: '8' },
-                    { q: '(-3)² = ?', a: '9' },
-                    { q: '(-2)⁴ = ?', a: '16' },
-                    { q: '5² = ?', a: '25' },
-                    { q: '(-1)⁵ = ?', a: '-1' },
-                    { q: '10³ = ?', a: '1000' }
-                ];
-                const problem = ops[Math.floor(Math.random() * ops.length)];
-                const correct = problem.a;
-                const wrong = [
-                    (parseInt(correct) * 2).toString(),
-                    (parseInt(correct) / 2).toString(),
-                    (parseInt(correct) + 5).toString()
-                ];
-                return { ...problem, options: [correct, ...wrong].sort(() => Math.random() - 0.5) };
-            },
-            // 关卡8: 混合运算
-            8: () => {
-                const ops = [
-                    { q: '(-2)³ + 5 × (-2) = ?', a: '-18' },
-                    { q: '18 ÷ (-3) - (-4)² = ?', a: '-22' },
-                    { q: '(-5) × 2 + 12 ÷ (-3) = ?', a: '-14' },
-                    { q: '3 × (-4)² - 20 = ?', a: '28' }
-                ];
-                const problem = ops[Math.floor(Math.random() * ops.length)];
-                const correct = problem.a;
-                const wrong = [
-                    (parseInt(correct) + 10).toString(),
-                    (parseInt(correct) - 10).toString(),
-                    (-parseInt(correct)).toString()
-                ];
-                return { ...problem, options: [correct, ...wrong].sort(() => Math.random() - 0.5) };
-            }
-        };
+<!-- ========== LEVEL 1: Temperature Decode ========== -->
+<div class="screen" id="level1">
+  <div class="level-title">❄️ LEVEL 1 — 温度解码</div>
+  <div class="level-desc">敌方使用温度读数作为入口密码。判断每个读数的正负属性，在 3 秒内完成！</div>
 
-        // 渲染关卡指示器
-        function renderLevelIndicator() {
-            const container = document.getElementById('levelIndicator');
-            container.innerHTML = gameState.levels.map((level, idx) => {
-                let cls = 'level-dot';
-                if (gameState.completed.has(level.id)) cls += ' completed';
-                else if (idx === gameState.currentLevel) cls += ' active';
-                return `<div class="${cls}" onclick="jumpToLevel(${idx})">${level.id}</div>`;
-            }).join('');
-        }
+  <div class="target-display">
+    <div class="big-temp" id="l1-temp" style="color:var(--accent)">+5°C</div>
+    <div class="temp-label" id="l1-desc">零上 5 度</div>
+  </div>
 
-        // 渲染游戏区域
-        function renderGame() {
-            const level = gameState.levels[gameState.currentLevel];
-            const area = document.getElementById('gameArea');
-            document.getElementById('currentLevel').textContent = `${level.id}/8`;
+  <div class="timer-bar"><div class="timer-fill" id="l1-timer"></div></div>
 
-            let html = `
-                <div class="slide-in">
-                    <div class="mission-title">
-                        <span class="icon">${level.icon}</span>
-                        <span>任务 ${level.id}: ${level.name}</span>
-                    </div>
-                    <p class="mission-desc">${level.desc}</p>
-            `;
+  <div class="btn-group">
+    <button class="temp-btn" id="l1-pos" onclick="l1Answer('pos')">
+      <span class="value">+</span>
+      <span class="label">正数</span>
+    </button>
+    <button class="temp-btn" id="l1-neg" onclick="l1Answer('neg')">
+      <span class="value">-</span>
+      <span class="label">负数</span>
+    </button>
+    <button class="temp-btn" id="l1-zero" onclick="l1Answer('zero')">
+      <span class="value">0</span>
+      <span class="label">零</span>
+    </button>
+  </div>
 
-            // 根据关卡类型渲染不同内容
-            if (level.id === 1) {
-                // 选择题
-                const data = levelGenerators[1]();
-                html += `<div class="tutorial-box"><h3>💡 知识点</h3><p>正数 > 0，负数 < 0。用正负数可以表示具有相反意义的量。</p></div>`;
-                html += `<p style="font-size:1.1rem;margin:20px 0;">${data.q}</p>`;
-                html += `<div class="options">${data.options.map(opt => 
-                    `<div class="option-btn" onclick="checkAnswer(this, '${data.a}', '${opt}')">${opt}</div>`
-                ).join('')}</div>`;
-            } else if (level.id === 2) {
-                // 数轴定位
-                const data = levelGenerators[2]();
-                html += `<div class="tutorial-box"><h3>💡 知识点</h3><p>数轴三要素：原点、正方向、单位长度。右边的数总比左边的大。</p></div>`;
-                html += `<p style="margin:15px 0;">请在数轴上找到位置: <strong style="color:var(--neon-yellow)">${data.target}</strong></p>`;
-                html += renderNumberLine(data.target, data.range);
-                html += `<div class="input-area">
-                    <span>输入目标位置的数值：</span>
-                    <input type="number" id="targetInput" placeholder="?" />
-                    <button class="btn" onclick="checkNumberLine(${data.target})">移动特工</button>
-                </div>`;
-            } else if ([3, 4, 5, 6, 7, 8].includes(level.id)) {
-                // 选择题（相反数、绝对值、运算）
-                const data = levelGenerators[level.id]();
-                const tips = {
-                    3: '相反数：只有符号不同的两个数。如 5 和 -5。0 的相反数是 0。',
-                    4: '绝对值：数轴上表示数 a 的点到原点的距离。|正数| = 本身，|负数| = 它的相反数。',
-                    5: '加减法：同号相加取相同符号；异号相加取绝对值大的数的符号；减去一个数 = 加它的相反数。',
-                    6: '乘除法：同号得正，异号得负。除以一个数 = 乘它的倒数。',
-                    7: '乘方：aⁿ 表示 n 个 a 相乘。负数的偶次幂为正，奇次幂为负。',
-                    8: '混合运算：先乘方，再乘除，后加减；有括号先算括号内。'
-                };
-                html += `<div class="tutorial-box"><h3>💡 知识点</h3><p>${tips[level.id]}</p></div>`;
-                html += `<p style="font-size:1.2rem;margin:20px 0;color:var(--neon-cyan)">${data.q}</p>`;
-                html += `<div class="options">${data.options.map(opt => 
-                    `<div class="option-btn" onclick="checkAnswer(this, '${data.a}', '${opt}')">${opt}</div>`
-                ).join('')}</div>`;
-            }
+  <div class="combo-display">
+    连击: <span class="combo-count" id="l1-combo">0</span>
+  </div>
+</div>
 
-            html += `<div class="feedback info" id="feedback">选择答案或输入数值开始任务...</div>`;
-            html += `</div>`;
-            area.innerHTML = html;
-        }
+<!-- ========== LEVEL 2: Number Line Scout ========== -->
+<div class="screen" id="level2">
+  <div class="level-title">📍 LEVEL 2 — 数轴定位</div>
+  <div class="level-desc">在数轴上点击正确位置，将特工移动到目标坐标！</div>
 
-        // 渲染数轴
-        function renderNumberLine(target, range) {
-            const min = -range, max = range;
-            const total = max - min;
-            const targetPercent = ((target - min) / total) * 100;
-            const labels = [];
-            for (let i = min; i <= max; i += 2) {
-                let cls = i === 0 ? 'zero' : (i > 0 ? 'positive' : 'negative');
-                labels.push(`<span class="${cls}" style="position:absolute;left:${((i-min)/total)*100}%;transform:translateX(-50%)">${i}</span>`);
-            }
-            return `
-                <div class="number-line-container">
-                    <div class="number-line"></div>
-                    <div class="number-line-labels">${labels.join('')}</div>
-                    <div class="target" style="left:${targetPercent}%"></div>
-                    <div class="agent" id="agent" style="left:50%"></div>
-                </div>
-            `;
-        }
+  <div class="mission-text">
+    目标坐标：<span class="target-num" id="l2-target">-3</span>
+  </div>
 
-        // 检查答案
-        function checkAnswer(element, correct, selected) {
-            const feedback = document.getElementById('feedback');
-            const allOptions = document.querySelectorAll('.option-btn');
-            
-            allOptions.forEach(btn => btn.style.pointerEvents = 'none');
-            
-            if (selected === correct) {
-                element.classList.add('correct');
-                feedback.className = 'feedback correct';
-                feedback.textContent = '✅ 正确！特工任务完成！';
-                gameState.score += 100 + (gameState.streak * 10);
-                gameState.streak++;
-                gameState.completed.add(gameState.currentLevel + 1);
-                document.getElementById('score').textContent = gameState.score;
-                document.getElementById('streak').textContent = gameState.streak;
-                
-                setTimeout(() => {
-                    if (gameState.currentLevel < 7) {
-                        gameState.currentLevel++;
-                        renderLevelIndicator();
-                        renderGame();
-                    } else {
-                        showVictory();
-                    }
-                }, 1500);
-            } else {
-                element.classList.add('wrong');
-                feedback.className = 'feedback wrong';
-                feedback.textContent = `❌ 错误！正确答案是 ${correct}`;
-                gameState.streak = 0;
-                document.getElementById('streak').textContent = 0;
-            }
-        }
+  <div class="nl-container">
+    <div class="nl-click-zone" id="l2-click-zone"></div>
+    <div class="nl-line"></div>
+    <div class="nl-ticks" id="l2-ticks">
+      <span class="nl-tick neg" style="left:10%">-5</span>
+      <span class="nl-tick neg" style="left:25%">-4</span>
+      <span class="nl-tick neg" style="left:40%">-3</span>
+      <span class="nl-tick neg" style="left:55%">-2</span>
+      <span class="nl-tick neg" style="left:70%">-1</span>
+      <span class="nl-tick zero" style="left:85%">0</span>
+      <span class="nl-tick pos" style="left:100%">+1</span>
+    </div>
+    <div class="nl-target" id="l2-target-dot" style="left:40%"></div>
+    <div class="nl-agent" id="l2-agent" style="left:85%"></div>
+  </div>
 
-        // 检查数轴输入
-        function checkNumberLine(target) {
-            const input = document.getElementById('targetInput');
-            const value = parseInt(input.value);
-            const feedback = document.getElementById('feedback');
-            const agent = document.getElementById('agent');
-            
-            if (value === target) {
-                const min = -10, max = 10;
-                const percent = ((target - min) / (max - min)) * 100;
-                agent.style.left = percent + '%';
-                
-                feedback.className = 'feedback correct';
-                feedback.textContent = '✅ 定位成功！特工已到达目标位置！';
-                gameState.score += 100;
-                gameState.streak++;
-                gameState.completed.add(2);
-                document.getElementById('score').textContent = gameState.score;
-                document.getElementById('streak').textContent = gameState.streak;
-                
-                setTimeout(() => {
-                    gameState.currentLevel++;
-                    renderLevelIndicator();
-                    renderGame();
-                }, 2000);
-            } else {
-                feedback.className = 'feedback wrong';
-                feedback.textContent = `❌ 错误！正确位置是 ${target}。再试一次！`;
-                gameState.streak = 0;
-                document.getElementById('streak').textContent = 0;
-            }
-        }
+  <div style="text-align:center;margin-top:16px;font-size:14px;color:var(--text-dim);">
+    点击数轴将特工（🔶）移动到目标（🔘）位置
+  </div>
+</div>
 
-        // 跳转到关卡
-        function jumpToLevel(idx) {
-            gameState.currentLevel = idx;
-            renderGame();
-        }
+<!-- ========== LEVEL 3: Mirror Crack ========== -->
+<div class="screen" id="level3">
+  <div class="level-title">🪞 LEVEL 3 — 镜像破解</div>
+  <div class="level-desc">输入给定数字的相反数，破解镜像密码锁！</div>
 
-        // 胜利画面
-        function showVictory() {
-            const area = document.getElementById('gameArea');
-            area.innerHTML = `
-                <div class="slide-in" style="text-align:center;padding:40px;">
-                    <div style="font-size:4rem;margin-bottom:20px;">🎉</div>
-                    <h2 style="color:var(--neon-green);font-size:2rem;margin-bottom:15px;">任务完成！</h2>
-                    <p style="color:#aaa;margin-bottom:20px;">你已经掌握了有理数的所有核心知识</p>
-                    <div style="font-family:'Share Tech Mono',monospace;font-size:1.5rem;color:var(--neon-cyan);margin-bottom:30px;">
-                        最终得分: ${gameState.score}
-                    </div>
-                    <button class="btn" onclick="resetGame()" style="font-size:1.2rem;padding:15px 40px;">
-                        🔄 再次挑战
-                    </button>
-                </div>
-            `;
-        }
+  <div class="mirror-pair">
+    <div class="mirror-num" id="l3-left">+7</div>
+    <div class="mirror-connector">⇄</div>
+    <input type="text" class="mirror-input" id="l3-input" placeholder="?" maxlength="4" autocomplete="off">
+  </div>
 
-        // 重置游戏
-        function resetGame() {
-            gameState.currentLevel = 0;
-            gameState.score = 0;
-            gameState.streak = 0;
-            gameState.completed.clear();
-            document.getElementById('score').textContent = '0';
-            document.getElementById('streak').textContent = '0';
-            renderLevelIndicator();
-            renderGame();
-        }
+  <div style="text-align:center;">
+    <button class="mirror-submit" onclick="l3Submit()">破解密码</button>
+  </div>
 
-        // 初始化
-        renderLevelIndicator();
-        renderGame();
-    </script>
+  <div id="l3-feedback" style="text-align:center;margin-top:16px;font-size:16px;min-height:24px;"></div>
+
+  <div style="text-align:center;margin-top:20px;font-size:14px;color:var(--text-dim);">
+    已破解: <span id="l3-progress" style="color:var(--accent)">0/5</span>
+  </div>
+</div>
+
+<!-- ========== LEVEL 4: Distance Scanner ========== -->
+<div class="screen" id="level4">
+  <div class="level-title">📏 LEVEL 4 — 测距系统</div>
+  <div class="level-desc">计算绝对值，测出目标到原点的精确距离！</div>
+
+  <div class="abs-formula" id="l4-formula">|-5| = ?</div>
+
+  <div class="dist-display">
+    <div class="dist-point">
+      <div class="num" id="l4-num" style="color:var(--danger)">-5</div>
+      <div class="label">目标</div>
+    </div>
+    <div class="dist-arrow">→</div>
+    <div class="dist-point">
+      <div class="num" style="color:var(--warning)">0</div>
+      <div class="label">原点</div>
+    </div>
+    <div class="dist-arrow">=</div>
+    <div class="dist-point">
+      <div class="num" id="l4-ans" style="color:var(--success)">?</div>
+      <div class="label">距离</div>
+    </div>
+  </div>
+
+  <div class="abs-options" id="l4-options">
+    <!-- Generated by JS -->
+  </div>
+
+  <div style="text-align:center;margin-top:16px;font-size:14px;color:var(--text-dim);">
+    已测距: <span id="l4-progress" style="color:var(--accent)">0/5</span>
+  </div>
+</div>
+
+<!-- ========== LEVEL 5: Ultimate Code ========== -->
+<div class="screen" id="level5">
+  <div class="level-title">🔐 LEVEL 5 — 终极密码</div>
+  <div class="level-desc">综合挑战！60 秒内完成 5 道终极密码题！</div>
+
+  <div class="ult-timer" id="l5-timer">60</div>
+
+  <div class="ult-progress" id="l5-progress">
+    <div class="ult-dot current"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+    <div class="ult-dot"></div>
+  </div>
+
+  <div class="ult-question" id="l5-question">
+    <div class="q-text">以下哪个数是负数？</div>
+    <div class="q-big"></div>
+  </div>
+
+  <div class="ult-options" id="l5-options">
+    <!-- Generated by JS -->
+  </div>
+</div>
+
+</div>
+
+<script>
+// ========== GLOBAL STATE ==========
+let score = 0, lives = 3, combo = 0, currentLevel = 0;
+const maxLevels = 5;
+
+function updateHUD() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('lives').textContent = '❤️'.repeat(lives) + '🖤'.repeat(3-lives);
+  document.getElementById('combo').textContent = combo;
+  const names = ['briefing','1','2','3','4','5'];
+  document.getElementById('level-display').textContent = names[currentLevel] || currentLevel;
+}
+
+function showScorePopup(points) {
+  const el = document.createElement('div');
+  el.className = 'score-popup';
+  el.textContent = '+' + points;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function addScore(points) {
+  const bonus = Math.floor(combo / 3);
+  const total = points + bonus * 10;
+  score += total;
+  showScorePopup(total);
+  updateHUD();
+}
+
+function loseLife() {
+  lives--;
+  combo = 0;
+  updateHUD();
+  if (lives <= 0) {
+    alert('任务失败！请重新接受任务。');
+    location.reload();
+  }
+}
+
+// ========== SCREEN / LEVEL MANAGEMENT ==========
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showLevelIntro(num, title, sub) {
+  const el = document.getElementById('level-intro');
+  document.getElementById('intro-title').textContent = 'LEVEL ' + num;
+  document.getElementById('intro-sub').textContent = sub;
+  el.classList.add('active');
+  setTimeout(() => {
+    el.classList.remove('active');
+  }, 2000);
+}
+
+function showLevelClear() {
+  document.getElementById('clear-score').textContent = score;
+  document.getElementById('clear-combo').textContent = combo;
+  document.getElementById('clear-lives').textContent = lives;
+  document.getElementById('level-clear-overlay').classList.add('active');
+}
+
+function nextLevel() {
+  document.getElementById('level-clear-overlay').classList.remove('active');
+  currentLevel++;
+  if (currentLevel > maxLevels) {
+    alert('恭喜！极地行动全部完成！最终得分: ' + score);
+    location.reload();
+    return;
+  }
+  updateHUD();
+  startCurrentLevel();
+}
+
+function jumpToLevel(n) {
+  document.getElementById('level-nav-panel').classList.remove('active');
+  currentLevel = n;
+  updateHUD();
+  if (n === 0) {
+    showScreen('briefing');
+  } else {
+    startCurrentLevel();
+  }
+}
+
+document.getElementById('level-nav-btn').addEventListener('click', () => {
+  document.getElementById('level-nav-panel').classList.toggle('active');
+});
+
+function startGame() {
+  currentLevel = 1;
+  score = 0; lives = 3; combo = 0;
+  updateHUD();
+  startCurrentLevel();
+}
+
+function startCurrentLevel() {
+  if (currentLevel === 1) { showScreen('level1'); l1Init(); }
+  if (currentLevel === 2) { showScreen('level2'); l2Init(); }
+  if (currentLevel === 3) { showScreen('level3'); l3Init(); }
+  if (currentLevel === 4) { showScreen('level4'); l4Init(); }
+  if (currentLevel === 5) { showScreen('level5'); l5Init(); }
+}
+
+// ========== LEVEL 1: Temperature Decode ==========
+let l1Timer, l1Target, l1Round = 0;
+const l1Rounds = [
+  { val: '+5', desc: '零上 5 度', correct: 'pos', color: 'var(--success)' },
+  { val: '-3', desc: '零下 3 度', correct: 'neg', color: 'var(--danger)' },
+  { val: '0', desc: '冰点', correct: 'zero', color: 'var(--warning)' },
+  { val: '+12', desc: '零上 12 度', correct: 'pos', color: 'var(--success)' },
+  { val: '-8', desc: '零下 8 度', correct: 'neg', color: 'var(--danger)' },
+  { val: '-20', desc: '零下 20 度', correct: 'neg', color: 'var(--danger)' },
+  { val: '+100', desc: '沸水', correct: 'pos', color: 'var(--success)' },
+  { val: '0', desc: '分界点', correct: 'zero', color: 'var(--warning)' },
+];
+
+function l1Init() {
+  l1Round = 0;
+  combo = 0;
+  l1NextRound();
+}
+
+function l1NextRound() {
+  if (l1Round >= l1Rounds.length) {
+    combo = 0;
+    showLevelClear();
+    return;
+  }
+  const r = l1Rounds[l1Round];
+  document.getElementById('l1-temp').textContent = r.val + '°C';
+  document.getElementById('l1-temp').style.color = r.color;
+  document.getElementById('l1-desc').textContent = r.desc;
+  document.getElementById('l1-combo').textContent = combo;
+
+  ['l1-pos','l1-neg','l1-zero'].forEach(id => {
+    const btn = document.getElementById(id);
+    btn.classList.remove('correct', 'wrong');
+    btn.style.pointerEvents = 'auto';
+  });
+
+  l1Target = r.correct;
+  let timeLeft = 100;
+  clearInterval(l1Timer);
+  l1Timer = setInterval(() => {
+    timeLeft -= 2;
+    document.getElementById('l1-timer').style.width = timeLeft + '%';
+    if (timeLeft <= 0) {
+      clearInterval(l1Timer);
+      l1Answer('timeout');
+    }
+  }, 100);
+}
+
+function l1Answer(ans) {
+  clearInterval(l1Timer);
+  const btns = { pos: 'l1-pos', neg: 'l1-neg', zero: 'l1-zero' };
+
+  if (ans === l1Target) {
+    combo++;
+    addScore(100);
+    document.getElementById(btns[ans]).classList.add('correct');
+  } else {
+    if (ans !== 'timeout') {
+      document.getElementById(btns[ans]).classList.add('wrong');
+    }
+    combo = 0;
+    loseLife();
+    document.getElementById(btns[l1Target]).classList.add('correct');
+  }
+
+  ['l1-pos','l1-neg','l1-zero'].forEach(id => {
+    document.getElementById(id).style.pointerEvents = 'none';
+  });
+
+  l1Round++;
+  setTimeout(() => l1NextRound(), 800);
+}
+
+// ========== LEVEL 2: Number Line Scout ==========
+let l2Round = 0;
+const l2Targets = [-4, -2, 0, -1, -5, -3];
+
+function l2Init() {
+  l2Round = 0;
+  l2NextRound();
+}
+
+function l2NextRound() {
+  if (l2Round >= l2Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const target = l2Targets[l2Round];
+  document.getElementById('l2-target').textContent = target;
+
+  const pct = 10 + (target + 5) * 15;
+  const dot = document.getElementById('l2-target-dot');
+  dot.style.left = pct + '%';
+  dot.style.display = 'block';
+
+  const agent = document.getElementById('l2-agent');
+  agent.style.left = '85%';
+
+  document.getElementById('l2-click-zone').style.pointerEvents = 'auto';
+}
+
+document.getElementById('l2-click-zone').addEventListener('click', (e) => {
+  const zone = document.getElementById('l2-click-zone');
+  if (zone.style.pointerEvents === 'none') return;
+
+  const rect = zone.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const pct = clickX / rect.width;
+  const clickedVal = Math.round((pct - 0.1) / 0.15) - 5;
+
+  const target = l2Targets[l2Round];
+  const targetPct = 10 + (target + 5) * 15;
+  const agentPct = 10 + (clickedVal + 5) * 15;
+
+  const agent = document.getElementById('l2-agent');
+  agent.style.left = Math.max(10, Math.min(100, agentPct)) + '%';
+
+  zone.style.pointerEvents = 'none';
+
+  if (clickedVal === target) {
+    combo++;
+    addScore(150);
+    setTimeout(() => {
+      l2Round++;
+      l2NextRound();
+    }, 800);
+  } else {
+    combo = 0;
+    loseLife();
+    setTimeout(() => {
+      l2Round++;
+      l2NextRound();
+    }, 1200);
+  }
+});
+
+// ========== LEVEL 3: Mirror Crack ==========
+let l3Round = 0;
+const l3Targets = [7, -5, 0, 12, -9];
+
+function l3Init() {
+  l3Round = 0;
+  l3UpdateProgress();
+  l3NextRound();
+}
+
+function l3NextRound() {
+  if (l3Round >= l3Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const n = l3Targets[l3Round];
+  const sign = n >= 0 ? '+' : '';
+  document.getElementById('l3-left').textContent = sign + n;
+  document.getElementById('l3-input').value = '';
+  document.getElementById('l3-input').focus();
+  document.getElementById('l3-feedback').textContent = '';
+  l3UpdateProgress();
+}
+
+function l3UpdateProgress() {
+  document.getElementById('l3-progress').textContent = l3Round + '/' + l3Targets.length;
+}
+
+function l3Submit() {
+  const input = document.getElementById('l3-input').value.trim();
+  const n = l3Targets[l3Round];
+  const expected = -n;
+  const fb = document.getElementById('l3-feedback');
+
+  if (input === '' + expected || input === '+' + expected) {
+    combo++;
+    addScore(150);
+    fb.innerHTML = '<span style="color:var(--success)">✅ 密码破解成功！' + n + ' 的相反数是 ' + expected + '</span>';
+    l3Round++;
+    setTimeout(() => l3NextRound(), 800);
+  } else {
+    combo = 0;
+    loseLife();
+    fb.innerHTML = '<span style="color:var(--danger)">❌ 错误！' + n + ' 的相反数是 ' + expected + '</span>';
+    l3Round++;
+    setTimeout(() => l3NextRound(), 1500);
+  }
+}
+
+document.getElementById('l3-input').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') l3Submit();
+});
+
+// ========== LEVEL 4: Distance Scanner ==========
+let l4Round = 0;
+const l4Targets = [-5, 3, -8, 0, 12, -1];
+
+function l4Init() {
+  l4Round = 0;
+  l4NextRound();
+}
+
+function l4NextRound() {
+  if (l4Round >= l4Targets.length) {
+    showLevelClear();
+    return;
+  }
+  const n = l4Targets[l4Round];
+  const sign = n >= 0 ? '+' : '';
+  document.getElementById('l4-formula').textContent = '|' + sign + n + '| = ?';
+  document.getElementById('l4-num').textContent = sign + n;
+  document.getElementById('l4-num').style.color = n >= 0 ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('l4-ans').textContent = '?';
+  document.getElementById('l4-ans').style.color = 'var(--text-dim)';
+
+  const ans = Math.abs(n);
+  const options = [ans, ans + 1, ans - 1, ans + 2].filter(v => v >= 0);
+  const shuffled = options.sort(() => Math.random() - 0.5);
+
+  const container = document.getElementById('l4-options');
+  container.innerHTML = '';
+  shuffled.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'abs-btn';
+    btn.textContent = opt;
+    btn.onclick = () => l4Answer(opt, ans, btn);
+    container.appendChild(btn);
+  });
+
+  document.getElementById('l4-progress').textContent = l4Round + '/' + l4Targets.length;
+}
+
+function l4Answer(val, correct, btn) {
+  const btns = document.querySelectorAll('#l4-options .abs-btn');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+
+  if (val === correct) {
+    combo++;
+    addScore(150);
+    btn.classList.add('correct');
+    document.getElementById('l4-ans').textContent = correct;
+    document.getElementById('l4-ans').style.color = 'var(--success)';
+  } else {
+    combo = 0;
+    loseLife();
+    btn.classList.add('wrong');
+    btns.forEach(b => { if (parseInt(b.textContent) === correct) b.classList.add('correct'); });
+    document.getElementById('l4-ans').textContent = correct;
+    document.getElementById('l4-ans').style.color = 'var(--danger)';
+  }
+
+  l4Round++;
+  setTimeout(() => l4NextRound(), 1000);
+}
+
+// ========== LEVEL 5: Ultimate Code ==========
+let l5QuestionIdx = 0, l5Timer, l5TimeLeft;
+const l5Questions = [
+  { q: '以下哪个数是负数？', opts: ['5', '-3', '0', '8'], correct: 1 },
+  { q: '在数轴上，-2 在哪个位置？', opts: ['原点右边', '原点左边', '原点上', '不确定'], correct: 1 },
+  { q: '5 的相反数是？', opts: ['5', '-5', '0', '10'], correct: 1 },
+  { q: '|-7| = ?', opts: ['-7', '7', '0', '14'], correct: 1 },
+  { q: '比 -4 大的数是？', opts: ['-5', '-4', '-3', '-6'], correct: 2 },
+];
+
+function l5Init() {
+  l5QuestionIdx = 0;
+  l5TimeLeft = 60;
+  l5UpdateTimer();
+  l5ShowQuestion();
+  clearInterval(l5Timer);
+  l5Timer = setInterval(() => {
+    l5TimeLeft--;
+    l5UpdateTimer();
+    if (l5TimeLeft <= 0) {
+      clearInterval(l5Timer);
+      alert('时间到！任务失败。');
+      location.reload();
+    }
+  }, 1000);
+}
+
+function l5UpdateTimer() {
+  const el = document.getElementById('l5-timer');
+  el.textContent = l5TimeLeft;
+  el.style.color = l5TimeLeft <= 10 ? 'var(--danger)' : 'var(--warning)';
+}
+
+function l5ShowQuestion() {
+  if (l5QuestionIdx >= l5Questions.length) {
+    clearInterval(l5Timer);
+    showLevelClear();
+    return;
+  }
+  const q = l5Questions[l5QuestionIdx];
+  document.querySelector('#l5-question .q-text').textContent = q.q;
+
+  const container = document.getElementById('l5-options');
+  container.innerHTML = '';
+  q.opts.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ult-btn';
+    btn.textContent = opt;
+    btn.onclick = () => l5Answer(i, q.correct, btn);
+    container.appendChild(btn);
+  });
+
+  const dots = document.querySelectorAll('#l5-progress .ult-dot');
+  dots.forEach((d, i) => {
+    d.className = 'ult-dot';
+    if (i < l5QuestionIdx) d.classList.add('done');
+    if (i === l5QuestionIdx) d.classList.add('current');
+  });
+}
+
+function l5Answer(idx, correct, btn) {
+  const btns = document.querySelectorAll('#l5-options .ult-btn');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+
+  if (idx === correct) {
+    combo++;
+    addScore(200);
+    btn.classList.add('correct');
+  } else {
+    combo = 0;
+    loseLife();
+    btn.classList.add('wrong');
+    btns[correct].classList.add('correct');
+  }
+
+  l5QuestionIdx++;
+  setTimeout(() => l5ShowQuestion(), 800);
+}
+
+updateHUD();
+</script>
 </body>
 </html>
