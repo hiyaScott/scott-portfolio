@@ -14,7 +14,7 @@ research/junior-{subject}/                    # 学科主页
 ```
 
 **示例：**
-- `research/junior-physics/courseware-physics/grade6-sem1-ch01/`
+- `research/junior-physics/courseware-physics/grade8-sem1-ch01/`
 - `research/junior-math/courseware-math/grade6-sem1-ch01/`
 
 ---
