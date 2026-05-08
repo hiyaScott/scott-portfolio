@@ -590,13 +590,20 @@ body::before {
   </div>
 
   <div class="anim-area">
-    <div style="font-size:16px;margin-bottom:12px;">声波在介质中传播</div>
-    <div class="prop-viz">
-      <div class="prop-source"></div>
-      <div class="prop-ring" style="width:20px;height:20px;"></div>
-      <div class="prop-ring" style="width:20px;height:20px;"></div>
-      <div class="prop-ring" style="width:20px;height:20px;"></div>
-      <div class="prop-medium">空气 / 水 / 固体</div>
+    <div style="font-size:16px;margin-bottom:12px;">🔬 分子视角：为什么不同介质声速不同？</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">
+      声音是分子振动的"接力赛"。分子越紧密，振动传递越快。
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center;">
+      <button class="sound-btn" onclick="startMolecularDemo('gas')">🌫️ 空气（慢）</button>
+      <button class="sound-btn" onclick="startMolecularDemo('liquid')">💧 水（中）</button>
+      <button class="sound-btn" onclick="startMolecularDemo('solid')">🔩 钢铁（快）</button>
+    </div>
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(0,240,200,0.15);border-radius:8px;padding:12px;">
+      <canvas id="molCanvas" width="560" height="140" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto;"></canvas>
+      <div id="molDesc" style="font-size:0.8rem;color:var(--text2);text-align:center;margin-top:8px;min-height:36px;">
+        👆 点击上方按钮，从分子层面观察声波传播差异
+      </div>
     </div>
   </div>
 
@@ -1191,6 +1198,349 @@ function createParticle(container, color) {
     p.style.opacity = '0';
   });
   setTimeout(() => p.remove(), 600);
+}
+
+// ===================== MOLECULAR PROPAGATION DEMO =====================
+let molAnimId = null, molMode = 'solid';
+const molCanvas = document.getElementById('molCanvas');
+
+function startMolecularDemo(mode) {
+  molMode = mode;
+  if (molAnimId) cancelAnimationFrame(molAnimId);
+  const canvas = document.getElementById('molCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Configuration for each medium
+  const configs = {
+    gas:    { spacing: 45, radius: 6, speed: 0.8, color: '#00f0c8', label: '🌫️ 空气（气体）：分子稀疏，间距大，振动传递最慢', y: H/2 },
+    liquid: { spacing: 28, radius: 8, speed: 2.0, color: '#00bbf9', label: '💧 水（液体）：分子较密，间距中等，传递较快', y: H/2 },
+    solid:  { spacing: 16, radius: 9, speed: 4.0, color: '#ffd166', label: '🔩 钢铁（固体）：分子紧密排列，间距最小，传递最快', y: H/2 }
+  };
+  const cfg = configs[mode];
+
+  // Build molecules
+  const molecules = [];
+  for (let x = cfg.spacing; x < W - cfg.spacing; x += cfg.spacing) {
+    molecules.push({ x: x, baseX: x, y: cfg.y, vx: 0, excited: 0 });
+  }
+
+  // Sound wave: a traveling "push" that moves from left to right
+  let waveX = 0;
+  const waveSpeed = cfg.speed;
+
+  // Update description
+  document.getElementById('molDesc').innerHTML = `<strong style="color:${cfg.color}">${cfg.label}</strong><br>观察：声波撞击左侧分子 → 分子振动 → 传递给相邻分子。分子越紧密，传递越快！`;
+
+  function drawMolecule(m, ctx) {
+    // Base position
+    const x = m.baseX + m.vx;
+    const y = m.y;
+
+    // Draw connection to next molecule (bond)
+    const next = molecules[molecules.indexOf(m) + 1];
+    if (next) {
+      const nx = next.baseX + next.vx;
+      ctx.strokeStyle = 'rgba(0,240,200,0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, y); ctx.stroke();
+    }
+
+    // Draw molecule
+    ctx.fillStyle = cfg.color;
+    ctx.beginPath(); ctx.arc(x, y, cfg.radius, 0, Math.PI*2); ctx.fill();
+
+    // Glow when excited
+    if (m.excited > 0) {
+      ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},${m.excited * 0.4})`;
+      ctx.beginPath(); ctx.arc(x, y, cfg.radius + 4 + m.excited * 4, 0, Math.PI*2); ctx.fill();
+      m.excited -= 0.02;
+      if (m.excited < 0) m.excited = 0;
+    }
+
+    // Vibration blur
+    if (Math.abs(m.vx) > 0.5) {
+      ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},0.2)`;
+      ctx.beginPath(); ctx.arc(x + m.vx * 0.5, y, cfg.radius * 0.7, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw speed indicator bar at top
+    const speedNames = { gas: '340 m/s', liquid: '1500 m/s', solid: '5200 m/s' };
+    ctx.fillStyle = 'rgba(0,240,200,0.1)';
+    ctx.fillRect(0, 0, W, 20);
+    ctx.fillStyle = cfg.color;
+    const barWidth = mode === 'gas' ? W * 0.15 : mode === 'liquid' ? W * 0.5 : W * 0.9;
+    ctx.fillRect(2, 2, barWidth - 4, 16);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 11px "Share Tech Mono", monospace';
+    ctx.fillText(speedNames[mode], 8, 15);
+
+    // Draw sound source on the left
+    ctx.fillStyle = 'var(--accent)';
+    ctx.shadowColor = cfg.color; ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.arc(20, cfg.y, 10, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#000';
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillText('🔊', 14, cfg.y + 3);
+
+    // Update wave position
+    waveX += waveSpeed;
+    if (waveX > W + 50) waveX = -30;
+
+    // Wave indicator (traveling pulse)
+    ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},0.3)`;
+    ctx.beginPath(); ctx.arc(waveX, cfg.y - 30, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = cfg.color;
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillText('声波', waveX - 10, cfg.y - 40);
+
+    // Update molecules
+    molecules.forEach((m, i) => {
+      // Damping
+      m.vx *= 0.92;
+      // Spring force back to base
+      m.vx += (m.baseX - (m.baseX + m.vx)) * 0.05;
+
+      // Wave collision
+      if (Math.abs(waveX - m.baseX) < cfg.spacing / 2 && frame % 3 === 0) {
+        m.vx += (mode === 'gas' ? 2.5 : mode === 'liquid' ? 4 : 6);
+        m.excited = 1;
+      }
+
+      // Propagate to neighbors (this is the key physics!)
+      const prev = molecules[i - 1];
+      const next = molecules[i + 1];
+      if (prev && Math.abs(prev.vx) > 1.5) {
+        // Previous molecule pushes this one
+        m.vx += prev.vx * (mode === 'gas' ? 0.15 : mode === 'liquid' ? 0.35 : 0.6);
+        if (Math.abs(prev.vx) > 2) m.excited = Math.max(m.excited, 0.6);
+      }
+      if (next && Math.abs(next.vx) > 1.5) {
+        m.vx += next.vx * (mode === 'gas' ? 0.08 : mode === 'liquid' ? 0.2 : 0.4);
+      }
+    });
+
+    // Draw all molecules
+    molecules.forEach(m => drawMolecule(m, ctx));
+
+    // Draw labels
+    ctx.fillStyle = 'var(--text2)';
+    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.fillText('声源', 8, cfg.y + 30);
+    ctx.fillText('分子振动传递方向 →', W/2 - 50, cfg.y + 35);
+
+    frame++;
+    molAnimId = requestAnimationFrame(animate);
+  }
+
+  animate();
+}
+
+let molAnimId = null, molMode = 'solid';
+
+function startMolecularDemo(mode) {
+  molMode = mode;
+  if (molAnimId) cancelAnimationFrame(molAnimId);
+  const canvas = document.getElementById('molCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const configs = {
+    gas:    { spacing: 45, radius: 6, speed: 0.8, color: '#00f0c8', label: '🌫️ 空气：分子稀疏，间距大', y: H/2 },
+    liquid: { spacing: 28, radius: 8, speed: 2.0, color: '#00bbf9', label: '💧 水：分子较密，间距中等', y: H/2 },
+    solid:  { spacing: 16, radius: 9, speed: 4.0, color: '#ffd166', label: '🔩 钢铁：分子紧密排列', y: H/2 }
+  };
+  const cfg = configs[mode];
+
+  const molecules = [];
+  for (let x = cfg.spacing; x < W - cfg.spacing; x += cfg.spacing) {
+    molecules.push({ baseX: x, y: cfg.y, vx: 0, excited: 0 });
+  }
+
+  let waveX = 0;
+  const waveSpeed = cfg.speed;
+
+  document.getElementById('molDesc').innerHTML = `<strong style="color:${cfg.color}">${cfg.label}</strong><br>声速：${mode==='gas'?'340 m/s':mode==='liquid'?'1500 m/s':'5200 m/s'} | 观察：声波撞击左侧分子 → 分子振动 → 传递给相邻分子。分子越紧密，传递越快！`;
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Speed indicator bar
+    const speedNames = { gas: '340 m/s', liquid: '1500 m/s', solid: '5200 m/s' };
+    ctx.fillStyle = 'rgba(0,240,200,0.1)'; ctx.fillRect(0, 0, W, 20);
+    ctx.fillStyle = cfg.color;
+    const barWidth = mode === 'gas' ? W * 0.15 : mode === 'liquid' ? W * 0.5 : W * 0.9;
+    ctx.fillRect(2, 2, barWidth - 4, 16);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 11px "Share Tech Mono", monospace';
+    ctx.fillText(speedNames[mode], 8, 15);
+
+    // Sound source
+    ctx.fillStyle = '#00f0c8';
+    ctx.shadowColor = cfg.color; ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.arc(20, cfg.y, 10, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Wave pulse
+    waveX += waveSpeed;
+    if (waveX > W + 50) waveX = -30;
+    ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},0.3)`;
+    ctx.beginPath(); ctx.arc(waveX, cfg.y - 30, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = cfg.color;
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillText('声波', waveX - 10, cfg.y - 40);
+
+    // Update and draw molecules
+    molecules.forEach((m, i) => {
+      m.vx *= 0.92;
+      m.vx += (m.baseX - (m.baseX + m.vx)) * 0.05;
+
+      if (Math.abs(waveX - m.baseX) < cfg.spacing / 2 && frame % 3 === 0) {
+        m.vx += (mode === 'gas' ? 2.5 : mode === 'liquid' ? 4 : 6);
+        m.excited = 1;
+      }
+
+      const prev = molecules[i - 1];
+      if (prev && Math.abs(prev.vx) > 1.5) {
+        m.vx += prev.vx * (mode === 'gas' ? 0.15 : mode === 'liquid' ? 0.35 : 0.6);
+        if (Math.abs(prev.vx) > 2) m.excited = Math.max(m.excited, 0.6);
+      }
+
+      // Draw
+      const x = m.baseX + m.vx;
+      const next = molecules[i + 1];
+      if (next) {
+        const nx = next.baseX + next.vx;
+        ctx.strokeStyle = 'rgba(0,240,200,0.15)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, m.y); ctx.lineTo(nx, m.y); ctx.stroke();
+      }
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath(); ctx.arc(x, m.y, cfg.radius, 0, Math.PI*2); ctx.fill();
+      if (m.excited > 0) {
+        ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},${m.excited * 0.4})`;
+        ctx.beginPath(); ctx.arc(x, m.y, cfg.radius + 4 + m.excited * 4, 0, Math.PI*2); ctx.fill();
+        m.excited -= 0.02;
+        if (m.excited < 0) m.excited = 0;
+      }
+    });
+
+    ctx.fillStyle = '#8b8b9a'; ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.fillText('声源', 8, cfg.y + 30);
+    ctx.fillText('分子振动传递方向 →', W/2 - 50, cfg.y + 35);
+
+    frame++;
+    molAnimId = requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+let molAnimId = null, molMode = 'solid';
+
+function startMolecularDemo(mode) {
+  molMode = mode;
+  if (molAnimId) cancelAnimationFrame(molAnimId);
+  const canvas = document.getElementById('molCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const configs = {
+    gas:    { spacing: 45, radius: 6, speed: 0.8, color: '#00f0c8', label: '🌫️ 空气：分子稀疏，间距大', y: H/2 },
+    liquid: { spacing: 28, radius: 8, speed: 2.0, color: '#00bbf9', label: '💧 水：分子较密，间距中等', y: H/2 },
+    solid:  { spacing: 16, radius: 9, speed: 4.0, color: '#ffd166', label: '🔩 钢铁：分子紧密排列', y: H/2 }
+  };
+  const cfg = configs[mode];
+
+  const molecules = [];
+  for (let x = cfg.spacing; x < W - cfg.spacing; x += cfg.spacing) {
+    molecules.push({ baseX: x, y: cfg.y, vx: 0, excited: 0 });
+  }
+
+  let waveX = 0;
+  const waveSpeed = cfg.speed;
+
+  document.getElementById('molDesc').innerHTML = `<strong style="color:${cfg.color}">${cfg.label}</strong><br>声速：${mode==='gas'?'340 m/s':mode==='liquid'?'1500 m/s':'5200 m/s'} | 观察：声波撞击左侧分子 → 分子振动 → 传递给相邻分子。分子越紧密，传递越快！`;
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Speed indicator bar
+    const speedNames = { gas: '340 m/s', liquid: '1500 m/s', solid: '5200 m/s' };
+    ctx.fillStyle = 'rgba(0,240,200,0.1)'; ctx.fillRect(0, 0, W, 20);
+    ctx.fillStyle = cfg.color;
+    const barWidth = mode === 'gas' ? W * 0.15 : mode === 'liquid' ? W * 0.5 : W * 0.9;
+    ctx.fillRect(2, 2, barWidth - 4, 16);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 11px "Share Tech Mono", monospace';
+    ctx.fillText(speedNames[mode], 8, 15);
+
+    // Sound source
+    ctx.fillStyle = '#00f0c8';
+    ctx.shadowColor = cfg.color; ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.arc(20, cfg.y, 10, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Wave pulse
+    waveX += waveSpeed;
+    if (waveX > W + 50) waveX = -30;
+    ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},0.3)`;
+    ctx.beginPath(); ctx.arc(waveX, cfg.y - 30, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = cfg.color;
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillText('声波', waveX - 10, cfg.y - 40);
+
+    // Update and draw molecules
+    molecules.forEach((m, i) => {
+      m.vx *= 0.92;
+      m.vx += (m.baseX - (m.baseX + m.vx)) * 0.05;
+
+      if (Math.abs(waveX - m.baseX) < cfg.spacing / 2 && frame % 3 === 0) {
+        m.vx += (mode === 'gas' ? 2.5 : mode === 'liquid' ? 4 : 6);
+        m.excited = 1;
+      }
+
+      const prev = molecules[i - 1];
+      if (prev && Math.abs(prev.vx) > 1.5) {
+        m.vx += prev.vx * (mode === 'gas' ? 0.15 : mode === 'liquid' ? 0.35 : 0.6);
+        if (Math.abs(prev.vx) > 2) m.excited = Math.max(m.excited, 0.6);
+      }
+
+      // Draw
+      const x = m.baseX + m.vx;
+      const next = molecules[i + 1];
+      if (next) {
+        const nx = next.baseX + next.vx;
+        ctx.strokeStyle = 'rgba(0,240,200,0.15)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, m.y); ctx.lineTo(nx, m.y); ctx.stroke();
+      }
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath(); ctx.arc(x, m.y, cfg.radius, 0, Math.PI*2); ctx.fill();
+      if (m.excited > 0) {
+        ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},${m.excited * 0.4})`;
+        ctx.beginPath(); ctx.arc(x, m.y, cfg.radius + 4 + m.excited * 4, 0, Math.PI*2); ctx.fill();
+        m.excited -= 0.02;
+        if (m.excited < 0) m.excited = 0;
+      }
+    });
+
+    ctx.fillStyle = '#8b8b9a'; ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.fillText('声源', 8, cfg.y + 30);
+    ctx.fillText('分子振动传递方向 →', W/2 - 50, cfg.y + 35);
+
+    frame++;
+    molAnimId = requestAnimationFrame(animate);
+  }
+  animate();
 }
 
 let currentCh = 1;
