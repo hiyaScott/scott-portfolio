@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>时空追踪局 — 机械运动</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f;
+  --panel: #11111f;
+  --panel2: #1a1a2e;
+  --accent: #00f0c8;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warn: #ffd166;
+  --text: #c0c8d8;
+  --text2: #8b8b9a;
+  --grid: rgba(0,240,200,0.06);
+  --success: #06d6a0;
+  --glass: rgba(17,17,31,0.92);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; user-select:none; -webkit-user-select:none; }
+body {
+  font-family: 'Share Tech Mono', 'Courier New', 'PingFang SC', 'Microsoft YaHei', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 240, 200, 0.03) 2px, rgba(0, 240, 200, 0.03) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 20px; height: 20px;
+  border-color: var(--accent); border-style: solid;
+  pointer-events: none; z-index: 9998; opacity: 0.6;
+}
+.corner-tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+.corner-tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+.corner-bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
+.corner-br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+
+.screen {
+  position: relative; z-index: 1;
+  display: none;
+  min-height: 100vh;
+  padding: 40px 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.screen.active { display: block; }
+
+.hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: var(--glass);
+  border-bottom: 1px solid rgba(0,240,200,0.2);
+  padding: 10px 20px;
+  display: flex; justify-content: space-between; align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+.hud-left { display: flex; align-items: center; gap: 12px; }
+.hud-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.hud-name { font-family: 'Orbitron'; font-size: 13px; color: var(--accent); }
+.hud-rank { font-size: 11px; color: var(--text2); }
+.hud-right { display: flex; gap: 16px; }
+.hud-stat { text-align: center; }
+.hud-stat .num { font-family: 'Orbitron'; font-size: 16px; color: var(--accent); }
+.hud-stat .lab { font-size: 10px; color: var(--text2); }
+
+.btn {
+  background: transparent; border: 1px solid var(--accent);
+  color: var(--accent); padding: 12px 28px;
+  border-radius: 6px; cursor: pointer;
+  font-family: 'Share Tech Mono', monospace; font-size: 14px;
+  transition: all 0.3s; display: inline-block;
+}
+.btn:hover { background: rgba(0,240,200,0.1); box-shadow: 0 0 12px rgba(0,240,200,0.2); }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-grad {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none; color: #000; font-weight: bold;
+}
+.btn-grad:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,240,200,0.3); }
+.btn-danger { border-color: var(--danger); color: var(--danger); }
+.btn-danger:hover { background: rgba(239,71,111,0.1); }
+
+.title-main {
+  font-family: 'Orbitron'; font-size: 36px; font-weight: 700;
+  color: var(--accent); text-align: center;
+  text-shadow: 0 0 20px rgba(0,240,200,0.3);
+  margin-bottom: 8px;
+}
+.title-sub { text-align: center; color: var(--text2); font-size: 14px; margin-bottom: 32px; }
+
+.stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px; margin-top: 24px;
+}
+.stage-card {
+  background: var(--panel); border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 12px; padding: 24px;
+  cursor: pointer; transition: all 0.3s; position: relative;
+}
+.stage-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,240,200,0.1);
+}
+.stage-card.locked {
+  opacity: 0.4; cursor: not-allowed;
+  border-color: rgba(0,240,200,0.05);
+}
+.stage-card.locked:hover { transform: none; box-shadow: none; }
+.stage-card .num {
+  font-family: 'Orbitron'; font-size: 28px; color: var(--accent);
+  margin-bottom: 8px;
+}
+.stage-card .name { font-size: 16px; color: var(--text); margin-bottom: 6px; }
+.stage-card .desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.stage-card .badge {
+  position: absolute; top: 12px; right: 12px;
+  background: var(--success); color: #000;
+  font-size: 10px; font-weight: bold;
+  padding: 2px 8px; border-radius: 4px;
+  display: none;
+}
+.stage-card.completed .badge { display: block; }
+.stage-card.completed { border-color: var(--success); }
+
+.stage-title {
+  font-family: 'Orbitron'; font-size: 24px; color: var(--accent);
+  text-align: center; margin-bottom: 4px;
+}
+.stage-desc {
+  text-align: center; color: var(--text2); font-size: 13px;
+  margin-bottom: 24px;
+}
+
+/* ===== Stage 1: Reference Frame Judge ===== */
+.ref-judge-scene {
+  background: var(--panel); border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 12px; padding: 24px; margin: 20px 0;
+}
+.ref-judge-visual {
+  background: rgba(0,0,0,0.3); border-radius: 8px;
+  padding: 20px; text-align: center; margin-bottom: 16px;
+  min-height: 120px;
+}
+.ref-judge-question {
+  font-size: 15px; color: var(--text); line-height: 1.8;
+  margin-bottom: 16px;
+}
+.ref-judge-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+.ref-option {
+  background: rgba(0,0,0,0.2); border: 2px solid rgba(0,240,200,0.1);
+  border-radius: 8px; padding: 14px; text-align: center;
+  cursor: pointer; transition: all 0.3s; font-size: 13px;
+}
+.ref-option:hover { border-color: var(--accent); }
+.ref-option.correct { border-color: var(--success); background: rgba(6,214,160,0.1); }
+.ref-option.wrong { border-color: var(--danger); background: rgba(239,71,111,0.1); animation: shake 0.4s ease; }
+
+/* ===== Stage 2: Relative Motion Canvas ===== */
+.motion-canvas-container {
+  background: var(--panel); border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 12px; padding: 20px; margin: 20px 0;
+  text-align: center;
+}
+.motion-canvas {
+  width: 100%; max-width: 600px; height: 200px;
+  background: rgba(0,0,0,0.3); border-radius: 8px;
+}
+.motion-controls {
+  display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+  margin-top: 16px;
+}
+.motion-control {
+  text-align: center;
+}
+.motion-control label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+.motion-slider { width: 120px; accent-color: var(--accent); }
+.motion-question {
+  font-size: 14px; color: var(--text); margin: 16px 0;
+  padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;
+}
+
+/* ===== Stage 3: Speed Calc Challenge ===== */
+.speed-challenge {
+  background: var(--panel); border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 12px; padding: 24px; margin: 20px 0;
+}
+.speed-problem {
+  font-size: 15px; color: var(--text); line-height: 1.8;
+  margin-bottom: 16px; padding: 14px;
+  background: rgba(0,0,0,0.2); border-radius: 8px;
+  border-left: 3px solid var(--accent);
+}
+.speed-input-row {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.speed-input-row label { font-size: 13px; color: var(--text2); }
+.speed-input-row input {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(0,240,200,0.3);
+  color: var(--accent); padding: 8px 12px; border-radius: 4px;
+  font-family: inherit; width: 100px;
+}
+.speed-check-btn { margin-top: 8px; }
+
+/* ===== Stage 4: Chase Mission ===== */
+.chase-container {
+  background: var(--panel); border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 12px; padding: 24px; margin: 20px 0;
+}
+.chase-canvas {
+  width: 100%; max-width: 600px; height: 180px;
+  background: rgba(0,0,0,0.3); border-radius: 8px;
+  margin: 0 auto 16px;
+}
+.chase-scenario {
+  font-size: 14px; color: var(--text); line-height: 1.8;
+  margin-bottom: 16px;
+}
+.chase-answers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+/* ===== Result Screen ===== */
+.result-container {
+  text-align: center; padding: 40px 20px;
+}
+.result-badge {
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  margin: 0 auto 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 60px;
+  box-shadow: 0 0 40px rgba(0,240,200,0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.result-title {
+  font-family: 'Orbitron'; font-size: 28px; color: var(--accent);
+  margin-bottom: 12px;
+}
+.result-text {
+  font-size: 14px; color: var(--text); line-height: 1.8;
+  max-width: 500px; margin: 0 auto 24px;
+}
+.result-stats {
+  display: flex; justify-content: center; gap: 32px;
+  margin: 24px 0;
+}
+.result-stat {
+  text-align: center;
+}
+.result-stat .num {
+  font-family: 'Orbitron'; font-size: 32px; color: var(--accent);
+}
+.result-stat .lab { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+/* ===== Badge ===== */
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px; margin: 20px 0;
+}
+.badge-item {
+  background: rgba(0,0,0,0.2); border: 1px solid rgba(0,240,200,0.1);
+  border-radius: 10px; padding: 16px 8px;
+  text-align: center; transition: all 0.3s;
+}
+.badge-item.earned {
+  border-color: var(--success); background: rgba(6,214,160,0.1);
+}
+.badge-item .icon { font-size: 32px; margin-bottom: 6px; }
+.badge-item .name { font-size: 11px; color: var(--text2); }
+.badge-item.earned .name { color: var(--success); }
+
+.toast {
+  position: fixed; top: 60px; left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: var(--panel); border: 1px solid var(--accent);
+  color: var(--accent); padding: 10px 24px;
+  border-radius: 8px; font-size: 13px;
+  opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 200;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-left">
+    <div class="hud-avatar">🕵️</div>
+    <div>
+      <div class="hud-name">AGENT CHRONOS</div>
+      <div class="hud-rank">时空追踪局 · 见习追踪员</div>
+    </div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-stat">
+      <div class="num" id="scoreDisplay">0</div>
+      <div class="lab">积分</div>
+    </div>
+    <div class="hud-stat">
+      <div class="num" id="stageDisplay">0/4</div>
+      <div class="lab">进度</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ==================== SCREEN: TITLE ==================== -->
+<div class="screen active" id="screen-title">
+  <div style="text-align: center; padding-top: 60px;">
+    <div style="font-size: 80px; margin-bottom: 16px;">🚗</div>
+    <div class="title-main">时空追踪局</div>
+    <div class="title-sub">CHRONOS TRACKING DIVISION · 完成追踪训练，成为王牌追踪员</div>
+
+    <div class="badge-grid" style="max-width: 400px; margin: 32px auto;">
+      <div class="badge-item" id="badge1">
+        <div class="icon">🎯</div>
+        <div class="name">参照物判断</div>
+      </div>
+      <div class="badge-item" id="badge2">
+        <div class="icon">🚙</div>
+        <div class="name">相对追踪</div>
+      </div>
+      <div class="badge-item" id="badge3">
+        <div class="icon">⚡</div>
+        <div class="name">速度计算</div>
+      </div>
+      <div class="badge-item" id="badge4">
+        <div class="icon">🏆</div>
+        <div class="name">追击大师</div>
+      </div>
+    </div>
+
+    <button class="btn btn-grad" onclick="goTo('stage1')" style="margin-top: 16px;">开始训练 →</button>
+  </div>
+</div>
+
+<!-- ==================== SCREEN: STAGE SELECT ==================== -->
+<div class="screen" id="screen-select">
+  <div style="padding-top: 40px;">
+    <div class="title-main">选择训练任务</div>
+    <div class="title-sub">SELECT MISSION</div>
+
+    <div class="stage-grid">
+      <div class="stage-card" id="card1" onclick="goTo('stage1')">
+        <div class="badge">✓ 完成</div>
+        <div class="num">01</div>
+        <div class="name">参照物判断</div>
+        <div class="desc">选择正确的参照物，判断目标的运动状态。掌握运动和静止的相对性。</div>
+      </div>
+      <div class="stage-card" id="card2" onclick="goTo('stage2')">
+        <div class="badge">✓ 完成</div>
+        <div class="num">02</div>
+        <div class="name">相对追踪</div>
+        <div class="desc">模拟两车相对运动，调节速度观察相对运动状态，判断追及或远离。</div>
+      </div>
+      <div class="stage-card" id="card3" onclick="goTo('stage3')">
+        <div class="badge">✓ 完成</div>
+        <div class="num">03</div>
+        <div class="name">速度计算</div>
+        <div class="desc">根据路程和时间计算速度，完成单位换算，解决实际运动问题。</div>
+      </div>
+      <div class="stage-card" id="card4" onclick="goTo('stage4')">
+        <div class="badge">✓ 完成</div>
+        <div class="num">04</div>
+        <div class="name">追击大师</div>
+        <div class="desc">综合测试：平均速度计算、追击问题、图像分析。获得王牌追踪员认证。</div>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 24px;">
+      <button class="btn" onclick="goTo('title')">← 返回总部</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN: STAGE 1 ==================== -->
+<div class="screen" id="screen-stage1">
+  <div style="padding-top: 40px;">
+    <div class="stage-title">🎯 参照物判断</div>
+    <div class="stage-desc">选择正确的参照物，判断目标的运动状态</div>
+
+    <div class="ref-judge-scene">
+      <div class="ref-judge-visual" id="s1-visual">
+        <div style="font-size: 48px;">✈️</div>
+        <div style="font-size: 14px; color: var(--text); margin-top: 8px;">民航客机巡航中，速度约 900 km/h</div>
+      </div>
+      <div class="ref-judge-question" id="s1-question">
+        乘客坐在飞机座位上，相对于<strong style="color: var(--accent);">飞机座椅</strong>，乘客是运动的还是静止的？
+      </div>
+      <div class="ref-judge-options" id="s1-options">
+        <div class="ref-option" onclick="checkRefAnswer(this, true)">静止的</div>
+        <div class="ref-option" onclick="checkRefAnswer(this, false)">运动的</div>
+      </div>
+      <div id="s1-feedback" style="margin-top: 12px; font-size: 13px; text-align: center;"></div>
+    </div>
+
+    <div style="text-align: center; margin-top: 16px;">
+      <div style="font-size: 12px; color: var(--text2); margin-bottom: 8px;">进度: <span id="s1-counter">1 / 6</span></div>
+      <button class="btn" onclick="goTo('select')">← 任务列表</button>
+      <button class="btn btn-grad" id="s1-next" onclick="goTo('stage2')" style="display:none;">下一任务 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN: STAGE 2 ==================== -->
+<div class="screen" id="screen-stage2">
+  <div style="padding-top: 40px;">
+    <div class="stage-title">🚙 相对追踪</div>
+    <div class="stage-desc">调节两车速度，观察相对运动，判断运动状态</div>
+
+    <div class="motion-canvas-container">
+      <canvas class="motion-canvas" id="motionCanvas" width="600" height="200"></canvas>
+
+      <div class="motion-controls">
+        <div class="motion-control">
+          <label>🚗 A车速度 (m/s)</label>
+          <input type="range" class="motion-slider" id="carA-speed" min="0" max="30" value="10">
+          <div style="font-size: 12px; color: var(--text2);"><span id="carA-val">10</span> m/s</div>
+        </div>
+        <div class="motion-control">
+          <label>🚙 B车速度 (m/s)</label>
+          <input type="range" class="motion-slider" id="carB-speed" min="0" max="30" value="15">
+          <div style="font-size: 12px; color: var(--text2);"><span id="carB-val">15</span> m/s</div>
+        </div>
+      </div>
+
+      <div class="motion-question">
+        <strong>当前状态</strong>：A车速度 <span id="carA-display">10</span> m/s，B车速度 <span id="carB-display">15</span> m/s<br>
+        <span id="relative-state">B车正在远离A车</span>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <button class="btn" onclick="checkMotionQuestion()">回答：以A车为参照物，B车是？</button>
+      </div>
+      <div id="motion-options" style="display:none; margin-top: 10px;">
+        <div class="ref-judge-options">
+          <div class="ref-option" onclick="checkMotionAnswer(this, 'forward')">向前运动（远离）</div>
+          <div class="ref-option" onclick="checkMotionAnswer(this, 'backward')">向后运动（靠近）</div>
+          <div class="ref-option" onclick="checkMotionAnswer(this, 'static')">静止</div>
+        </div>
+      </div>
+      <div id="motion-feedback" style="margin-top: 12px; font-size: 13px;"></div>
+    </div>
+
+    <div style="text-align: center;">
+      <button class="btn" onclick="goTo('select')">← 任务列表</button>
+      <button class="btn btn-grad" id="s2-next" onclick="goTo('stage3')" style="display:none;">下一任务 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN: STAGE 3 ==================== -->
+<div class="screen" id="screen-stage3">
+  <div style="padding-top: 40px;">
+    <div class="stage-title">⚡ 速度计算</div>
+    <div class="stage-desc">运用 v = s/t，解决实际运动问题</div>
+
+    <div class="speed-challenge">
+      <div id="speed-problems">
+        <!-- Problem 1 -->
+        <div class="speed-problem" id="sp1">
+          <div class="speed-problem-text">
+            🚴 <strong>问题 1/3</strong>：小明骑自行车上学，路程 3.6 km，用时 12 分钟。求骑车速度（m/s）。
+          </div>
+          <div class="speed-input-row">
+            <label>答案：</label>
+            <input type="number" id="sp1-answer" placeholder="?">
+            <span style="font-size: 12px; color: var(--text2);">m/s</span>
+          </div>
+          <button class="btn speed-check-btn" onclick="checkSpeedAnswer(1, 5)">提交</button>
+          <div id="sp1-feedback" style="margin-top: 8px; font-size: 13px;"></div>
+        </div>
+
+        <!-- Problem 2 -->
+        <div class="speed-problem" id="sp2" style="display:none;">
+          <div class="speed-problem-text">
+            ✈️ <strong>问题 2/3</strong>：飞机以 900 km/h 的速度飞行 2 小时，求飞行距离（km）。
+          </div>
+          <div class="speed-input-row">
+            <label>答案：</label>
+            <input type="number" id="sp2-answer" placeholder="?">
+            <span style="font-size: 12px; color: var(--text2);">km</span>
+          </div>
+          <button class="btn speed-check-btn" onclick="checkSpeedAnswer(2, 1800)">提交</button>
+          <div id="sp2-feedback" style="margin-top: 8px; font-size: 13px;"></div>
+        </div>
+
+        <!-- Problem 3 -->
+        <div class="speed-problem" id="sp3" style="display:none;">
+          <div class="speed-problem-text">
+            🚗 <strong>问题 3/3</strong>：汽车以 15 m/s 的速度匀速行驶，要通过一座 450 m 的大桥，需要多少时间（s）？
+          </div>
+          <div class="speed-input-row">
+            <label>答案：</label>
+            <input type="number" id="sp3-answer" placeholder="?">
+            <span style="font-size: 12px; color: var(--text2);">s</span>
+          </div>
+          <button class="btn speed-check-btn" onclick="checkSpeedAnswer(3, 30)">提交</button>
+          <div id="sp3-feedback" style="margin-top: 8px; font-size: 13px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center;">
+      <button class="btn" onclick="goTo('select')">← 任务列表</button>
+      <button class="btn btn-grad" id="s3-next" onclick="goTo('stage4')" style="display:none;">下一任务 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN: STAGE 4 ==================== -->
+<div class="screen" id="screen-stage4">
+  <div style="padding-top: 40px;">
+    <div class="stage-title">🏆 追击大师</div>
+    <div class="stage-desc">终极测试：平均速度、追击问题、图像分析</div>
+
+    <div class="chase-container">
+      <div class="chase-scenario">
+        🏃 <strong>追击场景</strong>：警察发现前方 200 m 处有一辆嫌疑车正以 20 m/s 的速度匀速逃跑。警车立即以 30 m/s 的速度追赶。问：警车需要多长时间能追上嫌疑车？
+      </div>
+
+      <canvas class="chase-canvas" id="chaseCanvas" width="600" height="180"></canvas>
+
+      <div style="text-align: center; margin: 12px 0;">
+        <button class="btn" onclick="startChaseSim()">▶ 开始模拟</button>
+        <button class="btn btn-danger" onclick="resetChaseSim()">重置</button>
+      </div>
+
+      <div style="font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 16px;">
+        💡 提示：每秒钟，警车比嫌疑车多追近 (30-20)=10 m。初始距离 200 m。
+      </div>
+
+      <div class="chase-answers">
+        <div class="ref-option" onclick="checkChaseAnswer(this, 20)">20 秒</div>
+        <div class="ref-option" onclick="checkChaseAnswer(this, 10)">10 秒</div>
+        <div class="ref-option" onclick="checkChaseAnswer(this, 15)">15 秒</div>
+      </div>
+
+      <div id="chase-feedback" style="margin-top: 16px; font-size: 14px; text-align: center;"></div>
+    </div>
+
+    <div style="text-align: center;">
+      <button class="btn" onclick="goTo('select')">← 任务列表</button>
+      <button class="btn btn-grad" id="s4-next" onclick="goTo('result')" style="display:none;">领取证书 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN: RESULT ==================== -->
+<div class="screen" id="screen-result">
+  <div class="result-container">
+    <div class="result-badge">🏆</div>
+    <div class="result-title">王牌追踪员证</div>
+    <div class="result-text">
+      恭喜你通过全部4项追踪训练！你已掌握参照物判断、相对运动分析、速度计算和追击问题求解。
+    </div>
+
+    <div class="result-stats">
+      <div class="result-stat">
+        <div class="num" id="finalScore">0</div>
+        <div class="lab">总积分</div>
+      </div>
+      <div class="result-stat">
+        <div class="num" id="finalTime">0</div>
+        <div class="lab">用时(秒)</div>
+      </div>
+      <div class="result-stat">
+        <div class="num" id="finalRank">-</div>
+        <div class="lab">评级</div>
+      </div>
+    </div>
+
+    <div style="margin: 24px 0;">
+      <div style="font-size: 12px; color: var(--text2); margin-bottom: 8px;">获得徽章</div>
+      <div class="badge-grid" style="max-width: 400px; margin: 0 auto;">
+        <div class="badge-item earned" id="final-badge1">
+          <div class="icon">🎯</div>
+          <div class="name">参照物判断</div>
+        </div>
+        <div class="badge-item earned" id="final-badge2">
+          <div class="icon">🚙</div>
+          <div class="name">相对追踪</div>
+        </div>
+        <div class="badge-item earned" id="final-badge3">
+          <div class="icon">⚡</div>
+          <div class="name">速度计算</div>
+        </div>
+        <div class="badge-item earned" id="final-badge4">
+          <div class="icon">🏆</div>
+          <div class="name">追击大师</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size: 13px; color: var(--text2); line-height: 1.8; max-width: 500px; margin: 0 auto 24px;">
+      📋 <strong style="color: var(--accent);">下一步</strong><br>
+      你已掌握机械运动的核心知识，前往「声波分析中心」学习声现象。
+    </div>
+
+    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+      <a href="tutorial.html" class="btn">📖 返回教案</a>
+      <a href="../grade8-sem1-ch03/index.html" class="btn btn-grad">🎮 下一章：声现象 →</a>
+      <button class="btn" onclick="location.reload()">🔄 重新训练</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== GAME STATE ====================
+let score = 0;
+let stagesCompleted = { s1: false, s2: false, s3: false, s4: false };
+let startTime = Date.now();
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function addScore(points) {
+  score += points;
+  document.getElementById('scoreDisplay').textContent = score;
+}
+
+function updateStageCounter() {
+  const completed = Object.values(stagesCompleted).filter(v => v).length;
+  document.getElementById('stageDisplay').textContent = completed + '/4';
+  for (let i = 1; i <= 4; i++) {
+    const badge = document.getElementById('badge' + i);
+    if (stagesCompleted['s' + i]) badge.classList.add('earned');
+    const card = document.getElementById('card' + i);
+    if (stagesCompleted['s' + i]) card.classList.add('completed');
+  }
+}
+
+function goTo(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ==================== STAGE 1: REFERENCE FRAME JUDGE ====================
+const refQuestions = [
+  {
+    visual: '<div style="font-size: 48px;">✈️</div><div style="font-size: 14px; color: var(--text); margin-top: 8px;">民航客机巡航中，速度约 900 km/h</div>',
+    question: '乘客坐在飞机座位上，相对于<strong style="color: var(--accent);">飞机座椅</strong>，乘客是运动的还是静止的？',
+    correct: true, // true = 静止
+    explain: '正确！以飞机座椅为参照物，乘客位置没有改变，所以是静止的。'
+  },
+  {
+    visual: '<div style="font-size: 48px;">🚄</div><div style="font-size: 14px; color: var(--text); margin-top: 8px;">高铁以 300 km/h 行驶</div>',
+    question: '高铁上的乘客相对于<strong style="color: var(--accent);">地面</strong>，是运动的还是静止的？',
+    correct: false, // false = 运动
+    explain: '正确！以地面为参照物，高铁和乘客的位置在改变，所以是运动的。'
+  },
+  {
+    visual: '<div style="font-size: 48px;">🚗🚗</div><div style="font-size: 14px; color: var(--text); margin-top: 8px;">两辆车并排同向行驶，速度相同</div>',
+    question: '以<strong style="color: var(--accent);">其中一辆车</strong>为参照物，另一辆车是运动的还是静止的？',
+    correct: true,
+    explain: '正确！速度相同，相对位置不变，所以另一辆车是静止的。'
+  },
+  {
+    visual: '<div style="font-size: 48px;">🌏🛰️</div><div style="font-size: 14px; color: var(--text); margin-top: 8px;">地球同步卫星</div>',
+    question: '同步卫星相对于<strong style="color: var(--accent);">地球表面</strong>，是运动的还是静止的？',
+    correct: true,
+    explain: '正确！同步卫星与地球自转周期相同，相对地面位置不变，所以是静止的。'
+  },
+  {
+    visual: '<div style="font-size: 48px;">⛵🏔️</div><div style="font-size: 14px; color: var(--text); margin-top: 8px;">"小小竹排江中游，巍巍青山两岸走"</div>',
+    question: '"青山两岸走"是以<strong style="color: var(--accent);">竹排</strong>为参照物，青山是运动的还是静止的？',
+    correct: false,
+    explain: '正确！以竹排为参照物，青山位置在改变，所以是运动的。'
+  },
+  {
+    visual: '<div style="font-size: 48px;">🌙🌍</div><div style="font-size: 14px; color: var(--text); margin-top: 8px;">月亮绕地球转动</div>',
+    question: '以<strong style="color: var(--accent);">月亮本身</strong>为参照物，月亮是运动的还是静止的？',
+    correct: true,
+    explain: '正确！（陷阱题）不能选择自己为参照物！但如果硬要选，位置不变。不过通常不这样做。'
+  }
+];
+
+let s1Idx = 0;
+let s1Score = 0;
+
+function loadRefQuestion() {
+  const q = refQuestions[s1Idx];
+  document.getElementById('s1-visual').innerHTML = q.visual;
+  document.getElementById('s1-question').innerHTML = q.question;
+  document.getElementById('s1-feedback').textContent = '';
+  document.querySelectorAll('#s1-options .ref-option').forEach(el => {
+    el.classList.remove('correct', 'wrong');
+  });
+  document.getElementById('s1-counter').textContent = (s1Idx + 1) + ' / ' + refQuestions.length;
+}
+
+function checkRefAnswer(el, isStatic) {
+  if (el.classList.contains('correct') || el.classList.contains('wrong')) return;
+
+  const q = refQuestions[s1Idx];
+  const isCorrect = (isStatic === q.correct);
+
+  if (isCorrect) {
+    el.classList.add('correct');
+    s1Score++;
+    addScore(10);
+    document.getElementById('s1-feedback').innerHTML = '<span style="color: var(--success);">✓ ' + q.explain + '</span>';
+  } else {
+    el.classList.add('wrong');
+    document.getElementById('s1-feedback').innerHTML = '<span style="color: var(--danger);">✗ 再想想参照物的定义！</span>';
+  }
+
+  setTimeout(() => {
+    s1Idx++;
+    if (s1Idx < refQuestions.length) {
+      loadRefQuestion();
+    } else {
+      document.getElementById('s1-visual').innerHTML = '<div style="font-size: 48px;">🎉</div>';
+      document.getElementById('s1-question').innerHTML = '<strong style="color: var(--success);">完成！</strong> 正确 ' + s1Score + '/' + refQuestions.length;
+      document.getElementById('s1-options').innerHTML = '';
+      stagesCompleted.s1 = true;
+      updateStageCounter();
+      document.getElementById('s1-next').style.display = 'inline-block';
+    }
+  }, 1200);
+}
+
+// ==================== STAGE 2: RELATIVE MOTION ====================
+let motionAnimId = null;
+let carA = { x: 50, v: 10 };
+let carB = { x: 200, v: 15 };
+
+function initMotionCanvas() {
+  const canvas = document.getElementById('motionCanvas');
+  const ctx = canvas.getContext('2d');
+  const sliderA = document.getElementById('carA-speed');
+  const sliderB = document.getElementById('carB-speed');
+
+  function update() {
+    carA.v = parseInt(sliderA.value);
+    carB.v = parseInt(sliderB.value);
+    document.getElementById('carA-val').textContent = carA.v;
+    document.getElementById('carB-val').textContent = carB.v;
+    document.getElementById('carA-display').textContent = carA.v;
+    document.getElementById('carB-display').textContent = carB.v;
+
+    const rel = carB.v - carA.v;
+    const stateEl = document.getElementById('relative-state');
+    if (rel > 0) stateEl.innerHTML = 'B车正在<span style="color: var(--success);">远离</span>A车（+' + rel + ' m/s）';
+    else if (rel < 0) stateEl.innerHTML = 'B车正在<span style="color: var(--danger);">靠近</span>A车（' + rel + ' m/s）';
+    else stateEl.innerHTML = '两车<span style="color: var(--warn);">相对静止</span>';
+  }
+
+  sliderA.addEventListener('input', update);
+  sliderB.addEventListener('input', update);
+
+  function draw() {
+    ctx.clearRect(0, 0, 600, 200);
+
+    // Road
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(0, 80, 600, 60);
+    ctx.strokeStyle = 'rgba(0,240,200,0.2)';
+    ctx.setLineDash([20, 20]);
+    ctx.beginPath(); ctx.moveTo(0, 110); ctx.lineTo(600, 110); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Update positions
+    carA.x += carA.v * 0.05;
+    carB.x += carB.v * 0.05;
+    if (carA.x > 600) carA.x = -40;
+    if (carB.x > 600) carB.x = -40;
+
+    // Car A
+    ctx.fillStyle = '#00f0c8';
+    ctx.fillRect(carA.x, 95, 30, 20);
+    ctx.fillStyle = '#00f0c8';
+    ctx.font = '10px "Share Tech Mono"';
+    ctx.fillText('A', carA.x + 10, 90);
+
+    // Car B
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(carB.x, 125, 30, 20);
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText('B', carB.x + 10, 155);
+
+    // Distance indicator
+    const dist = Math.abs(carB.x - carA.x);
+    ctx.fillStyle = '#8b8b9a';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('距离: ' + Math.round(dist) + 'm', 260, 170);
+
+    motionAnimId = requestAnimationFrame(draw);
+  }
+
+  update();
+  draw();
+}
+
+let motionAnswered = false;
+
+function checkMotionQuestion() {
+  document.getElementById('motion-options').style.display = 'block';
+  document.getElementById('motion-feedback').textContent = '';
+}
+
+function checkMotionAnswer(el, answer) {
+  if (motionAnswered) return;
+  const rel = carB.v - carA.v;
+  let correct = false;
+  if (rel > 0 && answer === 'forward') correct = true;
+  else if (rel < 0 && answer === 'backward') correct = true;
+  else if (rel === 0 && answer === 'static') correct = true;
+
+  if (correct) {
+    el.classList.add('correct');
+    addScore(20);
+    document.getElementById('motion-feedback').innerHTML = '<span style="color: var(--success);">✓ 正确！相对速度 = B车速度 - A车速度 = ' + rel + ' m/s</span>';
+    stagesCompleted.s2 = true;
+    updateStageCounter();
+    document.getElementById('s2-next').style.display = 'inline-block';
+    motionAnswered = true;
+  } else {
+    el.classList.add('wrong');
+    document.getElementById('motion-feedback').innerHTML = '<span style="color: var(--danger);">✗ 再看看两车速度关系</span>';
+    setTimeout(() => el.classList.remove('wrong'), 600);
+  }
+}
+
+// ==================== STAGE 3: SPEED CALC ====================
+let currentSpeedProblem = 1;
+
+function checkSpeedAnswer(problemNum, correctValue) {
+  const input = document.getElementById('sp' + problemNum + '-answer');
+  const feedback = document.getElementById('sp' + problemNum + '-feedback');
+  const val = parseFloat(input.value);
+
+  if (isNaN(val)) {
+    feedback.innerHTML = '<span style="color: var(--danger);">请输入数字</span>';
+    return;
+  }
+
+  if (Math.abs(val - correctValue) < 0.5) {
+    feedback.innerHTML = '<span style="color: var(--success);">✓ 正确！</span>';
+    addScore(15);
+
+    if (problemNum < 3) {
+      setTimeout(() => {
+        document.getElementById('sp' + problemNum).style.display = 'none';
+        document.getElementById('sp' + (problemNum + 1)).style.display = 'block';
+      }, 1000);
+    } else {
+      stagesCompleted.s3 = true;
+      updateStageCounter();
+      document.getElementById('s3-next').style.display = 'inline-block';
+    }
+  } else {
+    feedback.innerHTML = '<span style="color: var(--danger);">✗ 不对，再检查一下单位和公式</span>';
+  }
+}
+
+// ==================== STAGE 4: CHASE MISSION ====================
+let chaseAnimId = null;
+let chaseTime = 0;
+let chaseRunning = false;
+
+function drawChaseScene(time) {
+  const canvas = document.getElementById('chaseCanvas');
+  const ctx = canvas.getContext('2d');
+  const scale = 2; // 1m = 0.5px
+
+  ctx.clearRect(0, 0, 600, 180);
+
+  // Road
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, 80, 600, 50);
+  ctx.strokeStyle = 'rgba(0,240,200,0.2)';
+  ctx.setLineDash([15, 15]);
+  ctx.beginPath(); ctx.moveTo(0, 105); ctx.lineTo(600, 105); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Positions
+  const policeX = 30 + (30 * time) * scale;
+  const suspectX = 30 + 200 * scale + (20 * time) * scale;
+
+  // Police car
+  ctx.fillStyle = '#00f0c8';
+  ctx.fillRect(policeX, 85, 35, 18);
+  ctx.fillStyle = '#00f0c8';
+  ctx.font = '10px "Share Tech Mono"';
+  ctx.fillText('警车 30m/s', policeX, 80);
+
+  // Suspect car
+  ctx.fillStyle = '#ef476f';
+  ctx.fillRect(suspectX, 115, 35, 18);
+  ctx.fillStyle = '#ef476f';
+  ctx.fillText('嫌疑车 20m/s', suspectX, 145);
+
+  // Time
+  ctx.fillStyle = '#8b8b9a';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('t = ' + time.toFixed(1) + ' s', 280, 165);
+
+  // Catch indicator
+  if (policeX >= suspectX) {
+    ctx.fillStyle = '#06d6a0';
+    ctx.font = 'bold 14px "Orbitron"';
+    ctx.fillText('✓ 已追上！', 260, 60);
+    chaseRunning = false;
+    cancelAnimationFrame(chaseAnimId);
+  }
+}
+
+function startChaseSim() {
+  if (chaseRunning) return;
+  chaseRunning = true;
+  chaseTime = 0;
+
+  function step() {
+    if (!chaseRunning) return;
+    chaseTime += 0.1;
+    drawChaseScene(chaseTime);
+    if (chaseRunning) chaseAnimId = requestAnimationFrame(step);
+  }
+  step();
+}
+
+function resetChaseSim() {
+  chaseRunning = false;
+  cancelAnimationFrame(chaseAnimId);
+  chaseTime = 0;
+  drawChaseScene(0);
+  document.getElementById('chase-feedback').textContent = '';
+  document.querySelectorAll('.chase-answers .ref-option').forEach(el => {
+    el.classList.remove('correct', 'wrong');
+  });
+}
+
+let chaseAnswered = false;
+
+function checkChaseAnswer(el, answer) {
+  if (chaseAnswered) return;
+  const correct = 20; // 200m / (30-20)m/s = 20s
+
+  if (answer === correct) {
+    el.classList.add('correct');
+    addScore(25);
+    document.getElementById('chase-feedback').innerHTML = '<span style="color: var(--success);">🎉 正确！相对速度 = 30 - 20 = 10 m/s，追及时间 = 200 / 10 = 20 秒</span>';
+    stagesCompleted.s4 = true;
+    updateStageCounter();
+    document.getElementById('s4-next').style.display = 'inline-block';
+    chaseAnswered = true;
+  } else {
+    el.classList.add('wrong');
+    document.getElementById('chase-feedback').innerHTML = '<span style="color: var(--danger);">✗ 用公式 t = s / (v₁ - v₂) 计算一下</span>';
+    setTimeout(() => el.classList.remove('wrong'), 600);
+  }
+}
+
+// ==================== RESULT ====================
+function showResult() {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalTime').textContent = elapsed;
+
+  let rank = 'C';
+  if (score >= 100) rank = 'S';
+  else if (score >= 85) rank = 'A';
+  else if (score >= 70) rank = 'B';
+  document.getElementById('finalRank').textContent = rank;
+}
+
+// ==================== INIT ====================
+loadRefQuestion();
+initMotionCanvas();
+resetChaseSim();
+
+const originalGoTo = goTo;
+goTo = function(screen) {
+  if (screen === 'stage1') { s1Idx = 0; s1Score = 0; loadRefQuestion(); }
+  if (screen === 'stage2') { motionAnswered = false; document.getElementById('motion-options').style.display = 'none'; document.getElementById('motion-feedback').textContent = ''; }
+  if (screen === 'stage3') { currentSpeedProblem = 1; document.getElementById('sp1').style.display = 'block'; document.getElementById('sp2').style.display = 'none'; document.getElementById('sp3').style.display = 'none'; }
+  if (screen === 'stage4') { chaseAnswered = false; resetChaseSim(); }
+  if (screen === 'result') showResult();
+
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+</script>
+</body>
+</html>
