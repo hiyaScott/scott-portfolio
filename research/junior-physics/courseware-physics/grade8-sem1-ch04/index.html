@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>光子特遣队 · 特工训练 — 光现象</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f; --panel: rgba(10, 14, 26, 0.9);
+  --accent: #fcee0a; --accent2: #ff6b35;
+  --danger: #ef476f; --warning: #ffd166; --success: #06d6a0;
+  --grid: rgba(252, 238, 10, 0.08); --text: #c0c8d8; --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh; overflow-x: hidden;
+}
+
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px; pointer-events: none; z-index: 1;
+}
+
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 60px; height: 60px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 8px; left: 8px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 8px; right: 8px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 8px; left: 8px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 8px; right: 8px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+#app { position: relative; z-index: 10; max-width: 900px; margin: 0 auto; padding: 30px 20px 100px; }
+
+/* HUD */
+#hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: rgba(6,8,15,0.95); border-bottom: 1px solid var(--accent);
+  padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;
+  z-index: 100; backdrop-filter: blur(10px);
+}
+#hud .logo { font-family: 'Orbitron'; color: var(--accent); font-size: 16px; }
+#hud .stats { display: flex; gap: 20px; font-size: 14px; }
+#hud .stats span { color: var(--accent); }
+#hud .nav-btn {
+  background: transparent; border: 1px solid var(--accent); color: var(--accent);
+  padding: 4px 12px; border-radius: 4px; cursor: pointer; font-family: 'Orbitron'; font-size: 12px;
+}
+#hud .nav-btn:hover { background: rgba(252,238,10,0.1); }
+
+.stage-nav-panel {
+  position: fixed; top: 50px; right: 20px;
+  background: var(--panel); border: 1px solid var(--accent);
+  border-radius: 8px; padding: 16px; z-index: 101;
+  display: none; min-width: 200px;
+}
+.stage-nav-panel.active { display: block; }
+.stage-nav-panel a {
+  display: block; color: var(--text); text-decoration: none;
+  padding: 8px 12px; border-radius: 4px; font-size: 14px; margin: 4px 0;
+}
+.stage-nav-panel a:hover { background: rgba(252,238,10,0.1); color: var(--accent); }
+.stage-nav-panel a.current { border-left: 2px solid var(--accent); color: var(--accent); }
+
+/* Screens */
+.screen { display: none; }
+.screen.active { display: block; }
+
+.title-bar {
+  text-align: center; padding: 30px 0 20px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron'; font-size: 36px; color: var(--accent);
+  text-shadow: 0 0 20px var(--accent);
+}
+.title-bar .subtitle { font-size: 14px; color: var(--text-dim); margin-top: 8px; }
+
+.btn {
+  background: var(--accent); color: #000; border: none;
+  padding: 14px 32px; border-radius: 4px;
+  font-family: 'Orbitron'; font-size: 16px; cursor: pointer;
+  transition: all 0.2s; text-decoration: none; display: inline-block;
+}
+.btn:hover { box-shadow: 0 0 30px var(--accent); transform: translateY(-2px); }
+.btn-ghost {
+  background: transparent; color: var(--accent); border: 1px solid var(--accent);
+}
+.btn-ghost:hover { background: rgba(252,238,10,0.1); }
+.btn-warn { background: var(--warning); color: #000; border-color: var(--warning); }
+
+.card {
+  background: var(--panel); border: 1px solid rgba(252,238,10,0.2);
+  border-radius: 8px; padding: 24px; margin-bottom: 16px;
+}
+
+.card h2 { font-family: 'Orbitron'; font-size: 20px; color: var(--accent); margin-bottom: 12px; }
+.card h3 { font-family: 'Orbitron'; font-size: 16px; color: var(--accent2); margin: 16px 0 8px; }
+
+.feedback {
+  padding: 12px; border-radius: 6px; margin-top: 12px;
+  font-size: 14px; display: none;
+}
+.feedback.ok { background: rgba(6,214,160,0.1); border: 1px solid var(--success); color: var(--success); display: block; }
+.feedback.wrong { background: rgba(239,71,111,0.1); border: 1px solid var(--danger); color: var(--danger); display: block; }
+.feedback.info { background: rgba(0,187,249,0.1); border: 1px solid var(--accent2); color: var(--accent2); display: block; }
+
+.quiz-option {
+  display: block; width: 100%; text-align: left;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(252,238,10,0.2);
+  color: var(--text); padding: 12px 16px; margin: 8px 0;
+  border-radius: 6px; cursor: pointer; transition: all 0.2s;
+  font-family: inherit; font-size: 14px;
+}
+.quiz-option:hover { border-color: var(--accent); background: rgba(252,238,10,0.05); }
+.quiz-option.correct { border-color: var(--success); background: rgba(6,214,160,0.1); }
+.quiz-option.wrong { border-color: var(--danger); background: rgba(239,71,111,0.1); }
+
+/* Stage specific */
+.stage-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+}
+.stage-badge {
+  font-family: 'Orbitron'; font-size: 12px;
+  background: rgba(252,238,10,0.1); border: 1px solid var(--accent);
+  color: var(--accent); padding: 6px 14px; border-radius: 4px;
+}
+
+.game-canvas {
+  background: rgba(0,0,0,0.3); border: 1px dashed rgba(252,238,10,0.3);
+  border-radius: 8px; display: block; margin: 12px auto;
+}
+
+.controls { display: flex; gap: 10px; justify-content: center; margin: 16px 0; flex-wrap: wrap; }
+
+.result-rank {
+  font-family: 'Orbitron'; font-size: 48px; text-align: center;
+  margin: 20px 0;
+}
+.rank-S { color: var(--accent); text-shadow: 0 0 30px var(--accent); }
+.rank-A { color: var(--success); text-shadow: 0 0 20px var(--success); }
+.rank-B { color: var(--warning); }
+.rank-C { color: var(--danger); }
+
+.badge-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin: 20px 0;
+}
+.badge-item {
+  text-align: center; padding: 16px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03);
+}
+.badge-item.earned { border-color: var(--accent); background: rgba(252,238,10,0.05); }
+.badge-item .icon { font-size: 32px; margin-bottom: 8px; }
+.badge-item .name { font-size: 12px; color: var(--text-dim); }
+
+@media (max-width: 768px) {
+  .title-bar h1 { font-size: 24px; }
+  .badge-grid { grid-template-columns: repeat(2, 1fr); }
+  #hud .stats { gap: 10px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<!-- HUD -->
+<div id="hud" style="display:none">
+  <div class="logo">⚡ 光子特遣队</div>
+  <div class="stats">
+    <div>积分: <span id="score">0</span></div>
+    <div>用时: <span id="timer">00:00</span></div>
+  </div>
+  <button class="nav-btn" onclick="toggleStageNav()">☰</button>
+</div>
+<div class="stage-nav-panel" id="stageNav">
+  <a href="#" onclick="goStage(0);return false">📖 特工手册</a>
+  <a href="#" onclick="goStage(1);return false" id="nav-s1">🔦 Stage 1: 光路追踪</a>
+  <a href="#" onclick="goStage(2);return false" id="nav-s2">🪞 Stage 2: 反射作战</a>
+  <a href="#" onclick="goStage(3);return false" id="nav-s3">💎 Stage 3: 折射潜入</a>
+  <a href="#" onclick="goStage(4);return false" id="nav-s4">🔍 Stage 4: 透镜密码</a>
+  <hr style="border-color:rgba(252,238,10,0.2);margin:8px 0">
+  <a href="tutorial.html">📘 返回教案</a>
+</div>
+
+<div id="app">
+
+  <!-- ========== INTRO ========== -->
+  <div class="screen active" id="intro-screen">
+    <div class="title-bar">
+      <h1>⚡ 光子特遣队</h1>
+      <div class="subtitle">PHOTON TASK FORCE · 初级特工认证训练</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <p style="font-size:15px;line-height:1.8;margin-bottom:20px">
+        欢迎加入光子特遣队，特工。<br>
+        光，是我们最强大的武器，也是最危险的敌人。<br>
+        掌握光的传播、反射、折射和成像规律，<br>
+        是你完成任务的必备技能。
+      </p>
+      <div style="margin:24px 0">
+        <div style="display:inline-block;text-align:left;font-size:13px;color:var(--text-dim)">
+          📋 训练科目：<br>
+          &nbsp;&nbsp;Stage 1 — 光路追踪（直线传播）<br>
+          &nbsp;&nbsp;Stage 2 — 反射作战（反射定律）<br>
+          &nbsp;&nbsp;Stage 3 — 折射潜入（折射规律）<br>
+          &nbsp;&nbsp;Stage 4 — 透镜密码（凸透镜成像）
+        </div>
+      </div>
+      <button class="btn" onclick="startGame()">🚀 开始训练</button>
+    </div>
+  </div>
+
+  <!-- ========== STAGE 1: 光路追踪 ========== -->
+  <div class="screen" id="stage1">
+    <div class="stage-header">
+      <div class="stage-badge">STAGE 1 · 光路追踪</div>
+      <div style="font-size:12px;color:var(--text-dim)">直线传播与影子计算</div>
+    </div>
+    <div class="card">
+      <h2>🔦 任务：计算目标影长</h2>
+      <p style="font-size:14px;margin-bottom:12px">根据太阳高度角和物体高度，判断影子的长度范围，选择正确的答案。</p>
+
+      <canvas id="s1-canvas" class="game-canvas" width="600" height="280"></canvas>
+
+      <div class="controls">
+        <button class="btn" onclick="s1NewProblem()">🎲 新题目</button>
+      </div>
+
+      <div id="s1-problem" style="margin:16px 0;font-size:15px"></div>
+      <div id="s1-options"></div>
+      <div class="feedback" id="s1-feedback"></div>
+    </div>
+  </div>
+
+  <!-- ========== STAGE 2: 反射作战 ========== -->
+  <div class="screen" id="stage2">
+    <div class="stage-header">
+      <div class="stage-badge">STAGE 2 · 反射作战</div>
+      <div style="font-size:12px;color:var(--text-dim)">调整镜面角度击中目标</div>
+    </div>
+    <div class="card">
+      <h2>🪞 任务：激光反射命中</h2>
+      <p style="font-size:14px;margin-bottom:12px">拖动滑块调整镜面角度，使激光经过反射后击中红色目标。入射角 = 反射角。</p>
+
+      <canvas id="s2-canvas" class="game-canvas" width="600" height="350"></canvas>
+
+      <div class="controls">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;max-width:400px">
+          <label style="font-size:13px;white-space:nowrap">镜面角度</label>
+          <input type="range" id="s2-angle" min="-80" max="80" value="0" style="flex:1;accent-color:var(--accent)">
+          <span id="s2-angle-val" style="min-width:50px;text-align:right;color:var(--accent)">0°</span>
+        </div>
+        <button class="btn" onclick="s2Check()">🔥 发射</button>
+        <button class="btn btn-ghost" onclick="s2NewProblem()">🎲 新题目</button>
+      </div>
+
+      <div class="feedback" id="s2-feedback"></div>
+      <div id="s2-stats" style="text-align:center;font-size:13px;color:var(--text-dim);margin-top:8px">命中: 0 / 尝试: 0</div>
+    </div>
+  </div>
+
+  <!-- ========== STAGE 3: 折射潜入 ========== -->
+  <div class="screen" id="stage3">
+    <div class="stage-header">
+      <div class="stage-badge">STAGE 3 · 折射潜入</div>
+      <div style="font-size:12px;color:var(--text-dim)">选择正确的折射路径</div>
+    </div>
+    <div class="card">
+      <h2>💎 任务：穿越介质迷宫</h2>
+      <p style="font-size:14px;margin-bottom:12px">光线从空气射入水中，根据入射角判断折射角大小，选择正确的光路。</p>
+
+      <canvas id="s3-canvas" class="game-canvas" width="600" height="300"></canvas>
+
+      <div id="s3-problem" style="margin:16px 0;font-size:15px"></div>
+      <div id="s3-options"></div>
+      <div class="feedback" id="s3-feedback"></div>
+    </div>
+  </div>
+
+  <!-- ========== STAGE 4: 透镜密码 ========== -->
+  <div class="screen" id="stage4">
+    <div class="stage-header">
+      <div class="stage-badge">STAGE 4 · 透镜密码</div>
+      <div style="font-size:12px;color:var(--text-dim)">凸透镜成像规律应用</div>
+    </div>
+    <div class="card">
+      <h2>🔍 任务：破译透镜密码</h2>
+      <p style="font-size:14px;margin-bottom:12px">根据成像描述，判断物距与焦距的关系，选择正确的应用场景。</p>
+
+      <canvas id="s4-canvas" class="game-canvas" width="600" height="320"></canvas>
+
+      <div class="controls">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;max-width:400px">
+          <label style="font-size:13px;white-space:nowrap">物距 (倍数f)</label>
+          <input type="range" id="s4-u" min="5" max="35" value="25" style="flex:1;accent-color:var(--accent)">
+          <span id="s4-u-val" style="min-width:60px;text-align:right;color:var(--accent)">2.5f</span>
+        </div>
+      </div>
+
+      <div id="s4-problem" style="margin:16px 0;font-size:15px"></div>
+      <div id="s4-options"></div>
+      <div class="feedback" id="s4-feedback"></div>
+    </div>
+  </div>
+
+  <!-- ========== END SCREEN ========== -->
+  <div class="screen" id="end-screen">
+    <div class="title-bar">
+      <h1>🏆 训练完成</h1>
+      <div class="subtitle">光子特遣队初级特工认证报告</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div class="result-rank" id="final-rank">S</div>
+      <div style="font-size:18px;margin-bottom:8px" id="final-title">光子大师</div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:20px" id="final-desc">完美通关！</div>
+
+      <div style="display:flex;justify-content:center;gap:30px;margin:20px 0;font-size:14px">
+        <div>总积分: <span style="color:var(--accent);font-size:20px" id="final-score">0</span></div>
+        <div>总用时: <span style="color:var(--accent);font-size:20px" id="final-time">00:00</span></div>
+      </div>
+
+      <div class="badge-grid" id="badge-grid">
+        <div class="badge-item" id="badge-1"><div class="icon">🔦</div><div class="name">光路专家</div></div>
+        <div class="badge-item" id="badge-2"><div class="icon">🪞</div><div class="name">反射能手</div></div>
+        <div class="badge-item" id="badge-3"><div class="icon">💎</div><div class="name">折射先锋</div></div>
+        <div class="badge-item" id="badge-4"><div class="icon">🔍</div><div class="name">透镜大师</div></div>
+      </div>
+
+      <div style="margin-top:24px">
+        <button class="btn" onclick="restartGame()">🔄 重新训练</button>
+        <a href="tutorial.html" class="btn btn-ghost">📖 复习教案</a>
+        <a href="../grade8-sem1-ch05/index.html" class="btn" style="margin-left:8px">→ 第五章训练</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ========== Global State ==========
+let score = 0, stage = 0, startTime = 0, timerInterval;
+let s2hits = 0, s2tries = 0;
+let badges = [false, false, false, false];
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function toggleStageNav() {
+  document.getElementById('stageNav').classList.toggle('active');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.nav-btn') && !e.target.closest('.stage-nav-panel')) {
+    document.getElementById('stageNav').classList.remove('active');
+  }
+});
+
+function goStage(n) {
+  stage = n;
+  document.getElementById('stageNav').classList.remove('active');
+  if (n === 0) { showScreen('intro-screen'); document.getElementById('hud').style.display = 'none'; }
+  else if (n === 5) { showEnd(); }
+  else {
+    showScreen('stage' + n);
+    document.getElementById('hud').style.display = 'flex';
+    if (n === 1) s1NewProblem();
+    if (n === 2) { s2NewProblem(); s2hits = 0; s2tries = 0; updateS2Stats(); }
+    if (n === 3) s3NewProblem();
+    if (n === 4) { s4NewProblem(); updateS4Canvas(); }
+  }
+  updateNav();
+}
+
+function updateNav() {
+  document.querySelectorAll('.stage-nav-panel a').forEach((a, i) => {
+    a.classList.toggle('current', i === stage);
+  });
+}
+
+function updateScore(delta) {
+  score += delta;
+  document.getElementById('score').textContent = score;
+}
+
+function startTimer() {
+  startTime = Date.now();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+    const s = (elapsed % 60).toString().padStart(2, '0');
+    document.getElementById('timer').textContent = m + ':' + s;
+  }, 1000);
+}
+
+function startGame() {
+  score = 0; stage = 1; badges = [false, false, false, false];
+  document.getElementById('score').textContent = '0';
+  startTimer();
+  goStage(1);
+}
+
+function restartGame() {
+  score = 0; stage = 0; badges = [false, false, false, false];
+  document.getElementById('score').textContent = '0';
+  clearInterval(timerInterval);
+  document.getElementById('timer').textContent = '00:00';
+  goStage(0);
+}
+
+function showEnd() {
+  clearInterval(timerInterval);
+  showScreen('end-screen');
+  document.getElementById('hud').style.display = 'none';
+
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+  const s = (elapsed % 60).toString().padStart(2, '0');
+  document.getElementById('final-time').textContent = m + ':' + s;
+  document.getElementById('final-score').textContent = score;
+
+  let rank, title, desc;
+  if (score >= 400) { rank = 'S'; title = '光子大师'; desc = '完美通关！你对光的掌控已臻化境。'; }
+  else if (score >= 300) { rank = 'A'; title = '光学精英'; desc = '表现出色，少量失误不影响大局。'; }
+  else if (score >= 200) { rank = 'B'; title = '合格特工'; desc = '基本掌握，但仍需加强训练。'; }
+  else { rank = 'C'; title = '见习学员'; desc = '建议重新学习教案后再来。'; }
+
+  const rankEl = document.getElementById('final-rank');
+  rankEl.textContent = rank;
+  rankEl.className = 'result-rank rank-' + rank;
+  document.getElementById('final-title').textContent = title;
+  document.getElementById('final-desc').textContent = desc;
+
+  badges.forEach((earned, i) => {
+    document.getElementById('badge-' + (i + 1)).classList.toggle('earned', earned);
+  });
+}
+
+function stageComplete(stageNum) {
+  badges[stageNum - 1] = true;
+  setTimeout(() => {
+    if (stageNum < 4) goStage(stageNum + 1);
+    else showEnd();
+  }, 1500);
+}
+
+// ========== Stage 1: Shadow/Track ==========
+let s1height, s1angle, s1answer;
+
+function s1NewProblem() {
+  s1height = Math.floor(Math.random() * 6) + 3; // 3-8m
+  s1angle = Math.floor(Math.random() * 6) * 5 + 30; // 30-55 degrees
+  s1answer = Math.round(s1height / Math.tan(s1angle * Math.PI / 180) * 10) / 10;
+
+  document.getElementById('s1-problem').innerHTML =
+    `<strong>📐 题目：</strong>一根旗杆高 <span style="color:var(--accent)">${s1height}m</span>，` +
+    `太阳光与地面成 <span style="color:var(--accent)">${s1angle}°</span> 角。求影子的长度。`;
+
+  const opts = [s1answer];
+  while (opts.length < 3) {
+    const fake = Math.round((s1answer * (0.5 + Math.random())) * 10) / 10;
+    if (!opts.includes(fake) && fake > 0) opts.push(fake);
+  }
+  opts.sort(() => Math.random() - 0.5);
+
+  let html = '';
+  opts.forEach((v, i) => {
+    const label = String.fromCharCode(65 + i);
+    html += `<button class="quiz-option" onclick="s1Check('${label}', ${v})">${label}. ${v} m</button>`;
+  });
+  document.getElementById('s1-options').innerHTML = html;
+  document.getElementById('s1-feedback').className = 'feedback';
+  document.getElementById('s1-feedback').style.display = 'none';
+
+  drawS1();
+}
+
+function s1Check(label, val) {
+  const parent = document.getElementById('s1-options');
+  const btns = parent.querySelectorAll('.quiz-option');
+  btns.forEach(b => b.classList.remove('correct', 'wrong'));
+
+  const fb = document.getElementById('s1-feedback');
+  if (Math.abs(val - s1answer) < 0.1) {
+    btns.forEach((b, i) => { if (b.textContent.includes(val + '')) b.classList.add('correct'); });
+    fb.className = 'feedback ok';
+    fb.textContent = '✓ 正确！影长 = 树高 / tan ' + s1angle + '° ≈ ' + s1answer + ' m';
+    updateScore(100);
+    stageComplete(1);
+  } else {
+    btns.forEach((b, i) => { if (b.textContent.includes(val + '')) b.classList.add('wrong'); });
+    fb.className = 'feedback wrong';
+    fb.textContent = '✗ 错误。正确答案是 ' + s1answer + ' m。影长 = ' + s1height + ' / tan ' + s1angle + '° ≈ ' + s1answer + ' m';
+    updateScore(-10);
+  }
+  fb.style.display = 'block';
+}
+
+function drawS1() {
+  const ctx = document.getElementById('s1-canvas').getContext('2d');
+  const w = 600, h = 280;
+  ctx.clearRect(0, 0, w, h);
+
+  // Ground
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, h - 50, w, 50);
+  ctx.strokeStyle = 'rgba(252,238,10,0.2)';
+  ctx.beginPath(); ctx.moveTo(0, h - 50); ctx.lineTo(w, h - 50); ctx.stroke();
+
+  // Sun
+  const sunX = 100, sunY = 50;
+  ctx.fillStyle = '#fcee0a'; ctx.shadowColor = '#fcee0a'; ctx.shadowBlur = 30;
+  ctx.beginPath(); ctx.arc(sunX, sunY, 20, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#fcee0a'; ctx.font = '13px Orbitron';
+  ctx.fillText(`☀️ ${s1angle}°`, sunX - 25, sunY - 30);
+
+  // Pole
+  const px = w / 2, base = h - 50;
+  const ph = 100 + (s1height - 3) * 15;
+  ctx.fillStyle = '#2d4a3e';
+  ctx.fillRect(px - 8, base - ph, 16, ph);
+  ctx.fillStyle = '#fcee0a'; ctx.font = '12px Orbitron';
+  ctx.fillText(`🚩 ${s1height}m`, px - 20, base - ph - 10);
+
+  // Shadow
+  const sl = ph / Math.tan(s1angle * Math.PI / 180);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath();
+  ctx.moveTo(px + 8, base); ctx.lineTo(px + 8 + sl, base);
+  ctx.lineTo(px - 8 + sl * 0.9, base); ctx.lineTo(px - 8, base);
+  ctx.closePath(); ctx.fill();
+
+  // Light ray
+  ctx.strokeStyle = 'rgba(252,238,10,0.4)'; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(sunX, sunY); ctx.lineTo(px, base - ph); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ========== Stage 2: Reflection ==========
+let s2targetAngle, s2mirrorAngle = 0;
+
+function s2NewProblem() {
+  s2targetAngle = Math.floor(Math.random() * 12) * 5 - 30; // -30 to +30
+  s2mirrorAngle = 0;
+  document.getElementById('s2-angle').value = 0;
+  document.getElementById('s2-angle-val').textContent = '0°';
+  document.getElementById('s2-feedback').className = 'feedback';
+  document.getElementById('s2-feedback').style.display = 'none';
+  drawS2();
+}
+
+function s2Check() {
+  s2tries++;
+  const diff = Math.abs(s2mirrorAngle - s2targetAngle);
+  const fb = document.getElementById('s2-feedback');
+  if (diff <= 3) {
+    fb.className = 'feedback ok';
+    fb.textContent = '✓ 命中目标！反射角 = 入射角，镜面角度正确。';
+    fb.style.display = 'block';
+    s2hits++;
+    updateScore(100);
+    updateS2Stats();
+    stageComplete(2);
+  } else {
+    fb.className = 'feedback wrong';
+    fb.textContent = '✗ 未命中。镜面角度偏差 ' + diff + '°，再试一次。';
+    fb.style.display = 'block';
+    updateScore(-5);
+    updateS2Stats();
+  }
+}
+
+function updateS2Stats() {
+  document.getElementById('s2-stats').textContent = '命中: ' + s2hits + ' / 尝试: ' + s2tries;
+}
+
+document.getElementById('s2-angle').addEventListener('input', e => {
+  s2mirrorAngle = parseInt(e.target.value);
+  document.getElementById('s2-angle-val').textContent = s2mirrorAngle + '°';
+  drawS2();
+});
+
+function drawS2() {
+  const ctx = document.getElementById('s2-canvas').getContext('2d');
+  const w = 600, h = 350;
+  ctx.clearRect(0, 0, w, h);
+
+  // Mirror surface (horizontal line, mirror rotates around center)
+  const mx = w / 2, my = h - 100;
+  const mRad = s2mirrorAngle * Math.PI / 180;
+  const mLen = 120;
+
+  // Mirror line
+  ctx.strokeStyle = 'rgba(200,200,220,0.4)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(mx - mLen * Math.cos(mRad), my - mLen * Math.sin(mRad));
+  ctx.lineTo(mx + mLen * Math.cos(mRad), my + mLen * Math.sin(mRad));
+  ctx.stroke();
+  ctx.lineWidth = 1;
+
+  // Normal
+  const nRad = mRad + Math.PI / 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(mx - 80 * Math.cos(nRad), my - 80 * Math.sin(nRad));
+  ctx.lineTo(mx + 80 * Math.cos(nRad), my + 80 * Math.sin(nRad));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Laser source (fixed at top-left)
+  const sx = 80, sy = 60;
+  ctx.fillStyle = '#ef476f';
+  ctx.beginPath(); ctx.arc(sx, sy, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ef476f'; ctx.font = '12px Orbitron';
+  ctx.fillText('🔴 激光源', sx - 30, sy - 18);
+
+  // Incident ray to mirror center
+  ctx.strokeStyle = '#fcee0a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(mx, my); ctx.stroke();
+  ctx.lineWidth = 1;
+
+  // Calculate reflection
+  const dx = mx - sx, dy = my - sy;
+  const incidentAngle = Math.atan2(dy, dx);
+  const normalAngle = nRad;
+  const reflectAngle = 2 * normalAngle - incidentAngle;
+
+  // Reflected ray
+  const rayLen = 200;
+  ctx.strokeStyle = '#00f0c8'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(mx, my);
+  ctx.lineTo(mx + rayLen * Math.cos(reflectAngle), my + rayLen * Math.sin(reflectAngle));
+  ctx.stroke();
+  ctx.lineWidth = 1;
+
+  // Target position (based on correct mirror angle)
+  const tRad = s2targetAngle * Math.PI / 180;
+  const tNormal = tRad + Math.PI / 2;
+  const tReflect = 2 * tNormal - incidentAngle;
+  const tx = mx + rayLen * Math.cos(tReflect);
+  const ty = my + rayLen * Math.sin(tReflect);
+
+  // Target circle
+  ctx.strokeStyle = '#ef476f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(tx, ty, 20, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(239,71,111,0.2)';
+  ctx.beginPath(); ctx.arc(tx, ty, 20, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#ef476f'; ctx.font = '12px Orbitron';
+  ctx.fillText('🎯 目标', tx - 20, ty + 35);
+}
+
+// ========== Stage 3: Refraction ==========
+let s3answer;
+
+function s3NewProblem() {
+  const angles = [15, 20, 25, 30, 35, 40, 45, 50];
+  const i = angles[Math.floor(Math.random() * angles.length)];
+  const n1 = 1.0, n2 = 1.33; // air to water
+  const sinR = (n1 / n2) * Math.sin(i * Math.PI / 180);
+  const r = Math.asin(sinR) * 180 / Math.PI;
+  s3answer = Math.round(r);
+
+  document.getElementById('s3-problem').innerHTML =
+    `<strong>📐 题目：</strong>光从空气（n=1.0）射入水中（n=1.33），入射角为 <span style="color:var(--accent)">${i}°</span>。<br>` +
+    `根据折射定律，折射角约为多少？（提示：折射角 < 入射角）`;
+
+  const opts = [s3answer];
+  while (opts.length < 3) {
+    const fake = s3answer + Math.floor(Math.random() * 15) - 7;
+    if (!opts.includes(fake) && fake > 0 && fake < i) opts.push(fake);
+  }
+  opts.sort(() => Math.random() - 0.5);
+
+  let html = '';
+  opts.forEach((v, i) => {
+    const label = String.fromCharCode(65 + i);
+    html += `<button class="quiz-option" onclick="s3Check('${label}', ${v})">${label}. ${v}°</button>`;
+  });
+  document.getElementById('s3-options').innerHTML = html;
+  document.getElementById('s3-feedback').className = 'feedback';
+  document.getElementById('s3-feedback').style.display = 'none';
+
+  drawS3(i, s3answer);
+}
+
+function s3Check(label, val) {
+  const parent = document.getElementById('s3-options');
+  const btns = parent.querySelectorAll('.quiz-option');
+  btns.forEach(b => b.classList.remove('correct', 'wrong'));
+
+  const fb = document.getElementById('s3-feedback');
+  if (val === s3answer) {
+    btns.forEach(b => { if (b.textContent.includes(val + '°')) b.classList.add('correct'); });
+    fb.className = 'feedback ok';
+    fb.textContent = '✓ 正确！折射角约为 ' + s3answer + '°，符合折射定律。';
+    updateScore(100);
+    stageComplete(3);
+  } else {
+    btns.forEach(b => { if (b.textContent.includes(val + '°')) b.classList.add('wrong'); });
+    fb.className = 'feedback wrong';
+    fb.textContent = '✗ 错误。正确答案是 ' + s3answer + '°。光进入光密介质时折射角小于入射角。';
+    updateScore(-10);
+  }
+  fb.style.display = 'block';
+}
+
+function drawS3(incAngle, refAngle) {
+  const ctx = document.getElementById('s3-canvas').getContext('2d');
+  const w = 600, h = 300;
+  ctx.clearRect(0, 0, w, h);
+
+  // Air
+  ctx.fillStyle = 'rgba(10,14,26,0.5)'; ctx.fillRect(0, 0, w, h / 2);
+  // Water
+  ctx.fillStyle = 'rgba(0,100,200,0.15)'; ctx.fillRect(0, h / 2, w, h / 2);
+
+  // Boundary
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+
+  ctx.fillStyle = '#aaa'; ctx.font = '13px Orbitron';
+  ctx.fillText('🌫️ 空气 n=1.0', 20, 30);
+  ctx.fillText('💧 水 n=1.33', 20, h - 20);
+
+  const ox = w / 2, oy = h / 2;
+  const i = incAngle * Math.PI / 180;
+  const r = refAngle * Math.PI / 180;
+  const rayLen = 120;
+
+  // Normal
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(ox, 20); ctx.lineTo(ox, h - 20); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Incident
+  ctx.strokeStyle = '#fcee0a'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(ox - rayLen * Math.sin(i), oy - rayLen * Math.cos(i));
+  ctx.lineTo(ox, oy);
+  ctx.stroke();
+
+  // Refracted
+  ctx.strokeStyle = '#00f0c8'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(ox, oy);
+  ctx.lineTo(ox + rayLen * Math.sin(r), oy + rayLen * Math.cos(r));
+  ctx.stroke();
+
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#fcee0a'; ctx.font = '12px Orbitron';
+  ctx.fillText(`i=${incAngle}°`, ox - 55, oy - 20);
+  ctx.fillStyle = '#00f0c8';
+  ctx.fillText(`r=${refAngle}°`, ox + 20, oy + 35);
+}
+
+// ========== Stage 4: Lens ==========
+let s4scenario, s4correct;
+
+function s4NewProblem() {
+  const scenarios = [
+    { text: '照相机拍照时，物体距离镜头较远，底片上得到缩小的像。此时物距与焦距的关系是？', ans: 'A', label: '📷 照相机' },
+    { text: '投影仪将幻灯片投射到屏幕上，得到放大的像。此时物距与焦距的关系是？', ans: 'B', label: '🎬 投影仪' },
+    { text: '放大镜贴近书本看字，字被放大了。此时物距与焦距的关系是？', ans: 'C', label: '🔍 放大镜' },
+    { text: '测绘人员用相机拍摄远处的山峰，得到清晰缩小的像。此时物距与焦距的关系是？', ans: 'A', label: '📷 照相机' }
+  ];
+  s4scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+  s4correct = s4scenario.ans;
+
+  document.getElementById('s4-problem').innerHTML =
+    `<strong>📐 题目：</strong>${s4scenario.text}<br>` +
+    `<span style="color:var(--accent2);font-size:13px">场景: ${s4scenario.label}</span>`;
+
+  const opts = [
+    { label: 'A', text: 'u > 2f' },
+    { label: 'B', text: 'f < u < 2f' },
+    { label: 'C', text: 'u < f' }
+  ];
+
+  let html = '';
+  opts.forEach(o => {
+    html += `<button class="quiz-option" onclick="s4Check('${o.label}')">${o.label}. ${o.text}</button>`;
+  });
+  document.getElementById('s4-options').innerHTML = html;
+  document.getElementById('s4-feedback').className = 'feedback';
+  document.getElementById('s4-feedback').style.display = 'none';
+
+  // Reset slider
+  document.getElementById('s4-u').value = 25;
+  document.getElementById('s4-u-val').textContent = '2.5f';
+  updateS4Canvas();
+}
+
+function s4Check(label) {
+  const parent = document.getElementById('s4-options');
+  const btns = parent.querySelectorAll('.quiz-option');
+  btns.forEach(b => b.classList.remove('correct', 'wrong'));
+
+  const fb = document.getElementById('s4-feedback');
+  if (label === s4correct) {
+    btns.forEach(b => { if (b.textContent.startsWith(label)) b.classList.add('correct'); });
+    fb.className = 'feedback ok';
+    fb.textContent = '✓ 正确！' + (s4correct === 'A' ? 'u > 2f 时成缩小实像，用于照相机。' : s4correct === 'B' ? 'f < u < 2f 时成放大实像，用于投影仪。' : 'u < f 时成放大虚像，用于放大镜。');
+    updateScore(100);
+    stageComplete(4);
+  } else {
+    btns.forEach(b => { if (b.textContent.startsWith(label)) b.classList.add('wrong'); });
+    fb.className = 'feedback wrong';
+    fb.textContent = '✗ 错误。正确答案是 ' + s4correct + '。';
+    updateScore(-10);
+  }
+  fb.style.display = 'block';
+}
+
+document.getElementById('s4-u').addEventListener('input', e => {
+  const v = parseInt(e.target.value);
+  const fMult = (v / 10).toFixed(1);
+  document.getElementById('s4-u-val').textContent = fMult + 'f';
+  updateS4Canvas();
+});
+
+function updateS4Canvas() {
+  const ctx = document.getElementById('s4-canvas').getContext('2d');
+  const w = 600, h = 320;
+  ctx.clearRect(0, 0, w, h);
+
+  const f = 60;
+  const u = parseInt(document.getElementById('s4-u').value) * f / 10;
+  const lensX = w / 2;
+  const axisY = h / 2 + 20;
+
+  // Axis
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.beginPath(); ctx.moveTo(40, axisY); ctx.lineTo(w - 40, axisY); ctx.stroke();
+
+  // F points
+  ctx.fillStyle = '#fcee0a';
+  ctx.beginPath(); ctx.arc(lensX - f, axisY, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(lensX + f, axisY, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#aaa'; ctx.font = '11px Orbitron';
+  ctx.fillText('F', lensX - f - 5, axisY + 20);
+  ctx.fillText('F', lensX + f - 5, axisY + 20);
+
+  // 2F
+  ctx.fillStyle = '#ff6b35';
+  ctx.beginPath(); ctx.arc(lensX - 2 * f, axisY, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(lensX + 2 * f, axisY, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#aaa'; ctx.font = '11px Orbitron';
+  ctx.fillText('2F', lensX - 2 * f - 12, axisY + 20);
+  ctx.fillText('2F', lensX + 2 * f - 12, axisY + 20);
+
+  // Lens
+  ctx.strokeStyle = 'rgba(200,200,220,0.3)';
+  ctx.beginPath();
+  ctx.moveTo(lensX, axisY - 60);
+  ctx.quadraticCurveTo(lensX + 12, axisY - 30, lensX, axisY);
+  ctx.quadraticCurveTo(lensX - 12, axisY + 30, lensX, axisY + 60);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(200,200,220,0.05)'; ctx.fill();
+
+  // Object
+  const objX = lensX - u;
+  const objH = 40;
+  ctx.strokeStyle = '#fcee0a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(objX, axisY); ctx.lineTo(objX, axisY - objH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(objX - 6, axisY - objH + 8); ctx.lineTo(objX, axisY - objH); ctx.lineTo(objX + 6, axisY - objH + 8); ctx.stroke();
+
+  // Image
+  let v, imgH, real;
+  if (u > f) {
+    v = (u * f) / (u - f); imgH = objH * v / u; real = true;
+  } else {
+    v = (u * f) / (f - u); imgH = objH * v / u; real = false;
+  }
+
+  if (real) {
+    const imgX = lensX + v;
+    ctx.strokeStyle = '#00f0c8'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(imgX, axisY); ctx.lineTo(imgX, axisY + imgH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(imgX - 6, axisY + imgH - 8); ctx.lineTo(imgX, axisY + imgH); ctx.lineTo(imgX + 6, axisY + imgH - 8); ctx.stroke();
+    ctx.fillStyle = '#00f0c8'; ctx.font = '11px Orbitron';
+    ctx.fillText('实像', imgX - 15, axisY - 10);
+  } else {
+    const virtX = lensX - v;
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = '#00f0c8'; ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(virtX, axisY); ctx.lineTo(virtX, axisY - imgH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(virtX - 6, axisY - imgH + 8); ctx.lineTo(virtX, axisY - imgH); ctx.lineTo(virtX + 6, axisY - imgH + 8); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.fillStyle = '#00f0c8'; ctx.font = '11px Orbitron';
+    ctx.fillText('虚像', virtX - 15, axisY + 20);
+  }
+
+  // Description
+  let desc = '';
+  if (u > 2 * f) desc = 'u > 2f：倒立缩小实像（照相机）';
+  else if (u === 2 * f) desc = 'u = 2f：倒立等大实像';
+  else if (u > f) desc = 'f < u < 2f：倒立放大实像（投影仪）';
+  else desc = 'u < f：正立放大虚像（放大镜）';
+
+  ctx.fillStyle = '#fcee0a'; ctx.font = '12px Orbitron';
+  ctx.fillText(desc, 40, 30);
+
+  ctx.lineWidth = 1;
+}
+
+// ========== Init ==========
+showScreen('intro-screen');
+</script>
+</body>
+</html>

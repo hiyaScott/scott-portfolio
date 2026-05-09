@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动力学指挥部 · 特工训练 — 运动和力</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f; --panel: rgba(10, 14, 26, 0.9);
+  --accent: #ff6b35; --accent2: #fcee0a;
+  --danger: #ef476f; --warning: #ffd166; --success: #06d6a0;
+  --grid: rgba(255, 107, 53, 0.08); --text: #c0c8d8; --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh; overflow-x: hidden;
+}
+
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px; pointer-events: none; z-index: 1;
+}
+
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 60px; height: 60px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 8px; left: 8px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 8px; right: 8px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 8px; left: 8px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 8px; right: 8px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+#app { position: relative; z-index: 10; max-width: 900px; margin: 0 auto; padding: 30px 20px 100px; }
+
+/* HUD */
+#hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: rgba(6,8,15,0.95); border-bottom: 1px solid var(--accent);
+  padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;
+  z-index: 100; backdrop-filter: blur(10px);
+}
+#hud .logo { font-family: 'Orbitron'; color: var(--accent); font-size: 16px; }
+#hud .stats { display: flex; gap: 20px; font-size: 14px; }
+#hud .stats span { color: var(--accent); }
+#hud .nav-btn {
+  background: transparent; border: 1px solid var(--accent); color: var(--accent);
+  padding: 4px 12px; border-radius: 4px; cursor: pointer; font-family: 'Orbitron'; font-size: 12px;
+}
+#hud .nav-btn:hover { background: rgba(255,107,53,0.1); }
+
+.stage-nav-panel {
+  position: fixed; top: 50px; right: 20px;
+  background: var(--panel); border: 1px solid var(--accent);
+  border-radius: 8px; padding: 16px; z-index: 101;
+  display: none; min-width: 200px;
+}
+.stage-nav-panel.active { display: block; }
+.stage-nav-panel a {
+  display: block; color: var(--text); text-decoration: none;
+  padding: 8px 12px; border-radius: 4px; font-size: 14px; margin: 4px 0;
+}
+.stage-nav-panel a:hover { background: rgba(255,107,53,0.1); color: var(--accent); }
+.stage-nav-panel a.current { border-left: 2px solid var(--accent); color: var(--accent); }
+
+/* Screens */
+.screen { display: none; }
+.screen.active { display: block; }
+
+.title-bar { text-align: center; padding: 30px 0 20px; }
+.title-bar h1 { font-family: 'Orbitron'; font-size: 36px; color: var(--accent); text-shadow: 0 0 20px var(--accent); }
+.title-bar .subtitle { font-size: 14px; color: var(--text-dim); margin-top: 8px; }
+
+.btn {
+  background: var(--accent); color: #000; border: none;
+  padding: 14px 32px; border-radius: 4px;
+  font-family: 'Orbitron'; font-size: 16px; cursor: pointer;
+  transition: all 0.2s; text-decoration: none; display: inline-block;
+}
+.btn:hover { box-shadow: 0 0 30px var(--accent); transform: translateY(-2px); }
+.btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.btn-ghost:hover { background: rgba(255,107,53,0.1); }
+.btn-warn { background: var(--warning); color: #000; border-color: var(--warning); }
+
+.card {
+  background: var(--panel); border: 1px solid rgba(255,107,53,0.2);
+  border-radius: 8px; padding: 24px; margin-bottom: 16px;
+}
+
+.card h2 { font-family: 'Orbitron'; font-size: 20px; color: var(--accent); margin-bottom: 12px; }
+.card h3 { font-family: 'Orbitron'; font-size: 16px; color: var(--accent2); margin: 16px 0 8px; }
+
+.feedback { padding: 12px; border-radius: 6px; margin-top: 12px; font-size: 14px; display: none; }
+.feedback.ok { background: rgba(6,214,160,0.1); border: 1px solid var(--success); color: var(--success); display: block; }
+.feedback.wrong { background: rgba(239,71,111,0.1); border: 1px solid var(--danger); color: var(--danger); display: block; }
+.feedback.info { background: rgba(0,187,249,0.1); border: 1px solid var(--accent2); color: var(--accent2); display: block; }
+
+.quiz-option {
+  display: block; width: 100%; text-align: left;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,53,0.2);
+  color: var(--text); padding: 12px 16px; margin: 8px 0;
+  border-radius: 6px; cursor: pointer; transition: all 0.2s;
+  font-family: inherit; font-size: 14px;
+}
+.quiz-option:hover { border-color: var(--accent); background: rgba(255,107,53,0.05); }
+.quiz-option.correct { border-color: var(--success); background: rgba(6,214,160,0.1); }
+.quiz-option.wrong { border-color: var(--danger); background: rgba(239,71,111,0.1); }
+
+.stage-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+}
+.stage-badge {
+  font-family: 'Orbitron'; font-size: 12px;
+  background: rgba(255,107,53,0.1); border: 1px solid var(--accent);
+  color: var(--accent); padding: 6px 14px; border-radius: 4px;
+}
+
+.game-canvas {
+  background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,107,53,0.3);
+  border-radius: 8px; display: block; margin: 12px auto;
+}
+
+.controls { display: flex; gap: 10px; justify-content: center; margin: 16px 0; flex-wrap: wrap; }
+
+.result-rank {
+  font-family: 'Orbitron'; font-size: 48px; text-align: center;
+  margin: 20px 0;
+}
+.rank-S { color: var(--accent); text-shadow: 0 0 30px var(--accent); }
+.rank-A { color: var(--success); text-shadow: 0 0 20px var(--success); }
+.rank-B { color: var(--warning); }
+.rank-C { color: var(--danger); }
+
+.badge-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin: 20px 0;
+}
+.badge-item {
+  text-align: center; padding: 16px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03);
+}
+.badge-item.earned { border-color: var(--accent); background: rgba(255,107,53,0.05); }
+.badge-item .icon { font-size: 32px; margin-bottom: 8px; }
+.badge-item .name { font-size: 12px; color: var(--text-dim); }
+
+@media (max-width: 768px) {
+  .title-bar h1 { font-size: 24px; }
+  .badge-grid { grid-template-columns: repeat(2, 1fr); }
+  #hud .stats { gap: 10px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<!-- HUD -->
+<div id="hud" style="display:none">
+  <div class="logo">⚡ 动力学指挥部</div>
+  <div class="stats">
+    <div>积分: <span id="score">0</span></div>
+    <div>用时: <span id="timer">00:00</span></div>
+  </div>
+  <button class="nav-btn" onclick="toggleStageNav()">☰</button>
+</div>
+<div class="stage-nav-panel" id="stageNav">
+  <a href="#" onclick="goStage(0);return false">📖 特工手册</a>
+  <a href="#" onclick="goStage(1);return false" id="nav-s1">🏃 Stage 1: 速度追踪</a>
+  <a href="#" onclick="goStage(2);return false" id="nav-s2">💪 Stage 2: 力的辨识</a>
+  <a href="#" onclick="goStage(3);return false" id="nav-s3">🌍 Stage 3: 重力计算</a>
+  <a href="#" onclick="goStage(4);return false" id="nav-s4">🚀 Stage 4: 惯性判断</a>
+  <hr style="border-color:rgba(255,107,53,0.2);margin:8px 0">
+  <a href="tutorial.html">📘 返回教案</a>
+</div>
+
+<div id="app">
+
+  <!-- ========== INTRO ========== -->
+  <div class="screen active" id="intro-screen">
+    <div class="title-bar">
+      <h1>⚡ 动力学指挥部</h1>
+      <div class="subtitle">DYNAMICS COMMAND · 初级特工认证训练</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <p style="font-size:15px;line-height:1.8;margin-bottom:20px">
+        欢迎加入动力学指挥部，特工。<br>
+        运动与力，是物理世界最基本的法则。<br>
+        掌握速度计算、力的辨识、重力分析和惯性判断，<br>
+        你才能在这个世界中自如行动。
+      </p>
+      <div style="margin:24px 0">
+        <div style="display:inline-block;text-align:left;font-size:13px;color:var(--text-dim)">
+          📋 训练科目：<br>
+          &nbsp;&nbsp;Stage 1 — 速度追踪（v=s/t应用）<br>
+          &nbsp;&nbsp;Stage 2 — 力的辨识（三要素判断）<br>
+          &nbsp;&nbsp;Stage 3 — 重力计算（G=mg）<br>
+          &nbsp;&nbsp;Stage 4 — 惯性判断（现象分析）
+        </div>
+      </div>
+      <button class="btn" onclick="startGame()">🚀 开始训练</button>
+    </div>
+  </div>
+
+  <!-- ========== STAGE 1: 速度追踪 ========== -->
+  <div class="screen" id="stage1">
+    <div class="stage-header">
+      <div class="stage-badge">STAGE 1 · 速度追踪</div>
+      <div style="font-size:12px;color:var(--text-dim)">匀速直线运动计算</div>
+    </div>
+    <div class="card">
+      <h2>🏃 任务：追击计算</h2>
+      <p style="font-size:14px;margin-bottom:12px">根据 v=s/t 公式，计算速度、路程或时间，选择正确答案。</p>
+
+      <canvas id="s1-canvas" class="game-canvas" width="600" height="200"></canvas>
+
+      <div id="s1-problem" style="margin:16px 0;font-size:15px"></div>
+      <div id="s1-options"></div>
+      <div class="feedback" id="s1-feedback"></div>
+
+      <div class="controls" style="margin-top:16px">
+        <button class="btn btn-ghost" onclick="s1NewProblem()">🎲 新题目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== STAGE 2: 力的辨识 ========== -->
+  <div class="screen" id="stage2">
+    <div class="stage-header">
+      <div class="stage-badge">STAGE 2 · 力的辨识</div>
+      <div style="font-size:12px;color:var(--text-dim)">力的作用效果与三要素</div>
+    </div>
+    <div class="card">
+      <h2>💪 任务：识别力的作用效果</h2>
+      <p style="font-size:14px;margin-bottom:12px">判断下列场景中，力的作用效果是"改变形状"还是"改变运动状态"。</p>
+
+      <div id="s2-problem" style="margin:16px 0;font-size:16px"></div>
+      <div id="s2-options"></div>
+      <div class="feedback" id="s2-feedback"></div>
+
+      <div class="controls" style="margin-top:16px">
+        <button class="btn btn-ghost" onclick="s2NewProblem()">🎲 新题目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== STAGE 3: 重力计算 ========== -->
+  <div class="screen" id="stage3">
+    <div class="stage-header">
+      <div class="stage-badge">STAGE 3 · 重力计算</div>
+      <div style="font-size:12px;color:var(--text-dim)">G=mg 公式应用</div>
+    </div>
+    <div class="card">
+      <h2>🌍 任务：重力分析</h2>
+      <p style="font-size:14px;margin-bottom:12px">根据质量和重力加速度计算重力，或进行反向推导。（g 取 10 N/kg）</p>
+
+      <canvas id="s3-canvas" class="game-canvas" width="600" height="250"></canvas>
+
+      <div id="s3-problem" style="margin:16px 0;font-size:15px"></div>
+      <div id="s3-options"></div>
+      <div class="feedback" id="s3-feedback"></div>
+
+      <div class="controls" style="margin-top:16px">
+        <button class="btn btn-ghost" onclick="s3NewProblem()">🎲 新题目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== STAGE 4: 惯性判断 ========== -->
+  <div class="screen" id="stage4">
+    <div class="stage-header">
+      <div class="stage-badge">STAGE 4 · 惯性判断</div>
+      <div style="font-size:12px;color:var(--text-dim)">牛顿第一定律与惯性</div>
+    </div>
+    <div class="card">
+      <h2>🚀 任务：惯性现象分析</h2>
+      <p style="font-size:14px;margin-bottom:12px">判断下列现象是否与惯性有关，并选择正确的解释。</p>
+
+      <canvas id="s4-canvas" class="game-canvas" width="600" height="250"></canvas>
+
+      <div id="s4-problem" style="margin:16px 0;font-size:15px"></div>
+      <div id="s4-options"></div>
+      <div class="feedback" id="s4-feedback"></div>
+
+      <div class="controls" style="margin-top:16px">
+        <button class="btn btn-ghost" onclick="s4NewProblem()">🎲 新题目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== END SCREEN ========== -->
+  <div class="screen" id="end-screen">
+    <div class="title-bar">
+      <h1>🏆 训练完成</h1>
+      <div class="subtitle">动力学指挥部初级特工认证报告</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div class="result-rank" id="final-rank">S</div>
+      <div style="font-size:18px;margin-bottom:8px" id="final-title">动力学大师</div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:20px" id="final-desc">完美通关！</div>
+
+      <div style="display:flex;justify-content:center;gap:30px;margin:20px 0;font-size:14px">
+        <div>总积分: <span style="color:var(--accent);font-size:20px" id="final-score">0</span></div>
+        <div>总用时: <span style="color:var(--accent);font-size:20px" id="final-time">00:00</span></div>
+      </div>
+
+      <div class="badge-grid" id="badge-grid">
+        <div class="badge-item" id="badge-1"><div class="icon">🏃</div><div class="name">速度专家</div></div>
+        <div class="badge-item" id="badge-2"><div class="icon">💪</div><div class="name">力学能手</div></div>
+        <div class="badge-item" id="badge-3"><div class="icon">🌍</div><div class="name">重力先锋</div></div>
+        <div class="badge-item" id="badge-4"><div class="icon">🚀</div><div class="name">惯性大师</div></div>
+      </div>
+
+      <div style="margin-top:24px">
+        <button class="btn" onclick="restartGame()">🔄 重新训练</button>
+        <a href="tutorial.html" class="btn btn-ghost">📖 复习教案</a>
+        <a href="../grade8-sem1-ch06/index.html" class="btn" style="margin-left:8px">→ 第六章训练</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ========== Global State ==========
+let score = 0, stage = 0, startTime = 0, timerInterval;
+let badges = [false, false, false, false];
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function toggleStageNav() {
+  document.getElementById('stageNav').classList.toggle('active');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.nav-btn') && !e.target.closest('.stage-nav-panel')) {
+    document.getElementById('stageNav').classList.remove('active');
+  }
+});
+
+function goStage(n) {
+  stage = n;
+  document.getElementById('stageNav').classList.remove('active');
+  if (n === 0) { showScreen('intro-screen'); document.getElementById('hud').style.display = 'none'; }
+  else if (n === 5) { showEnd(); }
+  else {
+    showScreen('stage' + n);
+    document.getElementById('hud').style.display = 'flex';
+    if (n === 1) s1NewProblem();
+    if (n === 2) s2NewProblem();
+    if (n === 3) s3NewProblem();
+    if (n === 4) s4NewProblem();
+  }
+  updateNav();
+}
+
+function updateNav() {
+  document.querySelectorAll('.stage-nav-panel a').forEach((a, i) => {
+    a.classList.toggle('current', i === stage);
+  });
+}
+
+function updateScore(delta) {
+  score += delta;
+  document.getElementById('score').textContent = score;
+}
+
+function startTimer() {
+  startTime = Date.now();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+    const s = (elapsed % 60).toString().padStart(2, '0');
+    document.getElementById('timer').textContent = m + ':' + s;
+  }, 1000);
+}
+
+function startGame() {
+  score = 0; stage = 1; badges = [false, false, false, false];
+  document.getElementById('score').textContent = '0';
+  startTimer();
+  goStage(1);
+}
+
+function restartGame() {
+  score = 0; stage = 0; badges = [false, false, false, false];
+  document.getElementById('score').textContent = '0';
+  clearInterval(timerInterval);
+  document.getElementById('timer').textContent = '00:00';
+  goStage(0);
+}
+
+function showEnd() {
+  clearInterval(timerInterval);
+  showScreen('end-screen');
+  document.getElementById('hud').style.display = 'none';
+
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+  const s = (elapsed % 60).toString().padStart(2, '0');
+  document.getElementById('final-time').textContent = m + ':' + s;
+  document.getElementById('final-score').textContent = score;
+
+  let rank, title, desc;
+  if (score >= 400) { rank = 'S'; title = '动力学大师'; desc = '完美通关！你对运动和力的掌控已臻化境。'; }
+  else if (score >= 300) { rank = 'A'; title = '力学精英'; desc = '表现出色，少量失误不影响大局。'; }
+  else if (score >= 200) { rank = 'B'; title = '合格特工'; desc = '基本掌握，但仍需加强训练。'; }
+  else { rank = 'C'; title = '见习学员'; desc = '建议重新学习教案后再来。'; }
+
+  const rankEl = document.getElementById('final-rank');
+  rankEl.textContent = rank;
+  rankEl.className = 'result-rank rank-' + rank;
+  document.getElementById('final-title').textContent = title;
+  document.getElementById('final-desc').textContent = desc;
+
+  badges.forEach((earned, i) => {
+    document.getElementById('badge-' + (i + 1)).classList.toggle('earned', earned);
+  });
+}
+
+function stageComplete(stageNum) {
+  badges[stageNum - 1] = true;
+  setTimeout(() => {
+    if (stageNum < 4) goStage(stageNum + 1);
+    else showEnd();
+  }, 1500);
+}
+
+// ========== Stage 1: Speed ==========
+let s1answer;
+
+function s1NewProblem() {
+  const types = ['v', 's', 't'];
+  const type = types[Math.floor(Math.random() * types.length)];
+
+  let text, ans;
+  if (type === 'v') {
+    const s = Math.floor(Math.random() * 10 + 2) * 10;
+    const t = Math.floor(Math.random() * 5 + 2);
+    ans = Math.round(s / t * 10) / 10;
+    text = `一辆汽车 ${t} 秒内通过了 ${s} 米的路程，求它的速度。`;
+  } else if (type === 's') {
+    const v = Math.floor(Math.random() * 15 + 5);
+    const t = Math.floor(Math.random() * 6 + 2);
+    ans = v * t;
+    text = `小明以 ${v} m/s 的速度匀速跑步 ${t} 秒，求他跑过的路程。`;
+  } else {
+    const v = Math.floor(Math.random() * 10 + 5);
+    const s = v * Math.floor(Math.random() * 5 + 2);
+    ans = Math.round(s / v * 10) / 10;
+    text = `一辆汽车以 ${v} m/s 的速度行驶了 ${s} 米，求所用时间。`;
+  }
+  s1answer = ans;
+
+  document.getElementById('s1-problem').innerHTML =
+    `<strong>📐 题目：</strong>${text}`;
+
+  const opts = [ans];
+  while (opts.length < 3) {
+    const fake = Math.round((ans * (0.5 + Math.random() * 1.0)) * 10) / 10;
+    if (!opts.includes(fake) && fake > 0) opts.push(fake);
+  }
+  opts.sort(() => Math.random() - 0.5);
+
+  let html = '';
+  opts.forEach((v, i) => {
+    const label = String.fromCharCode(65 + i);
+    html += `<button class="quiz-option" onclick="s1Check('${label}', ${v})">${label}. ${v} ${type === 't' ? 's' : (type === 'v' ? 'm/s' : 'm')}</button>`;
+  });
+  document.getElementById('s1-options').innerHTML = html;
+  document.getElementById('s1-feedback').className = 'feedback';
+  document.getElementById('s1-feedback').style.display = 'none';
+
+  drawS1(type, ans);
+}
+
+function s1Check(label, val) {
+  const parent = document.getElementById('s1-options');
+  const btns = parent.querySelectorAll('.quiz-option');
+  btns.forEach(b => b.classList.remove('correct', 'wrong'));
+
+  const fb = document.getElementById('s1-feedback');
+  if (Math.abs(val - s1answer) < 0.1) {
+    btns.forEach(b => { if (b.textContent.includes(val + '')) b.classList.add('correct'); });
+    fb.className = 'feedback ok';
+    fb.textContent = '✓ 正确！v = s/t，速度=路程÷时间。';
+    updateScore(100);
+    stageComplete(1);
+  } else {
+    btns.forEach(b => { if (b.textContent.includes(val + '')) b.classList.add('wrong'); });
+    fb.className = 'feedback wrong';
+    fb.textContent = '✗ 错误。正确答案是 ' + s1answer + '。记住公式 v = s / t！';
+    updateScore(-10);
+  }
+  fb.style.display = 'block';
+}
+
+function drawS1(type, ans) {
+  const ctx = document.getElementById('s1-canvas').getContext('2d');
+  const w = 600, h = 200;
+  ctx.clearRect(0, 0, w, h);
+
+  // Road
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, h - 60, w, 60);
+  ctx.strokeStyle = 'rgba(255,107,53,0.2)';
+  ctx.beginPath(); ctx.moveTo(0, h - 60); ctx.lineTo(w, h - 60); ctx.stroke();
+
+  // Dashed line
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.setLineDash([20, 20]);
+  ctx.beginPath(); ctx.moveTo(0, h - 30); ctx.lineTo(w, h - 30); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Car
+  const cx = w / 2 - 40, cy = h - 65;
+  ctx.fillStyle = '#ff6b35';
+  ctx.fillRect(cx, cy - 20, 80, 20);
+  ctx.fillStyle = '#aaa';
+  ctx.beginPath(); ctx.arc(cx + 15, cy, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 65, cy, 10, 0, Math.PI * 2); ctx.fill();
+
+  // Formula
+  ctx.fillStyle = '#ff6b35'; ctx.font = '16px Orbitron';
+  ctx.fillText('v = s / t', 40, 40);
+  ctx.fillStyle = '#aaa'; ctx.font = '12px Orbitron';
+  ctx.fillText('速度 = 路程 ÷ 时间', 40, 60);
+}
+
+// ========== Stage 2: Force Effects ==========
+let s2answer, s2explanation;
+
+function s2NewProblem() {
+  const problems = [
+    { text: '用手压气球，气球变扁了。', ans: 'shape', exp: '力改变了气球的形状（形变）。' },
+    { text: '守门员接住飞来的足球。', ans: 'motion', exp: '足球从运动变为静止，运动状态改变。' },
+    { text: '运动员把弓拉弯。', ans: 'shape', exp: '弓的形状发生了改变。' },
+    { text: '踢出去的足球在空中飞行。', ans: 'motion', exp: '足球的运动方向和速度在变化。' },
+    { text: '捏橡皮泥，橡皮泥变形。', ans: 'shape', exp: '力改变了橡皮泥的形状。' },
+    { text: '刹车后汽车停下来。', ans: 'motion', exp: '汽车从运动变为静止，运动状态改变。' }
+  ];
+  const p = problems[Math.floor(Math.random() * problems.length)];
+  s2answer = p.ans;
+  s2explanation = p.exp;
+
+  document.getElementById('s2-problem').innerHTML =
+    `<strong>🔍 场景：</strong>${p.text}<br><span style="color:var(--text-dim);font-size:13px">这个力的作用效果是什么？</span>`;
+
+  document.getElementById('s2-options').innerHTML =
+    `<button class="quiz-option" onclick="s2Check('shape')">📐 改变物体的形状</button>` +
+    `<button class="quiz-option" onclick="s2Check('motion')">🏃 改变物体的运动状态</button>`;
+
+  document.getElementById('s2-feedback').className = 'feedback';
+  document.getElementById('s2-feedback').style.display = 'none';
+}
+
+function s2Check(ans) {
+  const parent = document.getElementById('s2-options');
+  const btns = parent.querySelectorAll('.quiz-option');
+  btns.forEach(b => b.classList.remove('correct', 'wrong'));
+
+  const fb = document.getElementById('s2-feedback');
+  if (ans === s2answer) {
+    btns.forEach(b => { if (b.getAttribute('onclick').includes(ans)) b.classList.add('correct'); });
+    fb.className = 'feedback ok';
+    fb.textContent = '✓ 正确！' + s2explanation;
+    updateScore(100);
+    stageComplete(2);
+  } else {
+    btns.forEach(b => { if (b.getAttribute('onclick').includes(ans)) b.classList.add('wrong'); });
+    fb.className = 'feedback wrong';
+    fb.textContent = '✗ 错误。' + s2explanation;
+    updateScore(-10);
+  }
+  fb.style.display = 'block';
+}
+
+// ========== Stage 3: Gravity ==========
+let s3answer;
+
+function s3NewProblem() {
+  const types = ['G', 'm'];
+  const type = types[Math.floor(Math.random() * types.length)];
+
+  let text, ans;
+  if (type === 'G') {
+    const m = Math.floor(Math.random() * 15 + 2) * 5;
+    ans = m * 10;
+    text = `一个物体的质量是 ${m} kg，求它受到的重力。（g = 10 N/kg）`;
+  } else {
+    const G = Math.floor(Math.random() * 20 + 2) * 50;
+    ans = G / 10;
+    text = `一个物体受到的重力是 ${G} N，求它的质量。（g = 10 N/kg）`;
+  }
+  s3answer = ans;
+
+  document.getElementById('s3-problem').innerHTML =
+    `<strong>📐 题目：</strong>${text}`;
+
+  const opts = [ans];
+  while (opts.length < 3) {
+    const fake = Math.round((ans * (0.5 + Math.random() * 1.0)) * 10) / 10;
+    if (!opts.includes(fake) && fake > 0) opts.push(fake);
+  }
+  opts.sort(() => Math.random() - 0.5);
+
+  let html = '';
+  opts.forEach((v, i) => {
+    const label = String.fromCharCode(65 + i);
+    html += `<button class="quiz-option" onclick="s3Check('${label}', ${v})">${label}. ${v} ${type === 'G' ? 'N' : 'kg'}</button>`;
+  });
+  document.getElementById('s3-options').innerHTML = html;
+  document.getElementById('s3-feedback').className = 'feedback';
+  document.getElementById('s3-feedback').style.display = 'none';
+
+  drawS3(type === 'G' ? ans / 10 : ans, type === 'G' ? ans : null);
+}
+
+function s3Check(label, val) {
+  const parent = document.getElementById('s3-options');
+  const btns = parent.querySelectorAll('.quiz-option');
+  btns.forEach(b => b.classList.remove('correct', 'wrong'));
+
+  const fb = document.getElementById('s3-feedback');
+  if (Math.abs(val - s3answer) < 0.1) {
+    btns.forEach(b => { if (b.textContent.includes(val + '')) b.classList.add('correct'); });
+    fb.className = 'feedback ok';
+    fb.textContent = '✓ 正确！G = mg，重力 = 质量 × g。';
+    updateScore(100);
+    stageComplete(3);
+  } else {
+    btns.forEach(b => { if (b.textContent.includes(val + '')) b.classList.add('wrong'); });
+    fb.className = 'feedback wrong';
+    fb.textContent = '✗ 错误。正确答案是 ' + s3answer + '。记住 G = mg！';
+    updateScore(-10);
+  }
+  fb.style.display = 'block';
+}
+
+function drawS3(mass, G) {
+  const ctx = document.getElementById('s3-canvas').getContext('2d');
+  const w = 600, h = 250;
+  ctx.clearRect(0, 0, w, h);
+
+  const groundY = h - 50;
+  const objY = 60;
+  const size = 20 + mass;
+
+  // Ground
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, groundY, w, 50);
+  ctx.strokeStyle = 'rgba(255,107,53,0.2)';
+  ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(w, groundY); ctx.stroke();
+
+  // Earth
+  ctx.fillStyle = '#00bbf9';
+  ctx.beginPath(); ctx.arc(w / 2, groundY + 70, 50, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#00bbf9'; ctx.font = '14px Orbitron';
+  ctx.fillText('🌍', w / 2 - 10, groundY + 75);
+
+  // Object
+  ctx.fillStyle = '#ff6b35';
+  ctx.fillRect(w / 2 - size / 2, objY, size, size);
+  ctx.fillStyle = '#ff6b35'; ctx.font = '12px Orbitron';
+  ctx.fillText(`${mass.toFixed(1)} kg`, w / 2 - 25, objY - 10);
+
+  // Gravity arrow
+  const arrowLen = G ? Math.min(120, G * 0.15) : 80;
+  ctx.strokeStyle = '#ff6b35'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(w / 2, objY + size); ctx.lineTo(w / 2, objY + size + arrowLen); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w / 2, objY + size + arrowLen);
+  ctx.lineTo(w / 2 - 8, objY + size + arrowLen - 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w / 2, objY + size + arrowLen);
+  ctx.lineTo(w / 2 + 8, objY + size + arrowLen - 10); ctx.stroke();
+  ctx.lineWidth = 1;
+
+  if (G) {
+    ctx.fillStyle = '#ff6b35'; ctx.font = '14px Orbitron';
+    ctx.fillText(`G = ${G} N`, w / 2 + 20, objY + size + arrowLen / 2);
+  }
+
+  ctx.fillStyle = '#aaa'; ctx.font = '12px Orbitron';
+  ctx.fillText('G = mg', 40, 30);
+  ctx.fillText('g = 10 N/kg', 40, 48);
+}
+
+// ========== Stage 4: Inertia ==========
+let s4answer, s4exp;
+
+function s4NewProblem() {
+  const problems = [
+    { text: '汽车急刹车时，乘客向前倾倒。这与惯性有关吗？', ans: 'yes', exp: '✓ 有关！乘客由于惯性保持原来的运动状态，而车已减速。' },
+    { text: '用力拉弹簧，弹簧被拉长。这与惯性有关吗？', ans: 'no', exp: '✗ 无关！这是力改变形状（弹力），不是惯性。' },
+    { text: '抖掉衣服上的灰尘。这与惯性有关吗？', ans: 'yes', exp: '✓ 有关！衣服突然运动，灰尘由于惯性保持静止而脱落。' },
+    { text: '苹果从树上掉下来。这与惯性有关吗？', ans: 'no', exp: '✗ 无关！这是重力作用，不是惯性。' },
+    { text: '锤头松动时，把锤柄在石头上敲几下。这与惯性有关吗？', ans: 'yes', exp: '✓ 有关！锤柄突然停止，锤头由于惯性继续向下运动而紧固。' },
+    { text: '跳远运动员助跑后起跳。这与惯性有关吗？', ans: 'yes', exp: '✓ 有关！助跑获得速度，起跳后由于惯性保持向前运动。' }
+  ];
+  const p = problems[Math.floor(Math.random() * problems.length)];
+  s4answer = p.ans;
+  s4exp = p.exp;
+
+  document.getElementById('s4-problem').innerHTML =
+    `<strong>🔍 现象：</strong>${p.text}`;
+
+  document.getElementById('s4-options').innerHTML =
+    `<button class="quiz-option" onclick="s4Check('yes')">✅ 与惯性有关</button>` +
+    `<button class="quiz-option" onclick="s4Check('no')">❌ 与惯性无关</button>`;
+
+  document.getElementById('s4-feedback').className = 'feedback';
+  document.getElementById('s4-feedback').style.display = 'none';
+
+  drawS4(p.ans === 'yes');
+}
+
+function s4Check(ans) {
+  const parent = document.getElementById('s4-options');
+  const btns = parent.querySelectorAll('.quiz-option');
+  btns.forEach(b => b.classList.remove('correct', 'wrong'));
+
+  const fb = document.getElementById('s4-feedback');
+  if (ans === s4answer) {
+    btns.forEach(b => { if (b.getAttribute('onclick').includes(ans)) b.classList.add('correct'); });
+    fb.className = 'feedback ok';
+    fb.textContent = s4exp;
+    updateScore(100);
+    stageComplete(4);
+  } else {
+    btns.forEach(b => { if (b.getAttribute('onclick').includes(ans)) b.classList.add('wrong'); });
+    fb.className = 'feedback wrong';
+    fb.textContent = s4exp;
+    updateScore(-10);
+  }
+  fb.style.display = 'block';
+}
+
+function drawS4(isInertia) {
+  const ctx = document.getElementById('s4-canvas').getContext('2d');
+  const w = 600, h = 250;
+  ctx.clearRect(0, 0, w, h);
+
+  // Newton portrait area
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillRect(40, 40, 200, 170);
+  ctx.strokeStyle = 'rgba(255,107,53,0.2)';
+  ctx.strokeRect(40, 40, 200, 170);
+
+  ctx.fillStyle = '#ff6b35'; ctx.font = '18px Orbitron';
+  ctx.fillText('🍎', 120, 80);
+  ctx.fillStyle = '#aaa'; ctx.font = '13px Orbitron';
+  ctx.fillText('牛顿第一定律', 80, 110);
+  ctx.fillText('（惯性定律）', 85, 130);
+  ctx.fillStyle = '#ff6b35'; ctx.font = '11px Share Tech Mono';
+  ctx.fillText('一切物体在没有受到', 55, 155);
+  ctx.fillText('力的作用时，总保持', 55, 172);
+  ctx.fillText('静止或匀速直线运动', 55, 189);
+
+  // Inertia illustration
+  if (isInertia) {
+    ctx.fillStyle = '#00f0c8'; ctx.font = '14px Orbitron';
+    ctx.fillText('✓ 惯性现象', 300, 80);
+    ctx.fillStyle = '#aaa'; ctx.font = '12px Share Tech Mono';
+    ctx.fillText('物体保持原有运动状态', 300, 105);
+    ctx.fillText('的性质。', 300, 122);
+
+    // Person in car
+    ctx.fillStyle = '#2d4a3e';
+    ctx.fillRect(300, 160, 200, 30);
+    ctx.fillStyle = '#fcee0a';
+    ctx.beginPath(); ctx.arc(330, 155, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fcee0a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(330, 155); ctx.lineTo(360, 140); ctx.stroke(); // leaning forward
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#00f0c8'; ctx.font = '11px Orbitron';
+    ctx.fillText('← 惯性方向', 380, 145);
+  } else {
+    ctx.fillStyle = '#ffd166'; ctx.font = '14px Orbitron';
+    ctx.fillText('✗ 非惯性现象', 300, 80);
+    ctx.fillStyle = '#aaa'; ctx.font = '12px Share Tech Mono';
+    ctx.fillText('这是其他力的作用效果，', 300, 105);
+    ctx.fillText('与保持运动状态无关。', 300, 122);
+  }
+}
+
+// ========== Init ==========
+showScreen('intro-screen');
+</script>
+</body>
+</html>
