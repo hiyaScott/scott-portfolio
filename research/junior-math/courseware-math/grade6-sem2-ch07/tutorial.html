@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学特工局 · 特工手册 — 可能性</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle { font-size: 14px; color: var(--text-dim); margin-top: 8px; }
+.title-bar .badge {
+  display: inline-block; padding: 4px 16px;
+  background: rgba(0, 245, 212, 0.1);
+  border: 1px solid var(--accent); border-radius: 4px;
+  font-size: 12px; color: var(--accent); margin-top: 12px;
+}
+
+.nav-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 30px; padding: 12px 20px;
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2); border-radius: 8px;
+  backdrop-filter: blur(12px);
+}
+.nav-bar .back-btn { color: var(--accent); text-decoration: none; font-size: 14px; transition: all 0.3s; }
+.nav-bar .back-btn:hover { text-shadow: 0 0 10px var(--accent); }
+.nav-bar .challenge-btn {
+  padding: 8px 20px; background: rgba(239, 71, 111, 0.15);
+  border: 1px solid var(--danger); color: var(--danger);
+  border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 13px;
+  transition: all 0.3s;
+}
+.nav-bar .challenge-btn:hover { background: rgba(239, 71, 111, 0.3); box-shadow: 0 0 15px rgba(239, 71, 111, 0.3); }
+
+.section {
+  margin-bottom: 40px; padding: 24px;
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.15); border-radius: 12px;
+  backdrop-filter: blur(12px); position: relative; overflow: hidden;
+}
+.section::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+}
+
+.section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.section-number {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: 700;
+  color: var(--bg); flex-shrink: 0;
+}
+.section-title {
+  font-family: 'Orbitron', sans-serif; font-size: 18px;
+  color: var(--accent); letter-spacing: 2px;
+}
+
+.section p { line-height: 1.8; margin-bottom: 12px; font-size: 15px; }
+
+.formula-box {
+  background: rgba(0, 245, 212, 0.05);
+  border: 1px solid rgba(0, 245, 212, 0.3); border-radius: 8px;
+  padding: 16px 20px; margin: 16px 0;
+  font-size: 16px; color: var(--accent); text-align: center; letter-spacing: 1px;
+}
+
+.highlight { color: var(--accent); font-weight: bold; }
+
+.demo-area {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 245, 212, 0.2); border-radius: 8px;
+  padding: 20px; margin: 16px 0; text-align: center;
+}
+
+.controls {
+  display: flex; gap: 20px; justify-content: center; align-items: center;
+  flex-wrap: wrap; margin-top: 12px;
+}
+.control-group { display: flex; align-items: center; gap: 8px; }
+.control-group label { font-size: 13px; color: var(--text-dim); }
+.control-group input[type="range"] { width: 120px; }
+.control-group span { font-size: 14px; color: var(--accent); min-width: 40px; }
+
+.btn {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none; border-radius: 6px; color: var(--bg);
+  font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all 0.3s; letter-spacing: 1px;
+}
+.btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 245, 212, 0.3); }
+
+.btn-ghost {
+  padding: 10px 24px; background: transparent;
+  border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); font-family: 'Orbitron', sans-serif; font-size: 13px;
+  cursor: pointer; transition: all 0.3s;
+}
+.btn-ghost:hover { background: rgba(0, 245, 212, 0.1); }
+
+.quiz-section {
+  background: rgba(6, 8, 15, 0.95);
+  border: 2px solid var(--warning); border-radius: 12px;
+  padding: 30px; margin-top: 40px;
+}
+.quiz-section h2 {
+  font-family: 'Orbitron', sans-serif; color: var(--warning);
+  font-size: 20px; margin-bottom: 24px; text-align: center;
+}
+.quiz-item {
+  margin-bottom: 24px; padding: 16px;
+  background: rgba(255, 255, 255, 0.03); border-radius: 8px;
+}
+.quiz-item .q-text { font-size: 15px; margin-bottom: 12px; }
+.quiz-item .options { display: flex; flex-direction: column; gap: 8px; }
+.quiz-item .option {
+  padding: 10px 16px; background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px;
+  cursor: pointer; transition: all 0.3s; font-size: 14px;
+}
+.quiz-item .option:hover { border-color: var(--accent); background: rgba(0, 245, 212, 0.05); }
+.quiz-item .option.correct { border-color: var(--success); background: rgba(6, 214, 160, 0.1); color: var(--success); }
+.quiz-item .option.wrong { border-color: var(--danger); background: rgba(239, 71, 111, 0.1); color: var(--danger); }
+.quiz-item .feedback {
+  margin-top: 8px; font-size: 13px; padding: 8px 12px;
+  border-radius: 4px; display: none;
+}
+.quiz-item .feedback.show { display: block; }
+.quiz-item .feedback.ok { background: rgba(6, 214, 160, 0.1); color: var(--success); }
+.quiz-item .feedback.err { background: rgba(239, 71, 111, 0.1); color: var(--danger); }
+
+.bottom-nav {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 40px; padding: 20px;
+  background: var(--panel); border: 1px solid rgba(0, 245, 212, 0.2); border-radius: 8px;
+}
+.bottom-nav a { color: var(--accent); text-decoration: none; font-size: 14px; transition: all 0.3s; }
+.bottom-nav a:hover { text-shadow: 0 0 10px var(--accent); }
+.bottom-nav .next-chapter {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: var(--bg); border-radius: 6px;
+  font-family: 'Orbitron', sans-serif; font-weight: 700;
+}
+
+canvas { display: block; margin: 0 auto; max-width: 100%; }
+
+.stats-row {
+  display: flex; justify-content: center; gap: 30px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.stats-row span { color: var(--accent); font-weight: bold; }
+
+.event-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  margin: 4px;
+}
+.event-tag.certain { background: rgba(6, 214, 160, 0.15); border: 1px solid var(--success); color: var(--success); }
+.event-tag.impossible { background: rgba(239, 71, 111, 0.15); border: 1px solid var(--danger); color: var(--danger); }
+.event-tag.random { background: rgba(255, 209, 102, 0.15); border: 1px solid var(--warning); color: var(--warning); }
+
+@media (max-width: 768px) {
+  .title-bar h1 { font-size: 22px; letter-spacing: 2px; }
+  .section { padding: 16px; }
+  .controls { flex-direction: column; gap: 12px; }
+  .bottom-nav { flex-direction: column; gap: 12px; text-align: center; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<div id="app">
+  <div class="title-bar">
+    <h1>可能性</h1>
+    <p class="subtitle">数学特工局 · 风险评估中心训练</p>
+    <div class="badge">代号：CHANCE — 第7章</div>
+  </div>
+
+  <div class="nav-bar">
+    <a href="../../index.html" class="back-btn">← 返回数学特工局总部</a>
+    <button class="challenge-btn" onclick="location.href='index.html'">🎮 进入风险评估中心行动</button>
+  </div>
+
+  <!-- 模块1：事件分类 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">1</div>
+      <div class="section-title">事件分类</div>
+    </div>
+    <p>事件分为三类：<span class="highlight">确定事件</span>、<span class="highlight">不可能事件</span>和<span class="highlight">随机事件</span>。</p>
+    <div class="demo-area">
+      <p style="margin-bottom:16px;color:var(--text-dim);">点击事件标签进行分类：</p>
+      <div id="eventClassify">
+        <div class="event-tag random" data-type="random" onclick="classifyEvent(this)" style="cursor:pointer;">掷骰子得到6点</div>
+        <div class="event-tag certain" data-type="certain" onclick="classifyEvent(this)" style="cursor:pointer;">太阳从东方升起</div>
+        <div class="event-tag impossible" data-type="impossible" onclick="classifyEvent(this)" style="cursor:pointer;">水往高处流</div>
+        <div class="event-tag random" data-type="random" onclick="classifyEvent(this)" style="cursor:pointer;">明天会下雨</div>
+        <div class="event-tag certain" data-type="certain" onclick="classifyEvent(this)" style="cursor:pointer;">1+1=2</div>
+        <div class="event-tag impossible" data-type="impossible" onclick="classifyEvent(this)" style="cursor:pointer;">人长出翅膀飞上天</div>
+      </div>
+      <div style="margin-top:16px;font-size:13px;color:var(--text-dim);" id="classifyFeedback">点击上方标签查看分类结果</div>
+    </div>
+  </div>
+
+  <!-- 模块2：可能性大小 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">2</div>
+      <div class="section-title">可能性大小</div>
+    </div>
+    <p>随机事件发生的可能性有大有小，可以用<span class="highlight">分数或百分数</span>表示。</p>
+    <div class="formula-box">
+      P(A) = 事件A可能出现的结果数 / 所有可能出现的结果数
+    </div>
+    <div class="demo-area">
+      <canvas id="probCanvas" width="400" height="200"></canvas>
+      <div class="stats-row">
+        红球: <span id="redCount">3</span>个 | 
+        黄球: <span id="yellowCount">2</span>个 | 
+        总球数: <span id="totalBalls">5</span>个
+      </div>
+      <div class="stats-row" style="margin-top:4px;">
+        摸出红球概率: <span id="redProb">60%</span> | 
+        摸出黄球概率: <span id="yellowProb">40%</span>
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <label>红球:</label>
+          <input type="range" id="redSlider" min="0" max="10" value="3">
+          <span id="redVal">3</span>
+        </div>
+        <div class="control-group">
+          <label>黄球:</label>
+          <input type="range" id="yellowSlider" min="0" max="10" value="2">
+          <span id="yellowVal">2</span>
+        </div>
+        <button class="btn" onclick="simulateDraw()">摸球试验</button>
+        <button class="btn-ghost" onclick="resetDraw()">重置</button>
+      </div>
+      <div style="margin-top:12px;font-size:13px;color:var(--text-dim);" id="drawResult">点击"摸球试验"进行模拟</div>
+    </div>
+  </div>
+
+  <!-- 模块3：频率估计 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">3</div>
+      <div class="section-title">频率估计概率</div>
+    </div>
+    <p>通过大量重复试验，可以用<span class="highlight">频率</span>来估计<span class="highlight">概率</span>。</p>
+    <p>当试验次数足够多时，频率会稳定在概率附近。</p>
+    <div class="demo-area">
+      <canvas id="freqCanvas" width="500" height="220"></canvas>
+      <div class="controls">
+        <button class="btn" onclick="startCoinFlip()">开始抛硬币模拟</button>
+        <button class="btn-ghost" onclick="resetCoin()">重置</button>
+      </div>
+      <div class="stats-row" style="margin-top:8px;">
+        试验次数: <span id="flipCount">0</span> | 
+        正面频率: <span id="headFreq">0%</span> | 
+        反面频率: <span id="tailFreq">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模块4：战术总结 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">4</div>
+      <div class="section-title">战术总结</div>
+    </div>
+    <div class="formula-box">
+      <div style="margin-bottom:8px;"><strong>事件分类</strong></div>
+      <div style="margin-bottom:8px;">确定事件 → 一定发生（概率=1）</div>
+      <div style="margin-bottom:8px;">不可能事件 → 一定不发生（概率=0）</div>
+      <div style="margin-bottom:16px;">随机事件 → 可能发生也可能不发生（0＜概率＜1）</div>
+      <div style="margin-bottom:8px;"><strong>概率计算</strong></div>
+      <div>P = 有利结果数 / 总结果数</div>
+    </div>
+  </div>
+
+  <!-- 随堂测验 -->
+  <div class="quiz-section">
+    <h2>⚡ 随堂测验</h2>
+    <div id="quiz-container"></div>
+  </div>
+
+  <!-- 底部导航 -->
+  <div class="bottom-nav">
+    <a href="../grade6-sem2-ch06/tutorial.html">← 上一章：圆与扇形</a>
+    <a href="../grade6-sem2-ch08/tutorial.html" class="next-chapter">下一章：统计图表 →</a>
+  </div>
+</div>
+
+<script>
+// 模块1：事件分类
+function classifyEvent(el) {
+  const type = el.dataset.type;
+  const names = { certain: '确定事件', impossible: '不可能事件', random: '随机事件' };
+  const colors = { certain: 'var(--success)', impossible: 'var(--danger)', random: 'var(--warning)' };
+  document.getElementById('classifyFeedback').innerHTML = 
+    `<span style="color:${colors[type]}">${el.textContent}</span> → ${names[type]}`;
+}
+
+// 模块2：摸球概率
+const probCanvas = document.getElementById('probCanvas');
+const probCtx = probCanvas.getContext('2d');
+
+function drawBalls() {
+  const red = parseInt(document.getElementById('redSlider').value);
+  const yellow = parseInt(document.getElementById('yellowSlider').value);
+  const total = red + yellow;
+  
+  document.getElementById('redVal').textContent = red;
+  document.getElementById('yellowVal').textContent = yellow;
+  document.getElementById('redCount').textContent = red;
+  document.getElementById('yellowCount').textContent = yellow;
+  document.getElementById('totalBalls').textContent = total;
+  
+  const redProb = total > 0 ? (red / total * 100).toFixed(1) : 0;
+  const yellowProb = total > 0 ? (yellow / total * 100).toFixed(1) : 0;
+  document.getElementById('redProb').textContent = redProb + '%';
+  document.getElementById('yellowProb').textContent = yellowProb + '%';
+  
+  probCtx.clearRect(0, 0, 400, 200);
+  
+  const cx = 200, cy = 100;
+  const radius = 80;
+  
+  // 容器
+  probCtx.strokeStyle = 'rgba(0, 245, 212, 0.3)';
+  probCtx.lineWidth = 2;
+  probCtx.beginPath();
+  probCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+  probCtx.stroke();
+  
+  // 画球
+  const ballRadius = 12;
+  const positions = [];
+  for (let i = 0; i < total; i++) {
+    const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
+    const r = radius * 0.6;
+    positions.push({
+      x: cx + r * Math.cos(angle),
+      y: cy + r * Math.sin(angle),
+      color: i < red ? '#ef476f' : '#ffd166'
+    });
+  }
+  
+  positions.forEach(pos => {
+    probCtx.fillStyle = pos.color;
+    probCtx.beginPath();
+    probCtx.arc(pos.x, pos.y, ballRadius, 0, Math.PI * 2);
+    probCtx.fill();
+    probCtx.strokeStyle = 'rgba(255,255,255,0.3)';
+    probCtx.lineWidth = 1;
+    probCtx.stroke();
+  });
+}
+
+let drawHistory = { red: 0, yellow: 0, total: 0 };
+
+function simulateDraw() {
+  const red = parseInt(document.getElementById('redSlider').value);
+  const yellow = parseInt(document.getElementById('yellowSlider').value);
+  const total = red + yellow;
+  
+  if (total === 0) return;
+  
+  const rand = Math.random() * total;
+  const isRed = rand < red;
+  
+  if (isRed) drawHistory.red++;
+  else drawHistory.yellow++;
+  drawHistory.total++;
+  
+  const freq = isRed ? 
+    (drawHistory.red / drawHistory.total * 100).toFixed(1) :
+    (drawHistory.yellow / drawHistory.total * 100).toFixed(1);
+  
+  document.getElementById('drawResult').innerHTML = 
+    `第 ${drawHistory.total} 次摸出: <span style="color:${isRed ? 'var(--danger)' : 'var(--warning)'};font-weight:bold;">${isRed ? '红球' : '黄球'}</span> | ` +
+    `红球频率: ${(drawHistory.red/drawHistory.total*100).toFixed(1)}% | ` +
+    `黄球频率: ${(drawHistory.yellow/drawHistory.total*100).toFixed(1)}%`;
+}
+
+function resetDraw() {
+  drawHistory = { red: 0, yellow: 0, total: 0 };
+  document.getElementById('drawResult').textContent = '点击"摸球试验"进行模拟';
+}
+
+document.getElementById('redSlider').addEventListener('input', drawBalls);
+document.getElementById('yellowSlider').addEventListener('input', drawBalls);
+drawBalls();
+
+// 模块3：频率估计
+const freqCanvas = document.getElementById('freqCanvas');
+const freqCtx = freqCanvas.getContext('2d');
+let flipData = [];
+let flipAnimId = null;
+let isFlipping = false;
+
+function drawFreqChart() {
+  freqCtx.clearRect(0, 0, 500, 220);
+  
+  const padding = 40;
+  const chartW = 500 - padding * 2;
+  const chartH = 180 - padding;
+  
+  // 坐标轴
+  freqCtx.strokeStyle = 'rgba(0, 245, 212, 0.3)';
+  freqCtx.lineWidth = 1;
+  freqCtx.beginPath();
+  freqCtx.moveTo(padding, 20);
+  freqCtx.lineTo(padding, 180);
+  freqCtx.lineTo(500 - padding, 180);
+  freqCtx.stroke();
+  
+  // 0.5线
+  freqCtx.strokeStyle = 'rgba(255, 209, 102, 0.3)';
+  freqCtx.setLineDash([5, 5]);
+  freqCtx.beginPath();
+  freqCtx.moveTo(padding, 20 + chartH / 2);
+  freqCtx.lineTo(500 - padding, 20 + chartH / 2);
+  freqCtx.stroke();
+  freqCtx.setLineDash([]);
+  
+  // 画频率曲线
+  if (flipData.length > 1) {
+    freqCtx.strokeStyle = '#00f5d4';
+    freqCtx.lineWidth = 2;
+    freqCtx.beginPath();
+    
+    flipData.forEach((freq, i) => {
+      const x = padding + (i / (flipData.length - 1)) * chartW;
+      const y = 20 + chartH - freq * chartH;
+      if (i === 0) freqCtx.moveTo(x, y);
+      else freqCtx.lineTo(x, y);
+    });
+    freqCtx.stroke();
+  }
+  
+  // 标签
+  freqCtx.fillStyle = '#ffd166';
+  freqCtx.font = '12px "Share Tech Mono"';
+  freqCtx.fillText('1.0', padding - 25, 25);
+  freqCtx.fillText('0.5', padding - 25, 20 + chartH / 2 + 4);
+  freqCtx.fillText('0', padding - 15, 180);
+  freqCtx.fillText('次数→', 500 - padding - 30, 195);
+}
+
+function startCoinFlip() {
+  if (isFlipping) return;
+  isFlipping = true;
+  flipData = [];
+  let heads = 0;
+  let count = 0;
+  const maxFlips = 200;
+  
+  function flip() {
+    count++;
+    if (Math.random() < 0.5) heads++;
+    flipData.push(heads / count);
+    
+    document.getElementById('flipCount').textContent = count;
+    document.getElementById('headFreq').textContent = (heads / count * 100).toFixed(1) + '%';
+    document.getElementById('tailFreq').textContent = ((count - heads) / count * 100).toFixed(1) + '%';
+    
+    drawFreqChart();
+    
+    if (count < maxFlips) {
+      flipAnimId = requestAnimationFrame(flip);
+    } else {
+      isFlipping = false;
+    }
+  }
+  
+  flip();
+}
+
+function resetCoin() {
+  isFlipping = false;
+  cancelAnimationFrame(flipAnimId);
+  flipData = [];
+  document.getElementById('flipCount').textContent = '0';
+  document.getElementById('headFreq').textContent = '0%';
+  document.getElementById('tailFreq').textContent = '0%';
+  drawFreqChart();
+}
+
+drawFreqChart();
+
+// 随堂测验
+const quizData = [
+  {
+    q: "下列事件中，属于随机事件的是？",
+    options: ["太阳从西边升起", "掷硬币正面朝上", "水在0°C结冰", "三角形内角和为180°"],
+    correct: 1,
+    explanation: "掷硬币正面朝上是随机事件，可能发生也可能不发生。"
+  },
+  {
+    q: "袋中有3个红球、2个白球，摸出红球的概率是多少？",
+    options: ["3/5", "2/5", "1/2", "1/5"],
+    correct: 0,
+    explanation: "P(红球) = 3/(3+2) = 3/5"
+  },
+  {
+    q: "掷一枚骰子，得到偶数点的概率是多少？",
+    options: ["1/6", "1/3", "1/2", "2/3"],
+    correct: 2,
+    explanation: "偶数点有2,4,6共3个，P = 3/6 = 1/2"
+  }
+];
+
+const quizContainer = document.getElementById('quiz-container');
+quizData.forEach((item, idx) => {
+  const div = document.createElement('div');
+  div.className = 'quiz-item';
+  div.innerHTML = `
+    <div class="q-text">${idx + 1}. ${item.q}</div>
+    <div class="options" id="q${idx}">
+      ${item.options.map((opt, i) => `<div class="option" onclick="checkQ(${idx}, ${i})">${String.fromCharCode(65 + i)}. ${opt}</div>`).join('')}
+    </div>
+    <div class="feedback" id="f${idx}"></div>
+  `;
+  quizContainer.appendChild(div);
+});
+
+function checkQ(qIdx, optIdx) {
+  const item = quizData[qIdx];
+  const options = document.querySelectorAll(`#q${qIdx} .option`);
+  const feedback = document.getElementById(`f${qIdx}`);
+  
+  options.forEach((opt, i) => {
+    opt.style.pointerEvents = 'none';
+    if (i === item.correct) opt.classList.add('correct');
+    else if (i === optIdx && i !== item.correct) opt.classList.add('wrong');
+  });
+  
+  feedback.textContent = item.explanation;
+  feedback.className = 'feedback show ' + (optIdx === item.correct ? 'ok' : 'err');
+}
+</script>
+</body>
+</html>

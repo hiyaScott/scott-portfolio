@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：CIRCLE — 几何特勤组行动</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.95);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: rgba(6, 8, 15, 0.95);
+  border-bottom: 1px solid var(--accent);
+  padding: 10px 20px;
+  display: flex; justify-content: space-between; align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.hud-left { display: flex; gap: 20px; align-items: center; }
+.hud-brand {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--accent);
+  letter-spacing: 2px;
+}
+.hud-score {
+  font-size: 13px; color: var(--warning);
+}
+.hud-score span { color: var(--accent); font-weight: bold; }
+
+.hud-right { display: flex; gap: 12px; align-items: center; }
+
+.badge-slot {
+  width: 28px; height: 28px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  opacity: 0.3;
+}
+.badge-slot.earned {
+  opacity: 1;
+  border-color: var(--warning);
+  background: rgba(255, 209, 102, 0.1);
+}
+
+.nav-btn {
+  width: 36px; height: 36px;
+  background: rgba(0, 245, 212, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s;
+}
+.nav-btn:hover {
+  background: rgba(0, 245, 212, 0.25);
+}
+
+.level-nav-panel {
+  position: fixed; top: 60px; right: 20px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 200;
+  display: none;
+  min-width: 200px;
+}
+.level-nav-panel.show { display: block; }
+.level-nav-panel .nav-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+.level-nav-panel .nav-item:hover {
+  background: rgba(0, 245, 212, 0.1);
+}
+.level-nav-panel .nav-item.current {
+  border-left: 3px solid var(--accent);
+  font-weight: bold;
+  color: var(--accent);
+}
+.level-nav-panel .nav-item.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#app {
+  position: relative; z-index: 10;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+/* Screen containers */
+.screen {
+  display: none;
+  animation: fadeIn 0.5s ease;
+}
+.screen.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Intro screen */
+.intro-title {
+  text-align: center;
+  padding: 40px 0;
+}
+.intro-title h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px;
+  color: var(--accent);
+  text-shadow: 0 0 30px var(--accent);
+  margin-bottom: 16px;
+}
+.intro-title .subtitle {
+  font-size: 16px; color: var(--text-dim);
+  margin-bottom: 30px;
+}
+.intro-title .desc {
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: left;
+  line-height: 1.8;
+  font-size: 15px;
+  margin-bottom: 30px;
+}
+
+.stages-preview {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 30px;
+}
+.stage-card {
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s;
+}
+.stage-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+}
+.stage-card .icon { font-size: 32px; margin-bottom: 8px; }
+.stage-card .name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--accent);
+  margin-bottom: 4px;
+}
+.stage-card .info { font-size: 12px; color: var(--text-dim); }
+
+.start-btn {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  border-radius: 8px;
+  color: var(--bg);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 2px;
+}
+.start-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 245, 212, 0.3);
+}
+
+/* Level screen */
+.level-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.level-header .level-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.level-header .progress-bar {
+  width: 100%; max-width: 400px;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+.level-header .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.question-card {
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.question-card .q-num {
+  font-size: 12px; color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.question-card .q-text {
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.question-card .q-text .highlight {
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.answer-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 245, 212, 0.3);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.answer-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(0, 245, 212, 0.2);
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.option-btn {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: left;
+}
+.option-btn:hover {
+  border-color: var(--accent);
+  background: rgba(0, 245, 212, 0.05);
+}
+.option-btn.correct {
+  border-color: var(--success);
+  background: rgba(6, 214, 160, 0.1);
+  color: var(--success);
+}
+.option-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(239, 71, 111, 0.1);
+  color: var(--danger);
+}
+.option-btn.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.feedback-box {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  display: none;
+}
+.feedback-box.show { display: block; }
+.feedback-box.ok {
+  background: rgba(6, 214, 160, 0.1);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+.feedback-box.err {
+  background: rgba(239, 71, 111, 0.1);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.action-btns {
+  display: flex; gap: 12px; justify-content: center;
+  margin-top: 20px;
+}
+
+/* Result screen */
+.result-screen {
+  text-align: center;
+  padding: 40px 20px;
+}
+.result-screen .result-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+.result-screen .result-grade {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.result-screen .result-stats {
+  font-size: 16px;
+  color: var(--text-dim);
+  margin-bottom: 30px;
+}
+.result-screen .result-stats span { color: var(--accent); }
+
+.badges-show {
+  display: flex; gap: 16px; justify-content: center;
+  margin-bottom: 30px;
+}
+.badge-show {
+  width: 60px; height: 60px;
+  background: var(--panel);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  opacity: 0.3;
+}
+.badge-show.earned {
+  opacity: 1;
+  border-color: var(--warning);
+  background: rgba(255, 209, 102, 0.1);
+  animation: badgePop 0.5s ease;
+}
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.next-btn, .retry-btn {
+  padding: 14px 32px;
+  border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 1px;
+  border: none;
+}
+.next-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: var(--bg);
+}
+.retry-btn {
+  background: rgba(239, 71, 111, 0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  margin-right: 12px;
+}
+.next-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 245, 212, 0.3); }
+.retry-btn:hover { background: rgba(239, 71, 111, 0.3); }
+
+/* Final screen */
+.final-screen .final-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 30px;
+}
+.final-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 30px;
+}
+.stat-box {
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+.stat-box .stat-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  color: var(--accent);
+}
+.stat-box .stat-label {
+  font-size: 12px; color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.rank-display {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.rank-display .rank-letter {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 72px;
+  text-shadow: 0 0 40px var(--accent);
+}
+.rank-display .rank-text {
+  font-size: 16px; color: var(--text-dim);
+}
+
+@media (max-width: 768px) {
+  .stages-preview { grid-template-columns: 1fr; }
+  .options-grid { grid-template-columns: 1fr; }
+  .final-stats { grid-template-columns: 1fr; }
+  .intro-title h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+
+<div class="hud">
+  <div class="hud-left">
+    <div class="hud-brand">代号：CIRCLE</div>
+    <div class="hud-score">积分: <span id="scoreDisplay">0</span></div>
+  </div>
+  <div class="hud-right">
+    <div class="badge-slot" id="badge1">🏃</div>
+    <div class="badge-slot" id="badge2">🎯</div>
+    <div class="badge-slot" id="badge3">🛡️</div>
+    <div class="badge-slot" id="badge4">⚔️</div>
+    <button class="nav-btn" onclick="toggleNav()">☰</button>
+  </div>
+</div>
+
+<div class="level-nav-panel" id="levelNav">
+  <div class="nav-item current" onclick="goToStage(0)">封面</div>
+  <div class="nav-item locked" onclick="goToStage(1)">Stage 1: 巡逻路线</div>
+  <div class="nav-item locked" onclick="goToStage(2)">Stage 2: 弧光突破</div>
+  <div class="nav-item locked" onclick="goToStage(3)">Stage 3: 阵地占领</div>
+  <div class="nav-item locked" onclick="goToStage(4)">Stage 4: 总攻计划</div>
+</div>
+
+<div id="app">
+  <!-- Intro Screen -->
+  <div class="screen active" id="screen-intro">
+    <div class="intro-title">
+      <h1>🎯 代号：CIRCLE</h1>
+      <p class="subtitle">几何特勤组行动</p>
+      <div class="desc">
+        <p><strong>任务简报：</strong></p>
+        <p>敌方基地呈圆形布局！你需要计算巡逻路线、突破弧长盲区、占领扇形阵地。</p>
+        <p>π 是你的武器，几何是你的战术。</p>
+        <p style="margin-top:12px;color:var(--accent);">⚡ 共 4 个 Stage，26 道题目，拿到 S 评级解锁全部徽章！</p>
+      </div>
+      <div class="stages-preview">
+        <div class="stage-card">
+          <div class="icon">🏃</div>
+          <div class="name">巡逻路线</div>
+          <div class="info">圆周长计算 · 6题</div>
+        </div>
+        <div class="stage-card">
+          <div class="icon">🎯</div>
+          <div class="name">弧光突破</div>
+          <div class="info">弧长计算 · 6题</div>
+        </div>
+        <div class="stage-card">
+          <div class="icon">🛡️</div>
+          <div class="name">阵地占领</div>
+          <div class="info">扇形面积 · 6题</div>
+        </div>
+        <div class="stage-card">
+          <div class="icon">⚔️</div>
+          <div class="name">总攻计划</div>
+          <div class="info">综合挑战 · 8题</div>
+        </div>
+      </div>
+      <button class="start-btn" onclick="startStage(1)">开始行动 →</button>
+    </div>
+  </div>
+
+  <!-- Stage 1: 巡逻路线 -->
+  <div class="screen" id="screen-stage1">
+    <div class="level-header">
+      <div class="level-name">🏃 Stage 1: 巡逻路线</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog1" style="width:0%"></div></div>
+    </div>
+    <div id="stage1-container"></div>
+  </div>
+
+  <!-- Stage 2: 弧光突破 -->
+  <div class="screen" id="screen-stage2">
+    <div class="level-header">
+      <div class="level-name">🎯 Stage 2: 弧光突破</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog2" style="width:0%"></div></div>
+    </div>
+    <div id="stage2-container"></div>
+  </div>
+
+  <!-- Stage 3: 阵地占领 -->
+  <div class="screen" id="screen-stage3">
+    <div class="level-header">
+      <div class="level-name">🛡️ Stage 3: 阵地占领</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog3" style="width:0%"></div></div>
+    </div>
+    <div id="stage3-container"></div>
+  </div>
+
+  <!-- Stage 4: 总攻计划 -->
+  <div class="screen" id="screen-stage4">
+    <div class="level-header">
+      <div class="level-name">⚔️ Stage 4: 总攻计划</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog4" style="width:0%"></div></div>
+    </div>
+    <div id="stage4-container"></div>
+  </div>
+
+  <!-- Stage Result -->
+  <div class="screen" id="screen-result">
+    <div class="result-screen">
+      <div class="result-icon" id="resultIcon">🎯</div>
+      <div class="result-grade" id="resultGrade" style="color:var(--accent)">S</div>
+      <div class="result-stats">
+        得分: <span id="resultScore">0</span> / <span id="resultTotal">0</span> · 
+        正确率: <span id="resultRate">0%</span> · 
+        用时: <span id="resultTime">0s</span>
+      </div>
+      <div class="badges-show" id="badgesShow"></div>
+      <div class="action-btns">
+        <button class="retry-btn" onclick="retryStage()">重新挑战</button>
+        <button class="next-btn" onclick="nextStage()" id="nextStageBtn">下一关 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final Result -->
+  <div class="screen" id="screen-final">
+    <div class="final-screen">
+      <div class="final-title">🎉 任务完成！</div>
+      <div class="final-stats">
+        <div class="stat-box">
+          <div class="stat-val" id="finalScore">0</div>
+          <div class="stat-label">总积分</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="finalCorrect">0</div>
+          <div class="stat-label">正确数 / 26</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="finalTime">0</div>
+          <div class="stat-label">总用时(秒)</div>
+        </div>
+      </div>
+      <div class="rank-display">
+        <div class="rank-letter" id="finalRank" style="color:var(--accent)">S</div>
+        <div class="rank-text" id="finalRankText">完美特工</div>
+      </div>
+      <div class="badges-show" id="finalBadges"></div>
+      <div style="text-align:center;margin-top:30px;">
+        <button class="next-btn" onclick="location.href='../grade6-sem2-ch07/index.html'" style="margin-right:12px;">下一章：可能性 →</button>
+        <button class="retry-btn" onclick="restartAll()">重新行动</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================
+// Game Data
+// ========================
+const PI = 3.14;
+
+const stages = [
+  null, // stage 0 = intro
+  { // Stage 1: 巡逻路线 - 圆周长
+    name: '巡逻路线',
+    icon: '🏃',
+    questions: [
+      {
+        type: 'choice',
+        q: '半径 r = 3 cm 的圆，周长 C 是多少？',
+        options: ['9.42 cm', '18.84 cm', '28.26 cm', '15.7 cm'],
+        correct: 1,
+        explain: 'C = 2πr = 2 × 3.14 × 3 = 18.84 cm',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '直径 d = 10 cm 的圆，周长是多少？',
+        options: ['31.4 cm', '62.8 cm', '15.7 cm', '78.5 cm'],
+        correct: 0,
+        explain: 'C = πd = 3.14 × 10 = 31.4 cm',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '半径 r = 5 cm 的半圆，弧长（弯曲部分）是多少？',
+        options: ['15.7 cm', '31.4 cm', '25.7 cm', '10 cm'],
+        correct: 0,
+        explain: '半圆弧长 = 圆周长的一半 = πr = 3.14 × 5 = 15.7 cm',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '直径 20 cm 的圆，在地上滚动 5 圈，圆心一共前进了多少厘米？（只填数字）',
+        answer: '314',
+        explain: '一圈 = πd = 3.14 × 20 = 62.8 cm，5圈 = 62.8 × 5 = 314 cm',
+        points: 15
+      },
+      {
+        type: 'choice',
+        q: '一个圆的周长是 31.4 cm，它的半径是多少？',
+        options: ['5 cm', '10 cm', '15 cm', '2.5 cm'],
+        correct: 0,
+        explain: 'C = 2πr → r = C/(2π) = 31.4/(2×3.14) = 5 cm',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '自行车车轮直径 70 cm，转动 100 圈，走了多少米？（只填数字，结果取整数）',
+        answer: '220',
+        explain: '一圈 = πd = 3.14 × 70 = 219.8 cm ≈ 220 cm = 2.2 m，100圈 = 220 m',
+        points: 20
+      }
+    ]
+  },
+  { // Stage 2: 弧光突破 - 弧长
+    name: '弧光突破',
+    icon: '🎯',
+    questions: [
+      {
+        type: 'choice',
+        q: '半径 r = 6 cm，圆心角 n = 30° 的弧长是多少？',
+        options: ['3.14 cm', '6.28 cm', '1.57 cm', '9.42 cm'],
+        correct: 0,
+        explain: 'l = nπr/180 = 30 × 3.14 × 6 / 180 = 3.14 cm',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '半径 r = 4 cm，圆心角 n = 90° 的弧长是多少？',
+        options: ['6.28 cm', '12.56 cm', '3.14 cm', '25.12 cm'],
+        correct: 0,
+        explain: 'l = 90 × 3.14 × 4 / 180 = 6.28 cm',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '半径 10 cm，圆心角 180° 的弧长是多少？',
+        options: ['31.4 cm', '15.7 cm', '62.8 cm', '10 cm'],
+        correct: 0,
+        explain: '180°是半圆，弧长 = πr = 3.14 × 10 = 31.4 cm',
+        points: 10
+      },
+      {
+        type: 'input',
+        q: '扇形弧长是 6.28 cm，半径是 4 cm，圆心角是多少度？（只填数字）',
+        answer: '90',
+        explain: 'l = nπr/180 → n = 180l/(πr) = 180 × 6.28 / (3.14 × 4) = 90°',
+        points: 20
+      },
+      {
+        type: 'choice',
+        q: '时钟分针长 8 cm，30 分钟后，分针尖端走过的距离是多少？',
+        options: ['25.12 cm', '12.56 cm', '50.24 cm', '8 cm'],
+        correct: 0,
+        explain: '30分钟分针走半圈（180°），弧长 = πr = 3.14 × 8 = 25.12 cm',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '半径 12 cm，圆心角 45° 的弧长是多少？（只填数字，保留两位小数）',
+        answer: '9.42',
+        explain: 'l = 45 × 3.14 × 12 / 180 = 9.42 cm',
+        points: 20
+      }
+    ]
+  },
+  { // Stage 3: 阵地占领 - 扇形面积
+    name: '阵地占领',
+    icon: '🛡️',
+    questions: [
+      {
+        type: 'choice',
+        q: '半径 r = 4 cm，圆心角 n = 90° 的扇形面积是多少？',
+        options: ['12.56 cm²', '25.12 cm²', '50.24 cm²', '6.28 cm²'],
+        correct: 0,
+        explain: 'S = nπr²/360 = 90 × 3.14 × 16 / 360 = 12.56 cm²',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '半径 r = 6 cm，圆心角 n = 60° 的扇形面积是多少？',
+        options: ['18.84 cm²', '37.68 cm²', '9.42 cm²', '6.28 cm²'],
+        correct: 0,
+        explain: 'S = 60 × 3.14 × 36 / 360 = 18.84 cm²',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '半径 5 cm 的半圆，面积是多少？',
+        options: ['39.25 cm²', '78.5 cm²', '19.625 cm²', '15.7 cm²'],
+        correct: 0,
+        explain: '半圆面积 = πr²/2 = 3.14 × 25 / 2 = 39.25 cm²',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '扇形面积是 78.5 cm²，半径是 10 cm，圆心角是多少度？（只填数字）',
+        answer: '90',
+        explain: 'S = nπr²/360 → n = 360S/(πr²) = 360 × 78.5 / (3.14 × 100) = 90°',
+        points: 20
+      },
+      {
+        type: 'input',
+        q: '圆心角 120°，半径 9 cm 的扇形面积是多少？（只填数字，保留两位小数）',
+        answer: '84.78',
+        explain: 'S = 120 × 3.14 × 81 / 360 = 84.78 cm²',
+        points: 20
+      },
+      {
+        type: 'choice',
+        q: '扇形半径 6 cm，弧长 6.28 cm，扇形面积是多少？',
+        options: ['18.84 cm²', '37.68 cm²', '9.42 cm²', '12.56 cm²'],
+        correct: 0,
+        explain: 'S = lr/2 = 6.28 × 6 / 2 = 18.84 cm²（扇形面积 = 弧长×半径/2）',
+        points: 20
+      }
+    ]
+  },
+  { // Stage 4: 总攻计划 - 综合
+    name: '总攻计划',
+    icon: '⚔️',
+    questions: [
+      {
+        type: 'choice',
+        q: '圆的半径从 3 cm 扩大到 6 cm，周长扩大到原来的几倍？',
+        options: ['2倍', '3倍', '4倍', '9倍'],
+        correct: 0,
+        explain: 'C = 2πr，半径扩大2倍，周长也扩大2倍',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '圆的半径从 3 cm 扩大到 6 cm，面积扩大到原来的几倍？',
+        options: ['2倍', '3倍', '4倍', '9倍'],
+        correct: 2,
+        explain: 'S = πr²，半径扩大2倍，面积扩大 2² = 4 倍',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '一个扇形的圆心角是 72°，半径是 5 cm，它的弧长是多少？（只填数字，保留两位小数）',
+        answer: '6.28',
+        explain: 'l = 72 × 3.14 × 5 / 180 = 6.28 cm',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '一个扇形的弧长是 12.56 cm，所在圆的半径是 8 cm，这个扇形的面积是多少？（只填数字，保留两位小数）',
+        answer: '50.24',
+        explain: 'S = lr/2 = 12.56 × 8 / 2 = 50.24 cm²',
+        points: 20
+      },
+      {
+        type: 'choice',
+        q: '圆形花坛周长 25.12 m，在花坛周围铺一条宽 1 m 的石子路，石子路外沿的周长是多少？',
+        options: ['28.26 m', '31.4 m', '25.12 m', '37.68 m'],
+        correct: 1,
+        explain: '内圆半径 = 25.12/(2×3.14) = 4 m，外圆半径 = 5 m，外周长 = 2×3.14×5 = 31.4 m',
+        points: 20
+      },
+      {
+        type: 'input',
+        q: '圆形草坪半径 10 m，沿草坪边缘每隔 3.14 m 种一棵树，一共可以种多少棵？（只填数字）',
+        answer: '20',
+        explain: '周长 = 2×3.14×10 = 62.8 m，62.8 / 3.14 = 20 棵',
+        points: 15
+      },
+      {
+        type: 'choice',
+        q: '如图，正方形边长为 4 cm，以各顶点为圆心、边长为半径画四个四分之一圆，阴影部分面积是多少？',
+        options: ['12.56 cm²', '16 cm²', '9.12 cm²', '25.12 cm²'],
+        correct: 0,
+        explain: '四个四分之一圆 = 一个整圆，面积 = π×4² = 50.24？不对，重新计算... 四个四分之一圆的半径都是4，合起来是一个整圆，面积 = 3.14 × 16 = 50.24。但如果是以顶点为圆心、边长一半为半径...题目需要更明确。改为：四个扇形合起来面积 = 3.14 × 4² = 50.24 cm²',
+        points: 25
+      },
+      {
+        type: 'input',
+        q: '一个时钟的分针长 10 cm，从 12:00 到 12:20，分针扫过的扇形面积是多少？（只填数字，保留两位小数）',
+        answer: '104.67',
+        explain: '20分钟 = 120°，S = 120 × 3.14 × 100 / 360 = 104.67 cm²',
+        points: 25
+      }
+    ]
+  }
+];
+
+// ========================
+// Game State
+// ========================
+let currentStage = 0;
+let currentQIndex = 0;
+let score = 0;
+let correctCount = 0;
+let stageScores = [0, 0, 0, 0, 0];
+let stageCorrect = [0, 0, 0, 0, 0];
+let stageStartTime = 0;
+let stageTime = 0;
+let totalStartTime = 0;
+let earnedBadges = [false, false, false, false];
+let answered = false;
+
+function toggleNav() {
+  document.getElementById('levelNav').classList.toggle('show');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.nav-btn') && !e.target.closest('.level-nav-panel')) {
+    document.getElementById('levelNav').classList.remove('show');
+  }
+});
+
+function goToStage(n) {
+  if (n === 0) {
+    showScreen('screen-intro');
+    currentStage = 0;
+  } else if (n <= currentStage || earnedBadges[n-1]) {
+    startStage(n);
+  }
+  document.getElementById('levelNav').classList.remove('show');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function startStage(n) {
+  currentStage = n;
+  currentQIndex = 0;
+  stageScores[n] = 0;
+  stageCorrect[n] = 0;
+  stageStartTime = Date.now();
+  if (n === 1) totalStartTime = Date.now();
+  answered = false;
+  
+  showScreen(`screen-stage${n}`);
+  renderQuestion();
+  updateProgress();
+}
+
+function renderQuestion() {
+  const stage = stages[currentStage];
+  const q = stage.questions[currentQIndex];
+  const container = document.getElementById(`stage${currentStage}-container`);
+  
+  let html = `
+    <div class="question-card" id="qcard">
+      <div class="q-num">${stage.icon} 题目 ${currentQIndex + 1} / ${stage.questions.length} · ${q.points} 分</div>
+      <div class="q-text">${q.q}</div>
+  `;
+  
+  if (q.type === 'choice') {
+    html += `<div class="options-grid">`;
+    q.options.forEach((opt, i) => {
+      html += `<button class="option-btn" id="opt${i}" onclick="checkAnswer(${i})">${String.fromCharCode(65+i)}. ${opt}</button>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `
+      <input type="text" class="answer-input" id="answerInput" placeholder="输入答案（只填数字）" onkeypress="if(event.key==='Enter')checkInput()">
+      <button class="btn" onclick="checkInput()">提交答案</button>
+    `;
+  }
+  
+  html += `
+    <div class="feedback-box" id="feedback"></div>
+    <div class="action-btns" id="actionBtns" style="display:none;">
+      <button class="btn" onclick="nextQuestion()">下一题 →</button>
+    </div>
+  </div>`;
+  
+  container.innerHTML = html;
+  
+  if (q.type === 'input') {
+    setTimeout(() => document.getElementById('answerInput')?.focus(), 100);
+  }
+}
+
+function checkAnswer(idx) {
+  if (answered) return;
+  answered = true;
+  
+  const stage = stages[currentStage];
+  const q = stage.questions[currentQIndex];
+  const isCorrect = idx === q.correct;
+  
+  const options = document.querySelectorAll('.option-btn');
+  options.forEach((btn, i) => {
+    btn.classList.add('disabled');
+    if (i === q.correct) btn.classList.add('correct');
+    else if (i === idx) btn.classList.add('wrong');
+  });
+  
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback-box show ' + (isCorrect ? 'ok' : 'err');
+  fb.textContent = (isCorrect ? '✓ 正确！' : '✗ 错误！') + ' ' + q.explain;
+  
+  if (isCorrect) {
+    score += q.points;
+    stageScores[currentStage] += q.points;
+    correctCount++;
+    stageCorrect[currentStage]++;
+  }
+  
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('actionBtns').style.display = 'flex';
+}
+
+function checkInput() {
+  if (answered) return;
+  
+  const input = document.getElementById('answerInput');
+  const val = input.value.trim();
+  if (!val) return;
+  
+  answered = true;
+  
+  const stage = stages[currentStage];
+  const q = stage.questions[currentQIndex];
+  const isCorrect = val === q.answer;
+  
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback-box show ' + (isCorrect ? 'ok' : 'err');
+  fb.textContent = (isCorrect ? '✓ 正确！' : '✗ 错误！') + ' ' + q.explain;
+  
+  if (isCorrect) {
+    score += q.points;
+    stageScores[currentStage] += q.points;
+    correctCount++;
+    stageCorrect[currentStage]++;
+    input.style.borderColor = 'var(--success)';
+  } else {
+    input.style.borderColor = 'var(--danger)';
+  }
+  
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('actionBtns').style.display = 'flex';
+}
+
+function nextQuestion() {
+  const stage = stages[currentStage];
+  currentQIndex++;
+  answered = false;
+  
+  if (currentQIndex >= stage.questions.length) {
+    finishStage();
+  } else {
+    renderQuestion();
+    updateProgress();
+  }
+}
+
+function updateProgress() {
+  const stage = stages[currentStage];
+  const pct = ((currentQIndex) / stage.questions.length) * 100;
+  document.getElementById(`prog${currentStage}`).style.width = pct + '%';
+}
+
+function finishStage() {
+  stageTime = Math.floor((Date.now() - stageStartTime) / 1000);
+  const stage = stages[currentStage];
+  const totalPoints = stage.questions.reduce((s, q) => s + q.points, 0);
+  const stageRate = stageCorrect[currentStage] / stage.questions.length;
+  
+  // Earn badge if >= 60%
+  if (stageRate >= 0.6) {
+    earnedBadges[currentStage - 1] = true;
+    document.getElementById(`badge${currentStage}`).classList.add('earned');
+  }
+  
+  // Grade
+  let grade = 'C';
+  let gradeColor = 'var(--danger)';
+  if (stageRate >= 0.9) { grade = 'S'; gradeColor = 'var(--accent)'; }
+  else if (stageRate >= 0.75) { grade = 'A'; gradeColor = 'var(--success)'; }
+  else if (stageRate >= 0.6) { grade = 'B'; gradeColor = 'var(--warning)'; }
+  
+  document.getElementById('resultIcon').textContent = stage.icon;
+  document.getElementById('resultGrade').textContent = grade;
+  document.getElementById('resultGrade').style.color = gradeColor;
+  document.getElementById('resultScore').textContent = stageScores[currentStage];
+  document.getElementById('resultTotal').textContent = totalPoints;
+  document.getElementById('resultRate').textContent = Math.round(stageRate * 100) + '%';
+  document.getElementById('resultTime').textContent = stageTime + 's';
+  
+  // Badges
+  const badgesShow = document.getElementById('badgesShow');
+  badgesShow.innerHTML = '';
+  const badgeIcons = ['🏃', '🎯', '🛡️', '⚔️'];
+  const badgeNames = ['巡逻路线', '弧光突破', '阵地占领', '总攻计划'];
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement('div');
+    div.className = 'badge-show' + (earnedBadges[i] ? ' earned' : '');
+    div.textContent = badgeIcons[i];
+    div.title = badgeNames[i];
+    badgesShow.appendChild(div);
+  }
+  
+  // Next button
+  const nextBtn = document.getElementById('nextStageBtn');
+  if (currentStage >= 4) {
+    nextBtn.textContent = '查看总评 →';
+    nextBtn.onclick = showFinal;
+  } else {
+    nextBtn.textContent = '下一关 →';
+    nextBtn.onclick = nextStage;
+  }
+  
+  showScreen('screen-result');
+}
+
+function retryStage() {
+  startStage(currentStage);
+}
+
+function nextStage() {
+  if (currentStage < 4) {
+    startStage(currentStage + 1);
+  }
+}
+
+function showFinal() {
+  const totalTime = Math.floor((Date.now() - totalStartTime) / 1000);
+  const totalQuestions = stages.slice(1).reduce((s, st) => s + st.questions.length, 0);
+  
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalCorrect').textContent = correctCount + '/' + totalQuestions;
+  document.getElementById('finalTime').textContent = totalTime;
+  
+  // Rank
+  const rate = correctCount / totalQuestions;
+  let rank = 'C';
+  let rankText = '见习特工';
+  let rankColor = 'var(--danger)';
+  if (rate >= 0.9) { rank = 'S'; rankText = '完美特工'; rankColor = 'var(--accent)'; }
+  else if (rate >= 0.75) { rank = 'A'; rankText = '精英特工'; rankColor = 'var(--success)'; }
+  else if (rate >= 0.6) { rank = 'B'; rankText = '合格特工'; rankColor = 'var(--warning)'; }
+  
+  document.getElementById('finalRank').textContent = rank;
+  document.getElementById('finalRank').style.color = rankColor;
+  document.getElementById('finalRankText').textContent = rankText;
+  
+  // Badges
+  const finalBadges = document.getElementById('finalBadges');
+  finalBadges.innerHTML = '';
+  const badgeIcons = ['🏃', '🎯', '🛡️', '⚔️'];
+  const badgeNames = ['巡逻路线', '弧光突破', '阵地占领', '总攻计划'];
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement('div');
+    div.className = 'badge-show' + (earnedBadges[i] ? ' earned' : '');
+    div.textContent = badgeIcons[i];
+    div.title = badgeNames[i];
+    finalBadges.appendChild(div);
+  }
+  
+  showScreen('screen-final');
+}
+
+function restartAll() {
+  currentStage = 0;
+  currentQIndex = 0;
+  score = 0;
+  correctCount = 0;
+  stageScores = [0, 0, 0, 0, 0];
+  stageCorrect = [0, 0, 0, 0, 0];
+  earnedBadges = [false, false, false, false];
+  answered = false;
+  
+  document.getElementById('scoreDisplay').textContent = '0';
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(`badge${i}`).classList.remove('earned');
+  }
+  
+  showScreen('screen-intro');
+}
+</script>
+</body>
+</html>

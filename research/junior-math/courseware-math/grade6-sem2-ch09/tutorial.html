@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学特工局 · 特工手册 — 圆柱与圆锥</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle { font-size: 14px; color: var(--text-dim); margin-top: 8px; }
+.title-bar .badge {
+  display: inline-block;
+  padding: 4px 16px;
+  background: rgba(0, 245, 212, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 12px;
+}
+
+.nav-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 30px;
+  padding: 12px 20px;
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 8px;
+  backdrop-filter: blur(12px);
+}
+.nav-bar .back-btn { color: var(--accent); text-decoration: none; font-size: 14px; transition: all 0.3s; }
+.nav-bar .back-btn:hover { text-shadow: 0 0 10px var(--accent); }
+.nav-bar .challenge-btn {
+  padding: 8px 20px;
+  background: rgba(239, 71, 111, 0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: all 0.3s;
+}
+.nav-bar .challenge-btn:hover { background: rgba(239, 71, 111, 0.3); box-shadow: 0 0 15px rgba(239, 71, 111, 0.3); }
+
+.section {
+  margin-bottom: 40px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.15);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+}
+.section::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+}
+
+.section-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.section-number {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; font-weight: 700;
+  color: var(--bg);
+  flex-shrink: 0;
+}
+.section-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px;
+  color: var(--accent);
+  letter-spacing: 2px;
+}
+
+.section p { line-height: 1.8; margin-bottom: 12px; font-size: 15px; }
+
+.formula-box {
+  background: rgba(0, 245, 212, 0.05);
+  border: 1px solid rgba(0, 245, 212, 0.3);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 16px;
+  color: var(--accent);
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.highlight { color: var(--accent); font-weight: bold; }
+
+.demo-area {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+.controls {
+  display: flex; gap: 20px; justify-content: center; align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.control-group { display: flex; align-items: center; gap: 8px; }
+.control-group label { font-size: 13px; color: var(--text-dim); }
+.control-group input[type="range"] { width: 120px; }
+.control-group span { font-size: 14px; color: var(--accent); min-width: 40px; }
+
+.btn {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  border-radius: 6px;
+  color: var(--bg);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 1px;
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(0, 245, 212, 0.3);
+}
+
+.btn-ghost {
+  padding: 10px 24px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.btn-ghost:hover { background: rgba(0, 245, 212, 0.1); }
+
+.quiz-section {
+  background: rgba(6, 8, 15, 0.95);
+  border: 2px solid var(--warning);
+  border-radius: 12px;
+  padding: 30px;
+  margin-top: 40px;
+}
+.quiz-section h2 {
+  font-family: 'Orbitron', sans-serif;
+  color: var(--warning);
+  font-size: 20px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+.quiz-item {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+.quiz-item .q-text { font-size: 15px; margin-bottom: 12px; }
+.quiz-item .options { display: flex; flex-direction: column; gap: 8px; }
+.quiz-item .option {
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+.quiz-item .option:hover { border-color: var(--accent); background: rgba(0, 245, 212, 0.05); }
+.quiz-item .option.correct { border-color: var(--success); background: rgba(6, 214, 160, 0.1); color: var(--success); }
+.quiz-item .option.wrong { border-color: var(--danger); background: rgba(239, 71, 111, 0.1); color: var(--danger); }
+.quiz-item .feedback {
+  margin-top: 8px;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: none;
+}
+.quiz-item .feedback.show { display: block; }
+.quiz-item .feedback.ok { background: rgba(6, 214, 160, 0.1); color: var(--success); }
+.quiz-item .feedback.err { background: rgba(239, 71, 111, 0.1); color: var(--danger); }
+
+.bottom-nav {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 40px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 8px;
+}
+.bottom-nav a { color: var(--accent); text-decoration: none; font-size: 14px; transition: all 0.3s; }
+.bottom-nav a:hover { text-shadow: 0 0 10px var(--accent); }
+.bottom-nav .next-chapter {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: var(--bg);
+  border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+}
+
+canvas { display: block; margin: 0 auto; max-width: 100%; }
+
+.stats-row {
+  display: flex; justify-content: center; gap: 30px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.stats-row span { color: var(--accent); font-weight: bold; }
+
+.comparison-box {
+  display: flex; justify-content: center; gap: 40px;
+  align-items: center;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+.comparison-item { text-align: center; }
+.comparison-item .shape-label { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+.comparison-item .shape-value { font-size: 20px; color: var(--accent); font-family: 'Orbitron', sans-serif; }
+
+@media (max-width: 768px) {
+  .title-bar h1 { font-size: 22px; letter-spacing: 2px; }
+  .section { padding: 16px; }
+  .controls { flex-direction: column; gap: 12px; }
+  .comparison-box { flex-direction: column; gap: 20px; }
+  .bottom-nav { flex-direction: column; gap: 12px; text-align: center; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
+<div id="app">
+  <div class="title-bar">
+    <h1>圆柱与圆锥</h1>
+    <p class="subtitle">数学特工局 · 立体工程队训练营</p>
+    <div class="badge">代号：SOLID — 第9章</div>
+  </div>
+
+  <div class="nav-bar">
+    <a href="../../index.html" class="back-btn">← 返回数学特工局总部</a>
+    <button class="challenge-btn" onclick="location.href='index.html'">🎮 进入立体工程队行动</button>
+  </div>
+
+  <!-- 模块1：圆柱解体 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">1</div>
+      <div class="section-title">圆柱解体</div>
+    </div>
+    <p>圆柱的侧面展开后是一个<span class="highlight">长方形</span>。</p>
+    <p>长方形的长 = 底面圆的周长 = <span class="highlight">2πr</span></p>
+    <p>长方形的宽 = 圆柱的高 = <span class="highlight">h</span></p>
+    <div class="demo-area">
+      <canvas id="cylinderCanvas" width="500" height="260"></canvas>
+      <div class="stats-row">
+        半径 r = <span id="cylR">40</span>px | 
+        高 h = <span id="cylH">80</span>px | 
+        底面周长 = <span id="cylC">251.2</span>px
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <label>半径:</label>
+          <input type="range" id="cylRSlider" min="20" max="70" value="40">
+          <span id="cylRDisplay">40</span>px
+        </div>
+        <div class="control-group">
+          <label>高:</label>
+          <input type="range" id="cylHSlider" min="40" max="120" value="80">
+          <span id="cylHDisplay">80</span>px
+        </div>
+        <button class="btn" onclick="animateCylinderUnfold()">展开演示</button>
+        <button class="btn-ghost" onclick="resetCylinder()">还原</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模块2：圆柱表面积 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">2</div>
+      <div class="section-title">圆柱表面积</div>
+    </div>
+    <p>圆柱的表面积 = 两个底面积 + 侧面积</p>
+    <div class="formula-box">
+      <div style="margin-bottom:8px;">S<sub>表</sub> = 2πr² + 2πrh</div>
+      <div style="font-size:14px;color:var(--text-dim);">= 2 × 底面积 + 侧面积</div>
+    </div>
+    <div class="demo-area">
+      <div class="comparison-box">
+        <div class="comparison-item">
+          <div class="shape-label">底面积（圆形）</div>
+          <div class="shape-value">πr²</div>
+          <div style="font-size:14px;color:var(--text-dim);">× 2</div>
+        </div>
+        <div class="comparison-item">
+          <div class="shape-label" style="font-size:20px;">+</div>
+        </div>
+        <div class="comparison-item">
+          <div class="shape-label">侧面积（长方形）</div>
+          <div class="shape-value">2πrh</div>
+        </div>
+        <div class="comparison-item">
+          <div class="shape-label" style="font-size:20px;">=</div>
+        </div>
+        <div class="comparison-item">
+          <div class="shape-label">总表面积</div>
+          <div class="shape-value">2πr²+2πrh</div>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <label>半径 r:</label>
+          <input type="range" id="saRSlider" min="1" max="10" value="3">
+          <span id="saRDisplay">3</span>cm
+        </div>
+        <div class="control-group">
+          <label>高 h:</label>
+          <input type="range" id="saHSlider" min="1" max="20" value="5">
+          <span id="saHDisplay">5</span>cm
+        </div>
+      </div>
+      <div class="stats-row" style="margin-top:16px;">
+        S<sub>底</sub> = <span id="saBase">28.26</span>cm² | 
+        S<sub>侧</sub> = <span id="saSide">94.2</span>cm² | 
+        S<sub>表</sub> = <span id="saTotal">150.72</span>cm²
+      </div>
+    </div>
+  </div>
+
+  <!-- 模块3：圆柱容积 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">3</div>
+      <div class="section-title">圆柱容积</div>
+    </div>
+    <p>圆柱的体积 = 底面积 × 高，与长方体的体积公式相同。</p>
+    <div class="formula-box">
+      V = πr²h
+    </div>
+    <div class="demo-area">
+      <canvas id="volumeCanvas" width="400" height="200"></canvas>
+      <div class="controls">
+        <button class="btn" onclick="animateWaterFill()">注水演示</button>
+        <button class="btn-ghost" onclick="resetWater()">重置</button>
+      </div>
+      <div class="stats-row">
+        圆柱体积 = <span id="volCyl">282.6</span>cm³ | 
+        等底等高长方体 = <span id="volRect">282.6</span>cm³
+      </div>
+    </div>
+  </div>
+
+  <!-- 模块4：圆锥解体 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">4</div>
+      <div class="section-title">圆锥解体</div>
+    </div>
+    <p>圆锥的侧面展开后是一个<span class="highlight">扇形</span>。</p>
+    <p>扇形的半径 = 圆锥的母线 l，扇形的弧长 = 底面周长 2πr。</p>
+    <div class="formula-box">
+      <div style="margin-bottom:8px;">侧面积 = πrl</div>
+      <div style="font-size:14px;color:var(--text-dim);">其中 l = √(r² + h²)</div>
+    </div>
+    <div class="demo-area">
+      <canvas id="coneCanvas" width="400" height="280"></canvas>
+      <div class="stats-row">
+        底面半径 r = <span id="coneR">50</span>px | 
+        高 h = <span id="coneH">80</span>px | 
+        母线 l ≈ <span id="coneL">94.3</span>px
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <label>底面半径:</label>
+          <input type="range" id="coneRSlider" min="20" max="70" value="50">
+          <span id="coneRDisplay">50</span>px
+        </div>
+        <div class="control-group">
+          <label>高:</label>
+          <input type="range" id="coneHSlider" min="40" max="120" value="80">
+          <span id="coneHDisplay">80</span>px
+        </div>
+        <button class="btn" onclick="animateConeUnfold()">展开演示</button>
+        <button class="btn-ghost" onclick="resetCone()">还原</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模块5：工程总结 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">5</div>
+      <div class="section-title">工程总结 — 公式卡</div>
+    </div>
+    <div class="formula-box">
+      <div style="margin-bottom:12px;"><strong>圆柱</strong></div>
+      <div style="margin-bottom:8px;">侧面积：S<sub>侧</sub> = 2πrh</div>
+      <div style="margin-bottom:8px;">表面积：S<sub>表</sub> = 2πr² + 2πrh</div>
+      <div style="margin-bottom:16px;">体积：V = πr²h</div>
+      <div style="margin-bottom:12px;"><strong>圆锥</strong></div>
+      <div style="margin-bottom:8px;">侧面积：S<sub>侧</sub> = πrl （l = √(r²+h²)）</div>
+      <div style="margin-bottom:8px;">体积：V = (1/3)πr²h</div>
+    </div>
+    <div class="comparison-box">
+      <div class="comparison-item">
+        <div class="shape-label">等底等高的圆柱与圆锥</div>
+        <div class="shape-value">V<sub>圆柱</sub> = 3 × V<sub>圆锥</sub></div>
+      </div>
+    </div>
+    <div class="demo-area">
+      <canvas id="compareCanvas" width="400" height="220"></canvas>
+      <div class="stats-row">
+        圆柱体积 = <span id="compCyl">314</span>cm³ | 
+        圆锥体积 = <span id="compCone">104.67</span>cm³ | 
+        比值 = <span id="compRatio">3:1</span>
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <label>底面半径:</label>
+          <input type="range" id="compRSlider" min="2" max="8" value="5">
+          <span id="compRDisplay">5</span>cm
+        </div>
+        <div class="control-group">
+          <label>高:</label>
+          <input type="range" id="compHSlider" min="2" max="15" value="4">
+          <span id="compHDisplay">4</span>cm
+        </div>
+        <button class="btn" onclick="animatePour()">倒水演示</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 随堂测验 -->
+  <div class="quiz-section">
+    <h2>⚡ 随堂测验</h2>
+    <div id="quiz-container"></div>
+  </div>
+
+  <!-- 底部导航 -->
+  <div class="bottom-nav">
+    <a href="../grade6-sem2-ch08/tutorial.html">← 上一章：统计图表</a>
+    <a href="../grade6-sem2-ch10/tutorial.html" class="next-chapter">下一章：二元一次方程组 →</a>
+  </div>
+</div>
+
+<script>
+const PI = 3.14;
+
+// ========================
+// 模块1：圆柱展开动画
+// ========================
+const cylCanvas = document.getElementById('cylinderCanvas');
+const cylCtx = cylCanvas.getContext('2d');
+let cylUnfold = 0;
+let cylAnimId = null;
+
+function drawCylinder() {
+  const r = parseInt(document.getElementById('cylRSlider').value);
+  const h = parseInt(document.getElementById('cylHSlider').value);
+  const C = 2 * PI * r;
+  
+  document.getElementById('cylR').textContent = r;
+  document.getElementById('cylH').textContent = h;
+  document.getElementById('cylC').textContent = C.toFixed(1);
+  document.getElementById('cylRDisplay').textContent = r;
+  document.getElementById('cylHDisplay').textContent = h;
+  
+  cylCtx.clearRect(0, 0, 500, 260);
+  
+  const cx = 140, cy = 130;
+  
+  if (cylUnfold < 0.01) {
+    // 3D圆柱示意
+    // 顶面椭圆
+    cylCtx.strokeStyle = '#00f5d4';
+    cylCtx.lineWidth = 2;
+    cylCtx.beginPath();
+    cylCtx.ellipse(cx, cy - h/2, r, r * 0.3, 0, 0, Math.PI * 2);
+    cylCtx.stroke();
+    
+    // 底面椭圆
+    cylCtx.beginPath();
+    cylCtx.ellipse(cx, cy + h/2, r, r * 0.3, 0, 0, Math.PI * 2);
+    cylCtx.stroke();
+    
+    // 侧面线
+    cylCtx.beginPath();
+    cylCtx.moveTo(cx - r, cy - h/2);
+    cylCtx.lineTo(cx - r, cy + h/2);
+    cylCtx.moveTo(cx + r, cy - h/2);
+    cylCtx.lineTo(cx + r, cy + h/2);
+    cylCtx.stroke();
+    
+    // 虚线背面
+    cylCtx.setLineDash([5, 5]);
+    cylCtx.strokeStyle = 'rgba(0, 245, 212, 0.3)';
+    cylCtx.beginPath();
+    cylCtx.ellipse(cx, cy - h/2, r, r * 0.3, 0, Math.PI, 0);
+    cylCtx.stroke();
+    cylCtx.setLineDash([]);
+    
+    // 标注
+    cylCtx.fillStyle = '#ffd166';
+    cylCtx.font = '12px "Share Tech Mono"';
+    cylCtx.fillText(`r=${r}`, cx + r + 5, cy);
+    cylCtx.fillText(`h=${h}`, cx + 5, cy + h/2 + 15);
+    cylCtx.fillText('圆柱', cx - 15, cy - h/2 - 15);
+  } else {
+    // 展开状态
+    const rectX = 260;
+    const rectW = C;
+    const rectH = h;
+    
+    // 侧面长方形
+    cylCtx.fillStyle = 'rgba(0, 245, 212, 0.1)';
+    cylCtx.fillRect(rectX, cy - rectH/2, rectW, rectH);
+    cylCtx.strokeStyle = '#00f5d4';
+    cylCtx.lineWidth = 2;
+    cylCtx.strokeRect(rectX, cy - rectH/2, rectW, rectH);
+    
+    // 上下底面圆
+    cylCtx.beginPath();
+    cylCtx.arc(rectX + 30, cy - rectH/2 - 30, r * 0.5, 0, Math.PI * 2);
+    cylCtx.fillStyle = 'rgba(0, 187, 249, 0.15)';
+    cylCtx.fill();
+    cylCtx.strokeStyle = '#00bbf9';
+    cylCtx.stroke();
+    
+    cylCtx.beginPath();
+    cylCtx.arc(rectX + 30, cy + rectH/2 + 30, r * 0.5, 0, Math.PI * 2);
+    cylCtx.fill();
+    cylCtx.stroke();
+    
+    // 标注
+    cylCtx.fillStyle = '#ffd166';
+    cylCtx.font = '12px "Share Tech Mono"';
+    cylCtx.fillText(`长=2πr=${C.toFixed(1)}`, rectX + 5, cy - rectH/2 - 8);
+    cylCtx.fillText(`宽=h=${h}`, rectX + rectW + 5, cy);
+    cylCtx.fillText('展开图', rectX + rectW/2 - 20, cy + rectH/2 + 25);
+  }
+}
+
+function cylUnfoldFrame() {
+  cylUnfold += 0.03;
+  if (cylUnfold >= 1) { cylUnfold = 1; cancelAnimationFrame(cylAnimId); }
+  drawCylinder();
+  if (cylUnfold < 1) cylAnimId = requestAnimationFrame(cylUnfoldFrame);
+}
+
+function animateCylinderUnfold() {
+  cylUnfold = 0;
+  cylUnfoldFrame();
+}
+
+function resetCylinder() {
+  cancelAnimationFrame(cylAnimId);
+  cylUnfold = 0;
+  drawCylinder();
+}
+
+document.getElementById('cylRSlider').addEventListener('input', () => { if (cylUnfold < 0.01) drawCylinder(); });
+document.getElementById('cylHSlider').addEventListener('input', () => { if (cylUnfold < 0.01) drawCylinder(); });
+drawCylinder();
+
+// ========================
+// 模块2：表面积实时计算
+// ========================
+function updateSurfaceArea() {
+  const r = parseInt(document.getElementById('saRSlider').value);
+  const h = parseInt(document.getElementById('saHSlider').value);
+  
+  document.getElementById('saRDisplay').textContent = r;
+  document.getElementById('saHDisplay').textContent = h;
+  
+  const base = PI * r * r;
+  const side = 2 * PI * r * h;
+  const total = 2 * base + side;
+  
+  document.getElementById('saBase').textContent = base.toFixed(2);
+  document.getElementById('saSide').textContent = side.toFixed(2);
+  document.getElementById('saTotal').textContent = total.toFixed(2);
+}
+
+document.getElementById('saRSlider').addEventListener('input', updateSurfaceArea);
+document.getElementById('saHSlider').addEventListener('input', updateSurfaceArea);
+updateSurfaceArea();
+
+// ========================
+// 模块3：注水动画
+// ========================
+const volCanvas = document.getElementById('volumeCanvas');
+const volCtx = volCanvas.getContext('2d');
+let waterLevel = 0;
+let waterAnimId = null;
+
+function drawVolume() {
+  volCtx.clearRect(0, 0, 400, 200);
+  
+  const cx = 100, cy = 160;
+  const r = 50, h = 120;
+  const scale = 0.6;
+  const sr = r * scale, sh = h * scale;
+  
+  // 圆柱
+  volCtx.strokeStyle = '#00f5d4';
+  volCtx.lineWidth = 2;
+  volCtx.beginPath();
+  volCtx.ellipse(cx, cy - sh, sr, sr * 0.3, 0, 0, Math.PI * 2);
+  volCtx.stroke();
+  volCtx.beginPath();
+  volCtx.ellipse(cx, cy, sr, sr * 0.3, 0, 0, Math.PI * 2);
+  volCtx.stroke();
+  volCtx.beginPath();
+  volCtx.moveTo(cx - sr, cy - sh);
+  volCtx.lineTo(cx - sr, cy);
+  volCtx.moveTo(cx + sr, cy - sh);
+  volCtx.lineTo(cx + sr, cy);
+  volCtx.stroke();
+  
+  // 水
+  if (waterLevel > 0) {
+    const wh = sh * waterLevel;
+    volCtx.fillStyle = 'rgba(0, 187, 249, 0.4)';
+    volCtx.beginPath();
+    volCtx.ellipse(cx, cy - wh, sr, sr * 0.3, 0, 0, Math.PI * 2);
+    volCtx.lineTo(cx - sr, cy);
+    volCtx.ellipse(cx, cy, sr, sr * 0.3, 0, Math.PI, 0);
+    volCtx.closePath();
+    volCtx.fill();
+  }
+  
+  // 长方体
+  const rx = 240, ry = 40;
+  const rw = sr * 2, rh = sh;
+  volCtx.strokeStyle = '#00f5d4';
+  volCtx.strokeRect(rx, ry, rw, rh);
+  
+  if (waterLevel > 0) {
+    volCtx.fillStyle = 'rgba(0, 187, 249, 0.4)';
+    volCtx.fillRect(rx, ry + rh * (1 - waterLevel), rw, rh * waterLevel);
+  }
+  
+  // 标注
+  volCtx.fillStyle = '#ffd166';
+ volCtx.font = '12px "Share Tech Mono"';
+  volCtx.fillText('圆柱', cx - 15, cy + 25);
+  volCtx.fillText('长方体', rx + 5, ry + rh + 20);
+  volCtx.fillText('等底等高', rx - 60, ry + rh/2);
+}
+
+function waterFrame() {
+  waterLevel += 0.015;
+  if (waterLevel >= 1) { waterLevel = 1; cancelAnimationFrame(waterAnimId); }
+  drawVolume();
+  if (waterLevel < 1) waterAnimId = requestAnimationFrame(waterFrame);
+}
+
+function animateWaterFill() {
+  waterLevel = 0;
+  waterFrame();
+}
+
+function resetWater() {
+  cancelAnimationFrame(waterAnimId);
+  waterLevel = 0;
+  drawVolume();
+}
+
+drawVolume();
+
+// ========================
+// 模块4：圆锥展开
+// ========================
+const coneCanvas = document.getElementById('coneCanvas');
+const coneCtx = coneCanvas.getContext('2d');
+let coneUnfold = 0;
+let coneAnimId = null;
+
+function drawCone() {
+  const r = parseInt(document.getElementById('coneRSlider').value);
+  const h = parseInt(document.getElementById('coneHSlider').value);
+  const l = Math.sqrt(r * r + h * h);
+  
+  document.getElementById('coneR').textContent = r;
+  document.getElementById('coneH').textContent = h;
+  document.getElementById('coneL').textContent = l.toFixed(1);
+  document.getElementById('coneRDisplay').textContent = r;
+  document.getElementById('coneHDisplay').textContent = h;
+  
+  coneCtx.clearRect(0, 0, 400, 280);
+  
+  const cx = 120, cy = 200;
+  
+  if (coneUnfold < 0.01) {
+    // 3D圆锥示意
+    // 底面椭圆
+    coneCtx.strokeStyle = '#00f5d4';
+    coneCtx.lineWidth = 2;
+    coneCtx.beginPath();
+    coneCtx.ellipse(cx, cy, r, r * 0.3, 0, 0, Math.PI * 2);
+    coneCtx.stroke();
+    
+    // 顶点到底面两端
+    coneCtx.beginPath();
+    coneCtx.moveTo(cx, cy - h);
+    coneCtx.lineTo(cx - r, cy);
+    coneCtx.moveTo(cx, cy - h);
+    coneCtx.lineTo(cx + r, cy);
+    coneCtx.stroke();
+    
+    // 虚线背面
+    coneCtx.setLineDash([5, 5]);
+    coneCtx.strokeStyle = 'rgba(0, 245, 212, 0.3)';
+    coneCtx.beginPath();
+    coneCtx.ellipse(cx, cy, r, r * 0.3, 0, Math.PI, 0);
+    coneCtx.stroke();
+    coneCtx.setLineDash([]);
+    
+    // 高线
+    coneCtx.strokeStyle = '#00bbf9';
+    coneCtx.setLineDash([3, 3]);
+    coneCtx.beginPath();
+    coneCtx.moveTo(cx, cy - h);
+    coneCtx.lineTo(cx, cy);
+    coneCtx.stroke();
+    coneCtx.setLineDash([]);
+    
+    // 标注
+    coneCtx.fillStyle = '#ffd166';
+    coneCtx.font = '12px "Share Tech Mono"';
+    coneCtx.fillText(`r=${r}`, cx + r + 5, cy);
+    coneCtx.fillText(`h=${h}`, cx + 5, cy - h/2);
+    coneCtx.fillText(`l=${l.toFixed(1)}`, cx - r - 45, cy - h/2);
+    coneCtx.fillText('圆锥', cx - 15, cy - h - 10);
+  } else {
+    // 展开状态：扇形 + 底面圆
+    const sx = 200, sy = 140;
+    const sectorAngle = (r / l) * 360; // 扇形圆心角
+    
+    // 扇形
+    const startAngle = -Math.PI / 2;
+    const endAngle = startAngle + (sectorAngle * Math.PI / 180);
+    
+    coneCtx.fillStyle = 'rgba(0, 245, 212, 0.15)';
+    coneCtx.beginPath();
+    coneCtx.moveTo(sx, sy);
+    coneCtx.arc(sx, sy, l * 0.8, startAngle, endAngle);
+    coneCtx.closePath();
+    coneCtx.fill();
+    
+    coneCtx.strokeStyle = '#00f5d4';
+    coneCtx.lineWidth = 2;
+    coneCtx.beginPath();
+    coneCtx.moveTo(sx, sy);
+    coneCtx.arc(sx, sy, l * 0.8, startAngle, endAngle);
+    coneCtx.lineTo(sx, sy);
+    coneCtx.stroke();
+    
+    // 底面圆（旁边）
+    coneCtx.beginPath();
+    coneCtx.arc(sx + l * 0.8 + 50, sy, r * 0.5, 0, Math.PI * 2);
+    coneCtx.fillStyle = 'rgba(0, 187, 249, 0.15)';
+    coneCtx.fill();
+    coneCtx.strokeStyle = '#00bbf9';
+    coneCtx.stroke();
+    
+    // 标注
+    coneCtx.fillStyle = '#ffd166';
+    coneCtx.font = '12px "Share Tech Mono"';
+    coneCtx.fillText(`扇形半径=母线l=${l.toFixed(1)}`, sx - 50, sy - l * 0.8 - 10);
+    coneCtx.fillText(`弧长=2πr=${(2*PI*r).toFixed(1)}`, sx - 30, sy + l * 0.8 + 20);
+    coneCtx.fillText(`圆心角≈${sectorAngle.toFixed(0)}°`, sx - 30, sy + 5);
+  }
+}
+
+function coneUnfoldFrame() {
+  coneUnfold += 0.03;
+  if (coneUnfold >= 1) { coneUnfold = 1; cancelAnimationFrame(coneAnimId); }
+  drawCone();
+  if (coneUnfold < 1) coneAnimId = requestAnimationFrame(coneUnfoldFrame);
+}
+
+function animateConeUnfold() {
+  coneUnfold = 0;
+  coneUnfoldFrame();
+}
+
+function resetCone() {
+  cancelAnimationFrame(coneAnimId);
+  coneUnfold = 0;
+  drawCone();
+}
+
+document.getElementById('coneRSlider').addEventListener('input', () => { if (coneUnfold < 0.01) drawCone(); });
+document.getElementById('coneHSlider').addEventListener('input', () => { if (coneUnfold < 0.01) drawCone(); });
+drawCone();
+
+// ========================
+// 模块5：等底等高对比
+// ========================
+const compCanvas = document.getElementById('compareCanvas');
+const compCtx = compCanvas.getContext('2d');
+let pourLevel = 0;
+let pourAnimId = null;
+
+function drawCompare() {
+  const r = parseInt(document.getElementById('compRSlider').value);
+  const h = parseInt(document.getElementById('compHSlider').value);
+  
+  document.getElementById('compRDisplay').textContent = r;
+  document.getElementById('compHDisplay').textContent = h;
+  
+  const vCyl = PI * r * r * h;
+  const vCone = (1/3) * PI * r * r * h;
+  
+  document.getElementById('compCyl').textContent = vCyl.toFixed(2);
+  document.getElementById('compCone').textContent = vCone.toFixed(2);
+  
+  compCtx.clearRect(0, 0, 400, 220);
+  
+  const scale = 12;
+  const sr = Math.min(r * scale * 0.5, 50);
+  const sh = Math.min(h * scale * 0.8, 120);
+  
+  // 圆柱
+  const cx1 = 100, cy = 180;
+  compCtx.strokeStyle = '#00f5d4';
+  compCtx.lineWidth = 2;
+  compCtx.beginPath();
+  compCtx.ellipse(cx1, cy - sh, sr, sr * 0.3, 0, 0, Math.PI * 2);
+  compCtx.stroke();
+  compCtx.beginPath();
+  compCtx.ellipse(cx1, cy, sr, sr * 0.3, 0, 0, Math.PI * 2);
+  compCtx.stroke();
+  compCtx.beginPath();
+  compCtx.moveTo(cx1 - sr, cy - sh);
+  compCtx.lineTo(cx1 - sr, cy);
+  compCtx.moveTo(cx1 + sr, cy - sh);
+  compCtx.lineTo(cx1 + sr, cy);
+  compCtx.stroke();
+  
+  // 圆柱水
+  if (pourLevel > 0) {
+    compCtx.fillStyle = 'rgba(0, 187, 249, 0.4)';
+    const wh = sh * pourLevel;
+    compCtx.beginPath();
+    compCtx.ellipse(cx1, cy - wh, sr, sr * 0.3, 0, 0, Math.PI * 2);
+    compCtx.lineTo(cx1 - sr, cy);
+    compCtx.ellipse(cx1, cy, sr, sr * 0.3, 0, Math.PI, 0);
+    compCtx.closePath();
+    compCtx.fill();
+  }
+  
+  // 圆锥
+  const cx2 = 280;
+  compCtx.strokeStyle = '#00f5d4';
+  compCtx.beginPath();
+  compCtx.ellipse(cx2, cy, sr, sr * 0.3, 0, 0, Math.PI * 2);
+  compCtx.stroke();
+  compCtx.beginPath();
+  compCtx.moveTo(cx2, cy - sh);
+  compCtx.lineTo(cx2 - sr, cy);
+  compCtx.moveTo(cx2, cy - sh);
+  compCtx.lineTo(cx2 + sr, cy);
+  compCtx.stroke();
+  
+  // 圆锥水
+  if (pourLevel > 0) {
+    compCtx.fillStyle = 'rgba(0, 187, 249, 0.4)';
+    const coneWaterH = sh * pourLevel * 0.6; // 圆锥水位显示
+    const wr = sr * (1 - pourLevel * 0.4); // 水面上半径
+    compCtx.beginPath();
+    compCtx.ellipse(cx2, cy - coneWaterH, wr, wr * 0.3, 0, 0, Math.PI * 2);
+    compCtx.lineTo(cx2 - sr, cy);
+    compCtx.ellipse(cx2, cy, sr, sr * 0.3, 0, Math.PI, 0);
+    compCtx.closePath();
+    compCtx.fill();
+  }
+  
+  // 标注
+  compCtx.fillStyle = '#ffd166';
+  compCtx.font = '12px "Share Tech Mono"';
+  compCtx.fillText('圆柱', cx1 - 15, cy + 20);
+  compCtx.fillText('圆锥', cx2 - 15, cy + 20);
+  compCtx.fillText(`V=${vCyl.toFixed(1)}`, cx1 - 30, cy - sh - 10);
+  compCtx.fillText(`V=${vCone.toFixed(1)}`, cx2 - 30, cy - sh - 10);
+}
+
+function pourFrame() {
+  pourLevel += 0.015;
+  if (pourLevel >= 1) { pourLevel = 1; cancelAnimationFrame(pourAnimId); }
+  drawCompare();
+  if (pourLevel < 1) pourAnimId = requestAnimationFrame(pourFrame);
+}
+
+function animatePour() {
+  pourLevel = 0;
+  pourFrame();
+}
+
+document.getElementById('compRSlider').addEventListener('input', () => { if (pourLevel < 0.01) drawCompare(); });
+document.getElementById('compHSlider').addEventListener('input', () => { if (pourLevel < 0.01) drawCompare(); });
+drawCompare();
+
+// ========================
+// 随堂测验
+// ========================
+const quizData = [
+  {
+    q: "圆柱底面半径 r = 3 cm，高 h = 5 cm，侧面积是多少？",
+    options: ["47.1 cm²", "94.2 cm²", "141.3 cm²", "28.26 cm²"],
+    correct: 1,
+    explanation: "S侧 = 2πrh = 2 × 3.14 × 3 × 5 = 94.2 cm²"
+  },
+  {
+    q: "圆柱底面半径 r = 4 cm，高 h = 6 cm，体积是多少？",
+    options: ["150.72 cm³", "301.44 cm³", "452.16 cm³", "100.48 cm³"],
+    correct: 1,
+    explanation: "V = πr²h = 3.14 × 16 × 6 = 301.44 cm³"
+  },
+  {
+    q: "一个圆锥和一个圆柱等底等高，圆柱体积是 36 cm³，圆锥体积是多少？",
+    options: ["12 cm³", "18 cm³", "108 cm³", "36 cm³"],
+    correct: 0,
+    explanation: "V圆锥 = (1/3)V圆柱 = 36 ÷ 3 = 12 cm³"
+  }
+];
+
+const quizContainer = document.getElementById('quiz-container');
+quizData.forEach((item, idx) => {
+  const div = document.createElement('div');
+  div.className = 'quiz-item';
+  div.innerHTML = `
+    <div class="q-text">${idx + 1}. ${item.q}</div>
+    <div class="options" id="q${idx}">
+      ${item.options.map((opt, i) => `<div class="option" onclick="checkQ(${idx}, ${i})">${String.fromCharCode(65 + i)}. ${opt}</div>`).join('')}
+    </div>
+    <div class="feedback" id="f${idx}"></div>
+  `;
+  quizContainer.appendChild(div);
+});
+
+function checkQ(qIdx, optIdx) {
+  const item = quizData[qIdx];
+  const options = document.querySelectorAll(`#q${qIdx} .option`);
+  const feedback = document.getElementById(`f${qIdx}`);
+  
+  options.forEach((opt, i) => {
+    opt.style.pointerEvents = 'none';
+    if (i === item.correct) opt.classList.add('correct');
+    else if (i === optIdx && i !== item.correct) opt.classList.add('wrong');
+  });
+  
+  feedback.textContent = item.explanation;
+  feedback.className = 'feedback show ' + (optIdx === item.correct ? 'ok' : 'err');
+}
+</script>
+</body>
+</html>

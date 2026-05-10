@@ -1,0 +1,975 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：CIPHER — 密码破译行动</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.95);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: rgba(6, 8, 15, 0.95);
+  border-bottom: 1px solid var(--accent);
+  padding: 10px 20px;
+  display: flex; justify-content: space-between; align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.hud-left { display: flex; gap: 20px; align-items: center; }
+.hud-brand {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--accent);
+  letter-spacing: 2px;
+}
+.hud-score { font-size: 13px; color: var(--warning); }
+.hud-score span { color: var(--accent); font-weight: bold; }
+
+.hud-right { display: flex; gap: 12px; align-items: center; }
+
+.badge-slot {
+  width: 28px; height: 28px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  opacity: 0.3;
+}
+.badge-slot.earned {
+  opacity: 1;
+  border-color: var(--warning);
+  background: rgba(255, 209, 102, 0.1);
+}
+
+.nav-btn {
+  width: 36px; height: 36px;
+  background: rgba(0, 245, 212, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s;
+}
+.nav-btn:hover { background: rgba(0, 245, 212, 0.25); }
+
+.level-nav-panel {
+  position: fixed; top: 60px; right: 20px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 200;
+  display: none;
+  min-width: 200px;
+}
+.level-nav-panel.show { display: block; }
+.level-nav-panel .nav-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+.level-nav-panel .nav-item:hover { background: rgba(0, 245, 212, 0.1); }
+.level-nav-panel .nav-item.current {
+  border-left: 3px solid var(--accent);
+  font-weight: bold;
+  color: var(--accent);
+}
+.level-nav-panel .nav-item.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#app {
+  position: relative; z-index: 10;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+.screen { display: none; animation: fadeIn 0.5s ease; }
+.screen.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.intro-title { text-align: center; padding: 40px 0; }
+.intro-title h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px;
+  color: var(--accent);
+  text-shadow: 0 0 30px var(--accent);
+  margin-bottom: 16px;
+}
+.intro-title .subtitle { font-size: 16px; color: var(--text-dim); margin-bottom: 30px; }
+.intro-title .desc {
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: left;
+  line-height: 1.8;
+  font-size: 15px;
+  margin-bottom: 30px;
+}
+
+.stages-preview {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 30px;
+}
+.stage-card {
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s;
+}
+.stage-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+.stage-card .icon { font-size: 32px; margin-bottom: 8px; }
+.stage-card .name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--accent);
+  margin-bottom: 4px;
+}
+.stage-card .info { font-size: 12px; color: var(--text-dim); }
+
+.start-btn {
+  display: block; width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  border-radius: 8px;
+  color: var(--bg);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 2px;
+}
+.start-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0, 245, 212, 0.3); }
+
+.level-header { text-align: center; margin-bottom: 24px; }
+.level-header .level-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.level-header .progress-bar {
+  width: 100%; max-width: 400px;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+.level-header .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.question-card {
+  background: var(--panel);
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.question-card .q-num { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+.question-card .q-text { font-size: 16px; line-height: 1.6; margin-bottom: 16px; }
+.question-card .q-text .highlight { color: var(--accent); font-weight: bold; }
+
+.answer-input {
+  width: 100%; padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 245, 212, 0.3);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.answer-input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(0, 245, 212, 0.2);
+}
+
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.option-btn {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: left;
+}
+.option-btn:hover { border-color: var(--accent); background: rgba(0, 245, 212, 0.05); }
+.option-btn.correct {
+  border-color: var(--success); background: rgba(6, 214, 160, 0.1); color: var(--success);
+}
+.option-btn.wrong {
+  border-color: var(--danger); background: rgba(239, 71, 111, 0.1); color: var(--danger);
+}
+.option-btn.disabled { pointer-events: none; opacity: 0.6; }
+
+.feedback-box {
+  margin-top: 12px; padding: 12px 16px;
+  border-radius: 6px; font-size: 14px;
+  display: none;
+}
+.feedback-box.show { display: block; }
+.feedback-box.ok {
+  background: rgba(6, 214, 160, 0.1); border: 1px solid var(--success); color: var(--success);
+}
+.feedback-box.err {
+  background: rgba(239, 71, 111, 0.1); border: 1px solid var(--danger); color: var(--danger);
+}
+
+.action-btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+
+.result-screen { text-align: center; padding: 40px 20px; }
+.result-screen .result-icon { font-size: 64px; margin-bottom: 20px; }
+.result-screen .result-grade {
+  font-family: 'Orbitron', sans-serif; font-size: 48px; margin-bottom: 12px;
+}
+.result-screen .result-stats {
+  font-size: 16px; color: var(--text-dim); margin-bottom: 30px;
+}
+.result-screen .result-stats span { color: var(--accent); }
+
+.badges-show { display: flex; gap: 16px; justify-content: center; margin-bottom: 30px; }
+.badge-show {
+  width: 60px; height: 60px;
+  background: var(--panel);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  opacity: 0.3;
+}
+.badge-show.earned {
+  opacity: 1; border-color: var(--warning); background: rgba(255, 209, 102, 0.1);
+  animation: badgePop 0.5s ease;
+}
+@keyframes badgePop {
+  0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); }
+}
+
+.next-btn, .retry-btn {
+  padding: 14px 32px; border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all 0.3s;
+  letter-spacing: 1px; border: none;
+}
+.next-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: var(--bg);
+}
+.retry-btn {
+  background: rgba(239, 71, 111, 0.15); border: 1px solid var(--danger);
+  color: var(--danger); margin-right: 12px;
+}
+.next-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 245, 212, 0.3); }
+.retry-btn:hover { background: rgba(239, 71, 111, 0.3); }
+
+.final-screen .final-title {
+  font-family: 'Orbitron', sans-serif; font-size: 28px;
+  color: var(--accent); text-align: center; margin-bottom: 30px;
+}
+.final-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px; margin-bottom: 30px;
+}
+.stat-box {
+  background: var(--panel); border: 1px solid rgba(0, 245, 212, 0.2);
+  border-radius: 10px; padding: 20px; text-align: center;
+}
+.stat-box .stat-val { font-family: 'Orbitron', sans-serif; font-size: 28px; color: var(--accent); }
+.stat-box .stat-label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+.rank-display { text-align: center; margin-bottom: 30px; }
+.rank-display .rank-letter {
+  font-family: 'Orbitron', sans-serif; font-size: 72px;
+  text-shadow: 0 0 40px var(--accent);
+}
+.rank-display .rank-text { font-size: 16px; color: var(--text-dim); }
+
+@media (max-width: 768px) {
+  .stages-preview { grid-template-columns: 1fr; }
+  .options-grid { grid-template-columns: 1fr; }
+  .final-stats { grid-template-columns: 1fr; }
+  .intro-title h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div id="hud-grid"></div>
+
+<div class="hud">
+  <div class="hud-left">
+    <div class="hud-brand">代号：CIPHER</div>
+    <div class="hud-score">积分: <span id="scoreDisplay">0</span></div>
+  </div>
+  <div class="hud-right">
+    <div class="badge-slot" id="badge1">🔢</div>
+    <div class="badge-slot" id="badge2">📥</div>
+    <div class="badge-slot" id="badge3">➕</div>
+    <div class="badge-slot" id="badge4">🔐</div>
+    <button class="nav-btn" onclick="toggleNav()">☰</button>
+  </div>
+</div>
+
+<div class="level-nav-panel" id="levelNav">
+  <div class="nav-item current" onclick="goToStage(0)">封面</div>
+  <div class="nav-item locked" onclick="goToStage(1)">Stage 1: 概念识别</div>
+  <div class="nav-item locked" onclick="goToStage(2)">Stage 2: 代入消元</div>
+  <div class="nav-item locked" onclick="goToStage(3)">Stage 3: 加减消元</div>
+  <div class="nav-item locked" onclick="goToStage(4)">Stage 4: 综合破译</div>
+</div>
+
+<div id="app">
+  <!-- Intro -->
+  <div class="screen active" id="screen-intro">
+    <div class="intro-title">
+      <h1>🔐 代号：CIPHER</h1>
+      <p class="subtitle">密码破译行动</p>
+      <div class="desc">
+        <p><strong>任务简报：</strong></p>
+        <p>敌方加密系统使用了二元一次方程组！你需要掌握代入消元法和加减消元法，破解所有密码。</p>
+        <p>每解开一个方程组，就能获取一段情报。</p>
+        <p style="margin-top:12px;color:var(--accent);">⚡ 共 4 个 Stage，24 道题目，拿到 S 评级解锁全部徽章！</p>
+      </div>
+      <div class="stages-preview">
+        <div class="stage-card">
+          <div class="icon">🔢</div>
+          <div class="name">概念识别</div>
+          <div class="info">二元一次方程组概念 · 6题</div>
+        </div>
+        <div class="stage-card">
+          <div class="icon">📥</div>
+          <div class="name">代入消元</div>
+          <div class="info">代入法解方程组 · 6题</div>
+        </div>
+        <div class="stage-card">
+          <div class="icon">➕</div>
+          <div class="name">加减消元</div>
+          <div class="info">加减法解方程组 · 6题</div>
+        </div>
+        <div class="stage-card">
+          <div class="icon">🔐</div>
+          <div class="name">综合破译</div>
+          <div class="info">应用题与综合 · 6题</div>
+        </div>
+      </div>
+      <button class="start-btn" onclick="startStage(1)">开始行动 →</button>
+    </div>
+  </div>
+
+  <!-- Stage 1: 概念识别 -->
+  <div class="screen" id="screen-stage1">
+    <div class="level-header">
+      <div class="level-name">🔢 Stage 1: 概念识别</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog1" style="width:0%"></div></div>
+    </div>
+    <div id="stage1-container"></div>
+  </div>
+
+  <!-- Stage 2: 代入消元 -->
+  <div class="screen" id="screen-stage2">
+    <div class="level-header">
+      <div class="level-name">📥 Stage 2: 代入消元</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog2" style="width:0%"></div></div>
+    </div>
+    <div id="stage2-container"></div>
+  </div>
+
+  <!-- Stage 3: 加减消元 -->
+  <div class="screen" id="screen-stage3">
+    <div class="level-header">
+      <div class="level-name">➕ Stage 3: 加减消元</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog3" style="width:0%"></div></div>
+    </div>
+    <div id="stage3-container"></div>
+  </div>
+
+  <!-- Stage 4: 综合破译 -->
+  <div class="screen" id="screen-stage4">
+    <div class="level-header">
+      <div class="level-name">🔐 Stage 4: 综合破译</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog4" style="width:0%"></div></div>
+    </div>
+    <div id="stage4-container"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="screen" id="screen-result">
+    <div class="result-screen">
+      <div class="result-icon" id="resultIcon">🔐</div>
+      <div class="result-grade" id="resultGrade" style="color:var(--accent)">S</div>
+      <div class="result-stats">
+        得分: <span id="resultScore">0</span> / <span id="resultTotal">0</span> · 
+        正确率: <span id="resultRate">0%</span> · 
+        用时: <span id="resultTime">0s</span>
+      </div>
+      <div class="badges-show" id="badgesShow"></div>
+      <div class="action-btns">
+        <button class="retry-btn" onclick="retryStage()">重新挑战</button>
+        <button class="next-btn" onclick="nextStage()" id="nextStageBtn">下一关 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final -->
+  <div class="screen" id="screen-final">
+    <div class="final-screen">
+      <div class="final-title">🎉 密码全部破译！</div>
+      <div class="final-stats">
+        <div class="stat-box">
+          <div class="stat-val" id="finalScore">0</div>
+          <div class="stat-label">总积分</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="finalCorrect">0</div>
+          <div class="stat-label">正确数 / 24</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="finalTime">0</div>
+          <div class="stat-label">总用时(秒)</div>
+        </div>
+      </div>
+      <div class="rank-display">
+        <div class="rank-letter" id="finalRank" style="color:var(--accent)">S</div>
+        <div class="rank-text" id="finalRankText">完美破译员</div>
+      </div>
+      <div class="badges-show" id="finalBadges"></div>
+      <div style="text-align:center;margin-top:30px;">
+        <button class="next-btn" onclick="location.href='../../index.html'" style="margin-right:12px;">返回数学特工局总部 →</button>
+        <button class="retry-btn" onclick="restartAll()">重新行动</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const stages = [
+  null,
+  {
+    name: '概念识别',
+    icon: '🔢',
+    questions: [
+      {
+        type: 'choice',
+        q: '下列方程中，是二元一次方程的是？',
+        options: ['x² + y = 3', '2x + 3y = 7', 'xy = 6', '1/x + y = 2'],
+        correct: 1,
+        explain: '2x + 3y = 7 含有两个未知数，且次数都是1，是二元一次方程。',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '二元一次方程组必须含有几个未知数？',
+        options: ['1个', '2个', '3个', '不限'],
+        correct: 1,
+        explain: '二元一次方程组必须含有2个未知数。',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '方程 3x + 2y = 8 中，当 x = 2 时，y 等于多少？',
+        options: ['1', '2', '3', '4'],
+        correct: 0,
+        explain: '3×2 + 2y = 8 → 6 + 2y = 8 → 2y = 2 → y = 1',
+        points: 10
+      },
+      {
+        type: 'input',
+        q: '方程 x + 2y = 5 中，当 y = 1 时，x 等于多少？（只填数字）',
+        answer: '3',
+        explain: 'x + 2×1 = 5 → x = 3',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '下列哪组是二元一次方程组？',
+        options: ['{x+y=3, x-y=1}', '{x²+y=5, x+y=2}', '{x+y+z=6, x-y=1}', '{xy=4, x+y=3}'],
+        correct: 0,
+        explain: '第一组含有两个未知数，且次数都是1，是二元一次方程组。',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '方程组 { x = 3, x + y = 7 } 中，y 等于多少？（只填数字）',
+        answer: '4',
+        explain: 'x = 3 代入 x + y = 7 → 3 + y = 7 → y = 4',
+        points: 15
+      }
+    ]
+  },
+  {
+    name: '代入消元',
+    icon: '📥',
+    questions: [
+      {
+        type: 'choice',
+        q: '方程组 { y = 2x, x + y = 9 } 的解是？',
+        options: ['x=2,y=4', 'x=3,y=6', 'x=4,y=8', 'x=1,y=2'],
+        correct: 1,
+        explain: 'y=2x 代入 x+y=9 → x+2x=9 → 3x=9 → x=3 → y=6',
+        points: 15
+      },
+      {
+        type: 'choice',
+        q: '用代入法解方程组 { x = y+1, 2x+3y=13 }，第一步应代入哪个方程？',
+        options: ['第一个', '第二个', '都可以', '都不可以'],
+        correct: 1,
+        explain: 'x=y+1 代入 2x+3y=13，将2x+3y=13化为只含y的方程。',
+        points: 10
+      },
+      {
+        type: 'input',
+        q: '方程组 { y = 3x, x + 2y = 14 }，解得 x = ?（只填数字）',
+        answer: '2',
+        explain: 'y=3x 代入 x+2y=14 → x+6x=14 → 7x=14 → x=2',
+        points: 15
+      },
+      {
+        type: 'choice',
+        q: '方程组 { x = 5, 2x + y = 12 } 的解是？',
+        options: ['x=5,y=2', 'x=5,y=3', 'x=5,y=1', 'x=5,y=4'],
+        correct: 0,
+        explain: 'x=5 代入 2x+y=12 → 10+y=12 → y=2',
+        points: 10
+      },
+      {
+        type: 'input',
+        q: '方程组 { x = 2y, 3x + y = 21 }，解得 y = ?（只填数字）',
+        answer: '3',
+        explain: 'x=2y 代入 3x+y=21 → 6y+y=21 → 7y=21 → y=3',
+        points: 20
+      },
+      {
+        type: 'choice',
+        q: '代入消元法的核心是？',
+        options: ['消去一个未知数', '使系数相同', '移项合并', '两边同时乘'],
+        correct: 0,
+        explain: '代入消元法的核心是消去一个未知数，化二元为一元。',
+        points: 10
+      }
+    ]
+  },
+  {
+    name: '加减消元',
+    icon: '➕',
+    questions: [
+      {
+        type: 'choice',
+        q: '方程组 { x+y=5, x-y=1 }，用加减法消去 y，应如何操作？',
+        options: ['①+②', '①-②', '①×2', '②×2'],
+        correct: 0,
+        explain: '①+②：(x+y)+(x-y)=5+1 → 2x=6 → x=3',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '方程组 { 2x+3y=8, 2x-y=4 }，消去 x 后的结果是？',
+        options: ['2y=4', '4y=4', '4y=12', 'y=1'],
+        correct: 1,
+        explain: '①-②：(2x+3y)-(2x-y)=8-4 → 4y=4 → y=1',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '方程组 { x+y=7, x-y=3 }，解得 x = ?（只填数字）',
+        answer: '5',
+        explain: '①+②：2x=10 → x=5',
+        points: 15
+      },
+      {
+        type: 'choice',
+        q: '方程组 { 3x+2y=12, 3x-2y=6 }，用加减法消去 y 应？',
+        options: ['①+②', '①-②', '①×2', '②×3'],
+        correct: 0,
+        explain: '①+②：6x=18 → x=3',
+        points: 10
+      },
+      {
+        type: 'input',
+        q: '方程组 { 2x+y=8, x+y=5 }，解得 x = ?（只填数字）',
+        answer: '3',
+        explain: '①-②：x=3',
+        points: 15
+      },
+      {
+        type: 'choice',
+        q: '加减消元法的关键是使某个未知数的系数？',
+        options: ['相等', '相反', '相等或相反', '为0'],
+        correct: 2,
+        explain: '加减消元法需要使某个未知数的系数相等或相反，才能通过加减消去。',
+        points: 15
+      }
+    ]
+  },
+  {
+    name: '综合破译',
+    icon: '🔐',
+    questions: [
+      {
+        type: 'choice',
+        q: '鸡兔同笼，头共10个，脚共28只。设鸡x只兔y只，正确的方程组是？',
+        options: ['{x+y=10, 2x+4y=28}', '{x+y=10, x+y=28}', '{x+y=10, 2x+2y=28}', '{x+y=28, 2x+4y=10}'],
+        correct: 0,
+        explain: '头共10个→x+y=10，鸡2脚兔4脚→2x+4y=28',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '买3支铅笔和2本笔记本共花17元，买1支铅笔和1本笔记本共花7元。设铅笔x元，笔记本y元，3x+2y=?（只填数字，这就是题目给的总价）',
+        answer: '17',
+        explain: '题目已给出 3x+2y=17',
+        points: 10
+      },
+      {
+        type: 'choice',
+        q: '甲乙两数之和为15，甲比乙大3。设甲为x，乙为y，方程组是？',
+        options: ['{x+y=15, x-y=3}', '{x+y=15, x+y=3}', '{x-y=15, x+y=3}', '{x+y=15, y-x=3}'],
+        correct: 0,
+        explain: '和为15→x+y=15，甲比乙大3→x-y=3',
+        points: 10
+      },
+      {
+        type: 'input',
+        q: '方程组 { x+y=10, x-y=4 }，解得 y = ?（只填数字）',
+        answer: '3',
+        explain: '①+②：2x=14→x=7，代入①：7+y=10→y=3',
+        points: 15
+      },
+      {
+        type: 'choice',
+        q: '某班男生女生共40人，男生是女生的3倍。设女生x人，正确的方程是？',
+        options: ['x+3x=40', 'x+3=40', '3x=40', 'x-3x=40'],
+        correct: 0,
+        explain: '女生x人，男生3x人，x+3x=40',
+        points: 15
+      },
+      {
+        type: 'input',
+        q: '方程组 { 2x+y=7, x+2y=8 }，解得 x+y = ?（只填数字）',
+        answer: '5',
+        explain: '①+②：3x+3y=15 → x+y=5',
+        points: 25
+      }
+    ]
+  }
+];
+
+let currentStage = 0;
+let currentQIndex = 0;
+let score = 0;
+let correctCount = 0;
+let stageScores = [0, 0, 0, 0, 0];
+let stageCorrect = [0, 0, 0, 0, 0];
+let stageStartTime = 0;
+let stageTime = 0;
+let totalStartTime = 0;
+let earnedBadges = [false, false, false, false];
+let answered = false;
+
+function toggleNav() { document.getElementById('levelNav').classList.toggle('show'); }
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.nav-btn') && !e.target.closest('.level-nav-panel')) {
+    document.getElementById('levelNav').classList.remove('show');
+  }
+});
+
+function goToStage(n) {
+  if (n === 0) { showScreen('screen-intro'); currentStage = 0; }
+  else if (n <= currentStage || earnedBadges[n-1]) { startStage(n); }
+  document.getElementById('levelNav').classList.remove('show');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function startStage(n) {
+  currentStage = n;
+  currentQIndex = 0;
+  stageScores[n] = 0;
+  stageCorrect[n] = 0;
+  stageStartTime = Date.now();
+  if (n === 1) totalStartTime = Date.now();
+  answered = false;
+  showScreen(`screen-stage${n}`);
+  renderQuestion();
+  updateProgress();
+}
+
+function renderQuestion() {
+  const stage = stages[currentStage];
+  const q = stage.questions[currentQIndex];
+  const container = document.getElementById(`stage${currentStage}-container`);
+  
+  let html = `
+    <div class="question-card" id="qcard">
+      <div class="q-num">${stage.icon} 题目 ${currentQIndex + 1} / ${stage.questions.length} · ${q.points} 分</div>
+      <div class="q-text">${q.q}</div>
+  `;
+  
+  if (q.type === 'choice') {
+    html += `<div class="options-grid">`;
+    q.options.forEach((opt, i) => {
+      html += `<button class="option-btn" id="opt${i}" onclick="checkAnswer(${i})">${String.fromCharCode(65+i)}. ${opt}</button>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `
+      <input type="text" class="answer-input" id="answerInput" placeholder="输入答案（只填数字）" onkeypress="if(event.key==='Enter')checkInput()">
+      <button class="btn" onclick="checkInput()">提交答案</button>
+    `;
+  }
+  
+  html += `
+    <div class="feedback-box" id="feedback"></div>
+    <div class="action-btns" id="actionBtns" style="display:none;">
+      <button class="btn" onclick="nextQuestion()">下一题 →</button>
+    </div>
+    </div>`;
+  
+  container.innerHTML = html;
+  if (q.type === 'input') setTimeout(() => document.getElementById('answerInput')?.focus(), 100);
+}
+
+function checkAnswer(idx) {
+  if (answered) return;
+  answered = true;
+  const stage = stages[currentStage];
+  const q = stage.questions[currentQIndex];
+  const isCorrect = idx === q.correct;
+  
+  const options = document.querySelectorAll('.option-btn');
+  options.forEach((btn, i) => {
+    btn.classList.add('disabled');
+    if (i === q.correct) btn.classList.add('correct');
+    else if (i === idx) btn.classList.add('wrong');
+  });
+  
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback-box show ' + (isCorrect ? 'ok' : 'err');
+  fb.textContent = (isCorrect ? '✓ 正确！' : '✗ 错误！') + ' ' + q.explain;
+  
+  if (isCorrect) {
+    score += q.points;
+    stageScores[currentStage] += q.points;
+    correctCount++;
+    stageCorrect[currentStage]++;
+  }
+  
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('actionBtns').style.display = 'flex';
+}
+
+function checkInput() {
+  if (answered) return;
+  const input = document.getElementById('answerInput');
+  const val = input.value.trim();
+  if (!val) return;
+  
+  answered = true;
+  const stage = stages[currentStage];
+  const q = stage.questions[currentQIndex];
+  const isCorrect = val === q.answer;
+  
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback-box show ' + (isCorrect ? 'ok' : 'err');
+  fb.textContent = (isCorrect ? '✓ 正确！' : '✗ 错误！') + ' ' + q.explain;
+  
+  if (isCorrect) {
+    score += q.points;
+    stageScores[currentStage] += q.points;
+    correctCount++;
+    stageCorrect[currentStage]++;
+    input.style.borderColor = 'var(--success)';
+  } else {
+    input.style.borderColor = 'var(--danger)';
+  }
+  
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('actionBtns').style.display = 'flex';
+}
+
+function nextQuestion() {
+  const stage = stages[currentStage];
+  currentQIndex++;
+  answered = false;
+  if (currentQIndex >= stage.questions.length) {
+    finishStage();
+  } else {
+    renderQuestion();
+    updateProgress();
+  }
+}
+
+function updateProgress() {
+  const stage = stages[currentStage];
+  const pct = ((currentQIndex) / stage.questions.length) * 100;
+  document.getElementById(`prog${currentStage}`).style.width = pct + '%';
+}
+
+function finishStage() {
+  stageTime = Math.floor((Date.now() - stageStartTime) / 1000);
+  const stage = stages[currentStage];
+  const totalPoints = stage.questions.reduce((s, q) => s + q.points, 0);
+  const stageRate = stageCorrect[currentStage] / stage.questions.length;
+  
+  if (stageRate >= 0.6) {
+    earnedBadges[currentStage - 1] = true;
+    document.getElementById(`badge${currentStage}`).classList.add('earned');
+  }
+  
+  let grade = 'C', gradeColor = 'var(--danger)';
+  if (stageRate >= 0.9) { grade = 'S'; gradeColor = 'var(--accent)'; }
+  else if (stageRate >= 0.75) { grade = 'A'; gradeColor = 'var(--success)'; }
+  else if (stageRate >= 0.6) { grade = 'B'; gradeColor = 'var(--warning)'; }
+  
+  document.getElementById('resultIcon').textContent = stage.icon;
+  document.getElementById('resultGrade').textContent = grade;
+  document.getElementById('resultGrade').style.color = gradeColor;
+  document.getElementById('resultScore').textContent = stageScores[currentStage];
+  document.getElementById('resultTotal').textContent = totalPoints;
+  document.getElementById('resultRate').textContent = Math.round(stageRate * 100) + '%';
+  document.getElementById('resultTime').textContent = stageTime + 's';
+  
+  const badgesShow = document.getElementById('badgesShow');
+  badgesShow.innerHTML = '';
+  const badgeIcons = ['🔢', '📥', '➕', '🔐'];
+  const badgeNames = ['概念识别', '代入消元', '加减消元', '综合破译'];
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement('div');
+    div.className = 'badge-show' + (earnedBadges[i] ? ' earned' : '');
+    div.textContent = badgeIcons[i];
+    div.title = badgeNames[i];
+    badgesShow.appendChild(div);
+  }
+  
+  const nextBtn = document.getElementById('nextStageBtn');
+  if (currentStage >= 4) {
+    nextBtn.textContent = '查看总评 →';
+    nextBtn.onclick = showFinal;
+  } else {
+    nextBtn.textContent = '下一关 →';
+    nextBtn.onclick = nextStage;
+  }
+  
+  showScreen('screen-result');
+}
+
+function retryStage() { startStage(currentStage); }
+
+function nextStage() {
+  if (currentStage < 4) startStage(currentStage + 1);
+}
+
+function showFinal() {
+  const totalTime = Math.floor((Date.now() - totalStartTime) / 1000);
+  const totalQuestions = stages.slice(1).reduce((s, st) => s + st.questions.length, 0);
+  
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalCorrect').textContent = correctCount + '/' + totalQuestions;
+  document.getElementById('finalTime').textContent = totalTime;
+  
+  const rate = correctCount / totalQuestions;
+  let rank = 'C', rankText = '见习破译员', rankColor = 'var(--danger)';
+  if (rate >= 0.9) { rank = 'S'; rankText = '完美破译员'; rankColor = 'var(--accent)'; }
+  else if (rate >= 0.75) { rank = 'A'; rankText = '精英破译员'; rankColor = 'var(--success)'; }
+  else if (rate >= 0.6) { rank = 'B'; rankText = '合格破译员'; rankColor = 'var(--warning)'; }
+  
+  document.getElementById('finalRank').textContent = rank;
+  document.getElementById('finalRank').style.color = rankColor;
+  document.getElementById('finalRankText').textContent = rankText;
+  
+  const finalBadges = document.getElementById('finalBadges');
+  finalBadges.innerHTML = '';
+  const badgeIcons = ['🔢', '📥', '➕', '🔐'];
+  const badgeNames = ['概念识别', '代入消元', '加减消元', '综合破译'];
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement('div');
+    div.className = 'badge-show' + (earnedBadges[i] ? ' earned' : '');
+    div.textContent = badgeIcons[i];
+    div.title = badgeNames[i];
+    finalBadges.appendChild(div);
+  }
+  
+  showScreen('screen-final');
+}
+
+function restartAll() {
+  currentStage = 0; currentQIndex = 0; score = 0; correctCount = 0;
+  stageScores = [0, 0, 0, 0, 0]; stageCorrect = [0, 0, 0, 0, 0];
+  earnedBadges = [false, false, false, false]; answered = false;
+  document.getElementById('scoreDisplay').textContent = '0';
+  for (let i = 1; i <= 4; i++) document.getElementById(`badge${i}`).classList.remove('earned');
+  showScreen('screen-intro');
+}
+</script>
+</body>
+</html>
