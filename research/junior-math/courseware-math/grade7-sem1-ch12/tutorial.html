@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>FACTOR | 因式分解科教案 — 第12章 因式分解</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .corner {
+      position: fixed;
+      width: 60px; height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .logo span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .hud-header .status {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-header .status .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .nav-panel {
+      position: fixed;
+      top: 56px; left: 0;
+      width: 240px;
+      height: calc(100vh - 56px);
+      background: var(--panel);
+      border-right: 1px solid rgba(0,245,212,0.15);
+      padding: 20px 16px;
+      overflow-y: auto;
+      z-index: 90;
+      transition: transform 0.3s ease;
+    }
+    .nav-panel h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .nav-panel .nav-link {
+      display: block;
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+      border-left: 2px solid transparent;
+    }
+    .nav-panel .nav-link:hover,
+    .nav-panel .nav-link.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+    .nav-panel .nav-link .num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      opacity: 0.5;
+      margin-right: 6px;
+    }
+    .nav-panel .back-link {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      text-align: center;
+    }
+    .nav-panel .back-link a {
+      color: var(--warn);
+      font-size: 0.75rem;
+      text-decoration: none;
+    }
+
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 64px; left: 12px;
+      z-index: 101;
+      width: 40px; height: 40px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .main-content {
+      margin-left: 240px;
+      margin-top: 56px;
+      padding: 32px 40px 60px;
+      max-width: 900px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .module {
+      margin-bottom: 48px;
+      padding: 32px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .module::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .module-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .module-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 4px 10px;
+      border-radius: 2px;
+      margin-right: 12px;
+      letter-spacing: 1px;
+    }
+    .module-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+    .module-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    .theory-box {
+      background: rgba(0,245,212,0.05);
+      border-left: 3px solid var(--accent);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      border-radius: 0 6px 6px 0;
+    }
+    .theory-box h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .theory-box p, .theory-box li {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .theory-box ul {
+      margin-left: 20px;
+      margin-top: 8px;
+    }
+    .theory-box .formula {
+      display: inline-block;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      color: var(--accent);
+      background: rgba(0,245,212,0.08);
+      padding: 6px 14px;
+      border-radius: 4px;
+      margin: 8px 0;
+      letter-spacing: 1px;
+    }
+
+    .example {
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.08);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .example:hover {
+      border-color: rgba(0,245,212,0.2);
+    }
+    .example-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .example-tag {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      background: rgba(0,245,212,0.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-right: 10px;
+    }
+    .example-title {
+      font-size: 0.85rem;
+      color: var(--text);
+      font-weight: bold;
+    }
+    .example-toggle {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: var(--accent);
+      transition: transform 0.2s;
+    }
+    .example.expanded .example-toggle {
+      transform: rotate(180deg);
+    }
+    .example-body {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .example-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.4s ease;
+      padding: 0 16px;
+      background: rgba(0,245,212,0.06);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      line-height: 1.7;
+      border-left: 2px solid var(--accent);
+    }
+    .example.expanded .example-answer {
+      max-height: 500px;
+      padding: 12px 16px;
+    }
+    .example-answer .label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      color: var(--warn);
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .quiz {
+      margin-bottom: 16px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .quiz-question {
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .quiz-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .quiz-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid rgba(0,245,212,0.3);
+      color: var(--text);
+      border-radius: 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quiz-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .quiz-btn.correct {
+      background: rgba(0,245,212,0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .quiz-btn.wrong {
+      background: rgba(255,56,96,0.15);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .quiz-feedback {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.correct { background: rgba(0,245,212,0.1); color: var(--accent); }
+    .quiz-feedback.wrong { background: rgba(255,56,96,0.1); color: var(--danger); }
+
+    .formula-summary {
+      margin-top: 24px;
+      padding: 20px;
+      background: rgba(0,245,212,0.04);
+      border: 1px dashed rgba(0,245,212,0.2);
+      border-radius: 6px;
+    }
+    .formula-summary h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .formula-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.85rem;
+    }
+    .formula-item:last-child { border-bottom: none; }
+    .formula-item .f-name {
+      color: var(--text-dim);
+      min-width: 160px;
+    }
+    .formula-item .f-expr {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    .step-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+      padding: 12px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+    }
+    .step-box .step {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      font-size: 0.85rem;
+    }
+    .step-box .arrow {
+      color: var(--warn);
+      font-size: 0.9rem;
+    }
+    .step-box .explain {
+      color: var(--text-dim);
+      font-size: 0.75rem;
+    }
+
+    .factor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .factor-card {
+      padding: 14px;
+      background: rgba(0,245,212,0.03);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 6px;
+      text-align: center;
+    }
+    .factor-card .f-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .factor-card .f-expr {
+      font-size: 0.8rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+    }
+    .feedback-box .icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    .feedback-box .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    .footer {
+      margin-top: 60px;
+      padding: 24px;
+      text-align: center;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .footer .code {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    @media (max-width: 1024px) {
+      .nav-panel { width: 200px; }
+      .main-content { margin-left: 200px; padding: 24px 28px 40px; }
+    }
+    @media (max-width: 768px) {
+      .nav-panel {
+        transform: translateX(-100%);
+        width: 260px;
+      }
+      .nav-panel.open { transform: translateX(0); }
+      .main-content { margin-left: 0; padding: 20px 16px 40px; }
+      .menu-toggle { display: block; }
+      .module { padding: 20px; }
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo span { display: none; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 16px 12px 32px; }
+      .module { padding: 16px; }
+      .module-title { font-size: 1.1rem; }
+      .theory-box { padding: 14px 16px; }
+      .quiz-options { flex-direction: column; }
+      .quiz-btn { width: 100%; text-align: left; }
+      .factor-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 360px) {
+      .hud-header .logo { font-size: 1rem; }
+      .module { padding: 12px; }
+      .example { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <header class="hud-header">
+    <div class="logo">FACTOR <span>因式分解科</span></div>
+    <div class="status"><span class="dot"></span>SYS ONLINE | CH12 因式分解</div>
+  </header>
+
+  <button class="menu-toggle" onclick="toggleNav()">☰</button>
+
+  <nav class="nav-panel" id="navPanel">
+    <h3>模块导航</h3>
+    <a href="#module1" class="nav-link" onclick="navTo('module1')">
+      <span class="num">01</span>提公因式法
+    </a>
+    <a href="#module2" class="nav-link" onclick="navTo('module2')">
+      <span class="num">02</span>平方差公式
+    </a>
+    <a href="#module3" class="nav-link" onclick="navTo('module3')">
+      <span class="num">03</span>完全平方公式
+    </a>
+    <a href="#module4" class="nav-link" onclick="navTo('module4')">
+      <span class="num">04</span>十字相乘法
+    </a>
+    <a href="#module5" class="nav-link" onclick="navTo('module5')">
+      <span class="num">05</span>分组分解法
+    </a>
+    <div class="back-link">
+      <a href="index.html">➤ 进入训练场 (代号:FACTOR)</a>
+    </div>
+  </nav>
+
+  <div id="navOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:80;" onclick="toggleNav()"></div>
+
+  <main class="main-content">
+
+    <!-- ===== 模块1：提公因式法 ===== -->
+    <section class="module" id="module1">
+      <div class="module-header">
+        <span class="module-badge">MOD-01</span>
+        <h2 class="module-title">提公因式法 Common Factor</h2>
+        <span class="module-subtitle">因式分解科 · 基础级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>如果一个多项式的各项含有公因式，那么可以把公因式提取出来，将多项式化成公因式与另一个多项式的积的形式。</p>
+        <ul>
+          <li><strong>公因式</strong>：多项式各项都含有的公共的因式</li>
+          <li><strong>确定公因式的方法</strong>：系数取各项系数的最大公约数；字母取各项都含有的字母；指数取最低次幂</li>
+          <li>提取公因式后，括号内项数与原多项式项数相同</li>
+        </ul>
+        <span class="formula">ma + mb + mc = m(a + b + c)</span>
+
+        <p style="margin-top:12px;"><strong>理解方式：</strong>把公共部分"提"出来，相当于分配律的逆运算。</p>
+        <div class="step-box">
+          <span class="step">6x² + 9x</span>
+          <span class="arrow">→</span>
+          <span class="step">找公因式</span>
+          <span class="arrow">→</span>
+          <span class="step">系数GCD=3，字母x最低次=1</span>
+          <span class="arrow">→</span>
+          <span class="step">3x(2x + 3)</span>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-A</span>
+          <span class="example-title">基础提公因式</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：8a³b² - 12a²b³
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          系数GCD：8和12的最大公约数是4<br>
+          字母公因式：a²b²（a取最低次2，b取最低次2）<br>
+          ∴ 原式 = <strong>4a²b²(2a - 3b)</strong>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-B</span>
+          <span class="example-title">多项提公因式</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：3x(y-2) + 5(y-2)
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          公因式为(y-2)，把它看作一个整体<br>
+          ∴ 原式 = <strong>(y-2)(3x + 5)</strong>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-C</span>
+          <span class="example-title">符号变形</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：-a² + ab - ac
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          首项为负，先提取负号：<br>
+          原式 = -(a² - ab + ac) = <strong>-a(a - b + c)</strong><br>
+          <em>注意：提取负号后括号内各项要变号</em>
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. 分解因式：6x² + 9x = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q1')">A. 3x(2x + 3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">B. 3(2x² + 3x)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">C. x(6x + 9)</button>
+        </div>
+        <div class="quiz-feedback" id="q1"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 分解因式：4a²b - 6ab² = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">A. 2ab(2a - 3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q2')">B. 2ab(2a - 3b)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">C. ab(4a - 6b)</button>
+        </div>
+        <div class="quiz-feedback" id="q2"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 分解因式：m(a-b) + n(a-b) = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q3')">A. (a-b)(m+n)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">B. (a-b)m + n</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">C. a(m+n) - b</button>
+        </div>
+        <div class="quiz-feedback" id="q3"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [提公因式法]</h4>
+        <div class="formula-item">
+          <span class="f-name">核心法则</span>
+          <span class="f-expr">ma + mb + mc = m(a+b+c)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">整体公因式</span>
+          <span class="f-expr">ma+mb = m(a+b)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">首项为负</span>
+          <span class="f-expr">-a+b = -(a-b)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块2：平方差公式 ===== -->
+    <section class="module" id="module2">
+      <div class="module-header">
+        <span class="module-badge">MOD-02</span>
+        <h2 class="module-title">平方差公式 Difference of Squares</h2>
+        <span class="module-subtitle">因式分解科 · 进阶级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>两个数的平方差，等于这两个数的和与这两个数的差的积。</p>
+        <ul>
+          <li><strong>适用条件</strong>：必须是两个平方项的<strong>差</strong>（即"减号"连接）</li>
+          <li><strong>结构特征</strong>：两项式，每项都是完全平方，符号相反</li>
+          <li>公式中的a、b可以是数、字母、单项式或多项式</li>
+        </ul>
+        <span class="formula">a² - b² = (a + b)(a - b)</span>
+
+        <div class="factor-grid">
+          <div class="factor-card">
+            <div class="f-title">正向</div>
+            <div class="f-expr">a² - b²<br>↓<br>(a+b)(a-b)</div>
+          </div>
+          <div class="factor-card">
+            <div class="f-title">逆向</div>
+            <div class="f-expr">(a+b)(a-b)<br>↓<br>a² - b²</div>
+          </div>
+          <div class="factor-card">
+            <div class="f-title">常见变形</div>
+            <div class="f-expr">(a+b)²-(c+d)²<br>↓<br>(a+b+c+d)(a+b-c-d)</div>
+          </div>
+        </div>
+
+        <p style="margin-top:12px;"><strong>识别技巧：</strong>看到"平方减平方"，立刻想到平方差公式。</p>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-A</span>
+          <span class="example-title">基础平方差</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：x² - 9
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          x² - 9 = x² - 3²，符合 a² - b² 形式<br>
+          ∴ 原式 = <strong>(x + 3)(x - 3)</strong>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-B</span>
+          <span class="example-title">含系数平方差</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：4a² - 25b²
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          4a² = (2a)²，25b² = (5b)²<br>
+          ∴ 原式 = (2a)² - (5b)² = <strong>(2a + 5b)(2a - 5b)</strong>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-C</span>
+          <span class="example-title">整体代换</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：(x+y)² - (x-y)²
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          把(x+y)看作a，(x-y)看作b<br>
+          a² - b² = (a+b)(a-b)<br>
+          = [(x+y)+(x-y)][(x+y)-(x-y)]<br>
+          = (2x)(2y) = <strong>4xy</strong>
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. 分解因式：a² - 16 = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">A. (a-4)²</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q4')">B. (a+4)(a-4)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">C. (a+4)²</button>
+        </div>
+        <div class="quiz-feedback" id="q4"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 分解因式：9x² - 4y² = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">A. (3x-2y)²</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q5')">B. (3x+2y)(3x-2y)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">C. (9x+4y)(9x-4y)</button>
+        </div>
+        <div class="quiz-feedback" id="q5"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. (a+1)² - (b-1)² = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q6')">A. (a+b)(a-b+2)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">B. (a+b+2)(a-b)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">C. (a-b+2)(a+b-2)</button>
+        </div>
+        <div class="quiz-feedback" id="q6"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [平方差公式]</h4>
+        <div class="formula-item">
+          <span class="f-name">核心公式</span>
+          <span class="f-expr">a² - b² = (a+b)(a-b)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">系数平方</span>
+          <span class="f-expr">(ma)² - (nb)² = (ma+nb)(ma-nb)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">整体代换</span>
+          <span class="f-expr">(A)² - (B)² = (A+B)(A-B)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块3：完全平方公式 ===== -->
+    <section class="module" id="module3">
+      <div class="module-header">
+        <span class="module-badge">MOD-03</span>
+        <h2 class="module-title">完全平方公式 Perfect Square</h2>
+        <span class="module-subtitle">因式分解科 · 进阶级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>把一个三项式化成完全平方的形式，需要满足"首平方、尾平方、首尾积的两倍在中央"。</p>
+        <ul>
+          <li><strong>和的形式</strong>：两个数的平方和加上这两个数积的两倍</li>
+          <li><strong>差的形式</strong>：两个数的平方和减去这两个数积的两倍</li>
+          <li><strong>结构特征</strong>：三项式；有两项是完全平方且同号；第三项是两底数积的±2倍</li>
+        </ul>
+        <span class="formula">a² + 2ab + b² = (a + b)²</span>
+        <span class="formula">a² - 2ab + b² = (a - b)²</span>
+
+        <div class="factor-grid">
+          <div class="factor-card">
+            <div class="f-title">首项</div>
+            <div class="f-expr">a²<br>完全平方</div>
+          </div>
+          <div class="factor-card">
+            <div class="f-title">尾项</div>
+            <div class="f-expr">b²<br>完全平方</div>
+          </div>
+          <div class="factor-card">
+            <div class="f-title">中间项</div>
+            <div class="f-expr">±2ab<br>首尾积的两倍</div>
+          </div>
+        </div>
+
+        <p style="margin-top:12px;"><strong>口诀记忆：</strong>首平方，尾平方，首尾两倍在中央，符号看中间。</p>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-A</span>
+          <span class="example-title">和的完全平方</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：x² + 6x + 9
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          x² = (x)²，9 = 3²，6x = 2·x·3<br>
+          符合 a² + 2ab + b² 形式<br>
+          ∴ 原式 = <strong>(x + 3)²</strong>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-B</span>
+          <span class="example-title">差的完全平方</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：4a² - 12ab + 9b²
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          4a² = (2a)²，9b² = (3b)²，-12ab = -2·(2a)·(3b)<br>
+          符合 a² - 2ab + b² 形式<br>
+          ∴ 原式 = <strong>(2a - 3b)²</strong>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-C</span>
+          <span class="example-title">先提公因式再用公式</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：2x³ - 8x² + 8x
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          第一步：提取公因式2x<br>
+          = 2x(x² - 4x + 4)<br>
+          第二步：括号内用完全平方公式<br>
+          x² = x²，4 = 2²，-4x = -2·x·2<br>
+          ∴ 原式 = <strong>2x(x - 2)²</strong>
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. 分解因式：x² + 10x + 25 = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q7')">A. (x+5)²</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">B. (x+5)(x-5)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">C. (x+25)²</button>
+        </div>
+        <div class="quiz-feedback" id="q7"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 分解因式：9m² - 6mn + n² = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">A. (3m+n)²</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q8')">B. (3m-n)²</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">C. (9m-n)²</button>
+        </div>
+        <div class="quiz-feedback" id="q8"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 下列哪个是完全平方式？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">A. x² + 4x + 6</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q9')">B. x² - 8x + 16</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">C. x² + 9x + 9</button>
+        </div>
+        <div class="quiz-feedback" id="q9"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [完全平方公式]</h4>
+        <div class="formula-item">
+          <span class="f-name">和的平方</span>
+          <span class="f-expr">a² + 2ab + b² = (a+b)²</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">差的平方</span>
+          <span class="f-expr">a² - 2ab + b² = (a-b)²</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">口诀</span>
+          <span class="f-expr">首平方+尾平方+2倍首尾积</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块4：十字相乘法 ===== -->
+    <section class="module" id="module4">
+      <div class="module-header">
+        <span class="module-badge">MOD-04</span>
+        <h2 class="module-title">十字相乘法 Cross Method</h2>
+        <span class="module-subtitle">因式分解科 · 高级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>对于二次三项式 x² + px + q，如果能找到两个数a、b，使得 a+b=p 且 ab=q，则可分解为 (x+a)(x+b)。</p>
+        <ul>
+          <li><strong>核心</strong>：拆常数项，交叉相乘再相加得一次项系数</li>
+          <li><strong>适用</strong>：二次项系数为1的二次三项式 x² + px + q</li>
+          <li>若二次项系数不为1，需将二次项系数也拆分</li>
+        </ul>
+        <span class="formula">x² + (a+b)x + ab = (x+a)(x+b)</span>
+
+        <p style="margin-top:12px;"><strong>十字相乘示意图：</strong></p>
+        <div class="step-box" style="justify-content:center;font-size:1rem;">
+          <span class="step">x</span>
+          <span class="arrow">+</span>
+          <span class="step">a</span>
+          <span style="color:var(--text-dim);">　　交叉相乘：x·b + x·a = (a+b)x</span>
+        </div>
+        <div class="step-box" style="justify-content:center;font-size:1rem;">
+          <span class="step">x</span>
+          <span class="arrow">+</span>
+          <span class="step">b</span>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-A</span>
+          <span class="example-title">基础十字相乘</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：x² + 5x + 6
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          找两个数：和=5，积=6 → 2和3<br>
+          x² + 5x + 6 = <strong>(x + 2)(x + 3)</strong><br>
+          验证：x·3 + x·2 = 5x ✓
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-B</span>
+          <span class="example-title">含负号的十字相乘</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：x² - x - 12
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          找两个数：和=-1，积=-12 → -4和3<br>
+          x² - x - 12 = <strong>(x - 4)(x + 3)</strong><br>
+          验证：x·3 + x·(-4) = -x ✓
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-C</span>
+          <span class="example-title">二次项系数不为1</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：2x² + 7x + 3
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          拆分2x² = 2x · x，拆分3 = 1 · 3<br>
+          交叉验证：2x·3 + x·1 = 7x ✓<br>
+          ∴ 原式 = <strong>(2x + 1)(x + 3)</strong>
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. x² + 7x + 12 = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">A. (x+2)(x+6)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q10')">B. (x+3)(x+4)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">C. (x+1)(x+12)</button>
+        </div>
+        <div class="quiz-feedback" id="q10"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. x² - 5x + 6 = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">A. (x+2)(x+3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q11')">B. (x-2)(x-3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">C. (x-1)(x-6)</button>
+        </div>
+        <div class="quiz-feedback" id="q11"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 2x² - 5x - 3 = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q12')">A. (2x+1)(x-3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">B. (2x-1)(x+3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">C. (2x-3)(x+1)</button>
+        </div>
+        <div class="quiz-feedback" id="q12"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [十字相乘法]</h4>
+        <div class="formula-item">
+          <span class="f-name">系数为1</span>
+          <span class="f-expr">x²+px+q = (x+a)(x+b)，a+b=p, ab=q</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">系数不为1</span>
+          <span class="f-expr">ax²+bx+c = (mx+p)(nx+q)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">核心</span>
+          <span class="f-expr">拆两头，凑中间</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块5：分组分解法 ===== -->
+    <section class="module" id="module5">
+      <div class="module-header">
+        <span class="module-badge">MOD-05</span>
+        <h2 class="module-title">分组分解法 Grouping</h2>
+        <span class="module-subtitle">因式分解科 · 高级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>将多项式适当分组，使各组能分别分解，或分组后各组之间能继续分解。</p>
+        <ul>
+          <li><strong>适用条件</strong>：四项或四项以上的多项式；没有明显的公因式或公式可用</li>
+          <li><strong>分组原则</strong>：分组后能提取公因式，或能用公式继续分解</li>
+          <li><strong>常见分组方式</strong>：二二分组、三一分组</li>
+        </ul>
+        <span class="formula">am + an + bm + bn = a(m+n) + b(m+n) = (a+b)(m+n)</span>
+
+        <p style="margin-top:12px;"><strong>步骤：</strong>① 合理分组 → ② 各组分别提取公因式 → ③ 整体提取公因式</p>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-A</span>
+          <span class="example-title">二二分组</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：ax + ay + bx + by
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          分组：(ax + ay) + (bx + by)<br>
+          各组提取公因式：a(x+y) + b(x+y)<br>
+          整体提取：(x+y)是公因式<br>
+          ∴ 原式 = <strong>(a+b)(x+y)</strong>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-B</span>
+          <span class="example-title">分组后用平方差</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：x² - y² + x + y
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          分组：(x² - y²) + (x + y)<br>
+          第一组用平方差：(x+y)(x-y) + (x+y)<br>
+          提取公因式(x+y)：<br>
+          = (x+y)[(x-y) + 1] = <strong>(x+y)(x-y+1)</strong>
+        </div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-C</span>
+          <span class="example-title">三一分组（完全平方+平方差）</span>
+          <span class="example-toggle">▼</span>
+        </div>
+        <div class="example-body">
+          分解因式：a² + 2ab + b² - c²
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          分组：(a² + 2ab + b²) - c²<br>
+          前三项用完全平方：(a+b)² - c²<br>
+          再用平方差公式：<br>
+          = [(a+b) + c][(a+b) - c] = <strong>(a+b+c)(a+b-c)</strong>
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. ax + bx + ay + by = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">A. (a+b)(x-y)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q13')">B. (a+b)(x+y)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">C. (a-b)(x+y)</button>
+        </div>
+        <div class="quiz-feedback" id="q13"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. a² - b² + a - b = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">A. (a+b)(a-b+1)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q14')">B. (a-b)(a+b+1)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">C. (a+b)(a+b-1)</button>
+        </div>
+        <div class="quiz-feedback" id="q14"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. x² - 4xy + 4y² - 9 = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q15')">A. (x-2y+3)(x-2y-3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">B. (x+2y+3)(x+2y-3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">C. (x-2y)² - 9</button>
+        </div>
+        <div class="quiz-feedback" id="q15"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [分组分解法]</h4>
+        <div class="formula-item">
+          <span class="f-name">二二分组</span>
+          <span class="f-expr">am+an+bm+bn = (a+b)(m+n)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">三一分组</span>
+          <span class="f-expr">a²±2ab+b²-c² = (a±b+c)(a±b-c)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">原则</span>
+          <span class="f-expr">分组后可提取公因式或用公式</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 综合总结 ===== -->
+    <section class="module" id="summary">
+      <div class="module-header">
+        <span class="module-badge">SUMMARY</span>
+        <h2 class="module-title">因式分解方法总览</h2>
+        <span class="module-subtitle">因式分解科 · 总集</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 解题策略</h4>
+        <p>因式分解的一般步骤：</p>
+        <ul>
+          <li><strong>第一步：提</strong> — 先看各项有没有公因式，有则先提取</li>
+          <li><strong>第二步：看项数</strong> — 两项看平方差；三项看完全平方或十字相乘；四项以上看分组</li>
+          <li><strong>第三步：检查</strong> — 分解后检查每个因式是否还能继续分解，直到不能再分解为止</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>口诀：</strong>一提二套三分组，检查彻底再收工。</p>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [总集]</h4>
+        <div class="formula-item">
+          <span class="f-name">提公因式</span>
+          <span class="f-expr">ma+mb+mc = m(a+b+c)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">平方差</span>
+          <span class="f-expr">a²-b² = (a+b)(a-b)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">完全平方</span>
+          <span class="f-expr">a²±2ab+b² = (a±b)²</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">十字相乘</span>
+          <span class="f-expr">x²+px+q = (x+a)(x+b)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">分组分解</span>
+          <span class="f-expr">am+an+bm+bn = (a+b)(m+n)</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>FACTOR 因式分解科 | 第12章 因式分解</p>
+      <p class="code">[CLASSIFIED] | CODENAME: FACTOR | CLEARANCE: STUDENT</p>
+      <p style="margin-top:8px;">
+        <a href="index.html" style="color:var(--accent);text-decoration:none;">➤ 进入训练场</a>
+      </p>
+    </footer>
+  </main>
+
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Answer verified.</p>
+      <button class="btn" onclick="hideFeedback()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    function toggleNav() {
+      const panel = document.getElementById('navPanel');
+      const overlay = document.getElementById('navOverlay');
+      panel.classList.toggle('open');
+      overlay.style.display = panel.classList.contains('open') ? 'block' : 'none';
+    }
+
+    function navTo(id) {
+      document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+      if (window.innerWidth <= 768) toggleNav();
+    }
+
+    function updateActiveNav() {
+      const modules = ['module1','module2','module3','module4','module5','summary'];
+      const links = document.querySelectorAll('.nav-link');
+      let active = 0;
+      modules.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 100) active = i;
+      });
+      links.forEach((l, i) => l.classList.toggle('active', i === active));
+    }
+    window.addEventListener('scroll', updateActiveNav);
+    updateActiveNav();
+
+    function toggleExample(el) {
+      el.classList.toggle('expanded');
+    }
+
+    const feedbackData = {
+      correct: { icon: '✓', title: 'CONFIRMED', text: 'Answer verified. Proceed to next sector.' },
+      wrong: { icon: '✗', title: 'DENIED', text: 'Incorrect. Review theory and retry.' }
+    };
+
+    function checkAnswer(btn, isCorrect, qid) {
+      const parent = btn.closest('.quiz');
+      const feedback = document.getElementById(qid);
+      const allBtns = parent.querySelectorAll('.quiz-btn');
+
+      allBtns.forEach(b => {
+        b.classList.remove('correct', 'wrong');
+        b.disabled = true;
+      });
+
+      if (isCorrect) {
+        btn.classList.add('correct');
+        feedback.textContent = '✓ 正确！';
+        feedback.className = 'quiz-feedback show correct';
+        showFeedback(true);
+      } else {
+        btn.classList.add('wrong');
+        allBtns.forEach(b => {
+          if (b.getAttribute('onclick').includes('true')) b.classList.add('correct');
+        });
+        feedback.textContent = '✗ 错误，请查看理论档案复习。';
+        feedback.className = 'quiz-feedback show wrong';
+        showFeedback(false);
+      }
+    }
+
+    function showFeedback(isCorrect) {
+      const data = isCorrect ? feedbackData.correct : feedbackData.wrong;
+      document.getElementById('feedbackIcon').textContent = data.icon;
+      document.getElementById('feedbackTitle').textContent = data.title;
+      document.getElementById('feedbackText').textContent = data.text;
+      document.getElementById('feedbackOverlay').classList.add('show');
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedbackOverlay').classList.remove('show');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideFeedback();
+    });
+  </script>
+</body>
+</html>
