@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>INEQ | 不等式侦缉教案 — 第15章 一元一次不等式</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ===== HUD 背景 ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* 扫描线 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 四角装饰 */
+    .corner {
+      position: fixed;
+      width: 60px; height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    /* ===== 顶部 HUD 栏 ===== */
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .logo span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .hud-header .status {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-header .status .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ===== 主内容区 ===== */
+    .main-content {
+      margin-left: 240px;
+      margin-top: 56px;
+      padding: 32px 40px 60px;
+      max-width: 900px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ===== 模块卡片 ===== */
+    .module {
+      margin-bottom: 48px;
+      padding: 32px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .module::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .module-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .module-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 4px 10px;
+      border-radius: 2px;
+      margin-right: 12px;
+      letter-spacing: 1px;
+    }
+    .module-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+    .module-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    /* ===== 理论区 ===== */
+    .theory-box {
+      background: rgba(0,245,212,0.05);
+      border-left: 3px solid var(--accent);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      border-radius: 0 6px 6px 0;
+    }
+    .theory-box h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .theory-box p, .theory-box li {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .theory-box ul {
+      margin-left: 20px;
+      margin-top: 8px;
+    }
+    .theory-box .formula {
+      display: inline-block;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      color: var(--accent);
+      background: rgba(0,245,212,0.08);
+      padding: 6px 14px;
+      border-radius: 4px;
+      margin: 8px 0;
+      letter-spacing: 1px;
+    }
+    .theory-box .warning {
+      color: var(--danger);
+      font-weight: bold;
+    }
+
+    /* ===== 运算动画演示区 ===== */
+    .anim-box {
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.1);
+    }
+    .anim-box h5 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+    }
+    .anim-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0;
+      font-size: 0.9rem;
+      font-family: 'Orbitron', sans-serif;
+      flex-wrap: wrap;
+    }
+    .anim-step .eq-part {
+      color: var(--text);
+      transition: all 0.5s ease;
+    }
+    .anim-step .highlight {
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--accent);
+      animation: glow 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 4px var(--accent); }
+      to   { text-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent); }
+    }
+    .anim-arrow {
+      color: var(--warn);
+      font-size: 1.2rem;
+    }
+    .anim-result {
+      color: var(--accent);
+      font-weight: bold;
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: rgba(0,245,212,0.08);
+    }
+
+    /* 数轴 */
+    .number-line {
+      margin: 16px 0;
+      padding: 16px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+      text-align: center;
+    }
+    .number-line svg {
+      max-width: 100%;
+    }
+
+    /* ===== 例题区 ===== */
+    .example {
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.08);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .example:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .example-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .example-tag {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      background: rgba(0,245,212,0.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-right: 10px;
+    }
+    .example-title {
+      font-size: 0.85rem;
+      color: var(--text);
+      font-weight: bold;
+    }
+    .example-body {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .example-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.4s ease;
+      padding: 0 16px;
+      background: rgba(0,245,212,0.06);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      line-height: 1.7;
+      border-left: 2px solid var(--accent);
+    }
+    .example.expanded .example-answer {
+      max-height: 600px;
+      padding: 12px 16px;
+      margin-top: 8px;
+    }
+    .example-answer .label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      color: var(--warn);
+      margin-bottom: 4px;
+      display: block;
+    }
+    .example-toggle {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-align: right;
+      margin-top: 4px;
+      opacity: 0.6;
+    }
+
+    /* ===== 测验区 ===== */
+    .quiz {
+      margin-bottom: 16px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .quiz-question {
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .quiz-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .quiz-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid rgba(0,245,212,0.3);
+      color: var(--text);
+      border-radius: 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quiz-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .quiz-btn.correct {
+      background: rgba(0,245,212,0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .quiz-btn.wrong {
+      background: rgba(255,56,96,0.15);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .quiz-feedback {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.correct { background: rgba(0,245,212,0.1); color: var(--accent); }
+    .quiz-feedback.wrong { background: rgba(255,56,96,0.1); color: var(--danger); }
+
+    /* ===== 公式总结 ===== */
+    .formula-summary {
+      margin-top: 24px;
+      padding: 20px;
+      background: rgba(0,245,212,0.04);
+      border: 1px dashed rgba(0,245,212,0.2);
+      border-radius: 6px;
+    }
+    .formula-summary h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .formula-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.85rem;
+    }
+    .formula-item:last-child { border-bottom: none; }
+    .formula-item .f-name {
+      color: var(--text-dim);
+      min-width: 160px;
+    }
+    .formula-item .f-expr {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    /* ===== Feedback 弹窗 ===== */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+    }
+    .feedback-box .icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    .feedback-box .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 页脚 ===== */
+    .footer {
+      margin-top: 60px;
+      padding: 24px;
+      text-align: center;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .footer .code {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    /* ===== 底部章节导航 ===== */
+    .bottom-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 40px; padding: 20px;
+      background: var(--panel); border: 1px solid rgba(0, 245, 212, 0.2); border-radius: 8px;
+    }
+    .bottom-nav a { color: var(--accent); text-decoration: none; font-size: 14px; transition: all 0.3s; }
+    .bottom-nav a:hover { text-shadow: 0 0 10px var(--accent); }
+    .bottom-nav .next-chapter {
+      padding: 10px 24px;
+      background: linear-gradient(135deg, var(--accent), rgba(0,187,249,0.8));
+      color: var(--bg); border-radius: 6px;
+      font-family: 'Orbitron', sans-serif; font-weight: 700;
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 1024px) {
+      .main-content { margin-left: 200px; padding: 24px 28px 40px; }
+    }
+    @media (max-width: 768px) {
+      .main-content { margin-left: 0; padding: 20px 16px 40px; }
+      .module { padding: 20px; }
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo span { display: none; }
+      .bottom-nav { flex-direction: column; gap: 12px; text-align: center; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 16px 12px 32px; }
+      .module { padding: 16px; }
+      .module-title { font-size: 1.1rem; }
+      .theory-box { padding: 14px 16px; }
+      .quiz-options { flex-direction: column; }
+      .quiz-btn { width: 100%; text-align: left; }
+      .formula-item { flex-direction: column; align-items: flex-start; }
+      .formula-item .f-name { min-width: auto; margin-bottom: 4px; }
+    }
+    @media (max-width: 360px) {
+      .hud-header .logo { font-size: 1rem; }
+      .module { padding: 12px; }
+      .example { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 四角装饰 -->
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <!-- 顶部 HUD -->
+  <header class="hud-header">
+    <div class="logo">INEQ <span>不等式侦缉科</span></div>
+    <div class="status"><span class="dot"></span>SYS ONLINE | CH15 一元一次不等式</div>
+  </header>
+
+  <!-- 主内容 -->
+  <main class="main-content">
+
+    <!-- ===== 模块1：不等式的概念与性质 ===== -->
+    <section class="module" id="module1">
+      <div class="module-header">
+        <span class="module-badge">MOD-01</span>
+        <h2 class="module-title">不等式的概念与性质 Inequality</h2>
+        <span class="module-subtitle">不等式侦缉科 · 基础级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>不等式定义：</strong>用不等号（&lt;、&gt;、≤、≥、≠）表示不等关系的式子叫做不等式。</p>
+        <p style="margin-top:10px;"><strong>不等式的解：</strong>使不等式成立的未知数的值。</p>
+        <p style="margin-top:10px;"><strong>不等式的解集：</strong>一个不等式的所有解组成的集合。</p>
+        <p style="margin-top:10px;"><strong>解不等式：</strong>求不等式解集的过程。</p>
+        <p style="margin-top:10px;"><strong>不等式的基本性质：</strong></p>
+        <ul>
+          <li><strong>性质1：</strong>不等式两边加（或减）同一个数（或式子），不等号方向<strong>不变</strong>。<br>
+            <span class="formula">若 a &gt; b，则 a±c &gt; b±c</span></li>
+          <li><strong>性质2：</strong>不等式两边乘（或除）同一个<strong>正数</strong>，不等号方向<strong>不变</strong>。<br>
+            <span class="formula">若 a &gt; b, c &gt; 0，则 ac &gt; bc, a/c &gt; b/c</span></li>
+          <li><strong>性质3：</strong>不等式两边乘（或除）同一个<strong>负数</strong>，不等号方向<strong>改变</strong>。<br>
+            <span class="formula">若 a &gt; b, c &lt; 0，则 ac &lt; bc, a/c &lt; b/c</span></li>
+        </ul>
+        <p style="margin-top:10px;" class="warning">⚠ 注意：乘除负数时不等号方向必须改变！这是不等式与等式的最大区别。</p>
+      </div>
+
+      <!-- CSS 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 不等式性质动态演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">5 &gt; 3</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">两边 <span class="highlight">+ 2</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">7 &gt; 5 ✓</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">5 &gt; 3</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">两边 × <span class="highlight">(-2)</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">-10 &lt; -6</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">方向改变！</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">-2x &gt; 6</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">两边 ÷ <span class="highlight">(-2)</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">x &lt; -3</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">方向改变！</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-A</span>
+          <span class="example-title">判断不等式变形是否正确</span>
+        </div>
+        <div class="example-body">
+          已知 a &gt; b，判断下列变形是否正确：<br>
+          (1) a+2 &gt; b+2　　(2) -3a &gt; -3b　　(3) a/2 &gt; b/2
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          (1) 两边同时加2，不等号方向<strong>不变</strong> → <strong>正确</strong> ✓<br><br>
+          (2) 两边同时乘-3（负数），不等号方向应<strong>改变</strong>，应为 -3a &lt; -3b → <strong>错误</strong> ✗<br><br>
+          (3) 两边同时除以2（正数），不等号方向<strong>不变</strong> → <strong>正确</strong> ✓
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-B</span>
+          <span class="example-title">利用不等式性质填空</span>
+        </div>
+        <div class="example-body">
+          若 a &gt; b，用 "&gt;" 或 "&lt;" 填空：<br>
+          (1) a-3 ___ b-3　　(2) -2a ___ -2b　　(3) a/(-5) ___ b/(-5)
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          (1) 两边减3，方向不变 → a-3 <strong>&gt;</strong> b-3<br><br>
+          (2) 两边乘-2（负数），方向改变 → -2a <strong>&lt;</strong> -2b<br><br>
+          (3) 两边除以-5（负数），方向改变 → a/(-5) <strong>&lt;</strong> b/(-5)
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 若 a &gt; b，则下列哪个一定成立？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">A. -a &gt; -b</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q1')">B. a+1 &gt; b+1</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">C. a/c &gt; b/c</button>
+        </div>
+        <div class="quiz-feedback" id="q1"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 不等式 -3x &gt; 6 的解集是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">A. x &gt; -2</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q2')">B. x &lt; -2</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">C. x &gt; 2</button>
+        </div>
+        <div class="quiz-feedback" id="q2"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 不等式两边乘以一个负数时，不等号方向？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">A. 不变</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q3')">B. 改变</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">C. 取决于数值</button>
+        </div>
+        <div class="quiz-feedback" id="q3"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [不等式的性质]</h4>
+        <div class="formula-item">
+          <span class="f-name">加减同数</span>
+          <span class="f-expr">a &gt; b → a±c &gt; b±c</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">乘除正数</span>
+          <span class="f-expr">a &gt; b, c&gt;0 → ac &gt; bc</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">乘除负数</span>
+          <span class="f-expr">a &gt; b, c&lt;0 → ac &lt; bc ⚠变向</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">核心警示</span>
+          <span class="f-expr">乘除负数时不等号方向必须改变！</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块2：一元一次不等式的解法 ===== -->
+    <section class="module" id="module2">
+      <div class="module-header">
+        <span class="module-badge">MOD-02</span>
+        <h2 class="module-title">一元一次不等式的解法 Solving</h2>
+        <span class="module-subtitle">不等式侦缉科 · 运算级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>一元一次不等式：</strong>只含有一个未知数，且未知数的次数为1的不等式。</p>
+        <p style="margin-top:10px;"><strong>解题步骤（与解方程类似）：</strong></p>
+        <ul>
+          <li><strong>Step 1 去分母：</strong>两边同乘各分母的最小公倍数（<strong>正数</strong>，不等号不变）</li>
+          <li><strong>Step 2 去括号：</strong>按分配律展开</li>
+          <li><strong>Step 3 移项：</strong>含未知数的项移到一边，常数项移到另一边（移项要变号）</li>
+          <li><strong>Step 4 合并同类项：</strong>化为 ax &gt; b 或 ax &lt; b 的形式</li>
+          <li><strong>Step 5 系数化为1：</strong>两边同除以a。若 a &lt; 0，<strong>不等号方向必须改变</strong>！</li>
+        </ul>
+        <p style="margin-top:10px;" class="warning">⚠ 解不等式与解方程的区别：仅在于最后一步——系数化为1时，若系数为负数，必须改变不等号方向。</p>
+      </div>
+
+      <!-- CSS 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 解不等式动态流程</h5>
+        <div class="anim-step">
+          <span class="eq-part">2x - 5 &gt; 3</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">移项 <span class="highlight">+5</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">2x &gt; 8</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">2x &gt; 8</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">÷ <span class="highlight">2（正数）</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">x &gt; 4</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">-3x + 6 ≤ 12</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">移项 <span class="highlight">-6</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">-3x ≤ 6</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">-3x ≤ 6</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">÷ <span class="highlight">(-3) 负数！</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">x ≥ -2</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">方向改变！</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-A</span>
+          <span class="example-title">解一元一次不等式（系数为正）</span>
+        </div>
+        <div class="example-body">
+          解不等式：3x - 7 &gt; 2x + 5
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          第一步：移项（含x的项移到左边，常数移到右边）<br>
+          3x - 2x &gt; 5 + 7<br><br>
+          第二步：合并同类项<br>
+          x &gt; <strong>12</strong><br><br>
+          解集：x &gt; 12。系数为正数，无需改变方向。
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-B</span>
+          <span class="example-title">解一元一次不等式（系数为负）</span>
+        </div>
+        <div class="example-body">
+          解不等式：-2x + 8 ≥ 14
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          第一步：移项<br>
+          -2x ≥ 14 - 8<br>
+          -2x ≥ 6<br><br>
+          第二步：系数化为1，两边除以 <strong>-2</strong>（负数！）<br>
+          <span style="color:var(--danger);">⚠ 不等号方向必须改变</span><br>
+          x ≤ <strong>-3</strong><br><br>
+          解集：x ≤ -3
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-C</span>
+          <span class="example-title">含分母的不等式</span>
+        </div>
+        <div class="example-body">
+          解不等式：(x+1)/2 - (2x-1)/3 &gt; 1
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          第一步：去分母，两边同乘6（最小公倍数，正数，方向不变）<br>
+          3(x+1) - 2(2x-1) &gt; 6<br><br>
+          第二步：去括号<br>
+          3x + 3 - 4x + 2 &gt; 6<br><br>
+          第三步：合并同类项<br>
+          -x + 5 &gt; 6<br>
+          -x &gt; 1<br><br>
+          第四步：系数化为1，除以 <strong>-1</strong>（负数！方向改变）<br>
+          x &lt; <strong>-1</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q4. 解不等式 2x - 4 &gt; 6，解集是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">A. x &gt; 1</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q4')">B. x &gt; 5</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">C. x &lt; 5</button>
+        </div>
+        <div class="quiz-feedback" id="q4"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q5. 解不等式 -4x ≤ 12，解集是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q5')">A. x ≥ -3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">B. x ≤ -3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">C. x ≤ 3</button>
+        </div>
+        <div class="quiz-feedback" id="q5"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q6. 解不等式 3(x-2) &lt; 2x + 1，解集是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">A. x &lt; 5</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">B. x &gt; 7</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q6')">C. x &lt; 7</button>
+        </div>
+        <div class="quiz-feedback" id="q6"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [解一元一次不等式]</h4>
+        <div class="formula-item">
+          <span class="f-name">Step 1</span>
+          <span class="f-expr">去分母（乘正数，方向不变）</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">Step 2</span>
+          <span class="f-expr">去括号</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">Step 3</span>
+          <span class="f-expr">移项（移项要变号）</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">Step 4</span>
+          <span class="f-expr">合并同类项 → ax &gt; b</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">Step 5</span>
+          <span class="f-expr">系数化为1：a&lt;0时 ⚠ 方向改变！</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块3：不等式的解集与数轴表示 ===== -->
+    <section class="module" id="module3">
+      <div class="module-header">
+        <span class="module-badge">MOD-03</span>
+        <h2 class="module-title">解集与数轴表示 Solution Set</h2>
+        <span class="module-subtitle">不等式侦缉科 · 图示级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>数轴表示规则：</strong></p>
+        <ul>
+          <li><strong>&gt; 或 &lt;：</strong>用<strong>空心圆圈</strong>○ 表示不包含该点</li>
+          <li><strong>≥ 或 ≤：</strong>用<strong>实心圆点</strong>● 表示包含该点</li>
+          <li><strong>方向：</strong>&gt; 或 ≥ 向<strong>右</strong>画；&lt; 或 ≤ 向<strong>左</strong>画</li>
+        </ul>
+        <p style="margin-top:10px;"><strong>常见解集表示：</strong></p>
+        <ul>
+          <li>x &gt; a：数轴上a点处画空心圆圈，向右画线</li>
+          <li>x ≥ a：数轴上a点处画实心圆点，向右画线</li>
+          <li>x &lt; a：数轴上a点处画空心圆圈，向左画线</li>
+          <li>x ≤ a：数轴上a点处画实心圆点，向左画线</li>
+        </ul>
+      </div>
+
+      <!-- 数轴演示 -->
+      <div class="anim-box">
+        <h5>▌ 数轴表示动态演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">x &gt; 3</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">3处画 <span class="highlight">○ 空心</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">向 <span class="highlight">右</span> 画线</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">x ≤ -2</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">-2处画 <span class="highlight">● 实心</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">向 <span class="highlight">左</span> 画线</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">-1 &lt; x ≤ 2</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">-2处 <span class="highlight">○ 空心</span></span>
+          <span class="eq-part">2处 <span class="highlight">● 实心</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">中间连 <span class="highlight">线段</span></span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-A</span>
+          <span class="example-title">在数轴上表示解集</span>
+        </div>
+        <div class="example-body">
+          将下列解集在数轴上表示出来：<br>
+          (1) x &gt; 2　　(2) x ≤ -1　　(3) -2 ≤ x &lt; 3
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          (1) x &gt; 2：在2处画<strong>○空心圆圈</strong>，向<strong>右</strong>画线<br><br>
+          (2) x ≤ -1：在-1处画<strong>●实心圆点</strong>，向<strong>左</strong>画线<br><br>
+          (3) -2 ≤ x &lt; 3：在-2处画<strong>●实心</strong>（含-2），在3处画<strong>○空心</strong>（不含3），两点之间用线段连接
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-B</span>
+          <span class="example-title">由数轴读解集</span>
+        </div>
+        <div class="example-body">
+          根据数轴上的表示，写出对应的不等式解集：<br>
+          (1) 数轴上-3处画空心圆圈，向左画线<br>
+          (2) 数轴上2处画实心圆点，向右画线
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          (1) 空心圆圈 → 不含-3；向左画线 → 小于。解集：<strong>x &lt; -3</strong><br><br>
+          (2) 实心圆点 → 含2；向右画线 → 大于等于。解集：<strong>x ≥ 2</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q7. x ≥ 5 在数轴上如何表示？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">A. 5处画空心圆圈，向左画线</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q7')">B. 5处画实心圆点，向右画线</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">C. 5处画空心圆圈，向右画线</button>
+        </div>
+        <div class="quiz-feedback" id="q7"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q8. 数轴上-2处画空心圆圈且向左画线，表示？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q8')">A. x &lt; -2</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">B. x ≤ -2</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">C. x &gt; -2</button>
+        </div>
+        <div class="quiz-feedback" id="q8"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q9. 解集 -1 &lt; x ≤ 2 中，整数解有几个？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">A. 2个</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q9')">B. 3个</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">C. 4个</button>
+        </div>
+        <div class="quiz-feedback" id="q9"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [数轴表示]</h4>
+        <div class="formula-item">
+          <span class="f-name">&gt; 或 &lt;</span>
+          <span class="f-expr">○ 空心圆圈</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">≥ 或 ≤</span>
+          <span class="f-expr">● 实心圆点</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">&gt; / ≥</span>
+          <span class="f-expr">向右画线</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">&lt; / ≤</span>
+          <span class="f-expr">向左画线</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块4：一元一次不等式组 ===== -->
+    <section class="module" id="module4">
+      <div class="module-header">
+        <span class="module-badge">MOD-04</span>
+        <h2 class="module-title">一元一次不等式组 Inequality System</h2>
+        <span class="module-subtitle">不等式侦缉科 · 方程级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>一元一次不等式组：</strong>由几个含有同一个未知数的一元一次不等式组成的不等式组。</p>
+        <p style="margin-top:10px;"><strong>不等式组的解集：</strong>不等式组中各不等式解集的<strong>公共部分</strong>。</p>
+        <p style="margin-top:10px;"><strong>解题口诀（设 a &lt; b）：</strong></p>
+        <ul>
+          <li><strong>同大取大：</strong>x &gt; a 且 x &gt; b → 解集 <span class="formula">x &gt; b</span></li>
+          <li><strong>同小取小：</strong>x &lt; a 且 x &lt; b → 解集 <span class="formula">x &lt; a</span></li>
+          <li><strong>大小小大中间找：</strong>x &gt; a 且 x &lt; b → 解集 <span class="formula">a &lt; x &lt; b</span></li>
+          <li><strong>大大小小无解：</strong>x &lt; a 且 x &gt; b → <span class="formula">无解</span>（a &lt; b 时）</li>
+        </ul>
+        <p style="margin-top:10px;"><strong>解题步骤：</strong>分别求出每个不等式的解集 → 在数轴上画出各解集 → 找出公共部分。</p>
+      </div>
+
+      <!-- CSS 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 不等式组解集动态流程</h5>
+        <div class="anim-step">
+          <span class="eq-part">x &gt; 1</span>
+          <span class="eq-part">且</span>
+          <span class="eq-part">x &gt; 3</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">同大取大</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">x &gt; 3</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">x &lt; 2</span>
+          <span class="eq-part">且</span>
+          <span class="eq-part">x &lt; 5</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">同小取小</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">x &lt; 2</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">x &gt; 1</span>
+          <span class="eq-part">且</span>
+          <span class="eq-part">x &lt; 4</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">大小小大中间找</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">1 &lt; x &lt; 4</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">x &lt; 1</span>
+          <span class="eq-part">且</span>
+          <span class="eq-part">x &gt; 4</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">大大小小无解</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">无解</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-A</span>
+          <span class="example-title">解不等式组（同大取大）</span>
+        </div>
+        <div class="example-body">
+          解不等式组：{ x &gt; 2　　{ x &gt; 5
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          两个解集都是 "大于"，属于<strong>同大取大</strong>。<br><br>
+          在数轴上画出：x &gt; 2（2处空心向右），x &gt; 5（5处空心向右）。<br>
+          公共部分是 x &gt; 5。<br><br>
+          ∴ 解集为 <strong>x &gt; 5</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-B</span>
+          <span class="example-title">解不等式组（大小小大中间找）</span>
+        </div>
+        <div class="example-body">
+          解不等式组：{ 2x + 1 &gt; 3　　{ x - 2 ≤ 1
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          解第一个不等式：2x + 1 &gt; 3 → 2x &gt; 2 → <strong>x &gt; 1</strong><br><br>
+          解第二个不等式：x - 2 ≤ 1 → <strong>x ≤ 3</strong><br><br>
+          在数轴上画出：x &gt; 1（1处空心向右），x ≤ 3（3处实心向左）。<br>
+          公共部分是 1 和 3 之间，属于<strong>大小小大中间找</strong>。<br><br>
+          ∴ 解集为 <strong>1 &lt; x ≤ 3</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-C</span>
+          <span class="example-title">解不等式组（大大小小无解）</span>
+        </div>
+        <div class="example-body">
+          解不等式组：{ x &lt; 2　　{ x &gt; 5
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          在数轴上画出：x &lt; 2（2处空心向左），x &gt; 5（5处空心向右）。<br><br>
+          两个解集没有公共部分，属于<strong>大大小小无解</strong>。<br><br>
+          ∴ 此不等式组 <strong>无解</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q10. 不等式组 { x &gt; 1　{ x &gt; 4 的解集是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">A. x &gt; 1</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q10')">B. x &gt; 4</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">C. 1 &lt; x &lt; 4</button>
+        </div>
+        <div class="quiz-feedback" id="q10"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q11. 不等式组 { x &lt; 3　{ x &gt; 5 的解集是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q11')">A. 无解</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">B. 3 &lt; x &lt; 5</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">C. x &lt; 3</button>
+        </div>
+        <div class="quiz-feedback" id="q11"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q12. 不等式组 { x ≥ -1　{ x &lt; 2 的整数解有几个？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">A. 1个</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">B. 2个</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q12')">C. 3个</button>
+        </div>
+        <div class="quiz-feedback" id="q12"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [不等式组]</h4>
+        <div class="formula-item">
+          <span class="f-name">同大取大</span>
+          <span class="f-expr">x&gt;a 且 x&gt;b (a&lt;b) → x&gt;b</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">同小取小</span>
+          <span class="f-expr">x&lt;a 且 x&lt;b (a&lt;b) → x&lt;a</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">大小小大中间找</span>
+          <span class="f-expr">x&gt;a 且 x&lt;b → a&lt;x&lt;b</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">大大小小无解</span>
+          <span class="f-expr">x&lt;a 且 x&gt;b (a&lt;b) → 无解</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块5：不等式应用题 ===== -->
+    <section class="module" id="module5">
+      <div class="module-header">
+        <span class="module-badge">MOD-05</span>
+        <h2 class="module-title">不等式应用题 Application Problems</h2>
+        <span class="module-subtitle">不等式侦缉科 · 实战级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>解题步骤：</strong>设未知数 → 找不等关系 → 列不等式 → 解不等式 → 检验 → 作答。</p>
+        <p style="margin-top:10px;"><strong>常见不等关系词：</strong></p>
+        <ul>
+          <li>"至少"、"不少于"、"不低于" → <span class="formula">≥</span></li>
+          <li>"至多"、"不超过"、"不高于" → <span class="formula">≤</span></li>
+          <li>"超过"、"大于" → <span class="formula">&gt;</span></li>
+          <li>"不足"、"小于" → <span class="formula">&lt;</span></li>
+          <li>"非负数" → <span class="formula">≥ 0</span>；"非正数" → <span class="formula">≤ 0</span></li>
+        </ul>
+        <p style="margin-top:10px;"><strong>注意：</strong>实际问题中解可能需要取整数，如人数、物品个数等。</p>
+      </div>
+
+      <!-- CSS 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 应用题建模动态演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">"至少5人"</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">设人数 <span class="highlight">x</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">x <span class="highlight">≥ 5</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">"不超过100元"</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">设花费 <span class="highlight">y</span> 元</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">y <span class="highlight">≤ 100</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">"非负数"</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">设数值 <span class="highlight">a</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">a <span class="highlight">≥ 0</span></span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-A</span>
+          <span class="example-title">至少问题</span>
+        </div>
+        <div class="example-body">
+          某班组织学生去公园，公园门票每人5元。若购买团体票（40人以上），每人4元。该班至少有38人，问至少多少人时购买团体票更划算？
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          设该班有 x 人。<br><br>
+          单独购票花费：5x 元<br>
+          团体购票花费：4×40 = 160 元（即使不足40人也按40人算）<br><br>
+          要使团体票更划算：160 &lt; 5x<br>
+          x &gt; 32<br><br>
+          但题目说至少有38人，且团体票需40人。<br>
+          实际上：当 x ≥ 40 时，团体票每人4元，肯定比5元便宜。<br>
+          ∴ 至少 <strong>40人</strong> 时购买团体票更划算。
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-B</span>
+          <span class="example-title">范围问题</span>
+        </div>
+        <div class="example-body">
+          某商品的进价为80元，标价为120元。商店打折销售，要求利润率不低于10%，最多能打几折？
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          设打 x 折。<br><br>
+          售价 = 120 × (x/10) = 12x 元<br>
+          利润 = 售价 - 进价 = 12x - 80<br><br>
+          利润率不低于10%：<br>
+          (12x - 80)/80 ≥ 10%<br>
+          12x - 80 ≥ 8<br>
+          12x ≥ 88<br>
+          x ≥ 88/12 = 22/3 ≈ 7.33<br><br>
+          ∴ 最多能打 <strong>7.5折</strong>（或说至少打7.5折，即最多降2.5折）
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-C</span>
+          <span class="example-title">方案选择</span>
+        </div>
+        <div class="example-body">
+          甲、乙两种商品，买3件甲和2件乙共需78元，买2件甲和3件乙共需72元。现需购买甲、乙共20件，总费用不超过300元，最多能买几件甲？
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          设甲每件 x 元，乙每件 y 元。<br><br>
+          列方程组：<br>
+          { 3x + 2y = 78<br>
+          { 2x + 3y = 72<br><br>
+          解得：x = 18，y = 12<br><br>
+          设购买甲 m 件，则乙 (20-m) 件。<br>
+          总费用 = 18m + 12(20-m) ≤ 300<br>
+          18m + 240 - 12m ≤ 300<br>
+          6m ≤ 60<br>
+          m ≤ 10<br><br>
+          ∴ 最多能买 <strong>10件</strong> 甲。
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q13. "不少于"对应的不等号是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q13')">A. ≥</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">B. ≤</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">C. &gt;</button>
+        </div>
+        <div class="quiz-feedback" id="q13"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q14. "非负数"用不等式表示为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q14')">A. x ≥ 0</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">B. x ≤ 0</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">C. x &gt; 0</button>
+        </div>
+        <div class="quiz-feedback" id="q14"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q15. 某数的两倍减去3不大于7，列不等式为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">A. 2x - 3 &gt; 7</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q15')">B. 2x - 3 ≤ 7</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">C. 2x - 3 ≥ 7</button>
+        </div>
+        <div class="quiz-feedback" id="q15"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [不等式应用题]</h4>
+        <div class="formula-item">
+          <span class="f-name">至少/不少于</span>
+          <span class="f-expr">≥</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">至多/不超过</span>
+          <span class="f-expr">≤</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">非负数</span>
+          <span class="f-expr">≥ 0</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">解题流程</span>
+          <span class="f-expr">设 → 列 → 解 → 验 → 答</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+      <p>INEQ 不等式侦缉科 | 第15章 一元一次不等式</p>
+      <p class="code">[CLASSIFIED] | CODENAME: INEQ | CLEARANCE: STUDENT</p>
+      <p style="margin-top:8px;">
+        <a href="index.html" style="color:var(--accent);text-decoration:none;">➤ 进入训练场</a>
+      </p>
+    </footer>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+      <a href="../grade7-sem1-ch13/tutorial.html">← 上一章：分式</a>
+      <span style="color:var(--text-dim);font-size:14px;">下一节 →</span>
+    </div>
+  </main>
+
+  <!-- Feedback 弹窗 -->
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Answer verified.</p>
+      <button class="btn" onclick="hideFeedback()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    // 例题展开/收起
+    function toggleExample(el) {
+      el.classList.toggle('expanded');
+      const toggle = el.querySelector('.example-toggle');
+      if (toggle) toggle.textContent = el.classList.contains('expanded') ? '▲ 点击收起解析' : '▼ 点击展开解析';
+    }
+
+    // 答题系统
+    const feedbackData = {
+      correct: { icon: '✓', title: 'CONFIRMED', text: 'Answer verified. Proceed to next sector.' },
+      wrong: { icon: '✗', title: 'DENIED', text: 'Incorrect. Review theory and retry.' }
+    };
+
+    function checkAnswer(btn, isCorrect, qid) {
+      const parent = btn.closest('.quiz');
+      const feedback = document.getElementById(qid);
+      const allBtns = parent.querySelectorAll('.quiz-btn');
+
+      allBtns.forEach(b => {
+        b.classList.remove('correct', 'wrong');
+        b.disabled = true;
+      });
+
+      if (isCorrect) {
+        btn.classList.add('correct');
+        feedback.textContent = '✓ 正确！';
+        feedback.className = 'quiz-feedback show correct';
+        showFeedback(true);
+      } else {
+        btn.classList.add('wrong');
+        allBtns.forEach(b => {
+          if (b.getAttribute('onclick').includes('true')) b.classList.add('correct');
+        });
+        feedback.textContent = '✗ 错误，请查看理论档案复习。';
+        feedback.className = 'quiz-feedback show wrong';
+        showFeedback(false);
+      }
+    }
+
+    function showFeedback(isCorrect) {
+      const data = isCorrect ? feedbackData.correct : feedbackData.wrong;
+      document.getElementById('feedbackIcon').textContent = data.icon;
+      document.getElementById('feedbackTitle').textContent = data.title;
+      document.getElementById('feedbackText').textContent = data.text;
+      document.getElementById('feedbackOverlay').classList.add('show');
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedbackOverlay').classList.remove('show');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideFeedback();
+    });
+  </script>
+</body>
+</html>

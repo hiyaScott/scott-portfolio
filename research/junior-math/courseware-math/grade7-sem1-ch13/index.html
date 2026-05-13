@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>代号：FRACT | 分式情报局</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .corner {
+      position: fixed;
+      width: 60px; height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    /* HUD Header */
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .logo span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .hud-header .status {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-header .status .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Game Stats Bar */
+    .game-stats {
+      position: fixed;
+      top: 56px; left: 0; right: 0;
+      height: 48px;
+      background: rgba(6,8,15,0.85);
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid rgba(0,245,212,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      z-index: 99;
+      padding: 0 24px;
+      flex-wrap: wrap;
+    }
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    .stat-item .stat-icon {
+      font-size: 1rem;
+    }
+    .stat-item .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      font-size: 0.95rem;
+      min-width: 24px;
+      text-align: center;
+    }
+    .stat-item .stat-value.danger { color: var(--danger); }
+    .stat-item .stat-value.warn { color: var(--warn); }
+    .lives-display {
+      display: flex;
+      gap: 4px;
+    }
+    .life-icon {
+      font-size: 1rem;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .life-icon.lost {
+      opacity: 0.2;
+      transform: scale(0.8);
+    }
+    .combo-bar {
+      width: 80px;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .combo-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--warn));
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    /* Stage Panel */
+    .stage-panel {
+      position: fixed;
+      top: 104px; left: 0;
+      width: 200px;
+      height: calc(100vh - 104px);
+      background: var(--panel);
+      border-right: 1px solid rgba(0,245,212,0.15);
+      padding: 20px 16px;
+      overflow-y: auto;
+      z-index: 90;
+      transition: transform 0.3s ease;
+    }
+    .stage-panel h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .stage-link {
+      display: block;
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.75rem;
+      transition: all 0.2s;
+      border-left: 2px solid transparent;
+      cursor: pointer;
+    }
+    .stage-link:hover,
+    .stage-link.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+    .stage-link .num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      opacity: 0.5;
+      margin-right: 6px;
+    }
+    .stage-link .stage-status {
+      float: right;
+      font-size: 0.65rem;
+    }
+    .stage-link.locked {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .stage-link.completed .stage-status { color: var(--success); }
+
+    /* Main Game Area */
+    .game-area {
+      margin-left: 200px;
+      margin-top: 104px;
+      padding: 32px 40px 60px;
+      max-width: 800px;
+      position: relative;
+      z-index: 10;
+      min-height: calc(100vh - 104px);
+    }
+
+    /* Screens */
+    .screen {
+      display: none;
+    }
+    .screen.active {
+      display: block;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Title Screen */
+    .title-screen {
+      text-align: center;
+      padding-top: 60px;
+    }
+    .title-screen .main-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 4px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 30px rgba(0,245,212,0.3);
+    }
+    .title-screen .sub-title {
+      font-size: 1rem;
+      color: var(--text-dim);
+      letter-spacing: 3px;
+      margin-bottom: 40px;
+    }
+    .title-screen .mission-brief {
+      max-width: 500px;
+      margin: 0 auto 40px;
+      padding: 24px;
+      background: rgba(0,245,212,0.05);
+      border: 1px solid rgba(0,245,212,0.15);
+      border-radius: 8px;
+      text-align: left;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .title-screen .mission-brief h4 {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--warn);
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+    .title-screen .start-btn {
+      display: inline-block;
+      padding: 14px 48px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+      box-shadow: 0 0 20px rgba(0,245,212,0.3);
+    }
+    .title-screen .start-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(0,245,212,0.5);
+    }
+
+    /* Stage Intro */
+    .stage-intro {
+      text-align: center;
+      padding: 40px 0;
+    }
+    .stage-intro .stage-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 6px 16px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+    }
+    .stage-intro .stage-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.6rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .stage-intro .stage-desc {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      line-height: 1.8;
+      max-width: 500px;
+      margin: 0 auto 32px;
+    }
+    .stage-intro .stage-meta {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 32px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    .stage-intro .stage-meta span {
+      color: var(--accent);
+      font-family: 'Orbitron', sans-serif;
+    }
+    .stage-intro .begin-btn {
+      display: inline-block;
+      padding: 12px 40px;
+      background: transparent;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+    }
+    .stage-intro .begin-btn:hover {
+      background: var(--accent-dim);
+    }
+
+    /* Question Card */
+    .question-card {
+      padding: 32px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .question-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .question-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .question-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    .question-progress {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .question-progress .bar {
+      display: inline-block;
+      width: 100px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      margin-left: 8px;
+      vertical-align: middle;
+      overflow: hidden;
+    }
+    .question-progress .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+    .question-poly {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      color: var(--text);
+      text-align: center;
+      padding: 28px 0;
+      letter-spacing: 1px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+      margin-bottom: 24px;
+    }
+    .question-poly .label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      display: block;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .option-btn {
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(0,245,212,0.2);
+      color: var(--text);
+      border-radius: 6px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .option-btn:hover:not(.disabled) {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .option-btn.correct {
+      background: rgba(0,245,212,0.15);
+      border-color: var(--success);
+      color: var(--success);
+      animation: correctPulse 0.4s ease;
+    }
+    .option-btn.wrong {
+      background: rgba(255,56,96,0.15);
+      border-color: var(--danger);
+      color: var(--danger);
+      animation: shake 0.4s ease;
+    }
+    .option-btn.disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
+    @keyframes correctPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+    .next-btn {
+      display: block;
+      margin: 20px auto 0;
+      padding: 12px 36px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+    }
+    .next-btn.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+      transition: all 0.3s ease;
+    }
+    .next-btn:hover {
+      box-shadow: 0 0 20px rgba(0,245,212,0.4);
+    }
+
+    /* Results Screen */
+    .results-screen {
+      text-align: center;
+      padding: 40px 0;
+    }
+    .results-screen .grade-display {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 5rem;
+      font-weight: 900;
+      margin-bottom: 8px;
+      text-shadow: 0 0 40px rgba(0,245,212,0.4);
+    }
+    .grade-display.grade-s { color: var(--accent); }
+    .grade-display.grade-a { color: var(--success); }
+    .grade-display.grade-b { color: var(--warn); }
+    .grade-display.grade-c { color: #ff8844; }
+    .grade-display.grade-d { color: var(--danger); }
+    .results-screen .grade-label {
+      font-size: 1rem;
+      color: var(--text-dim);
+      margin-bottom: 32px;
+      letter-spacing: 3px;
+    }
+    .result-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      max-width: 500px;
+      margin: 0 auto 32px;
+    }
+    .result-stat {
+      padding: 16px;
+      background: rgba(0,245,212,0.05);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 6px;
+    }
+    .result-stat .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+    .result-stat .stat-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.4rem;
+      color: var(--accent);
+    }
+    .result-actions {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .result-btn {
+      padding: 12px 32px;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+    .result-btn.primary {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      box-shadow: 0 0 15px rgba(0,245,212,0.3);
+    }
+    .result-btn.primary:hover {
+      box-shadow: 0 0 25px rgba(0,245,212,0.5);
+    }
+    .result-btn.secondary {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .result-btn.secondary:hover {
+      background: var(--accent-dim);
+    }
+
+    /* Feedback Overlay */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      backdrop-filter: blur(4px);
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+      animation: feedbackPop 0.3s ease;
+    }
+    @keyframes feedbackPop {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .feedback-box .icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .feedback-box .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    /* Final Results */
+    .final-results {
+      text-align: center;
+      padding: 40px 0;
+    }
+    .final-results .overall-grade {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 6rem;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .final-results .overall-label {
+      font-size: 1.1rem;
+      color: var(--text-dim);
+      margin-bottom: 32px;
+      letter-spacing: 3px;
+    }
+    .stage-recap {
+      max-width: 500px;
+      margin: 0 auto 32px;
+    }
+    .stage-recap-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(0,245,212,0.03);
+      border: 1px solid rgba(0,245,212,0.1);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+    }
+    .stage-recap-item .recap-name {
+      flex: 1;
+      color: var(--text);
+      text-align: left;
+    }
+    .stage-recap-item .recap-score {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      margin-right: 12px;
+    }
+    .stage-recap-item .recap-grade {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.1rem;
+      min-width: 32px;
+    }
+    .stage-recap-item .recap-grade.g-s { color: var(--accent); }
+    .stage-recap-item .recap-grade.g-a { color: var(--success); }
+    .stage-recap-item .recap-grade.g-b { color: var(--warn); }
+    .stage-recap-item .recap-grade.g-c { color: #ff8844; }
+
+    /* Hint box */
+    .hint-box {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: rgba(255,184,0,0.08);
+      border-left: 2px solid var(--warn);
+      border-radius: 0 4px 4px 0;
+      font-size: 0.8rem;
+      color: var(--warn);
+      display: none;
+    }
+    .hint-box.show { display: block; }
+
+    /* Timer warning */
+    .timer-warning {
+      animation: timerPulse 0.5s infinite alternate;
+    }
+    @keyframes timerPulse {
+      from { color: var(--warn); }
+      to { color: var(--danger); }
+    }
+
+    /* Menu toggle */
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 112px; left: 12px;
+      z-index: 101;
+      width: 40px; height: 40px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    /* Footer */
+    .game-footer {
+      margin-top: 40px;
+      padding: 20px;
+      text-align: center;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .game-footer .code {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .game-footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .stage-panel {
+        transform: translateX(-100%);
+        width: 260px;
+        top: 104px;
+      }
+      .stage-panel.open { transform: translateX(0); }
+      .game-area { margin-left: 0; padding: 20px 16px 40px; }
+      .menu-toggle { display: block; }
+      .options-grid { grid-template-columns: 1fr; }
+      .result-stats { grid-template-columns: repeat(2, 1fr); }
+      .title-screen .main-title { font-size: 1.8rem; }
+      .question-poly { font-size: 1rem; }
+      .game-stats { gap: 16px; font-size: 0.7rem; }
+    }
+    @media (max-width: 480px) {
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo span { display: none; }
+      .title-screen .main-title { font-size: 1.5rem; }
+      .results-screen .grade-display { font-size: 3.5rem; }
+      .final-results .overall-grade { font-size: 4rem; }
+      .question-card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <header class="hud-header">
+    <div class="logo">FRACT <span>分式情报局</span></div>
+    <div class="status"><span class="dot"></span>SYS ONLINE | CH13 分式</div>
+  </header>
+
+  <!-- Game Stats Bar -->
+  <div class="game-stats" id="gameStats">
+    <div class="stat-item">
+      <span class="stat-icon">❤</span>
+      <div class="lives-display" id="livesDisplay">
+        <span class="life-icon">♥</span>
+        <span class="life-icon">♥</span>
+        <span class="life-icon">♥</span>
+      </div>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon">⚡</span>
+      <span>COMBO</span>
+      <span class="stat-value" id="comboValue">0</span>
+      <div class="combo-bar"><div class="combo-fill" id="comboFill" style="width:0%"></div></div>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon">◷</span>
+      <span>TIME</span>
+      <span class="stat-value" id="timerValue">00:00</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon">★</span>
+      <span>SCORE</span>
+      <span class="stat-value" id="scoreValue">0</span>
+    </div>
+  </div>
+
+  <button class="menu-toggle" onclick="toggleStagePanel()">☰</button>
+
+  <!-- Stage Navigation Panel -->
+  <nav class="stage-panel" id="stagePanel">
+    <h3>任务阶段</h3>
+    <div class="stage-link" data-stage="0" onclick="jumpToStage(0)">
+      <span class="num">STG</span>任务简报
+      <span class="stage-status"></span>
+    </div>
+    <div class="stage-link" data-stage="1" onclick="jumpToStage(1)">
+      <span class="num">01</span>分式概念
+      <span class="stage-status" id="status1"></span>
+    </div>
+    <div class="stage-link" data-stage="2" onclick="jumpToStage(2)">
+      <span class="num">02</span>分式乘除
+      <span class="stage-status" id="status2"></span>
+    </div>
+    <div class="stage-link" data-stage="3" onclick="jumpToStage(3)">
+      <span class="num">03</span>分式加减
+      <span class="stage-status" id="status3"></span>
+    </div>
+    <div class="stage-link" data-stage="4" onclick="jumpToStage(4)">
+      <span class="num">04</span>分式方程
+      <span class="stage-status" id="status4"></span>
+    </div>
+    <div class="stage-link" data-stage="5" onclick="jumpToStage(5)">
+      <span class="num">END</span>任务总结
+      <span class="stage-status" id="status5"></span>
+    </div>
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(0,245,212,0.1);text-align:center;">
+      <a href="tutorial.html" style="color:var(--warn);font-size:0.75rem;text-decoration:none;">➤ 查阅教案档案</a>
+    </div>
+  </nav>
+
+  <div id="stageOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:80;" onclick="toggleStagePanel()"></div>
+
+  <main class="game-area" id="gameArea">
+
+    <!-- ===== SCREEN 0: Title / Mission Brief ===== -->
+    <div class="screen active" id="screen0">
+      <div class="title-screen">
+        <div class="main-title">FRACT</div>
+        <div class="sub-title">代号：分式情报局</div>
+        <div class="mission-brief">
+          <h4>▌ 任务简报</h4>
+          <p>特工，欢迎加入 FRACT 分式情报局。敌方通信系统中嵌入了大量<strong>分式</strong>加密算法，你需要掌握分式的概念、运算与方程破解技术。</p>
+          <p style="margin-top:8px;">任务共分4个阶段，每个阶段8道加密信息。你拥有<strong>3条生命</strong>，答错会损失生命。连续答对可触发<strong>连击加成</strong>。</p>
+          <p style="margin-top:8px;color:var(--warn);">目标：破解全部32条加密信息，获取最高评级。</p>
+        </div>
+        <button class="start-btn" onclick="startGame()">BEGIN MISSION</button>
+        <div class="game-footer" style="margin-top:40px;border:none;">
+          <p class="code">[CLASSIFIED] | CODENAME: FRACT | CLEARANCE: AGENT</p>
+          <p style="margin-top:8px;"><a href="tutorial.html">查阅理论档案 →</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== STAGE 1: 分式概念 ===== -->
+    <div class="screen" id="screen1">
+      <div class="stage-intro">
+        <div class="stage-badge">STAGE 01</div>
+        <div class="stage-name">分式概念</div>
+        <div class="stage-desc">
+          识别分式、判断有意义的条件、利用基本性质变形、约分。<br>
+          关键：分母含字母、分母≠0、π是常数。
+        </div>
+        <div class="stage-meta">
+          <div>题目 <span>8</span></div>
+          <div>限时 <span>90秒</span></div>
+          <div>生命 <span>3♥</span></div>
+        </div>
+        <button class="begin-btn" onclick="beginStage(1)">ENTER STAGE</button>
+      </div>
+    </div>
+
+    <!-- ===== STAGE 2: 分式乘除 ===== -->
+    <div class="screen" id="screen2">
+      <div class="stage-intro">
+        <div class="stage-badge">STAGE 02</div>
+        <div class="stage-name">分式乘除</div>
+        <div class="stage-desc">
+          分式乘法：分子乘分子，分母乘分母。<br>
+          分式除法：乘倒数。先约分，再相乘。
+        </div>
+        <div class="stage-meta">
+          <div>题目 <span>8</span></div>
+          <div>限时 <span>90秒</span></div>
+          <div>生命 <span>3♥</span></div>
+        </div>
+        <button class="begin-btn" onclick="beginStage(2)">ENTER STAGE</button>
+      </div>
+    </div>
+
+    <!-- ===== STAGE 3: 分式加减 ===== -->
+    <div class="screen" id="screen3">
+      <div class="stage-intro">
+        <div class="stage-badge">STAGE 03</div>
+        <div class="stage-name">分式加减</div>
+        <div class="stage-desc">
+          同分母：分子相加减，分母不变。<br>
+          异分母：先通分（找LCD），再按同分母计算。
+        </div>
+        <div class="stage-meta">
+          <div>题目 <span>8</span></div>
+          <div>限时 <span>90秒</span></div>
+          <div>生命 <span>3♥</span></div>
+        </div>
+        <button class="begin-btn" onclick="beginStage(3)">ENTER STAGE</button>
+      </div>
+    </div>
+
+    <!-- ===== STAGE 4: 分式方程 ===== -->
+    <div class="screen" id="screen4">
+      <div class="stage-intro">
+        <div class="stage-badge">STAGE 04</div>
+        <div class="stage-name">分式方程</div>
+        <div class="stage-desc">
+          去分母 → 解整式方程 → 检验（关键！）。<br>
+          增根：使原分母为零的根。分式方程必须检验！
+        </div>
+        <div class="stage-meta">
+          <div>题目 <span>8</span></div>
+          <div>限时 <span>120秒</span></div>
+          <div>生命 <span>3♥</span></div>
+        </div>
+        <button class="begin-btn" onclick="beginStage(4)">ENTER STAGE</button>
+      </div>
+    </div>
+
+    <!-- ===== Question Screen ===== -->
+    <div class="screen" id="screenQuestion">
+      <div class="question-card">
+        <div class="question-header">
+          <span class="question-num" id="qNum">Q01</span>
+          <span class="question-progress">
+            <span id="qProgressText">1 / 8</span>
+            <span class="bar"><span class="bar-fill" id="qProgressBar" style="width:12.5%"></span></span>
+          </span>
+        </div>
+        <div class="question-poly">
+          <span class="label" id="qLabel">MISSION</span>
+          <span id="qPolynomial">Loading...</span>
+        </div>
+        <div class="options-grid" id="qOptions">
+          <!-- Options injected by JS -->
+        </div>
+        <div class="hint-box" id="hintBox"></div>
+        <button class="next-btn" id="nextBtn" onclick="nextQuestion()">NEXT →</button>
+      </div>
+    </div>
+
+    <!-- ===== Stage Results ===== -->
+    <div class="screen" id="screenStageResult">
+      <div class="results-screen">
+        <div class="stage-badge" id="resultStageBadge">STAGE 01</div>
+        <div class="grade-display" id="stageGrade">S</div>
+        <div class="grade-label" id="stageGradeLabel">PERFECT</div>
+        <div class="result-stats">
+          <div class="result-stat">
+            <div class="stat-label">CORRECT</div>
+            <div class="stat-num" id="stageCorrect">8</div>
+          </div>
+          <div class="result-stat">
+            <div class="stat-label">WRONG</div>
+            <div class="stat-num" id="stageWrong">0</div>
+          </div>
+          <div class="result-stat">
+            <div class="stat-label">MAX COMBO</div>
+            <div class="stat-num" id="stageMaxCombo">5</div>
+          </div>
+          <div class="result-stat">
+            <div class="stat-label">TIME</div>
+            <div class="stat-num" id="stageTime">00:45</div>
+          </div>
+        </div>
+        <div class="result-actions">
+          <button class="result-btn primary" id="stageNextBtn" onclick="proceedNext()">NEXT STAGE →</button>
+          <button class="result-btn secondary" onclick="retryStage()">↻ RETRY</button>
+          <button class="result-btn secondary" onclick="backToMenu()">MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Final Results ===== -->
+    <div class="screen" id="screenFinal">
+      <div class="final-results">
+        <div class="stage-badge">MISSION COMPLETE</div>
+        <div class="overall-grade" id="finalGrade">S</div>
+        <div class="overall-label" id="finalLabel">ELITE OPERATIVE</div>
+        <div class="stage-recap" id="stageRecap">
+          <!-- Injected by JS -->
+        </div>
+        <div class="result-stats" style="max-width:400px;margin:0 auto 32px;">
+          <div class="result-stat">
+            <div class="stat-label">TOTAL SCORE</div>
+            <div class="stat-num" id="finalScore">0</div>
+          </div>
+          <div class="result-stat">
+            <div class="stat-label">TOTAL TIME</div>
+            <div class="stat-num" id="finalTime">00:00</div>
+          </div>
+        </div>
+        <div class="result-actions">
+          <button class="result-btn primary" onclick="restartGame()">↻ NEW MISSION</button>
+          <button class="result-btn secondary" onclick="backToMenu()">MAIN MENU</button>
+        </div>
+        <div class="game-footer" style="margin-top:40px;border:none;">
+          <p class="code">[MISSION ARCHIVED] | CODENAME: FRACT</p>
+          <p style="margin-top:8px;"><a href="tutorial.html">查阅理论档案 →</a></p>
+          <p style="margin-top:8px;"><a href="../grade7-sem2-ch15/tutorial.html">下一章：一元一次不等式 →</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Game Over ===== -->
+    <div class="screen" id="screenGameOver">
+      <div class="title-screen">
+        <div class="main-title" style="color:var(--danger);text-shadow:0 0 30px rgba(255,56,96,0.4);">FAILED</div>
+        <div class="sub-title">生命耗尽 — 任务终止</div>
+        <div class="mission-brief">
+          <h4 style="color:var(--danger);">▌ 任务失败</h4>
+          <p>所有生命已耗尽。敌方分式加密信息未能完全破解。</p>
+          <p style="margin-top:8px;">建议：查阅<a href="tutorial.html" style="color:var(--accent);">理论档案</a>强化基础后再试。</p>
+        </div>
+        <div class="result-actions">
+          <button class="result-btn primary" onclick="retryStage()" style="background:var(--danger);border-color:var(--danger);color:#fff;">↻ RETRY STAGE</button>
+          <button class="result-btn secondary" onclick="restartGame()">↻ RESTART MISSION</button>
+          <button class="result-btn secondary" onclick="backToMenu()">MENU</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Feedback Overlay -->
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Decryption verified.</p>
+      <button class="btn" onclick="hideFeedback()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    // ===================== DATA =====================
+    const STAGE_DATA = {
+      1: {
+        name: '分式概念',
+        desc: '识别分式、判断有意义的条件、约分',
+        timeLimit: 90,
+        questions: [
+          { label: '判断分式', poly: '下列哪个是分式？', options: ['x/2', '3/x', 'π/3', '5'], answer: 1, hint: '分式关键：分母中含有字母' },
+          { label: '有意义条件', poly: '分式 1/(x-1) 有意义的条件是？', options: ['x ≠ 0', 'x ≠ 1', 'x > 1', 'x < 1'], answer: 1, hint: '分式有意义：分母 ≠ 0，即 x-1 ≠ 0' },
+          { label: '基本性质', poly: '若 3/(2x) = (　　)/(4x²)，括号内应填？', options: ['3x', '6x', '6', '3x²'], answer: 1, hint: '分母乘了 2x，分子也要乘 2x：3·2x = 6x' },
+          { label: '约分', poly: '(2x²)/(4x) 约分后等于？', options: ['x/2', 'x²/2', '2x', '1/2'], answer: 0, hint: '分子分母同除以 2x：2x²÷2x = x，4x÷2x = 2' },
+          { label: '有意义条件', poly: '分式 1/(x²-4) 有意义的条件是？', options: ['x ≠ 2', 'x ≠ ±2', 'x ≠ -2', 'x ≠ 0'], answer: 1, hint: 'x²-4 ≠ 0 → (x+2)(x-2) ≠ 0 → x ≠ 2 且 x ≠ -2' },
+          { label: '分式值为零', poly: '分式 (x-2)/(x+3) 的值为0时，x = ?', options: ['2', '-3', '0', '无'], answer: 0, hint: '分式值为0：分子=0且分母≠0，x-2=0 → x=2' },
+          { label: '最简分式', poly: '下列哪个是最简分式？', options: ['(2x)/(4x²)', '(x+1)/(x²-1)', '3/(x+2)', '(x²-x)/x'], answer: 2, hint: '最简分式：分子分母没有公因式。3与(x+2)无公因式' },
+          { label: '符号变化', poly: '-(a-b)/(b-a) 化简后等于？', options: ['1', '-1', 'a-b', '(a-b)²'], answer: 0, hint: 'b-a = -(a-b)，所以 -(a-b)/[-(a-b)] = 1' }
+        ]
+      },
+      2: {
+        name: '分式乘除',
+        desc: '分式乘法与除法运算',
+        timeLimit: 90,
+        questions: [
+          { label: '乘法', poly: '(2/a) × (a/4) = ?', options: ['1/2', '2/a', 'a/2', '1/4'], answer: 0, hint: '分子：2·a = 2a；分母：a·4 = 4a；约去 2a → 1/2' },
+          { label: '除法', poly: '(3/x) ÷ (6/x²) = ?', options: ['x/2', '2/x', '18/x³', '1/2'], answer: 0, hint: '除变乘倒数：(3/x)·(x²/6) = 3x²/6x = x/2' },
+          { label: '因式分解再约分', poly: '(x²-1)/(x+2) × (x+2)/(x-1) = ?', options: ['x+1', 'x-1', 'x²-1', '1'], answer: 0, hint: 'x²-1=(x+1)(x-1)；约去(x+2)和(x-1) → x+1' },
+          { label: '乘法', poly: '(a/b) × (b²/a²) = ?', options: ['b/a', 'a/b', 'ab', '1/ab'], answer: 0, hint: 'a·b² = ab²；b·a² = a²b；约去 ab → b/a' },
+          { label: '除法', poly: '(x/y²) ÷ (x²/y) = ?', options: ['1/(xy)', 'x/y', 'y/x', 'xy'], answer: 0, hint: '(x/y²)·(y/x²) = xy/(x²y²) = 1/(xy)' },
+          { label: '先约分', poly: '(6a²b)/(3ab²) × (b/2a) = ?', options: ['1', 'a/b', 'b/a', '2a/b'], answer: 0, hint: '先约分：6a²b/3ab² = 2a/b；再乘 b/2a = 1' },
+          { label: '除法转乘法', poly: '(2x/y) ÷ (4/x) = ?', options: ['x²/(2y)', '2y/x²', '8x/y', 'y/(2x²)'], answer: 0, hint: '(2x/y)·(x/4) = 2x²/(4y) = x²/(2y)' },
+          { label: '综合运算', poly: '[(x+1)/x] × [x/(x²-1)] = ?', options: ['1/(x-1)', 'x+1', '1/(x+1)', 'x/(x-1)'], answer: 0, hint: 'x²-1=(x+1)(x-1)；约去x和(x+1) → 1/(x-1)' }
+        ]
+      },
+      3: {
+        name: '分式加减',
+        desc: '通分、同分母/异分母加减',
+        timeLimit: 90,
+        questions: [
+          { label: '同分母加法', poly: '(2/a) + (3/a) = ?', options: ['5/2a', '5/a', '6/a²', '1/a'], answer: 1, hint: '同分母：分母不变，分子相加 2+3=5' },
+          { label: '异分母加法', poly: '(1/2b) + (1/3b) = ?', options: ['5/(6b)', '2/(5b)', '1/(6b)', '3/(5b)'], answer: 0, hint: 'LCD=6b；1/2b=3/6b；1/3b=2/6b；和=5/(6b)' },
+          { label: '异分母减法', poly: 'x/(x-1) - 1/(x+1) = ?', options: ['(x²+1)/(x²-1)', '(x+1)/(x²-1)', '1/(x²-1)', '(x²-1)/(x+1)'], answer: 0, hint: 'LCD=(x-1)(x+1)；通分后相减得(x²+1)/(x²-1)' },
+          { label: '异分母加法', poly: '1/(x+2) + 1/(x-2) = ?', options: ['2x/(x²-4)', '2/(x²-4)', 'x/(x²-4)', '4/(x²-4)'], answer: 0, hint: 'LCD=(x+2)(x-2)=x²-4；通分后分子=(x-2)+(x+2)=2x' },
+          { label: '同分母减法', poly: '(5x/y) - (2x/y) = ?', options: ['3x/y', '3/y', '7x/y', '3x/y²'], answer: 0, hint: '分母不变y，分子相减 5x-2x=3x' },
+          { label: '多项式分母', poly: '2/(x+1) + 2/(x-1) = ?', options: ['4x/(x²-1)', '4/(x²-1)', '2x/(x²-1)', '2/(x²-1)'], answer: 0, hint: 'LCD=x²-1；通分后分子=2(x-1)+2(x+1)=4x' },
+          { label: '找LCD', poly: '1/(2x²) 与 1/(3x) 的最简公分母是？', options: ['6x²', '6x', 'x²', '2x²'], answer: 0, hint: '系数LCM=6；x的最高次幂=x²；LCD=6x²' },
+          { label: '综合加减', poly: '1/a + 1/b - 1/(a+b) = ?', options: ['(a²+b²+ab)/(ab(a+b))', '(a+b)/(ab)', '1/(ab)', '(a²+b²)/(ab(a+b))'], answer: 0, hint: 'LCD=ab(a+b)；通分后分子=b(a+b)+a(a+b)-ab = a²+b²+ab' }
+        ]
+      },
+      4: {
+        name: '分式方程',
+        desc: '解分式方程（去分母→解整式→检验）',
+        timeLimit: 120,
+        questions: [
+          { label: '基础方程', poly: '解方程 2/x = 1，x = ?', options: ['1', '2', '0', '无解'], answer: 1, hint: '两边乘x：2 = x；检验：x=2时分母≠0' },
+          { label: '检验', poly: '解分式方程后必须进行哪一步？', options: ['化简', '检验', '约分', '通分'], answer: 1, hint: '分式方程必须检验！代入公分母判断是否为增根' },
+          { label: '方程求解', poly: '解 1/(x-2) = 2，x = ?', options: ['x = 2', 'x = 2.5', 'x = 5/2', 'x = 3'], answer: 2, hint: '两边乘(x-2)：1 = 2(x-2) → 1=2x-4 → x=5/2；检验≠0' },
+          { label: '增根', poly: '方程 x/(x-2) + 1 = 2/(x-2) 的解是？', options: ['x = 2', 'x = 0', '无解', 'x = 4'], answer: 2, hint: '去分母：x+(x-2)=2 → 2x=4 → x=2；检验：分母=0，是增根，无解' },
+          { label: '含参数', poly: '若 m/(x-2) + 3 = (x-1)/(x-2) 有增根，m = ?', options: ['1', '2', '3', '0'], answer: 0, hint: '增根x=2；去分母：m+3(x-2)=x-1；代入x=2：m=1' },
+          { label: '方程求解', poly: '解 3/(x-1) = 2/(x+1)，x = ?', options: ['-5', '5', '1', '-1'], answer: 0, hint: '两边乘(x-1)(x+1)：3(x+1)=2(x-1) → 3x+3=2x-2 → x=-5；检验≠0' },
+          { label: '判断增根', poly: '方程 2/(x-3) = 1 + 1/(x-3) 的解是？', options: ['x = 3', 'x = 4', '无解', 'x = 2'], answer: 2, hint: '去分母：2 = (x-3)+1 → x=4？不对，再算：2=x-3+1 → x=4；检验x=4时分母≠0 → 等等让我重算：2/(x-3) = 1 + 1/(x-3)，两边乘(x-3)：2 = (x-3) + 1 → 2 = x-2 → x=4。检验：x-3=1≠0。答案应该是x=4。我需要修正这个问题。' },
+          { label: '应用题', poly: '甲单独完成需x天，乙需(x+3)天。合作2天完成一半，求x。', options: ['6', '3', '9', '12'], answer: 0, hint: '2[1/x + 1/(x+3)] = 1/2 → 解得x=6（负值舍去），检验符合' }
+        ]
+      }
+    };
+
+    // Fix the problematic question 7 in stage 4
+    STAGE_DATA[4].questions[6].poly = '解 2/(x-3) = 1 + 1/(x-3)，x = ?';
+    STAGE_DATA[4].questions[6].options = ['x = 4', 'x = 3', '无解', 'x = 2'];
+    STAGE_DATA[4].questions[6].answer = 0;
+    STAGE_DATA[4].questions[6].hint = '两边乘(x-3)：2=(x-3)+1 → x=4；检验：x-3=1≠0 ✓';
+
+    const GRADE_LABELS = {
+      'S': 'ELITE OPERATIVE',
+      'A': 'EXPERT AGENT',
+      'B': 'SKILLED OPERATIVE',
+      'C': 'TRAINEE',
+      'D': 'NEEDS REVIEW'
+    };
+
+    // ===================== STATE =====================
+    let gameState = {
+      lives: 3,
+      combo: 0,
+      maxCombo: 0,
+      score: 0,
+      currentStage: 0,
+      currentQIndex: 0,
+      stageResults: {},
+      totalTime: 0,
+      timerInterval: null,
+      stageStartTime: 0,
+      stageTimeElapsed: 0,
+      answered: false
+    };
+
+    let stageCorrectCount = {};
+    let stageWrongCount = {};
+
+    // ===================== UTILS =====================
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const s = (seconds % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function toggleStagePanel() {
+      const panel = document.getElementById('stagePanel');
+      const overlay = document.getElementById('stageOverlay');
+      panel.classList.toggle('open');
+      overlay.style.display = panel.classList.contains('open') ? 'block' : 'none';
+    }
+
+    function updateLivesDisplay() {
+      const icons = document.querySelectorAll('.life-icon');
+      icons.forEach((icon, i) => {
+        icon.classList.toggle('lost', i >= gameState.lives);
+      });
+    }
+
+    function updateComboDisplay() {
+      document.getElementById('comboValue').textContent = gameState.combo;
+      const fill = Math.min(gameState.combo * 10, 100);
+      document.getElementById('comboFill').style.width = fill + '%';
+    }
+
+    function updateScoreDisplay() {
+      document.getElementById('scoreValue').textContent = gameState.score;
+    }
+
+    function updateTimerDisplay() {
+      const elapsed = Math.floor((Date.now() - gameState.stageStartTime) / 1000);
+      const remaining = Math.max(0, STAGE_DATA[gameState.currentStage].timeLimit - elapsed);
+      const el = document.getElementById('timerValue');
+      el.textContent = formatTime(remaining);
+      el.classList.toggle('timer-warning', remaining <= 15);
+    }
+
+    // ===================== FEEDBACK =====================
+    const feedbackData = {
+      correct: [
+        { icon: '✓', title: 'CONFIRMED', text: 'Decryption verified. Code accepted.' },
+        { icon: '✓', title: 'VERIFIED', text: 'Signal decoded. Good work, agent.' },
+        { icon: '✓', title: 'ACCEPTED', text: 'Pattern recognized. Proceed.' }
+      ],
+      wrong: [
+        { icon: '✗', title: 'DENIED', text: 'Decryption failed. Review the algorithm.' },
+        { icon: '✗', title: 'REJECTED', text: 'Incorrect. Check your fraction steps.' },
+        { icon: '✗', title: 'ERROR', text: 'Mismatch detected. Try again.' }
+      ],
+      combo: [
+        { icon: '⚡', title: 'COMBO x', text: 'Chain decryption active! Bonus awarded.' }
+      ]
+    };
+
+    function showFeedback(type, comboCount) {
+      let data;
+      if (type === 'combo' && comboCount >= 3) {
+        data = { ...feedbackData.combo[0] };
+        data.title = `COMBO x${comboCount}`;
+        data.text = comboCount >= 5 ? 'LEGENDARY CHAIN! Maximum bonus!' : `Chain x${comboCount}! Keep it up!`;
+      } else if (type === 'correct') {
+        data = feedbackData.correct[Math.floor(Math.random() * feedbackData.correct.length)];
+      } else {
+        data = feedbackData.wrong[Math.floor(Math.random() * feedbackData.wrong.length)];
+      }
+      document.getElementById('feedbackIcon').textContent = data.icon;
+      document.getElementById('feedbackTitle').textContent = data.title;
+      document.getElementById('feedbackText').textContent = data.text;
+      document.getElementById('feedbackOverlay').classList.add('show');
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedbackOverlay').classList.remove('show');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideFeedback();
+    });
+
+    // ===================== GAME FLOW =====================
+    function initStageTracking() {
+      stageCorrectCount = {};
+      stageWrongCount = {};
+      for (let i = 1; i <= 4; i++) {
+        stageCorrectCount[i] = 0;
+        stageWrongCount[i] = 0;
+      }
+    }
+
+    function startGame() {
+      gameState = {
+        lives: 3,
+        combo: 0,
+        maxCombo: 0,
+        score: 0,
+        currentStage: 1,
+        currentQIndex: 0,
+        stageResults: {},
+        totalTime: 0,
+        timerInterval: null,
+        stageStartTime: 0,
+        stageTimeElapsed: 0,
+        answered: false
+      };
+      initStageTracking();
+      updateLivesDisplay();
+      updateComboDisplay();
+      updateScoreDisplay();
+      updateStageNav();
+      showScreen('screen1');
+    }
+
+    function beginStage(stageNum) {
+      gameState.currentStage = stageNum;
+      gameState.currentQIndex = 0;
+      gameState.answered = false;
+      gameState.stageStartTime = Date.now();
+      gameState.stageTimeElapsed = 0;
+
+      clearInterval(gameState.timerInterval);
+      gameState.timerInterval = setInterval(() => {
+        updateTimerDisplay();
+        const elapsed = Math.floor((Date.now() - gameState.stageStartTime) / 1000);
+        const limit = STAGE_DATA[stageNum].timeLimit;
+        if (elapsed >= limit) {
+          clearInterval(gameState.timerInterval);
+          endStage();
+        }
+      }, 1000);
+
+      renderQuestion();
+      showScreen('screenQuestion');
+    }
+
+    function renderQuestion() {
+      const stage = STAGE_DATA[gameState.currentStage];
+      const q = stage.questions[gameState.currentQIndex];
+      const total = stage.questions.length;
+      const idx = gameState.currentQIndex;
+
+      document.getElementById('qNum').textContent = `Q${String(idx + 1).padStart(2, '0')}`;
+      document.getElementById('qProgressText').textContent = `${idx + 1} / ${total}`;
+      document.getElementById('qProgressBar').style.width = `${((idx + 1) / total) * 100}%`;
+      document.getElementById('qLabel').textContent = q.label || 'MISSION';
+      document.getElementById('qPolynomial').innerHTML = q.poly;
+      document.getElementById('hintBox').classList.remove('show');
+      document.getElementById('hintBox').textContent = '';
+      document.getElementById('nextBtn').classList.remove('visible');
+      gameState.answered = false;
+
+      const optsContainer = document.getElementById('qOptions');
+      optsContainer.innerHTML = '';
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.textContent = String.fromCharCode(65 + i) + '. ' + opt;
+        btn.onclick = () => selectAnswer(i);
+        optsContainer.appendChild(btn);
+      });
+    }
+
+    function selectAnswer(choiceIdx) {
+      if (gameState.answered) return;
+      gameState.answered = true;
+
+      const stage = STAGE_DATA[gameState.currentStage];
+      const q = stage.questions[gameState.currentQIndex];
+      const isCorrect = choiceIdx === q.answer;
+      const buttons = document.querySelectorAll('.option-btn');
+
+      buttons.forEach((btn, i) => {
+        btn.classList.add('disabled');
+        btn.disabled = true;
+        if (i === q.answer) btn.classList.add('correct');
+      });
+
+      if (isCorrect) {
+        stageCorrectCount[gameState.currentStage] = (stageCorrectCount[gameState.currentStage] || 0) + 1;
+        gameState.combo++;
+        if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+        const comboBonus = gameState.combo >= 3 ? gameState.combo * 10 : 0;
+        const baseScore = 100;
+        gameState.score += baseScore + comboBonus;
+        updateComboDisplay();
+        updateScoreDisplay();
+
+        if (gameState.combo >= 3) {
+          showFeedback('combo', gameState.combo);
+        } else {
+          showFeedback('correct');
+        }
+      } else {
+        stageWrongCount[gameState.currentStage] = (stageWrongCount[gameState.currentStage] || 0) + 1;
+        buttons[choiceIdx].classList.add('wrong');
+        gameState.combo = 0;
+        gameState.lives--;
+        updateComboDisplay();
+        updateLivesDisplay();
+
+        document.getElementById('hintBox').textContent = '提示：' + q.hint;
+        document.getElementById('hintBox').classList.add('show');
+        showFeedback('wrong');
+
+        if (gameState.lives <= 0) {
+          clearInterval(gameState.timerInterval);
+          setTimeout(() => {
+            hideFeedback();
+            showScreen('screenGameOver');
+          }, 1500);
+          return;
+        }
+      }
+
+      document.getElementById('nextBtn').classList.add('visible');
+    }
+
+    function nextQuestion() {
+      hideFeedback();
+      const stage = STAGE_DATA[gameState.currentStage];
+      gameState.currentQIndex++;
+
+      if (gameState.currentQIndex >= stage.questions.length) {
+        endStage();
+      } else {
+        renderQuestion();
+      }
+    }
+
+    function endStage() {
+      clearInterval(gameState.timerInterval);
+      const stageNum = gameState.currentStage;
+      const stage = STAGE_DATA[stageNum];
+      const elapsed = Math.floor((Date.now() - gameState.stageStartTime) / 1000);
+      const timeUsed = Math.min(elapsed, stage.timeLimit);
+      gameState.totalTime += timeUsed;
+
+      const correct = stageCorrectCount[stageNum] || 0;
+      const wrong = stageWrongCount[stageNum] || 0;
+      const total = stage.questions.length;
+      const accuracy = correct / total;
+
+      let grade = 'D';
+      if (accuracy === 1 && timeUsed <= stage.timeLimit * 0.6) grade = 'S';
+      else if (accuracy >= 0.9) grade = 'A';
+      else if (accuracy >= 0.75) grade = 'B';
+      else if (accuracy >= 0.6) grade = 'C';
+
+      gameState.stageResults[stageNum] = {
+        correct, wrong, total, accuracy, grade,
+        timeUsed, maxCombo: gameState.maxCombo
+      };
+
+      const statusEl = document.getElementById('status' + stageNum);
+      if (statusEl) {
+        statusEl.textContent = grade;
+        statusEl.parentElement.classList.add('completed');
+      }
+
+      document.getElementById('resultStageBadge').textContent = `STAGE 0${stageNum}`;
+      const gradeEl = document.getElementById('stageGrade');
+      gradeEl.textContent = grade;
+      gradeEl.className = 'grade-display grade-' + grade.toLowerCase();
+      document.getElementById('stageGradeLabel').textContent = GRADE_LABELS[grade];
+      document.getElementById('stageCorrect').textContent = correct;
+      document.getElementById('stageWrong').textContent = wrong;
+      document.getElementById('stageMaxCombo').textContent = gameState.maxCombo;
+      document.getElementById('stageTime').textContent = formatTime(timeUsed);
+
+      const nextBtn = document.getElementById('stageNextBtn');
+      if (stageNum >= 4) {
+        nextBtn.textContent = 'FINAL REPORT →';
+        nextBtn.onclick = showFinalResults;
+      } else {
+        nextBtn.textContent = 'NEXT STAGE →';
+        nextBtn.onclick = proceedNext;
+      }
+
+      showScreen('screenStageResult');
+    }
+
+    function proceedNext() {
+      hideFeedback();
+      const nextStage = gameState.currentStage + 1;
+      if (nextStage > 4) {
+        showFinalResults();
+      } else {
+        gameState.currentStage = nextStage;
+        gameState.currentQIndex = 0;
+        gameState.answered = false;
+        gameState.combo = 0;
+        gameState.maxCombo = 0;
+        updateComboDisplay();
+        showScreen('screen' + nextStage);
+      }
+    }
+
+    function retryStage() {
+      hideFeedback();
+      const sn = gameState.currentStage;
+      stageCorrectCount[sn] = 0;
+      stageWrongCount[sn] = 0;
+      gameState.combo = 0;
+      gameState.maxCombo = 0;
+      updateComboDisplay();
+      beginStage(sn);
+    }
+
+    function restartGame() {
+      hideFeedback();
+      initStageTracking();
+      startGame();
+    }
+
+    function backToMenu() {
+      hideFeedback();
+      clearInterval(gameState.timerInterval);
+      showScreen('screen0');
+    }
+
+    function showFinalResults() {
+      const results = gameState.stageResults;
+      let totalCorrect = 0;
+      let totalQuestions = 0;
+      let overallMaxCombo = 0;
+
+      const recapContainer = document.getElementById('stageRecap');
+      recapContainer.innerHTML = '';
+
+      for (let i = 1; i <= 4; i++) {
+        const r = results[i];
+        if (!r) continue;
+        totalCorrect += r.correct;
+        totalQuestions += r.total;
+        overallMaxCombo = Math.max(overallMaxCombo, r.maxCombo);
+
+        const item = document.createElement('div');
+        item.className = 'stage-recap-item';
+        item.innerHTML = `
+          <span class="recap-name">STAGE 0${i} ${STAGE_DATA[i].name}</span>
+          <span class="recap-score">${r.correct}/${r.total}</span>
+          <span class="recap-grade g-${r.grade.toLowerCase()}">${r.grade}</span>
+        `;
+        recapContainer.appendChild(item);
+      }
+
+      const overallAccuracy = totalQuestions > 0 ? totalCorrect / totalQuestions : 0;
+      let overallGrade = 'D';
+      if (overallAccuracy === 1 && gameState.totalTime <= 300) overallGrade = 'S';
+      else if (overallAccuracy >= 0.9) overallGrade = 'A';
+      else if (overallAccuracy >= 0.75) overallGrade = 'B';
+      else if (overallAccuracy >= 0.6) overallGrade = 'C';
+
+      const gradeEl = document.getElementById('finalGrade');
+      gradeEl.textContent = overallGrade;
+      gradeEl.className = 'overall-grade grade-' + overallGrade.toLowerCase();
+      document.getElementById('finalLabel').textContent = GRADE_LABELS[overallGrade];
+      document.getElementById('finalScore').textContent = gameState.score;
+      document.getElementById('finalTime').textContent = formatTime(gameState.totalTime);
+
+      showScreen('screenFinal');
+    }
+
+    function jumpToStage(stageIdx) {
+      hideFeedback();
+      clearInterval(gameState.timerInterval);
+      if (stageIdx === 0) {
+        showScreen('screen0');
+      } else if (stageIdx >= 1 && stageIdx <= 4) {
+        showScreen('screen' + stageIdx);
+      } else if (stageIdx === 5) {
+        if (Object.keys(gameState.stageResults).length > 0) {
+          showFinalResults();
+        } else {
+          showScreen('screen0');
+        }
+      }
+      if (window.innerWidth <= 768) toggleStagePanel();
+    }
+
+    function updateStageNav() {
+      for (let i = 1; i <= 4; i++) {
+        const statusEl = document.getElementById('status' + i);
+        if (statusEl) {
+          const r = gameState.stageResults[i];
+          statusEl.textContent = r ? r.grade : '';
+          const link = statusEl.parentElement;
+          link.classList.toggle('completed', !!r);
+        }
+      }
+    }
+
+    // ===================== INIT =====================
+    initStageTracking();
+    updateLivesDisplay();
+    updateComboDisplay();
+    updateScoreDisplay();
+    updateStageNav();
+  </script>
+</body>
+</html>
