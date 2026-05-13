@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STAT · 第25章 数据的离散程度 | 八年级下</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f;
+  --bg2: #0a0e18;
+  --bg3: #101520;
+  --accent: #00f5d4;
+  --accent2: #00d4b8;
+  --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0e6f0;
+  --text2: #8a9ab0;
+  --text3: #4a5a70;
+  --border: rgba(0,245,212,0.2);
+  --glass: rgba(10,14,24,0.75);
+  --glass-border: rgba(0,245,212,0.12);
+  --green: #00ff88;
+  --yellow: #ffcc00;
+  --red: #ff3366;
+  --orange: #ff8844;
+  --purple: #cc66ff;
+  --blue: #4488ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-x: hidden;
+  position: relative;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px;
+  pointer-events: none; z-index: 1;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2;
+  animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute;
+  width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+.hero { text-align: center; padding: 80px 0 40px; position: relative; }
+.hero-badge { display: inline-block; border: 1px solid var(--accent); padding: 4px 16px; font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px; color: var(--accent); margin-bottom: 20px; text-transform: uppercase; animation: badgePulse 3s ease-in-out infinite; }
+@keyframes badgePulse { 0%,100%{box-shadow:0 0 8px rgba(0,245,212,0.2);} 50%{box-shadow:0 0 20px rgba(0,245,212,0.4);} }
+.hero h1 { font-family: 'Orbitron', sans-serif; font-size: 42px; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 30px rgba(0,245,212,0.3); margin-bottom: 12px; }
+.hero-sub { font-size: 16px; color: var(--text2); letter-spacing: 3px; }
+.hero-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 24px auto; }
+
+.module { margin-bottom: 60px; border: 1px solid var(--glass-border); border-radius: 12px; background: var(--glass); backdrop-filter: blur(12px); overflow: hidden; position: relative; }
+.module::before { content: ''; position: absolute; top:0; left:0; right:0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5; }
+.module-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: 16px; }
+.module-num { font-family: 'Orbitron', sans-serif; font-size: 36px; font-weight: 800; color: var(--accent); opacity: 0.4; line-height: 1; }
+.module-title { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: 1px; }
+.module-body { padding: 28px 32px 32px; }
+
+.theory { background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px; padding: 24px 28px; margin-bottom: 24px; }
+.theory h3 { font-family: 'Orbitron', sans-serif; font-size: 14px; color: var(--accent); letter-spacing: 2px; margin-bottom: 16px; text-transform: uppercase; }
+.theory p { margin-bottom: 12px; color: var(--text2); }
+.theory .highlight { color: var(--accent); font-weight: 600; }
+.formula-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 16px 24px; margin: 16px 0; text-align: center; font-size: 18px; color: var(--accent); letter-spacing: 1px; }
+.formula-box .desc { font-size: 12px; color: var(--text3); margin-top: 8px; letter-spacing: 0; }
+
+.anim-step { display: flex; align-items: flex-start; gap: 12px; margin: 12px 0; padding: 12px 16px; background: var(--bg2); border-radius: 6px; border-left: 3px solid var(--accent); opacity: 0; transform: translateX(-20px); animation: stepIn 0.5s ease forwards; }
+.anim-step:nth-child(1){animation-delay:0.2s;} .anim-step:nth-child(2){animation-delay:0.5s;} .anim-step:nth-child(3){animation-delay:0.8s;} .anim-step:nth-child(4){animation-delay:1.1s;} .anim-step:nth-child(5){animation-delay:1.4s;}
+@keyframes stepIn { to { opacity: 1; transform: translateX(0); } }
+.step-num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--bg); font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.step-content { flex: 1; }
+.step-content .math { color: var(--accent); font-size: 16px; }
+
+.canvas-wrap { background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }
+.canvas-wrap h4 { font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text2); letter-spacing: 2px; margin-bottom: 12px; text-transform: uppercase; }
+.canvas-wrap canvas { background: var(--bg); border-radius: 6px; border: 1px solid var(--glass-border); max-width: 100%; }
+.canvas-controls { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+.canvas-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); padding: 6px 14px; border-radius: 4px; font-family: 'Share Tech Mono', monospace; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.canvas-btn:hover, .canvas-btn.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px rgba(0,245,212,0.2); }
+.slider-wrap { display: flex; align-items: center; gap: 12px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+.slider-wrap label { color: var(--text3); font-size: 12px; }
+input[type="range"] { -webkit-appearance: none; width: 140px; height: 4px; background: var(--bg3); border-radius: 2px; outline: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 8px rgba(0,245,212,0.4); }
+.slider-val { color: var(--accent); font-family: 'Orbitron', sans-serif; font-size: 13px; min-width: 30px; }
+
+.examples { margin: 24px 0; }
+.examples h3 { font-family: 'Orbitron', sans-serif; font-size: 14px; color: var(--accent); letter-spacing: 2px; margin-bottom: 16px; }
+.ex-card { border: 1px solid var(--glass-border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; background: var(--bg2); }
+.ex-header { padding: 14px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: background 0.2s; }
+.ex-header:hover { background: var(--bg3); }
+.ex-header .ex-tag { font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent); background: var(--accent-dim); padding: 2px 10px; border-radius: 3px; letter-spacing: 1px; }
+.ex-header .ex-q { color: var(--text); flex: 1; margin: 0 12px; }
+.ex-header .ex-toggle { color: var(--text3); font-size: 18px; transition: transform 0.3s; }
+.ex-card.open .ex-toggle { transform: rotate(45deg); color: var(--accent); }
+.ex-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+.ex-card.open .ex-body { max-height: 800px; }
+.ex-body-inner { padding: 0 20px 20px; border-top: 1px solid var(--glass-border); }
+.ex-solution { margin-top: 12px; padding: 16px; background: var(--bg); border-radius: 6px; border-left: 3px solid var(--green); }
+.ex-solution .sol-label { font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--green); letter-spacing: 1px; margin-bottom: 8px; }
+
+.quiz { margin: 24px 0; }
+.quiz h3 { font-family: 'Orbitron', sans-serif; font-size: 14px; color: var(--accent); letter-spacing: 2px; margin-bottom: 16px; }
+.qz-card { border: 1px solid var(--glass-border); border-radius: 8px; margin-bottom: 12px; background: var(--bg2); padding: 16px 20px; }
+.qz-q { color: var(--text); margin-bottom: 12px; }
+.qz-opts { display: flex; flex-direction: column; gap: 8px; }
+.qz-opt { padding: 10px 14px; border: 1px solid var(--glass-border); border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 14px; }
+.qz-opt:hover { border-color: var(--border); background: var(--bg3); }
+.qz-opt.correct { border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green); }
+.qz-opt.wrong { border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red); }
+.qz-answer { margin-top: 12px; padding: 12px 16px; background: var(--bg); border-radius: 6px; border-left: 3px solid var(--green); color: var(--text2); font-size: 14px; display: none; }
+.qz-card.answered .qz-answer { display: block; }
+.qz-card.answered .qz-opt { pointer-events: none; }
+
+.formula-summary { background: linear-gradient(135deg, var(--bg3), var(--bg2)); border: 1px solid var(--border); border-radius: 8px; padding: 24px 28px; margin-top: 24px; position: relative; overflow: hidden; }
+.formula-summary::before { content: ''; position: absolute; top:0; left:0; width: 4px; height: 100%; background: var(--accent); }
+.formula-summary h3 { font-family: 'Orbitron', sans-serif; font-size: 14px; color: var(--accent); letter-spacing: 2px; margin-bottom: 16px; }
+.formula-summary .form-line { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--glass-border); }
+.formula-summary .form-line:last-child { border-bottom: none; }
+.formula-summary .form-name { font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text3); min-width: 140px; letter-spacing: 1px; }
+.formula-summary .form-expr { color: var(--accent); font-size: 16px; letter-spacing: 1px; }
+
+.bottom-nav { display: flex; align-items: center; justify-content: space-between; padding: 32px; margin-top: 40px; border-top: 1px solid var(--glass-border); background: var(--bg2); border-radius: 0 0 12px 12px; }
+.bottom-nav .nav-prev { color: var(--text3); font-size: 13px; }
+.bottom-nav .nav-next { display: flex; align-items: center; gap: 12px; padding: 12px 24px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; font-family: 'Orbitron', sans-serif; font-size: 14px; letter-spacing: 1px; transition: all 0.3s; }
+.bottom-nav .nav-next:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 20px rgba(0,245,212,0.3); }
+
+.math { font-family: 'Share Tech Mono', monospace; }
+.green { color: var(--green); } .red { color: var(--red); } .yellow { color: var(--yellow); }
+
+.target-legend { display: flex; gap: 24px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+.target-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text3); }
+.target-legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+@media (max-width: 768px) {
+  .hero h1 { font-size: 28px; }
+  .module-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .module-title { font-size: 18px; }
+  .formula-summary .form-line { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .slider-wrap { flex-direction: column; gap: 8px; }
+}
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+<div class="container">
+
+<div class="hero">
+  <div class="hero-badge">数据波动监测站 · 代号 STAT</div>
+  <h1>第25章 数据的离散程度</h1>
+  <div class="hero-sub">八年级下册 · 战术手册</div>
+  <div class="hero-line"></div>
+  <p style="color:var(--text3);font-size:14px;max-width:700px;margin:0 auto;">
+    从集中趋势到离散程度，从靶心弹孔到方差公式，<br>
+    用可视化方式理解数据"有多散"——波动越大的数据，越不稳定。
+  </p>
+</div>
+
+<!-- ===== MODULE 1: 平均数、中位数、众数（复习与深化） ===== -->
+<div class="module" id="m1">
+  <div class="module-header">
+    <div class="module-num">01</div>
+    <div class="module-title">平均数、中位数、众数 · 复习与深化</div>
+  </div>
+  <div class="module-body">
+    <div class="theory">
+      <h3>▌ 战术复习</h3>
+      <p>描述数据<strong>集中趋势</strong>的三个核心指标：平均数、中位数、众数。</p>
+      <div class="formula-box">
+        <span style="font-size:18px;">平均数 x̄ = (x₁ + x₂ + … + xₙ) / n</span>
+        <div class="desc">所有数据之和除以数据个数 — 受极端值影响</div>
+      </div>
+      <div class="anim-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <p><strong>平均数</strong>：所有数据的"重心"</p>
+          <p class="math">x̄ = Σxᵢ / n &nbsp;|&nbsp; 易受极端值影响，反映总体水平</p>
+        </div>
+      </div>
+      <div class="anim-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <p><strong>中位数</strong>：排序后位于中间位置的数</p>
+          <p class="math">n 为奇数 → 第 (n+1)/2 个数 &nbsp;|&nbsp; n 为偶数 → 中间两数平均值</p>
+        </div>
+      </div>
+      <div class="anim-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <p><strong>众数</strong>：出现次数最多的数</p>
+          <p class="math">一组数据可以有多个众数，也可以没有众数</p>
+        </div>
+      </div>
+      <h3 style="margin-top:24px;">▌ 加权平均数</h3>
+      <p>当各数据的重要性（权重）不同时，用加权平均数：</p>
+      <div class="formula-box">
+        <span style="font-size:20px;">x̄ = (x₁w₁ + x₂w₂ + … + xₙwₙ) / (w₁ + w₂ + … + wₙ)</span>
+        <div class="desc">权重 wᵢ 越大，对应数据 xᵢ 对平均数的影响越大</div>
+      </div>
+      <p style="color:var(--text2);margin-top:12px;">
+        例：期末成绩 = 平时成绩×30% + 期中成绩×30% + 期末成绩×40%<br>
+        这里权重 w₁=0.3, w₂=0.3, w₃=0.4
+      </p>
+      <h3 style="margin-top:24px;">▌ 三种统计量的选用原则</h3>
+      <ul style="color:var(--text2);margin:10px 0 10px 20px;">
+        <li>数据分布均匀、无极端值 → 用<strong>平均数</strong></li>
+        <li>有极端值干扰 → 用<strong>中位数</strong>更稳健</li>
+        <li>关注"最受欢迎"、"最集中" → 用<strong>众数</strong></li>
+      </ul>
+    </div>
+    <div class="canvas-wrap">
+      <h4>▌ 可视化：数据分布与三种统计量</h4>
+      <canvas id="c-mean-review" width="720" height="360"></canvas>
+      <div class="canvas-controls">
+        <button class="canvas-btn active" onclick="drawMeanReview(0)">均匀分布</button>
+        <button class="canvas-btn" onclick="drawMeanReview(1)">右偏分布（极端大值）</button>
+        <button class="canvas-btn" onclick="drawMeanReview(2)">多众数分布</button>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <h4>▌ 动态演示：加权平均数（权重滑块）</h4>
+      <canvas id="c-weighted" width="720" height="280"></canvas>
+      <div class="slider-wrap">
+        <label>平时权重 = </label>
+        <input type="range" id="slider-w1" min="0" max="100" value="30" oninput="drawWeighted()">
+        <span class="slider-val" id="val-w1">30%</span>
+        <label>期中权重 = </label>
+        <input type="range" id="slider-w2" min="0" max="100" value="30" oninput="drawWeighted()">
+        <span class="slider-val" id="val-w2">30%</span>
+        <label>期末权重 = </label>
+        <input type="range" id="slider-w3" min="0" max="100" value="40" oninput="drawWeighted()">
+        <span class="slider-val" id="val-w3">40%</span>
+      </div>
+      <p style="color:var(--text3);font-size:12px;margin-top:6px;">调整权重，观察加权平均数的变化（成绩固定：平时80，期中85，期末90）</p>
+    </div>
+    <div class="examples">
+      <h3>▌ 例题展开</h3>
+      <div class="ex-card">
+        <div class="ex-header" onclick="this.parentElement.classList.toggle('open')">
+          <span class="ex-tag">例1</span>
+          <span class="ex-q">某班10名学生数学成绩：78, 82, 85, 85, 88, 90, 92, 95, 95, 95。求平均数、中位数、众数</span>
+          <span class="ex-toggle">+</span>
+        </div>
+        <div class="ex-body"><div class="ex-body-inner">
+          <div class="ex-solution">
+            <div class="sol-label">SOLUTION</div>
+            <p><strong>平均数</strong>：(78+82+85+85+88+90+92+95+95+95) / 10 = <span class="math" style="color:var(--accent)">885 / 10 = 88.5</span></p>
+            <p><strong>中位数</strong>：n=10 为偶数，取第5、6个数的平均值</p>
+            <p>排序后：78, 82, 85, 85, <span class="math" style="color:var(--accent)">88, 90</span>, 92, 95, 95, 95</p>
+            <p>中位数 = (88 + 90) / 2 = <span class="math" style="color:var(--accent)">89</span></p>
+            <p><strong>众数</strong>：<span class="math" style="color:var(--accent)">85 和 95</span>（各出现3次，双众数）</p>
+          </div>
+        </div></div>
+      </div>
+      <div class="ex-card">
+        <div class="ex-header" onclick="this.parentElement.classList.toggle('open')">
+          <span class="ex-tag">例2</span>
+          <span class="ex-q">某公司5名员工月薪：3000, 3500, 4000, 4500, 20000。求平均数与中位数，并分析哪个更适合代表"典型工资"</span>
+          <span class="ex-toggle">+</span>
+        </div>
+        <div class="ex-body"><div class="ex-body-inner">
+          <div class="ex-solution">
+            <div class="sol-label">SOLUTION</div>
+            <p><strong>平均数</strong>：(3000+3500+4000+4500+20000) / 5 = <span class="math" style="color:var(--accent)">35000 / 5 = 7000</span></p>
+            <p><strong>中位数</strong>：排序后取第3个数 = <span class="math" style="color:var(--accent)">4000</span></p>
+            <p>平均数7000被CEO的高薪拉高，不能代表普通员工。</p>
+            <p>中位数4000更能反映"典型工资"水平。</p>
+            <p style="color:var(--text3);font-size:13px;">→ 有极端值时，中位数比平均数更稳健。</p>
+          </div>
+        </div></div>
+      </div>
+      <div class="ex-card">
+        <div class="ex-header" onclick="this.parentElement.classList.toggle('open')">
+          <span class="ex-tag">例3</span>
+          <span class="ex-q">小明平时成绩80，期中85，期末90。学校规定：平时30%、期中30%、期末40%。求学期总评</span>
+          <span class="ex-toggle">+</span>
+        </div>
+        <div class="ex-body"><div class="ex-body-inner">
+          <div class="ex-solution">
+            <div class="sol-label">SOLUTION</div>
+            <p>x̄ = 80×0.30 + 85×0.30 + 90×0.40</p>
+            <p>   = 24 + 25.5 + 36</p>
+            <p>   = <span class="math" style="color:var(--accent)">85.5</span></p>
+            <p>若简单平均：(80+85+90)/3 = 85</p>
+            <p>加权后85.5 > 85，因为期末（权重最高）成绩最好。</p>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <div class="quiz">
+      <h3>▌ 随堂测验</h3>
+      <div class="qz-card" id="q1-1">
+        <div class="qz-q">1. 数据 3, 5, 7, 7, 8, 9 的中位数是？</div>
+        <div class="qz-opts">
+          <div class="qz-opt" onclick="checkQ(this,'q1-1',false)">A. 6</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-1',true)">B. 7</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-1',false)">C. 7.5</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-1',false)">D. 8</div>
+        </div>
+        <div class="qz-answer">正确答案是 B。共6个数，取第3、4个数的平均值 (7+7)/2 = 7。</div>
+      </div>
+      <div class="qz-card" id="q1-2">
+        <div class="qz-q">2. 数据 2, 3, 3, 5, 5, 5, 7 的众数是？</div>
+        <div class="qz-opts">
+          <div class="qz-opt" onclick="checkQ(this,'q1-2',false)">A. 3</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-2',false)">B. 5</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-2',true)">C. 5（唯一众数）</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-2',false)">D. 3和5</div>
+        </div>
+        <div class="qz-answer">正确答案是 C。5出现3次，出现次数最多，是唯一众数。</div>
+      </div>
+      <div class="qz-card" id="q1-3">
+        <div class="qz-q">3. 某产品评分，60%人打5分，30%人打4分，10%人打3分。加权平均分是？</div>
+        <div class="qz-opts">
+          <div class="qz-opt" onclick="checkQ(this,'q1-3',false)">A. 3.9</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-3',false)">B. 4.2</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-3',true)">C. 4.5</div>
+          <div class="qz-opt" onclick="checkQ(this,'q1-3',false)">D. 4.8</div>
+        </div>
+        <div class="qz-answer">正确答案是 C。5×0.6 + 4×0.3 + 3×0.1 = 3 + 1.2 + 0.3 = 4.5。</div>
+      </div>
+    </div>
+    <div class="formula-summary">
+      <h3>▌ 公式总结</h3>
+      <div class="form-line"><span class="form-name">平均数</span><span class="form-expr">x̄ = (x₁ + x₂ + … + xₙ) / n</span></div>
+      <div class="form-line"><span class="form-name">加权平均</span><span class="form-expr">x̄ = Σ(xᵢ·wᵢ) / Σwᵢ</span></div>
+      <div class="form-line"><span class="form-name">中位数</span><span class="form-expr">排序后取中间值（奇数第(n+1)/2个，偶数中间两数平均）</span></div>
+      <div class="form-line"><span class="form-name">众数</span><span class="form-expr">出现次数最多的数（可多个，可无）</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODULE 2: 方差的概念 ===== -->
+<div class="module" id="m2">
+  <div class="module-header">
+    <div class="module-num">02</div>
+    <div class="module-title">方差 · 偏离平均数的程度</div>
+  </div>
+  <div class="module-body">
+    <div class="theory">
+      <h3>▌ 战术引入：为什么需要方差？</h3>
+      <p>两组数据的<strong>平均数相同</strong>，但数据的"分散程度"可能完全不同。</p>
+      <p>例如：甲、乙两名射手的平均成绩都是 8 环，但甲每次都在 7~9 环之间波动，乙有时 10 环有时 5 环。</p>
+      <p>谁更稳定？<span class="highlight">我们需要一个量来描述数据的"离散程度"</span>。</p>
+      <h3 style="margin-top:24px;">▌ 方差的定义 —— 靶心比喻</h3>
+      <p>想象靶心就是<span class="highlight">平均数 x̄</span>，每一次射击结果就是<span class="highlight">数据点 xᵢ</span>。</p>
+      <p>弹孔离靶心越远（偏离越大），说明数据越不稳定，方差越大。</p>
+      <div class="formula-box">
+        <span style="font-size:20px;">s² = [(x₁−x̄)² + (x₂−x̄)² + … + (xₙ−x̄)²] / n</span>
+        <div class="desc">每个数据点与平均数的"距离平方"的平均值 — 平方是为了消除正负抵消</div>
+      </div>
+      <div class="anim-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <p><strong>求平均数</strong>：先计算数据的平均数 x̄（靶心位置）</p>
+          <p class="math">x̄ = (x₁ + x₂ + … + xₙ) / n</p>
+        </div>
+      </div>
+      <div class="anim-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <p><strong>算偏差</strong>：每个数据与平均数的差 (xᵢ − x̄)</p>
+          <p class="math">注意：偏差有正有负，不能直接相加！</p>
+        </div>
+      </div>
+      <div class="anim-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <p><strong>平方</strong>：将偏差平方 (xᵢ − x̄)²，消除正负</p>
+          <p class="math">平方后，大偏差的惩罚更重（3²=9 比 2²=4 大很多）</p>
+        </div>
+      </div>
+      <div class="anim-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <p><strong>求平均</strong>：将所有平方偏差求平均</p>
+          <p class="math">s² = Σ(xᵢ − x̄)² / n — 这就是方差</p>
+        </div>
+      </div>
+      <p style="color:var(--text2);margin-top:16px;">
+        <span class="red">■</span> <strong>深红</strong> = 大偏离（远离平均数）→ 对方差贡献大<br>
+        <span style="color:#88ffaa;">■</span> <strong>浅绿</strong> = 小偏离（靠近平均数）→ 对方差贡献小
+      </p>
+    </div>
+    <div class="canvas-wrap">
+      <h4>▌ 可视化：靶心比喻 — 数据点像射击弹孔</h4>
+      <canvas id="c-target" width="720" height="400"></canvas>
+      <div class="canvas-controls">
+        <button class="canvas-btn active" onclick="drawTarget(0)">低方差（弹孔集中）</button>
+        <button class="canvas-btn" onclick="drawTarget(1)">高方差（弹孔分散）</button>
+        <button class="canvas-btn" onclick="drawTarget(2)">对比模式</button>
+      </div>
+      <div class="target-legend">
+        <div class="target-legend-item"><div class="target-legend-dot" style="background:#ff2244;"></div>大偏离（深红）</div>
+        <div class="target-legend-item"><div class="target-legend-dot" style="background:#ff8844;"></div>中等偏离（橙）</div>
+        <div class="target-legend-item"><div class="target-legend-dot" style="background:#88ffaa;"></div>小偏离（浅绿）</div>
+        <div class="target-legend-item"><div class="target-legend-dot" style="background:#00f5d4;"></div>平均数（靶心）</div>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <h4>▌ 动态演示：每个数据点偏离平均数的程度</h4>
+      <canvas id="c-deviation" width="720" height="340"></canvas>
+      <div class="canvas-controls">
+        <button class="canvas-btn active" onclick="drawDeviation(0)">数据集A：7,8,8,8,9（低离散）</button>
+        <button class="canvas-btn" onclick="drawDeviation(1)">数据集B：5,7,8,9,11（高离散）</button>
+      </div>
+      <p style="color:var(--text3);font-size:12px;margin-top:6px;">柱状高度 = 数据值，红线 = 平均数，连线长度 = 偏离程度</p>
+    </div>
+    <div class="examples">
+      <h3>▌ 例题展开</h3>
+      <div class="ex-card">
+        <div class="ex-header" onclick="this.parentElement.classList.toggle('open')">
+          <span class="ex-tag">例1</span>
+          <span class="ex-q">数据：4, 6, 8, 10, 12。求平均数，并说明每个数据与平均数的偏差</span>
+          <span class="ex-toggle">+</span>
+        </div>
+        <div class="ex-body"><div class="ex-body-inner">
+          <div class="ex-solution">
+            <div class="sol-label">SOLUTION</div>
+            <p>x̄ = (4+6+8+10+12) / 5 = <span class="math" style="color:var(--accent)">40 / 5 = 8</span></p>
+            <p>各数据偏差：</p>
+            <p class="math">4 − 8 = <span class="red">−4</span> &nbsp;&nbsp; 6 − 8 = <span class="red">−2</span> &nbsp;&nbsp; 8 − 8 = <span class="green">0</span> &nbsp;&nbsp; 10 − 8 = <span class="green">+2</span> &nbsp;&nbsp; 12 − 8 = <span class="red">+4</span></p>
+            <p>偏差之和：(−4) + (−2) + 0 + 2 + 4 = <span class="math" style="color:var(--accent)">0</span></p>
+            <p style="color:var(--text3);font-size:13px;">→ 正负抵消，所以不能直接用偏差之和衡量离散程度！</p>
+          </div>
+        </div></div>
+      </div>
+      <div class="ex-card">
+        <div class="ex-header" onclick="this.parentElement.classList.toggle('open')">
+          <span class="ex-tag">例2</span>
+          <span class="ex-q">数据：2, 4, 6, 8, 10。求方差（用定义公式）</span>
+          <span class="ex-toggle">+</span>
+        </div>
+        <div class="ex-body"><div class="ex-body-inner">
+          <div class="ex-solution">
+            <div class="sol-label">SOLUTION</div>
+            <p>① x̄ = (2+4+6+8+10) / 5 = <span class="math" style="color:var(--accent)">6</span></p>
+            <p>② 各偏差平方：</p>
+            <p class="math">(2−6)² = 16 &nbsp;&nbsp; (4−6)² = 4 &nbsp;&nbsp; (6−6)² = 0 &nbsp;&nbsp; (8−6)² = 4 &nbsp;&nbsp; (10−6)² = 16</p>
+            <p>③ s² = (16+4+0+4+16) / 5 = <span class="math" style="color:var(--accent)">40 / 5 = 8</span></p>
+            <p>∴ 这组数据的方差为 <span class="math" style="color:var(--accent)">8</span></p>
+          </div>
+        </div></div>
+      </div>
+      <div class="ex-card">
+        <div class="ex-header" onclick="this.parentElement.classList.toggle('open')">
+          <span class="ex-tag">例3</span>
+          <span class="ex-q">两组数据平均数都是5：A组(3,4,5,6,7)，B组(1,3,5,7,9)。不用计算，判断哪组方差更大？</span>
+          <span class="ex-toggle">+</span>
+        </div>
+        <div class="ex-body"><div class="ex-body-inner">
+          <div class="ex-solution">
+            <div class="sol-label">SOLUTION</div>
+            <p><strong>A组</strong>：3, 4, 5, 6, 7 — 数据集中在 5 附近，最大偏离为 |7−5|=2</p>
+            <p><strong>B组</strong>：1, 3, 5, 7, 9 — 数据分布更广，最大偏离为 |9−5|=4</p>
+            <p>B组的数据点离平均数更远（像靶心更分散的弹孔）。</p>
+            <p>∴ <span class="math" style="color:var(--accent)">B组方差更大</span>，数据更不稳定。</p>
+            <p style="color:var(--text3);font-size:13px;">验证：s²(A) = 2，s²(B) = 8。B组方差确实是A组的4倍！</p>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <div class="quiz">
+      <h3>▌ 随堂测验</h3>
+      <div class="qz-card" id="q2-1">
+        <div class="qz-q">1. 方差公式 s² = Σ(xᵢ − x̄)² / n 中，为什么要对偏差平方？</div>
+        <div class="qz-opts">
+          <div class="qz-opt" onclick="checkQ(this,'q2-1',false)">A. 让计算更简单</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-1',false)">B. 让方差变大</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-1',true)">C. 消除正负偏差相互抵消</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-1',false)">D. 因为平方后更好看</div>
+        </div>
+        <div class="qz-answer">正确答案是 C。偏差有正有负，直接相加会相互抵消为0，平方后全部变为非负数，才能真实反映离散程度。</div>
+      </div>
+      <div class="qz-card" id="q2-2">
+        <div class="qz-q">2. 数据 5, 5, 5, 5, 5 的方差是？</div>
+        <div class="qz-opts">
+          <div class="qz-opt" onclick="checkQ(this,'q2-2',true)">A. 0</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-2',false)">B. 5</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-2',false)">C. 1</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-2',false)">D. 25</div>
+        </div>
+        <div class="qz-answer">正确答案是 A。所有数据都等于平均数5，偏差全为0，方差为0。→ 数据完全没有波动。</div>
+      </div>
+      <div class="qz-card" id="q2-3">
+        <div class="qz-q">3. 若一组数据每个数都加上常数 c，则方差如何变化？</div>
+        <div class="qz-opts">
+          <div class="qz-opt" onclick="checkQ(this,'q2-3',false)">A. 增大 c²</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-3',true)">B. 不变</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-3',false)">C. 减小</div>
+          <div class="qz-opt" onclick="checkQ(this,'q2-3',false)">D. 变为原来的 c 倍</div>
+        </div>
+        <div class="qz-answer">正确答案是 B。数据整体平移不改变离散程度，平均数也平移 c，偏差 (xᵢ+c) − (x̄+c) = xᵢ − x̄ 不变，方差不变。</div>
+      </div>
+    </div>
+    <div class="formula-summary">
+      <h3>▌ 公式总结</h3>
+      <div class="form-line"><span class="form-name">方差定义</span><span class="form-expr">s² = Σ(xᵢ − x̄)² / n</span></div>
+      <div class="form-line"><span class="form-name">方差意义</span><span class="form-expr">衡量数据偏离平均数的平均程度</span></div>
+      <div class="form-line"><span class="form-name">s² = 0</span><span class="form-expr">所有数据相等，无波动</span></div>
+      <div class="form-line"><span class="form-name">s² 越大</span><span class="form-expr">数据越分散，越不稳定</span></div>
+    </div>
+  </div>
+</div>

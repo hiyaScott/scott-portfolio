@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：QUADRI | 四边形构造局</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f;
+  --bg2: #0a0e18;
+  --bg3: #101520;
+  --accent: #00f5d4;
+  --accent2: #00d4b8;
+  --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0e6f0;
+  --text2: #8a9ab0;
+  --text3: #4a5a70;
+  --border: rgba(0,245,212,0.2);
+  --glass: rgba(10,14,24,0.85);
+  --glass-border: rgba(0,245,212,0.12);
+  --green: #00ff88;
+  --yellow: #ffcc00;
+  --red: #ff3366;
+  --orange: #ff8844;
+  --purple: #cc66ff;
+  --blue: #4488ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-x: hidden;
+  position: relative;
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px;
+  pointer-events: none; z-index: 1;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2;
+  animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute;
+  width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+.container { max-width: 1000px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* ===== HUD BAR ===== */
+.game-hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
+  z-index: 200;
+  padding: 10px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.hud-left { display: flex; align-items: center; gap: 20px; }
+.hud-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--accent);
+  letter-spacing: 2px;
+}
+.hud-lives { display: flex; gap: 4px; }
+.heart { font-size: 18px; transition: all 0.3s; }
+.heart.alive { opacity: 1; text-shadow: 0 0 8px rgba(255,51,102,0.5); }
+.heart.lost { opacity: 0.2; filter: grayscale(1); }
+.hud-combo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px; color: var(--yellow);
+  letter-spacing: 1px;
+}
+.hud-combo.active { animation: comboPulse 0.6s ease; }
+@keyframes comboPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+.hud-right { display: flex; align-items: center; gap: 20px; }
+.hud-timer {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--text);
+  letter-spacing: 2px;
+  min-width: 70px; text-align: right;
+}
+.hud-timer.warning { color: var(--red); animation: timerBlink 1s infinite; }
+@keyframes timerBlink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+.hud-stage {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--text3);
+  letter-spacing: 1px;
+}
+.hud-score {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--green);
+  letter-spacing: 1px;
+}
+
+/* ===== TITLE SCREEN ===== */
+.title-screen {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 100px 24px 40px;
+}
+.title-badge {
+  display: inline-block; border: 1px solid var(--accent);
+  padding: 4px 20px; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; letter-spacing: 5px; color: var(--accent);
+  margin-bottom: 24px; text-transform: uppercase;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+@keyframes badgePulse { 0%,100%{box-shadow:0 0 8px rgba(0,245,212,0.2);} 50%{box-shadow:0 0 20px rgba(0,245,212,0.4);} }
+.title-screen h1 {
+  font-family: 'Orbitron', sans-serif; font-size: 52px;
+  font-weight: 900; color: var(--accent); letter-spacing: 3px;
+  text-shadow: 0 0 40px rgba(0,245,212,0.4);
+  margin-bottom: 12px;
+}
+.title-sub { font-size: 16px; color: var(--text2); letter-spacing: 4px; margin-bottom: 8px; }
+.title-desc { font-size: 14px; color: var(--text3); max-width: 600px; margin: 20px auto; }
+.title-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 24px auto; }
+.start-btn {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 16px 48px; border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); text-decoration: none;
+  font-family: 'Orbitron', sans-serif; font-size: 16px; letter-spacing: 2px;
+  background: transparent; cursor: pointer; transition: all 0.3s;
+  margin-top: 20px;
+}
+.start-btn:hover {
+  background: var(--accent); color: var(--bg);
+  box-shadow: 0 0 30px rgba(0,245,212,0.4);
+}
+.stage-preview {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 16px; max-width: 900px; margin: 32px auto;
+}
+.stage-card {
+  border: 1px solid var(--glass-border); border-radius: 8px;
+  background: var(--bg2); padding: 16px; text-align: left;
+  transition: all 0.3s;
+}
+.stage-card:hover { border-color: var(--border); transform: translateY(-2px); }
+.stage-card .st-num { font-family: 'Orbitron'; font-size: 28px; color: var(--accent); opacity: 0.3; }
+.stage-card .st-name { font-size: 13px; color: var(--text); margin-top: 4px; }
+.stage-card .st-topics { font-size: 11px; color: var(--text3); margin-top: 6px; line-height: 1.6; }
+
+/* ===== GAME SCREEN ===== */
+.game-screen { display: none; padding: 80px 24px 40px; min-height: 100vh; }
+.game-stage-header {
+  text-align: center; padding: 20px 0 24px;
+}
+.game-stage-header .st-badge {
+  display: inline-block; border: 1px solid var(--accent);
+  padding: 3px 14px; font-family: 'Orbitron'; font-size: 11px;
+  letter-spacing: 3px; color: var(--accent); margin-bottom: 12px;
+}
+.game-stage-header h2 {
+  font-family: 'Orbitron', sans-serif; font-size: 28px;
+  color: var(--accent); letter-spacing: 2px; margin-bottom: 8px;
+}
+.game-stage-header .st-sub { font-size: 14px; color: var(--text2); }
+
+.question-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px);
+  overflow: hidden; margin-bottom: 24px; position: relative;
+}
+.question-card::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.q-progress {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px 0;
+}
+.q-progress-bar {
+  flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden;
+}
+.q-progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), var(--green));
+  border-radius: 2px; transition: width 0.3s;
+}
+.q-progress-text {
+  font-family: 'Orbitron'; font-size: 11px; color: var(--text3);
+  letter-spacing: 1px; min-width: 40px; text-align: right;
+}
+.q-body { padding: 20px 24px 28px; }
+.q-text {
+  font-size: 17px; color: var(--text); line-height: 1.7; margin-bottom: 20px;
+}
+.q-canvas-wrap {
+  background: var(--bg2); border: 1px solid var(--glass-border);
+  border-radius: 8px; padding: 16px; margin-bottom: 20px; text-align: center;
+}
+.q-canvas-wrap h4 {
+  font-family: 'Orbitron'; font-size: 11px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.q-canvas-wrap canvas {
+  background: var(--bg); border-radius: 6px;
+  border: 1px solid var(--glass-border); max-width: 100%;
+}
+.q-options { display: flex; flex-direction: column; gap: 10px; }
+.q-opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border: 1px solid var(--glass-border);
+  border-radius: 8px; cursor: pointer; transition: all 0.2s;
+  font-size: 15px; background: var(--bg2);
+}
+.q-opt:hover { border-color: var(--border); background: var(--bg3); }
+.q-opt.disabled { pointer-events: none; }
+.q-opt.correct {
+  border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green);
+}
+.q-opt.wrong {
+  border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red);
+}
+.opt-letter {
+  font-family: 'Orbitron'; font-size: 14px; font-weight: 700;
+  color: var(--accent); min-width: 28px; text-align: center;
+  border: 1px solid var(--glass-border); border-radius: 4px;
+  padding: 2px 0;
+}
+.q-opt.correct .opt-letter { border-color: var(--green); color: var(--green); }
+.q-opt.wrong .opt-letter { border-color: var(--red); color: var(--red); }
+
+.q-feedback {
+  display: none; margin-top: 16px;
+  padding: 14px 18px; border-radius: 8px; border-left: 3px solid;
+}
+.q-feedback.correct-fb {
+  background: rgba(0,255,136,0.06); border-color: var(--green);
+}
+.q-feedback.wrong-fb {
+  background: rgba(255,51,102,0.06); border-color: var(--red);
+}
+.fb-title {
+  font-family: 'Orbitron'; font-size: 13px; letter-spacing: 1px; margin-bottom: 6px;
+}
+.correct-fb .fb-title { color: var(--green); }
+.wrong-fb .fb-title { color: var(--red); }
+.fb-text { color: var(--text2); font-size: 14px; line-height: 1.6; }
+
+.next-btn {
+  display: none; margin-top: 20px;
+  padding: 12px 32px; border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); background: transparent; cursor: pointer;
+  font-family: 'Orbitron'; font-size: 14px; letter-spacing: 1px;
+  transition: all 0.3s;
+}
+.next-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* ===== RESULT SCREEN ===== */
+.result-screen { display: none; min-height: 100vh; padding: 80px 24px 40px; }
+.result-box {
+  max-width: 600px; margin: 0 auto;
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px);
+  padding: 40px 32px; text-align: center;
+}
+.result-box::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.result-title {
+  font-family: 'Orbitron'; font-size: 18px; color: var(--accent);
+  letter-spacing: 3px; margin-bottom: 20px;
+}
+.result-grade {
+  font-family: 'Orbitron'; font-size: 72px; font-weight: 900;
+  color: var(--accent); text-shadow: 0 0 40px rgba(0,245,212,0.3);
+  margin-bottom: 24px;
+}
+.result-stats {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 16px; margin-bottom: 32px;
+}
+.stat-item {
+  border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 16px; background: var(--bg2);
+}
+.stat-label { font-size: 12px; color: var(--text3); letter-spacing: 1px; margin-bottom: 6px; }
+.stat-value { font-family: 'Orbitron'; font-size: 24px; color: var(--accent); }
+.result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.result-btn {
+  padding: 12px 24px; border: 1px solid var(--glass-border); border-radius: 6px;
+  color: var(--text2); background: var(--bg2); cursor: pointer;
+  font-family: 'Orbitron'; font-size: 13px; letter-spacing: 1px;
+  text-decoration: none; transition: all 0.3s;
+}
+.result-btn:hover { border-color: var(--accent); color: var(--accent); }
+.result-btn.primary { border-color: var(--accent); color: var(--accent); }
+.result-btn.primary:hover { background: var(--accent); color: var(--bg); }
+
+/* ===== FEEDBACK OVERLAY ===== */
+.feedback-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  display: none; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.feedback-overlay.show { display: flex; }
+.feedback-bubble {
+  font-family: 'Orbitron'; font-size: 48px; font-weight: 900;
+  letter-spacing: 4px; padding: 20px 48px; border-radius: 12px;
+  animation: fbPop 0.5s ease;
+}
+@keyframes fbPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.feedback-bubble.perfect {
+  border: 2px solid var(--accent); color: var(--accent);
+  background: rgba(0,245,212,0.08); box-shadow: 0 0 30px rgba(0,245,212,0.2);
+}
+.feedback-bubble.good {
+  border: 2px solid var(--green); color: var(--green);
+  background: rgba(0,255,136,0.08); box-shadow: 0 0 30px rgba(0,255,136,0.2);
+}
+.feedback-bubble.miss {
+  border: 2px solid var(--red); color: var(--red);
+  background: rgba(255,51,102,0.08); box-shadow: 0 0 30px rgba(255,51,102,0.2);
+}
+
+/* ===== CHAPTER PANEL ===== */
+.ch-panel-toggle {
+  position: fixed; top: 56px; right: 16px; z-index: 210;
+  width: 40px; height: 40px; border-radius: 6px;
+  border: 1px solid var(--glass-border); background: var(--glass);
+  color: var(--accent); font-size: 18px; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+}
+.chapter-panel {
+  position: fixed; top: 100px; right: 16px; z-index: 210;
+  width: 260px; max-height: calc(100vh - 120px); overflow-y: auto;
+  border: 1px solid var(--glass-border); border-radius: 8px;
+  background: var(--glass); backdrop-filter: blur(16px);
+  padding: 16px; display: none;
+}
+.chapter-panel h4 {
+  font-family: 'Orbitron'; font-size: 12px; color: var(--accent);
+  letter-spacing: 2px; margin-bottom: 12px; text-transform: uppercase;
+}
+.chapter-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; color: var(--text2); transition: all 0.2s;
+}
+.chapter-item:hover { background: var(--bg3); color: var(--text); }
+.chapter-item.active { background: var(--accent-dim); color: var(--accent); }
+.ch-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text3); flex-shrink: 0;
+}
+.chapter-item.active .ch-dot { background: var(--accent); box-shadow: 0 0 6px rgba(0,245,212,0.4); }
+
+/* ===== STAGE TRANSITION ===== */
+.stage-transition {
+  position: fixed; inset: 0; z-index: 250;
+  background: var(--bg); display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+}
+.stage-transition.show { display: flex; }
+.st-tr-num {
+  font-family: 'Orbitron'; font-size: 80px; font-weight: 900;
+  color: var(--accent); opacity: 0.15;
+}
+.st-tr-title {
+  font-family: 'Orbitron'; font-size: 28px; color: var(--accent);
+  letter-spacing: 3px; margin-top: -20px;
+}
+.st-tr-sub { font-size: 14px; color: var(--text2); margin-top: 12px; }
+
+.green { color: var(--green); }
+.red { color: var(--red); }
+.yellow { color: var(--yellow); }
+
+@media (max-width: 768px) {
+  .title-screen h1 { font-size: 32px; }
+  .stage-preview { grid-template-columns: repeat(2, 1fr); }
+  .game-stage-header h2 { font-size: 22px; }
+  .result-stats { grid-template-columns: 1fr; }
+  .result-grade { font-size: 48px; }
+  .chapter-panel { width: calc(100% - 32px); right: 16px; }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<!-- ===== FEEDBACK OVERLAY ===== -->
+<div class="feedback-overlay" id="feedbackOverlay">
+  <div class="feedback-bubble" id="feedbackBubble">PERFECT</div>
+</div>
+
+<!-- ===== STAGE TRANSITION ===== -->
+<div class="stage-transition" id="stageTransition">
+  <div class="st-tr-num" id="stTrNum">01</div>
+  <div class="st-tr-title" id="stTrTitle">多边形基础</div>
+  <div class="st-tr-sub" id="stTrSub">内角和 · 外角和 · 对角线</div>
+</div>
+
+<!-- ===== GAME HUD ===== -->
+<div class="game-hud" id="gameHud" style="display:none;">
+  <div class="hud-left">
+    <div class="hud-title">QUADRI</div>
+    <div class="hud-lives" id="hudLives">
+      <span class="heart alive" id="heart1">❤️</span>
+      <span class="heart alive" id="heart2">❤️</span>
+      <span class="heart alive" id="heart3">❤️</span>
+    </div>
+    <div class="hud-combo" id="hudCombo">COMBO: 0</div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-stage" id="hudStage">STAGE 1/4</div>
+    <div class="hud-score" id="hudScore">0</div>
+    <div class="hud-timer" id="hudTimer">00:00</div>
+  </div>
+</div>
+
+<!-- ===== CHAPTER PANEL ===== -->
+<button class="ch-panel-toggle" id="chPanelToggle" onclick="toggleChapterPanel()" style="display:none;">☰</button>
+<div class="chapter-panel" id="chapterPanel">
+  <h4>章节选择</h4>
+  <div class="chapter-item active" onclick="jumpToStage(0)">
+    <div class="ch-dot"></div>Stage 1 · 多边形基础
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(1)">
+    <div class="ch-dot"></div>Stage 2 · 平行四边形
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(2)">
+    <div class="ch-dot"></div>Stage 3 · 特殊平行四边形
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(3)">
+    <div class="ch-dot"></div>Stage 4 · 梯形与中位线
+  </div>
+</div>
+
+<!-- ===== TITLE SCREEN ===== -->
+<div class="title-screen" id="titleScreen">
+  <div class="title-badge">四边形构造局 · 代号 QUADRI</div>
+  <h1>四边形构造局</h1>
+  <div class="title-sub">第24章 · 四边形 · 战术考核</div>
+  <div class="title-line"></div>
+  <div class="title-desc">
+    4个Stage · 20道题目 · 限时挑战<br>
+    多边形的内角和与外角和、平行四边形的性质与判定、<br>
+    矩形菱形正方形的特殊性质、梯形中位线与等腰梯形<br>
+    在几何构造局中重建四边形的完整架构
+  </div>
+  <div class="stage-preview">
+    <div class="stage-card">
+      <div class="st-num">01</div>
+      <div class="st-name">多边形基础</div>
+      <div class="st-topics">内角和计算<br>外角和定理<br>多边形类型判断</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">02</div>
+      <div class="st-name">平行四边形</div>
+      <div class="st-topics">性质判断<br>判定条件选择<br>对角线性质</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">03</div>
+      <div class="st-name">特殊平行四边形</div>
+      <div class="st-topics">矩形/菱形/正方形<br>性质与判定<br>包含关系</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">04</div>
+      <div class="st-name">梯形与中位线</div>
+      <div class="st-topics">等腰梯形性质<br>中位线计算<br>综合证明</div>
+    </div>
+  </div>
+  <button class="start-btn" onclick="startGame()">▶ 启动考核</button>
+</div>
+
+<!-- ===== GAME SCREEN ===== -->
+<div class="game-screen" id="gameScreen">
+  <div class="container">
+    <div class="game-stage-header" id="gameStageHeader">
+      <div class="st-badge" id="stageBadge">STAGE 01</div>
+      <h2 id="stageTitle">多边形基础</h2>
+      <div class="st-sub" id="stageSub">内角和 · 外角和 · 对角线</div>
+    </div>
+    <div id="questionContainer"></div>
+  </div>
+</div>
+
+<!-- ===== RESULT SCREEN ===== -->
+<div class="result-screen" id="resultScreen">
+  <div class="container">
+    <div class="result-box">
+      <div class="result-title">考核报告</div>
+      <div class="result-grade" id="resultGrade">S</div>
+      <div class="result-stats">
+        <div class="stat-item">
+          <div class="stat-label">总分</div>
+          <div class="stat-value" id="statScore">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">正确率</div>
+          <div class="stat-value" id="statAccuracy">0%</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">最高连击</div>
+          <div class="stat-value" id="statMaxCombo">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">用时</div>
+          <div class="stat-value" id="statTime">00:00</div>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="result-btn" onclick="restartGame()">↻ 重新考核</button>
+        <button class="result-btn primary" onclick="backToTitle()">🏠 返回主页</button>
+        <a href="tutorial.html" class="result-btn">📖 复习教案</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GAME STATE
+// ============================================================
+let gameState = {
+  currentStage: 0,
+  currentQuestion: 0,
+  lives: 3,
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  correctCount: 0,
+  totalQuestions: 0,
+  startTime: 0,
+  timerInterval: null,
+  answered: false,
+  stageCompleted: [false, false, false, false],
+};
+
+// ============================================================
+// STAGES DATA (20 questions, 5 per stage)
+// ============================================================
+const STAGES = [
+  {
+    id: 0, name: "多边形基础", sub: "内角和 · 外角和 · 对角线",
+    questions: [
+      {
+        id: "s1q1", text: "七边形的内角和是多少？",
+        options: [
+          { letter: "A", text: "900°", correct: false },
+          { letter: "B", text: "1080°", correct: false },
+          { letter: "C", text: "1260°", correct: false },
+          { letter: "D", text: "900°", correct: true }
+        ],
+        explanation: "n=7，内角和 = (7-2) × 180° = 5 × 180° = 900°。",
+        hasCanvas: true, canvasType: "polygon_interior", canvasData: { n: 7 }
+      },
+      {
+        id: "s1q2", text: "任意多边形的外角和等于多少？",
+        options: [
+          { letter: "A", text: "180°", correct: false },
+          { letter: "B", text: "360°", correct: true },
+          { letter: "C", text: "(n-2) × 180°", correct: false },
+          { letter: "D", text: "与边数有关", correct: false }
+        ],
+        explanation: "任意多边形外角和恒为 360°，与边数 n 无关。",
+        hasCanvas: true, canvasType: "polygon_exterior", canvasData: { n: 5 }
+      },
+      {
+        id: "s1q3", text: "一个多边形的内角和是其外角和的 3 倍，它是几边形？",
+        options: [
+          { letter: "A", text: "六边形", correct: false },
+          { letter: "B", text: "七边形", correct: false },
+          { letter: "C", text: "八边形", correct: true },
+          { letter: "D", text: "九边形", correct: false }
+        ],
+        explanation: "外角和 = 360°，内角和 = 3 × 360° = 1080°。(n-2) × 180° = 1080° → n-2 = 6 → n = 8。",
+        hasCanvas: false
+      },
+      {
+        id: "s1q4", text: "正五边形每个内角的度数是？",
+        options: [
+          { letter: "A", text: "100°", correct: false },
+          { letter: "B", text: "108°", correct: true },
+          { letter: "C", text: "120°", correct: false },
+          { letter: "D", text: "135°", correct: false }
+        ],
+        explanation: "正五边形内角和 = (5-2) × 180° = 540°，每个内角 = 540° ÷ 5 = 108°。",
+        hasCanvas: false
+      },
+      {
+        id: "s1q5", text: "十边形的对角线条数是？",
+        options: [
+          { letter: "A", text: "35", correct: true },
+          { letter: "B", text: "40", correct: false },
+          { letter: "C", text: "45", correct: false },
+          { letter: "D", text: "50", correct: false }
+        ],
+        explanation: "对角线条数 = n(n-3)/2 = 10×7/2 = 35。",
+        hasCanvas: false
+      }
+    ]
+  },
+  {
+    id: 1, name: "平行四边形", sub: "性质 · 判定 · 对角线",
+    questions: [
+      {
+        id: "s2q1", text: "平行四边形的对角线一定满足什么关系？",
+        options: [
+          { letter: "A", text: "相等", correct: false },
+          { letter: "B", text: "互相垂直", correct: false },
+          { letter: "C", text: "互相平分", correct: true },
+          { letter: "D", text: "平分对角", correct: false }
+        ],
+        explanation: "平行四边形对角线互相平分（AO=OC, BO=OD）。相等是矩形特有，垂直是菱形特有。",
+        hasCanvas: true, canvasType: "parallelogram_diagonal", canvasData: {}
+      },
+      {
+        id: "s2q2", text: "下列条件中，<b>不能</b>判定四边形是平行四边形的是？",
+        options: [
+          { letter: "A", text: "一组对边平行，另一组对边相等", correct: true },
+          { letter: "B", text: "两组对边分别平行", correct: false },
+          { letter: "C", text: "对角线互相平分", correct: false },
+          { letter: "D", text: "一组对边平行且相等", correct: false }
+        ],
+        explanation: '"一组平行+另一组相等"可能是等腰梯形，不能判定平行四边形。',
+        hasCanvas: false
+      },
+      {
+        id: "s2q3", text: "□ABCD 周长为 32，AB : BC = 3 : 1，则 AB = ?",
+        options: [
+          { letter: "A", text: "4", correct: false },
+          { letter: "B", text: "8", correct: false },
+          { letter: "C", text: "12", correct: true },
+          { letter: "D", text: "16", correct: false }
+        ],
+        explanation: "周长 = 2(AB+BC) = 32 → AB+BC = 16。AB:BC = 3:1 → AB = 12, BC = 4。",
+        hasCanvas: true, canvasType: "parallelogram_area", canvasData: {}
+      },
+      {
+        id: "s2q4", text: "□ABCD 中，对角线交于 O，AC = 12，BD = 18，则 AO + BO = ?",
+        options: [
+          { letter: "A", text: "12", correct: false },
+          { letter: "B", text: "15", correct: true },
+          { letter: "C", text: "18", correct: false },
+          { letter: "D", text: "30", correct: false }
+        ],
+        explanation: "对角线互相平分 → AO = AC/2 = 6，BO = BD/2 = 9。AO + BO = 15。",
+        hasCanvas: false
+      },
+      {
+        id: "s2q5", text: "平行四边形 ABCD 中，∠A = 65°，则 ∠B = ?",
+        options: [
+          { letter: "A", text: "65°", correct: false },
+          { letter: "B", text: "115°", correct: true },
+          { letter: "C", text: "125°", correct: false },
+          { letter: "D", text: "135°", correct: false }
+        ],
+        explanation: "平行四边形邻角互补 → ∠A + ∠B = 180° → ∠B = 180° - 65° = 115°。",
+        hasCanvas: false
+      }
+    ]
+  },
+  {
+    id: 2, name: "特殊平行四边形", sub: "矩形 · 菱形 · 正方形",
+    questions: [
+      {
+        id: "s3q1", text: "下列说法正确的是？",
+        options: [
+          { letter: "A", text: "对角线相等的四边形是矩形", correct: false },
+          { letter: "B", text: "对角线相等的平行四边形是矩形", correct: true },
+          { letter: "C", text: "对角线垂直的四边形是菱形", correct: false },
+          { letter: "D", text: "四个角相等的四边形是正方形", correct: false }
+        ],
+        explanation: "对角线相等+平行四边形才能判定矩形。等腰梯形对角线也相等但不是矩形。",
+        hasCanvas: true, canvasType: "quadrilateral_hierarchy", canvasData: {}
+      },
+      {
+        id: "s3q2", text: "菱形的两条对角线分别为 8 和 6，则其面积为？",
+        options: [
+          { letter: "A", text: "24", correct: true },
+          { letter: "B", text: "48", correct: false },
+          { letter: "C", text: "20", correct: false },
+          { letter: "D", text: "12", correct: false }
+        ],
+        explanation: "菱形面积 = 对角线乘积 / 2 = 8 × 6 / 2 = 24。",
+        hasCanvas: true, canvasType: "rhombus_props", canvasData: { d1: 8, d2: 6 }
+      },
+      {
+        id: "s3q3", text: "正方形具有而菱形不一定具有的性质是？",
+        options: [
+          { letter: "A", text: "对角线相等", correct: true },
+          { letter: "B", text: "对角线互相平分", correct: false },
+          { letter: "C", text: "对角线垂直", correct: false },
+          { letter: "D", text: "四边相等", correct: false }
+        ],
+        explanation: "菱形对角线垂直但不一定相等；正方形对角线既垂直又相等。",
+        hasCanvas: true, canvasType: "square_props", canvasData: {}
+      },
+      {
+        id: "s3q4", text: "矩形的一条对角线长为 10，一条边长为 8，则另一条边长为？",
+        options: [
+          { letter: "A", text: "5", correct: false },
+          { letter: "B", text: "6", correct: true },
+          { letter: "C", text: "7", correct: false },
+          { letter: "D", text: "4", correct: false }
+        ],
+        explanation: "矩形对角线相等且互相平分，由勾股定理：另一边² + 8² = 10² → 另一边 = 6。",
+        hasCanvas: true, canvasType: "rectangle_props", canvasData: { diag: 10, side: 8 }
+      },
+      {
+        id: "s3q5", text: "既是矩形又是菱形的四边形一定是？",
+        options: [
+          { letter: "A", text: "平行四边形", correct: false },
+          { letter: "B", text: "矩形", correct: false },
+          { letter: "C", text: "菱形", correct: false },
+          { letter: "D", text: "正方形", correct: true }
+        ],
+        explanation: "正方形是矩形（四角直角）和菱形（四边相等）的交集。",
+        hasCanvas: true, canvasType: "quadrilateral_evolve", canvasData: {}
+      }
+    ]
+  },
+  {
+    id: 3, name: "梯形与中位线", sub: "等腰梯形 · 中位线 · 综合",
+    questions: [
+      {
+        id: "s4q1", text: "等腰梯形的两条对角线有什么关系？",
+        options: [
+          { letter: "A", text: "互相平分", correct: false },
+          { letter: "B", text: "互相垂直", correct: false },
+          { letter: "C", text: "相等", correct: true },
+          { letter: "D", text: "没有关系", correct: false }
+        ],
+        explanation: "等腰梯形对角线相等是其重要性质。",
+        hasCanvas: true, canvasType: "isosceles_trapezoid", canvasData: {}
+      },
+      {
+        id: "s4q2", text: "梯形上底为 6，下底为 14，则中位线长度为？",
+        options: [
+          { letter: "A", text: "8", correct: false },
+          { letter: "B", text: "10", correct: true },
+          { letter: "C", text: "12", correct: false },
+          { letter: "D", text: "20", correct: false }
+        ],
+        explanation: "梯形中位线 = (上底 + 下底) / 2 = (6 + 14) / 2 = 10。",
+        hasCanvas: true, canvasType: "trapezoid_midline", canvasData: { a: 6, b: 14 }
+      },
+      {
+        id: "s4q3", text: "等腰梯形的一个底角为 70°，则其对角的度数为？",
+        options: [
+          { letter: "A", text: "70°", correct: false },
+          { letter: "B", text: "110°", correct: true },
+          { letter: "C", text: "120°", correct: false },
+          { letter: "D", text: "140°", correct: false }
+        ],
+        explanation: "等腰梯形同一底上的两个角相等，上底角 + 下底角 = 180°。对角 = 180° - 70° = 110°。",
+        hasCanvas: false
+      },
+      {
+        id: "s4q4", text: "梯形中位线长为 12，面积为 72，则高为？",
+        options: [
+          { letter: "A", text: "4", correct: false },
+          { letter: "B", text: "5", correct: false },
+          { letter: "C", text: "6", correct: true },
+          { letter: "D", text: "8", correct: false }
+        ],
+        explanation: "梯形面积 = 中位线 × 高 → 高 = 面积 / 中位线 = 72 / 12 = 6。",
+        hasCanvas: false
+      },
+      {
+        id: "s4q5", text: "梯形 ABCD 中，AD ∥ BC，中位线 EF 交对角线 AC 于 G，则 AG : GC = ?",
+        options: [
+          { letter: "A", text: "1 : 1", correct: false },
+          { letter: "B", text: "1 : 2", correct: false },
+          { letter: "C", text: "AD : BC", correct: false },
+          { letter: "D", text: "1 : 1（EG = GF）", correct: true }
+        ],
+        explanation: "中位线 EF ∥ AD ∥ BC，且 E、F 分别为腰的中点。在△ABC 中，G 是 AC 中点；在△ADC 中，G 也是 AC 中点。∴ AG = GC。",
+        hasCanvas: true, canvasType: "trapezoid_midline", canvasData: { a: 5, b: 15, showProof: true }
+      }
+    ]
+  }
+];
+
+// ============================================================
+// CANVAS DRAWING UTILITIES
+// ============================================================
+function clearCanvas(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  return { canvas, ctx, W: canvas.width, H: canvas.height };
+}
+
+function drawGridBg(ctx, W, H) {
+  ctx.strokeStyle = 'rgba(0,245,212,0.04)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+}
+
+function strokePoly(ctx, pts, color, width, fill) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width || 2;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  ctx.stroke();
+}
+
+function drawLabel(ctx, text, x, y, color, font) {
+  ctx.fillStyle = color || 'var(--text)';
+  ctx.font = font || '12px "Share Tech Mono"';
+  ctx.fillText(text, x, y);
+}
+
+// ============================================================
+// CANVAS RENDERERS
+// ============================================================
+const CANVAS_RENDERERS = {
+  polygon_interior: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    const n = data.n || 7;
+    drawGridBg(ctx, W, H);
+    const cx = W / 2, cy = H / 2 + 10;
+    const r = 100;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const angle = -Math.PI / 2 + i * 2 * Math.PI / n;
+      pts.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+    }
+    // Draw polygon
+    strokePoly(ctx, pts, '#00f5d4', 2.5, 'rgba(0,245,212,0.05)');
+    // Draw center to all vertices (triangulation)
+    for (let i = 0; i < n; i++) {
+      ctx.strokeStyle = i % 2 === 0 ? 'rgba(0,255,136,0.3)' : 'rgba(255,204,0,0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+    }
+    // Draw center point
+    ctx.fillStyle = '#00f5d4';
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+    // Labels
+    drawLabel(ctx, n + '边形内角和 = (' + n + '-2) × 180° = ' + ((n-2)*180) + '°', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, '分割为 ' + (n-2) + ' 个三角形', 20, 52, '#8a9ab0', '12px "Share Tech Mono"');
+    for (let i = 0; i < n; i++) {
+      const angle = -Math.PI / 2 + i * 2 * Math.PI / n;
+      const lx = cx + (r + 20) * Math.cos(angle);
+      const ly = cy + (r + 20) * Math.sin(angle);
+      drawLabel(ctx, String.fromCharCode(65 + i), lx - 4, ly + 4, '#e0e6f0', '12px "Share Tech Mono"');
+    }
+  },
+
+  polygon_exterior: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    const n = data.n || 5;
+    drawGridBg(ctx, W, H);
+    const cx = W / 2, cy = H / 2;
+    const r = 90;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const angle = -Math.PI / 2 + i * 2 * Math.PI / n;
+      pts.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+    }
+    strokePoly(ctx, pts, '#00f5d4', 2.5, 'rgba(0,245,212,0.05)');
+    // Draw exterior angles
+    for (let i = 0; i < n; i++) {
+      const p = pts[i];
+      const prev = pts[(i - 1 + n) % n];
+      const next = pts[(i + 1) % n];
+      // Direction vectors
+      const dx1 = p.x - prev.x, dy1 = p.y - prev.y;
+      const dx2 = next.x - p.x, dy2 = next.y - p.y;
+      const len1 = Math.sqrt(dx1*dx1 + dy1*dy1);
+      const len2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+      // Extend one side
+      const ex = p.x + (dx2 / len2) * 50;
+      const ey = p.y + (dy2 / len2) * 50;
+      ctx.strokeStyle = 'rgba(255,51,102,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+      // Arc for exterior angle
+      const a1 = Math.atan2(dy1, dx1);
+      const a2 = Math.atan2(ey - p.y, ex - p.x);
+      ctx.strokeStyle = '#ff3366';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 20, a1, a2, a2 < a1); ctx.stroke();
+    }
+    drawLabel(ctx, '外角和 = 360°（与边数无关）', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, '每个外角 = 360° / ' + n + ' = ' + (360/n).toFixed(1) + '°', 20, 52, '#8a9ab0', '12px "Share Tech Mono"');
+  },
+
+  parallelogram_diagonal: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const ox = W / 2 - 20, oy = H / 2 + 10;
+    // Parallelogram vertices
+    const A = { x: ox - 100, y: oy - 60 };
+    const B = { x: ox + 60, y: oy - 60 };
+    const C = { x: ox + 160, y: oy + 40 };
+    const D = { x: ox - 0, y: oy + 40 };
+    const O = { x: (A.x + C.x) / 2, y: (A.y + C.y) / 2 };
+    strokePoly(ctx, [A, B, C, D], '#00f5d4', 2.5, 'rgba(0,245,212,0.05)');
+    // Diagonals
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(C.x, C.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(D.x, D.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // Intersection point
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(O.x, O.y, 6, 0, Math.PI * 2); ctx.fill();
+    // Highlight halves
+    const color1 = 'rgba(0,255,136,0.15)';
+    const color2 = 'rgba(255,51,102,0.15)';
+    ctx.fillStyle = color1; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(O.x, O.y); ctx.lineTo(B.x, B.y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = color2; ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(C.x, C.y); ctx.lineTo(D.x, D.y); ctx.closePath(); ctx.fill();
+    // Labels
+    drawLabel(ctx, 'A', A.x - 14, A.y - 6, '#e0e6f0', '13px "Share Tech Mono"');
+    drawLabel(ctx, 'B', B.x + 8, B.y - 6, '#e0e6f0', '13px "Share Tech Mono"');
+    drawLabel(ctx, 'C', C.x + 8, C.y + 14, '#e0e6f0', '13px "Share Tech Mono"');
+    drawLabel(ctx, 'D', D.x - 14, D.y + 14, '#e0e6f0', '13px "Share Tech Mono"');
+    drawLabel(ctx, 'O', O.x - 14, O.y - 10, '#ffcc00', '13px "Share Tech Mono"');
+    drawLabel(ctx, '对角线互相平分', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, 'AO = OC,  BO = OD', 20, 52, '#00ff88', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'S△AOB = S△BOC = S△COD = S△DOA', 20, 72, '#8a9ab0', '11px "Share Tech Mono"');
+  },
+
+  parallelogram_area: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const ox = W / 2 - 20, oy = H / 2 + 10;
+    const A = { x: ox - 100, y: oy - 60 };
+    const B = { x: ox + 60, y: oy - 60 };
+    const C = { x: ox + 160, y: oy + 40 };
+    const D = { x: ox - 0, y: oy + 40 };
+    const O = { x: (A.x + C.x) / 2, y: (A.y + C.y) / 2 };
+    // Draw 4 colored triangles
+    const colors = ['rgba(0,255,136,0.2)', 'rgba(255,204,0,0.2)', 'rgba(255,51,102,0.2)', 'rgba(204,102,255,0.2)'];
+    const tris = [[A, O, B], [B, O, C], [C, O, D], [D, O, A]];
+    tris.forEach((tri, i) => {
+      ctx.fillStyle = colors[i];
+      ctx.beginPath(); ctx.moveTo(tri[0].x, tri[0].y); ctx.lineTo(tri[1].x, tri[1].y); ctx.lineTo(tri[2].x, tri[2].y); ctx.closePath(); ctx.fill();
+    });
+    strokePoly(ctx, [A, B, C, D], '#00f5d4', 2.5);
+    // Diagonals
+    ctx.strokeStyle = 'rgba(138,154,176,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(C.x, C.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(D.x, D.y); ctx.stroke();
+    drawLabel(ctx, '面积四分', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, '对角线将平行四边形分成4个等面积三角形', 20, 52, '#8a9ab0', '12px "Share Tech Mono"');
+  },
+
+  quadrilateral_hierarchy: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    // Draw hierarchy boxes
+    const boxes = [
+      { x: 40, y: 10, w: W - 80, h: H - 20, label: '四边形', color: 'rgba(0,245,212,0.15)', stroke: 'rgba(0,245,212,0.3)' },
+      { x: 70, y: 50, w: W - 140, h: H - 70, label: '平行四边形', color: 'rgba(0,245,212,0.1)', stroke: 'rgba(0,245,212,0.25)' },
+      { x: 100, y: 90, w: (W - 180) / 2 - 10, h: 100, label: '矩形', color: 'rgba(0,255,136,0.08)', stroke: 'rgba(0,255,136,0.4)' },
+      { x: 100 + (W - 180) / 2 + 10, y: 90, w: (W - 180) / 2 - 10, h: 100, label: '菱形', color: 'rgba(255,204,0,0.08)', stroke: 'rgba(255,204,0,0.4)' },
+      { x: W / 2 - 80, y: 210, w: 160, h: 60, label: '正方形', color: 'rgba(0,245,212,0.12)', stroke: '#00f5d4' },
+    ];
+    boxes.forEach(b => {
+      ctx.fillStyle = b.color;
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.strokeStyle = b.stroke;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = b.label === '正方形' ? '#00f5d4' : (b.label === '矩形' ? '#00ff88' : (b.label === '菱形' ? '#ffcc00' : '#8a9ab0'));
+      ctx.font = b.label === '正方形' ? 'bold 14px Orbitron' : '13px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(b.label, b.x + b.w / 2, b.y + 20);
+      ctx.textAlign = 'left';
+    });
+    // Trapezoid label
+    ctx.fillStyle = 'rgba(138,154,176,0.3)';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText('一般梯形', W - 110, 110);
+    ctx.textAlign = 'left';
+    // Connecting lines
+    ctx.strokeStyle = 'rgba(0,245,212,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(W / 2, 50); ctx.lineTo(W / 2, 85); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W / 2 - 50, 190); ctx.lineTo(W / 2 - 30, 210); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W / 2 + 50, 190); ctx.lineTo(W / 2 + 30, 210); ctx.stroke();
+    drawLabel(ctx, '四边形包含关系（集合层级）', 20, 30, '#00f5d4', '14px Orbitron');
+  },
+
+  quadrilateral_evolve: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const shapes = [
+      { name: '平行四边形', pts: [{x:120,y:80},{x:220,y:80},{x:260,y:160},{x:160,y:160}], color: '#00f5d4' },
+      { name: '矩形', pts: [{x:320,y:80},{x:420,y:80},{x:420,y:160},{x:320,y:160}], color: '#00ff88' },
+      { name: '菱形', pts: [{x:520,y:80},{x:580,y:140},{x:520,y:200},{x:460,y:140}], color: '#ffcc00' },
+      { name: '正方形', pts: [{x:120,y:240},{x:200,y:240},{x:200,y:320},{x:120,y:320}], color: '#cc66ff' },
+    ];
+    shapes.forEach(s => {
+      strokePoly(ctx, s.pts, s.color, 2, 'rgba(0,245,212,0.03)');
+      ctx.fillStyle = s.color;
+      ctx.font = '12px "Share Tech Mono"';
+      const cx = s.pts.reduce((sum, p) => sum + p.x, 0) / 4;
+      const cy = s.pts.reduce((sum, p) => sum + p.y, 0) / 4;
+      ctx.textAlign = 'center';
+      ctx.fillText(s.name, cx, cy + 4);
+      ctx.textAlign = 'left';
+    });
+    // Arrows
+    ctx.strokeStyle = 'rgba(0,245,212,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(270, 120); ctx.lineTo(310, 120); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(430, 120); ctx.lineTo(450, 120); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(160, 200); ctx.lineTo(160, 230); ctx.stroke();
+    ctx.setLineDash([]);
+    drawLabel(ctx, '演变：平行四边形 → 矩形/菱形 → 正方形', 20, 30, '#00f5d4', '13px Orbitron');
+    drawLabel(ctx, '正方形 = 矩形 ∩ 菱形', 20, 52, '#8a9ab0', '12px "Share Tech Mono"');
+  },
+
+  rectangle_props: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const cx = W / 2, cy = H / 2;
+    const w = 140, h = 90;
+    const A = { x: cx - w, y: cy - h };
+    const B = { x: cx + w, y: cy - h };
+    const C = { x: cx + w, y: cy + h };
+    const D = { x: cx - w, y: cy + h };
+    strokePoly(ctx, [A, B, C, D], '#00ff88', 2.5, 'rgba(0,255,136,0.05)');
+    // Diagonals
+    ctx.strokeStyle = 'rgba(255,204,0,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(C.x, C.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(D.x, D.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // Symmetry axes
+    ctx.strokeStyle = 'rgba(0,255,136,0.4)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath(); ctx.moveTo(cx, cy - h - 20); ctx.lineTo(cx, cy + h + 20); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - w - 20, cy); ctx.lineTo(cx + w + 20, cy); ctx.stroke();
+    ctx.setLineDash([]);
+    // Labels
+    drawLabel(ctx, 'A', A.x - 14, A.y - 4, '#e0e6f0', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'B', B.x + 6, B.y - 4, '#e0e6f0', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'C', C.x + 6, C.y + 14, '#e0e6f0', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'D', D.x - 14, D.y + 14, '#e0e6f0', '12px "Share Tech Mono"');
+    drawLabel(ctx, '矩形 — 2条对称轴', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, '对角线相等：AC = BD', 20, 52, '#00ff88', '12px "Share Tech Mono"');
+  },
+
+  rhombus_props: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const cx = W / 2, cy = H / 2 + 10;
+    const r = 110;
+    const A = { x: cx, y: cy - r };
+    const B = { x: cx + r * 0.9, y: cy };
+    const C = { x: cx, y: cy + r };
+    const D = { x: cx - r * 0.9, y: cy };
+    strokePoly(ctx, [A, B, C, D], '#ffcc00', 2.5, 'rgba(255,204,0,0.05)');
+    // Diagonals (symmetry axes)
+    ctx.strokeStyle = 'rgba(255,204,0,0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(C.x, C.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(D.x, D.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // Diagonals intersection
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+    // Right angle marks
+    ctx.strokeStyle = '#ff3366';
+    ctx.lineWidth = 1.5;
+    const mark = 12;
+    ctx.beginPath(); ctx.moveTo(cx - mark, cy - mark); ctx.lineTo(cx + mark, cy - mark); ctx.lineTo(cx + mark, cy + mark); ctx.stroke();
+    drawLabel(ctx, '菱形 — 2条对称轴（对角线）', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, '对角线垂直且平分对角', 20, 52, '#ffcc00', '12px "Share Tech Mono"');
+    const d1 = data.d1 || 8, d2 = data.d2 || 6;
+    drawLabel(ctx, '面积 = ' + d1 + ' × ' + d2 + ' / 2 = ' + (d1*d2/2), 20, 72, '#8a9ab0', '12px "Share Tech Mono"');
+  },
+
+  square_props: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const cx = W / 2, cy = H / 2 + 10;
+    const s = 100;
+    const A = { x: cx - s, y: cy - s };
+    const B = { x: cx + s, y: cy - s };
+    const C = { x: cx + s, y: cy + s };
+    const D = { x: cx - s, y: cy + s };
+    strokePoly(ctx, [A, B, C, D], '#cc66ff', 2.5, 'rgba(204,102,255,0.05)');
+    // 4 symmetry axes
+    const axes = [
+      { p1: A, p2: C, color: '#cc66ff' },
+      { p1: B, p2: D, color: '#cc66ff' },
+      { p1: {x: cx, y: cy - s - 20}, p2: {x: cx, y: cy + s + 20}, color: '#4488ff' },
+      { p1: {x: cx - s - 20, y: cy}, p2: {x: cx + s + 20, y: cy}, color: '#4488ff' },
+    ];
+    axes.forEach(ax => {
+      ctx.strokeStyle = ax.color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(ax.p1.x, ax.p1.y); ctx.lineTo(ax.p2.x, ax.p2.y); ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    drawLabel(ctx, '正方形 — 4条对称轴', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, '2条对角线 + 2条对边中垂线', 20, 52, '#cc66ff', '12px "Share Tech Mono"');
+  },
+
+  isosceles_trapezoid: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const topW = 100, botW = 220, h = 100;
+    const cx = W / 2, cy = H / 2 + 10;
+    const A = { x: cx - topW / 2, y: cy - h / 2 };
+    const B = { x: cx + topW / 2, y: cy - h / 2 };
+    const C = { x: cx + botW / 2, y: cy + h / 2 };
+    const D = { x: cx - botW / 2, y: cy + h / 2 };
+    strokePoly(ctx, [A, B, C, D], '#00f5d4', 2.5, 'rgba(0,245,212,0.05)');
+    // Diagonals
+    ctx.strokeStyle = 'rgba(255,204,0,0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(C.x, C.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(D.x, D.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // Equal mark on legs
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 1.5;
+    const legMid1 = { x: (A.x + D.x) / 2, y: (A.y + D.y) / 2 };
+    const legMid2 = { x: (B.x + C.x) / 2, y: (B.y + C.y) / 2 };
+    ctx.beginPath(); ctx.moveTo(legMid1.x - 8, legMid1.y - 4); ctx.lineTo(legMid1.x + 8, legMid1.y + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(legMid2.x - 8, legMid2.y - 4); ctx.lineTo(legMid2.x + 8, legMid2.y + 4); ctx.stroke();
+    // Labels
+    drawLabel(ctx, 'A', A.x - 14, A.y - 4, '#e0e6f0', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'B', B.x + 6, B.y - 4, '#e0e6f0', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'C', C.x + 6, C.y + 14, '#e0e6f0', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'D', D.x - 14, D.y + 14, '#e0e6f0', '12px "Share Tech Mono"');
+    drawLabel(ctx, '等腰梯形', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, '两腰相等 · 对角线相等 · 同一底上的角相等', 20, 52, '#00ff88', '12px "Share Tech Mono"');
+  },
+
+  trapezoid_midline: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const a = data.a || 6, b = data.b || 14;
+    const topW = a * 12, botW = b * 12, h = 100;
+    const cx = W / 2, cy = H / 2 + 10;
+    const A = { x: cx - topW / 2, y: cy - h / 2 };
+    const B = { x: cx + topW / 2, y: cy - h / 2 };
+    const C = { x: cx + botW / 2, y: cy + h / 2 };
+    const D = { x: cx - botW / 2, y: cy + h / 2 };
+    const E = { x: (A.x + D.x) / 2, y: (A.y + D.y) / 2 };
+    const F = { x: (B.x + C.x) / 2, y: (B.y + C.y) / 2 };
+    // Draw trapezoid
+    strokePoly(ctx, [A, B, C, D], '#00f5d4', 2.5, 'rgba(0,245,212,0.05)');
+    // Draw midline with glow
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.moveTo(E.x, E.y); ctx.lineTo(F.x, F.y); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Highlight E, F
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(E.x, E.y, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(F.x, F.y, 5, 0, Math.PI * 2); ctx.fill();
+    // Dashed lines for heights
+    ctx.strokeStyle = 'rgba(138,154,176,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(A.x, A.y + h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(B.x, B.y + h); ctx.stroke();
+    ctx.setLineDash([]);
+    // Labels
+    drawLabel(ctx, 'E', E.x - 16, E.y + 4, '#ffcc00', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'F', F.x + 8, F.y + 4, '#ffcc00', '12px "Share Tech Mono"');
+    drawLabel(ctx, '中位线 EF', 20, 30, '#00f5d4', '14px Orbitron');
+    drawLabel(ctx, 'EF = (AD + BC) / 2 = (' + a + ' + ' + b + ') / 2 = ' + ((a+b)/2), 20, 52, '#ffcc00', '12px "Share Tech Mono"');
+    drawLabel(ctx, 'EF ∥ AD ∥ BC', 20, 72, '#8a9ab0', '12px "Share Tech Mono"');
+    if (data.showProof) {
+      drawLabel(ctx, 'G 为 AC 中点，AG = GC', 20, 96, '#00ff88', '11px "Share Tech Mono"');
+    }
+  }
+};
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function startGame() {
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'flex';
+  document.getElementById('chPanelToggle').style.display = 'flex';
+  document.getElementById('gameScreen').style.display = 'block';
+  gameState.currentStage = 0;
+  gameState.currentQuestion = 0;
+  gameState.lives = 3;
+  gameState.score = 0;
+  gameState.combo = 0;
+  gameState.maxCombo = 0;
+  gameState.correctCount = 0;
+  gameState.totalQuestions = 0;
+  gameState.answered = false;
+  gameState.stageCompleted = [false, false, false, false];
+  updateLivesDisplay();
+  updateComboDisplay();
+  updateScoreDisplay();
+  gameState.startTime = Date.now();
+  if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+  gameState.timerInterval = setInterval(updateTimer, 1000);
+  showStageTransition(0, () => loadQuestion(0, 0));
+}
+
+function showStageTransition(stageIdx, callback) {
+  const tr = document.getElementById('stageTransition');
+  const num = document.getElementById('stTrNum');
+  const title = document.getElementById('stTrTitle');
+  const sub = document.getElementById('stTrSub');
+  const stage = STAGES[stageIdx];
+  num.textContent = '0' + (stageIdx + 1);
+  title.textContent = stage.name;
+  sub.textContent = stage.sub;
+  tr.classList.add('show');
+  setTimeout(() => {
+    tr.classList.remove('show');
+    if (callback) callback();
+  }, 1800);
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  const timer = document.getElementById('hudTimer');
+  timer.textContent = mins + ':' + secs;
+  if (elapsed > 180) timer.classList.add('warning');
+}
+
+function updateLivesDisplay() {
+  for (let i = 1; i <= 3; i++) {
+    const heart = document.getElementById('heart' + i);
+    if (i <= gameState.lives) { heart.className = 'heart alive'; }
+    else { heart.className = 'heart lost'; }
+  }
+}
+
+function updateComboDisplay() {
+  const comboEl = document.getElementById('hudCombo');
+  comboEl.textContent = 'COMBO: ' + gameState.combo;
+  if (gameState.combo >= 3) {
+    comboEl.classList.add('active');
+    setTimeout(() => comboEl.classList.remove('active'), 600);
+  }
+}
+
+function updateScoreDisplay() {
+  document.getElementById('hudScore').textContent = gameState.score;
+  document.getElementById('hudStage').textContent = 'STAGE ' + (gameState.currentStage + 1) + '/4';
+}
+
+function loadQuestion(stageIdx, qIdx) {
+  gameState.currentStage = stageIdx;
+  gameState.currentQuestion = qIdx;
+  gameState.answered = false;
+  updateScoreDisplay();
+  const stage = STAGES[stageIdx];
+  const q = stage.questions[qIdx];
+  const container = document.getElementById('questionContainer');
+
+  document.getElementById('stageBadge').textContent = 'STAGE 0' + (stageIdx + 1);
+  document.getElementById('stageTitle').textContent = stage.name;
+  document.getElementById('stageSub').textContent = stage.sub;
+
+  let html = '<div class="question-card">';
+  html += '<div class="q-progress">';
+  html += '<div class="q-progress-bar"><div class="q-progress-fill" style="width:' + ((qIdx / stage.questions.length) * 100) + '%"></div></div>';
+  html += '<div class="q-progress-text">' + (qIdx + 1) + '/' + stage.questions.length + '</div>';
+  html += '</div>';
+  html += '<div class="q-body">';
+  html += '<div class="q-text">' + q.text + '</div>';
+
+  if (q.hasCanvas && CANVAS_RENDERERS[q.canvasType]) {
+    const canvasId = 'canvas_' + q.id;
+    html += '<div class="q-canvas-wrap">';
+    html += '<h4>▌ 可视化辅助</h4>';
+    html += '<canvas id="' + canvasId + '" width="720" height="340"></canvas>';
+    html += '</div>';
+  }
+
+  html += '<div class="q-options">';
+  q.options.forEach((opt, i) => {
+    html += '<div class="q-opt" onclick="selectOption(this, ' + i + ')" data-correct="' + opt.correct + '">';
+    html += '<span class="opt-letter">' + opt.letter + '</span>';
+    html += '<span>' + opt.text + '</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  html += '<div class="q-feedback" id="feedback_' + q.id + '">';
+  html += '<div class="fb-title"></div>';
+  html += '<div class="fb-text"></div>';
+  html += '</div>';
+
+  html += '<button class="next-btn" id="nextBtn_' + q.id + '" onclick="nextQuestion()">继续 →</button>';
+  html += '</div></div>';
+  container.innerHTML = html;
+
+  if (q.hasCanvas && CANVAS_RENDERERS[q.canvasType]) {
+    const canvasId = 'canvas_' + q.id;
+    setTimeout(() => { CANVAS_RENDERERS[q.canvasType](canvasId, q.canvasData); }, 50);
+  }
+
+  document.querySelectorAll('.chapter-item').forEach((item, i) => {
+    item.classList.toggle('active', i === stageIdx);
+  });
+}
+
+function selectOption(el, optIdx) {
+  if (gameState.answered) return;
+  gameState.answered = true;
+  gameState.totalQuestions++;
+
+  const isCorrect = el.dataset.correct === 'true';
+  const qId = STAGES[gameState.currentStage].questions[gameState.currentQuestion].id;
+  const feedback = document.getElementById('feedback_' + qId);
+  const fbTitle = feedback.querySelector('.fb-title');
+  const fbText = feedback.querySelector('.fb-text');
+  const nextBtn = document.getElementById('nextBtn_' + qId);
+
+  document.querySelectorAll('.q-opt').forEach(opt => opt.classList.add('disabled'));
+
+  if (isCorrect) {
+    el.classList.add('correct');
+    gameState.combo++;
+    if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+    gameState.correctCount++;
+    const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+    const speedBonus = Math.max(0, 50 - Math.floor(elapsed / 10));
+    const comboBonus = Math.min(gameState.combo * 20, 100);
+    const points = 100 + comboBonus + speedBonus;
+    gameState.score += points;
+    feedback.className = 'q-feedback correct-fb';
+    fbTitle.textContent = '✓ 正确！+' + points + '分';
+    fbText.textContent = STAGES[gameState.currentStage].questions[gameState.currentQuestion].explanation;
+    showFeedbackOverlay(gameState.combo >= 3 ? 'perfect' : 'good');
+  } else {
+    el.classList.add('wrong');
+    document.querySelectorAll('.q-opt').forEach(opt => {
+      if (opt.dataset.correct === 'true') opt.classList.add('correct');
+    });
+    gameState.combo = 0;
+    gameState.lives--;
+    updateLivesDisplay();
+    feedback.className = 'q-feedback wrong-fb';
+    fbTitle.textContent = '✗ 错误';
+    fbText.textContent = STAGES[gameState.currentStage].questions[gameState.currentQuestion].explanation;
+    showFeedbackOverlay('miss');
+    if (gameState.lives <= 0) {
+      setTimeout(() => showGameOver(), 1500);
+      return;
+    }
+  }
+
+  updateComboDisplay();
+  updateScoreDisplay();
+  feedback.style.display = 'block';
+  nextBtn.style.display = 'block';
+}
+
+function showFeedbackOverlay(type) {
+  const overlay = document.getElementById('feedbackOverlay');
+  const bubble = document.getElementById('feedbackBubble');
+  const texts = { perfect: 'PERFECT!', good: 'GOOD!', miss: 'MISS' };
+  bubble.textContent = texts[type] || 'OK';
+  bubble.className = 'feedback-bubble ' + type;
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), 800);
+}
+
+function nextQuestion() {
+  const stage = STAGES[gameState.currentStage];
+  if (gameState.currentQuestion < stage.questions.length - 1) {
+    loadQuestion(gameState.currentStage, gameState.currentQuestion + 1);
+  } else {
+    gameState.stageCompleted[gameState.currentStage] = true;
+    if (gameState.currentStage < STAGES.length - 1) {
+      showStageTransition(gameState.currentStage + 1, () => {
+        loadQuestion(gameState.currentStage + 1, 0);
+      });
+    } else {
+      showResults();
+    }
+  }
+}
+
+function showGameOver() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+  document.getElementById('resultGrade').textContent = 'F';
+  document.getElementById('resultGrade').style.color = 'var(--red)';
+  document.getElementById('statScore').textContent = gameState.score;
+  const acc = gameState.totalQuestions > 0 ? Math.round(gameState.correctCount / gameState.totalQuestions * 100) : 0;
+  document.getElementById('statAccuracy').textContent = acc + '%';
+  document.getElementById('statMaxCombo').textContent = gameState.maxCombo;
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('statTime').textContent = mins + ':' + secs;
+}
+
+function showResults() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+
+  const totalQ = STAGES.reduce((sum, s) => sum + s.questions.length, 0);
+  const accuracy = Math.round(gameState.correctCount / totalQ * 100);
+  let grade = 'C';
+  let gradeColor = 'var(--yellow)';
+  if (accuracy >= 95 && gameState.maxCombo >= 5) { grade = 'S'; gradeColor = 'var(--accent)'; }
+  else if (accuracy >= 85) { grade = 'A'; gradeColor = 'var(--green)'; }
+  else if (accuracy >= 70) { grade = 'B'; gradeColor = 'var(--blue)'; }
+  else if (accuracy >= 50) { grade = 'C'; gradeColor = 'var(--yellow)'; }
+  else { grade = 'D'; gradeColor = 'var(--red)'; }
+
+  const gradeEl = document.getElementById('resultGrade');
+  gradeEl.textContent = grade;
+  gradeEl.style.color = gradeColor;
+
+  document.getElementById('statScore').textContent = gameState.score;
+  document.getElementById('statAccuracy').textContent = accuracy + '%';
+  document.getElementById('statMaxCombo').textContent = gameState.maxCombo;
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('statTime').textContent = mins + ':' + secs;
+}
+
+function restartGame() {
+  document.getElementById('resultScreen').style.display = 'none';
+  startGame();
+}
+
+function backToTitle() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('resultScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('titleScreen').style.display = 'flex';
+}
+
+function toggleChapterPanel() {
+  const panel = document.getElementById('chapterPanel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+function jumpToStage(stageIdx) {
+  document.getElementById('chapterPanel').style.display = 'none';
+  if (stageIdx === gameState.currentStage && document.getElementById('gameScreen').style.display === 'block') {
+    return;
+  }
+  gameState.currentStage = stageIdx;
+  gameState.currentQuestion = 0;
+  gameState.answered = false;
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'flex';
+  document.getElementById('chPanelToggle').style.display = 'flex';
+  document.getElementById('gameScreen').style.display = 'block';
+  document.getElementById('resultScreen').style.display = 'none';
+  loadQuestion(stageIdx, 0);
+}
+
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('chapterPanel');
+  const toggle = document.getElementById('chPanelToggle');
+  if (panel.style.display === 'block' && !panel.contains(e.target) && !toggle.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+</script>
+</body>
+</html>
