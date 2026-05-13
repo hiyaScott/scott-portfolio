@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>代号：TRI | 三角特勤组</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ===== HUD 背景 ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 四角装饰 */
+    .corner {
+      position: fixed;
+      width: 60px; height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    /* ===== 顶部 HUD ===== */
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .hud-stats {
+      display: flex;
+      gap: 20px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-stats .stat { display: flex; align-items: center; gap: 6px; }
+    .hud-stats .stat .label { opacity: 0.6; }
+    .hud-stats .stat .value {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+    .hud-stats .stat .value.danger { color: var(--danger); }
+    .hud-stats .stat .value.warn { color: var(--warn); }
+
+    /* 生命心形 */
+    .lives { display: flex; gap: 4px; }
+    .life {
+      width: 14px; height: 14px;
+      background: var(--danger);
+      transform: rotate(45deg);
+      position: relative;
+      transition: opacity 0.3s;
+    }
+    .life::before, .life::after {
+      content: ''; position: absolute;
+      width: 14px; height: 14px;
+      background: var(--danger);
+      border-radius: 50%;
+    }
+    .life::before { top: -7px; left: 0; }
+    .life::after { top: 0; left: -7px; }
+    .life.lost { opacity: 0.15; }
+
+    /* Combo */
+    .combo-display {
+      position: fixed;
+      top: 66px; right: 16px;
+      z-index: 95;
+      text-align: right;
+      pointer-events: none;
+      transition: transform 0.2s;
+    }
+    .combo-display.active { transform: scale(1.15); }
+    .combo-display .combo-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.4rem;
+      color: var(--warn);
+      text-shadow: 0 0 10px rgba(255,184,0,0.3);
+    }
+    .combo-display .combo-label {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+    }
+
+    /* ===== 章节跳转面板 ===== */
+    .nav-panel {
+      position: fixed;
+      top: 56px; left: 0;
+      width: 240px;
+      height: calc(100vh - 56px);
+      background: var(--panel);
+      border-right: 1px solid rgba(0,245,212,0.15);
+      padding: 20px 16px;
+      overflow-y: auto;
+      z-index: 90;
+      transition: transform 0.3s ease;
+    }
+    .nav-panel h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .nav-panel .nav-link {
+      display: block;
+      padding: 12px 12px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+      border-left: 2px solid transparent;
+      cursor: pointer;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+    .nav-panel .nav-link:hover,
+    .nav-panel .nav-link.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+    .nav-link .num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      opacity: 0.5;
+      margin-right: 8px;
+      min-width: 22px;
+    }
+    .nav-link .status-icon {
+      margin-left: auto;
+      font-size: 0.8rem;
+    }
+    .nav-panel .back-link {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      text-align: center;
+    }
+    .back-link a {
+      color: var(--warn);
+      font-size: 0.75rem;
+      text-decoration: none;
+    }
+
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 64px; left: 12px;
+      z-index: 101;
+      width: 44px; height: 44px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 1.2rem;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ===== 屏幕容器 ===== */
+    .screen {
+      display: none;
+      min-height: 100vh;
+      padding-top: 56px;
+      position: relative;
+      z-index: 10;
+    }
+    .screen.active { display: block; }
+
+    /* ===== Intro 画面 ===== */
+    .intro-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 56px);
+      padding: 40px 24px;
+      text-align: center;
+    }
+    .intro-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 6px 16px;
+      border-radius: 2px;
+      letter-spacing: 3px;
+      margin-bottom: 24px;
+    }
+    .intro-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 6px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 30px rgba(0,245,212,0.2);
+    }
+    .intro-subtitle {
+      font-size: 1rem;
+      color: var(--text-dim);
+      letter-spacing: 4px;
+      margin-bottom: 40px;
+    }
+    .intro-desc {
+      max-width: 480px;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      line-height: 1.8;
+      margin-bottom: 40px;
+      border-left: 2px solid var(--accent);
+      padding-left: 20px;
+      text-align: left;
+    }
+    .btn-primary {
+      padding: 14px 48px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+      min-height: 48px;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 20px rgba(0,245,212,0.3);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      padding: 12px 32px;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+      text-decoration: none;
+      display: inline-block;
+      min-height: 44px;
+      line-height: 20px;
+    }
+    .btn-secondary:hover {
+      background: var(--accent-dim);
+    }
+    .intro-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+    .intro-hint {
+      margin-top: 32px;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      opacity: 0.6;
+      letter-spacing: 1px;
+    }
+
+    /* ===== Stage 通用 ===== */
+    .stage-content {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 24px 60px;
+    }
+    .stage-header {
+      text-align: center;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: rgba(10,14,26,0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+    }
+    .stage-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 4px 10px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+    .stage-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--text);
+      letter-spacing: 2px;
+    }
+    .stage-progress {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+
+    .game-panel {
+      background: rgba(10,14,26,0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .game-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+
+    /* ===== Canvas 区 ===== */
+    .canvas-wrap {
+      text-align: center;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(0,245,212,0.1);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 20px;
+    }
+    .canvas-wrap canvas {
+      max-width: 100%;
+      border-radius: 4px;
+      cursor: crosshair;
+    }
+    .canvas-hint {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-top: 8px;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 题目区 ===== */
+    .question-text {
+      font-size: 1rem;
+      color: var(--text);
+      line-height: 1.7;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: rgba(0,245,212,0.04);
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+    .question-text .highlight {
+      color: var(--accent);
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* 选项按钮 */
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .option-btn {
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(0,245,212,0.2);
+      color: var(--text);
+      border-radius: 6px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .option-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .option-btn.correct {
+      background: rgba(0,245,212,0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .option-btn.wrong {
+      background: rgba(255,56,96,0.1);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .option-btn:disabled { cursor: default; opacity: 0.8; }
+
+    /* 输入题 */
+    .input-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: stretch;
+    }
+    .answer-input {
+      flex: 1;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(0,245,212,0.2);
+      color: var(--text);
+      border-radius: 6px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 1rem;
+      outline: none;
+      min-height: 48px;
+    }
+    .answer-input:focus { border-color: var(--accent); }
+    .answer-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+    .btn-submit {
+      padding: 14px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      min-height: 48px;
+      min-width: 80px;
+    }
+
+    /* 反馈条 */
+    .feedback-bar {
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+      display: none;
+      animation: slideIn 0.3s ease;
+    }
+    .feedback-bar.show { display: block; }
+    .feedback-bar.correct {
+      background: rgba(0,245,212,0.08);
+      color: var(--accent);
+      border-left: 3px solid var(--accent);
+    }
+    .feedback-bar.wrong {
+      background: rgba(255,56,96,0.08);
+      color: var(--danger);
+      border-left: 3px solid var(--danger);
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 下一题按钮 */
+    .next-btn-wrap {
+      text-align: center;
+      margin-top: 12px;
+      display: none;
+    }
+    .next-btn-wrap.show { display: block; }
+
+    /* ===== End 画面 ===== */
+    .end-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 56px);
+      padding: 40px 24px;
+      text-align: center;
+    }
+    .end-rank {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 4rem;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .end-rank.s { color: var(--accent); text-shadow: 0 0 40px rgba(0,245,212,0.3); }
+    .end-rank.a { color: var(--success); }
+    .end-rank.b { color: var(--warn); }
+    .end-rank.c { color: var(--danger); }
+    .end-rank-label {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      letter-spacing: 4px;
+      margin-bottom: 32px;
+    }
+    .end-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 400px;
+      width: 100%;
+      margin-bottom: 32px;
+    }
+    .end-stat {
+      background: rgba(10,14,26,0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .end-stat .val {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.4rem;
+      color: var(--accent);
+    }
+    .end-stat .lbl {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-top: 4px;
+      letter-spacing: 1px;
+    }
+    .end-actions {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ===== Feedback 弹窗 ===== */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+      width: 100%;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+    }
+    .feedback-box .icon { font-size: 3rem; margin-bottom: 12px; }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    .feedback-box .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+      min-height: 44px;
+    }
+
+    /* ===== 遮罩 ===== */
+    .nav-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 80;
+    }
+    .nav-overlay.show { display: block; }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 768px) {
+      .nav-panel { transform: translateX(-100%); width: 260px; }
+      .nav-panel.open { transform: translateX(0); }
+      .menu-toggle { display: flex; }
+      .stage-content { padding: 16px 12px 40px; }
+      .options-grid { grid-template-columns: 1fr; }
+      .intro-title { font-size: 2rem; letter-spacing: 3px; }
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo { font-size: 0.95rem; }
+      .hud-stats { gap: 12px; font-size: 0.65rem; }
+      .end-rank { font-size: 3rem; }
+      .end-stats { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    }
+    @media (max-width: 480px) {
+      .intro-title { font-size: 1.6rem; }
+      .intro-subtitle { font-size: 0.85rem; }
+      .game-panel { padding: 16px; }
+      .question-text { font-size: 0.9rem; }
+      .option-btn { font-size: 0.85rem; padding: 12px; }
+      .input-group { flex-direction: column; }
+      .btn-submit { width: 100%; }
+      .end-stats { grid-template-columns: 1fr; }
+      .corner { width: 40px; height: 40px; }
+    }
+    @media (max-width: 360px) {
+      .intro-title { font-size: 1.4rem; }
+      .hud-header .logo { font-size: 0.85rem; }
+      .stage-title { font-size: 1rem; }
+    }
+    @media (max-width: 320px) {
+      .intro-title { font-size: 1.2rem; letter-spacing: 2px; }
+      .option-btn { font-size: 0.8rem; }
+    }
+
+    /* 分数浮动动画 */
+    .score-pop {
+      position: fixed;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      pointer-events: none;
+      z-index: 150;
+      animation: floatUp 1s ease forwards;
+    }
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-40px); }
+    }
+
+    /* 计时条 */
+    .timer-bar-wrap {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 2px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .timer-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 1s linear, background 0.3s;
+    }
+    .timer-bar.warn { background: var(--warn); }
+    .timer-bar.danger { background: var(--danger); }
+  </style>
+</head>
+<body>
+  <!-- 四角装饰 -->
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <!-- 顶部 HUD -->
+  <header class="hud-header">
+    <div class="logo">TRI</div>
+    <div class="hud-stats">
+      <div class="stat"><span class="label">SCORE</span><span class="value" id="hudScore">0</span></div>
+      <div class="stat"><span class="label">TIME</span><span class="value" id="hudTime">00:00</span></div>
+      <div class="stat"><span class="label">LIVES</span><span class="lives" id="hudLives"></span></div>
+    </div>
+  </header>
+
+  <!-- Combo -->
+  <div class="combo-display" id="comboDisplay">
+    <div class="combo-num" id="comboNum"></div>
+    <div class="combo-label">COMBO</div>
+  </div>
+
+  <!-- 汉堡菜单 -->
+  <button class="menu-toggle" onclick="toggleNav()">☰</button>
+  <div class="nav-overlay" id="navOverlay" onclick="toggleNav()"></div>
+
+  <!-- 章节导航 -->
+  <nav class="nav-panel" id="navPanel">
+    <h3>任务导航</h3>
+    <div class="nav-link" onclick="goToScreen('intro')">
+      <span class="num">INTRO</span>作战简报
+      <span class="status-icon" id="nav-intro"></span>
+    </div>
+    <div class="nav-link" onclick="goToScreen('stage1')">
+      <span class="num">ST-01</span>三角形概念
+      <span class="status-icon" id="nav-s1"></span>
+    </div>
+    <div class="nav-link" onclick="goToScreen('stage2')">
+      <span class="num">ST-02</span>内角和
+      <span class="status-icon" id="nav-s2"></span>
+    </div>
+    <div class="nav-link" onclick="goToScreen('stage3')">
+      <span class="num">ST-03</span>全等判定
+      <span class="status-icon" id="nav-s3"></span>
+    </div>
+    <div class="nav-link" onclick="goToScreen('stage4')">
+      <span class="num">ST-04</span>综合挑战
+      <span class="status-icon" id="nav-s4"></span>
+    </div>
+    <div class="nav-link" onclick="goToScreen('end')">
+      <span class="num">END</span>任务结算
+      <span class="status-icon" id="nav-end"></span>
+    </div>
+    <div class="back-link">
+      <a href="tutorial.html">➤ 特勤手册 (教程)</a>
+    </div>
+  </nav>
+
+  <!-- ===== INTRO 画面 ===== -->
+  <div class="screen active" id="screen-intro">
+    <div class="intro-screen">
+      <div class="intro-badge">MISSION BRIEFING</div>
+      <h1 class="intro-title">代号：TRI</h1>
+      <p class="intro-subtitle">三角特勤组 · 第17章</p>
+      <div class="intro-desc">
+        特工，欢迎来到三角特勤组训练场。<br><br>
+        本次任务涵盖三角形的核心概念与全等判定。你需要在4个训练关卡中识别三角形类型、验证三边关系、计算未知角度、选择正确的全等判定条件，并完成综合证明挑战。<br><br>
+        规则：3条命，限时答题，连击加分。失误扣命，全部耗尽则任务失败。
+      </div>
+      <div class="intro-actions">
+        <button class="btn-primary" onclick="startGame()">▶ 开始任务</button>
+        <a href="tutorial.html" class="btn-secondary">📖 先看特勤手册</a>
+      </div>
+      <p class="intro-hint">[CLASSIFIED] CODENAME: TRI | CLEARANCE: STUDENT</p>
+    </div>
+  </div>
+
+  <!-- ===== STAGE 1: 三角形概念 ===== -->
+  <div class="screen" id="screen-stage1">
+    <div class="stage-content">
+      <div class="stage-header">
+        <span class="stage-badge">STAGE 01</span>
+        <h2 class="stage-title">三角形概念</h2>
+        <p class="stage-progress">题目 <span id="s1-progress">1/5</span></p>
+      </div>
+      <div class="game-panel">
+        <div class="timer-bar-wrap"><div class="timer-bar" id="s1-timer"></div></div>
+        <div class="canvas-wrap">
+          <canvas id="canvas-s1" width="520" height="300"></canvas>
+          <div class="canvas-hint" id="s1-canvas-hint">◄ 观察图形，判断三角形类型 ►</div>
+        </div>
+        <div class="question-text" id="s1-question"></div>
+        <div class="options-grid" id="s1-options"></div>
+        <div class="input-group" id="s1-input" style="display:none;">
+          <input type="text" class="answer-input" id="s1-input-field" placeholder="输入答案">
+          <button class="btn-submit" onclick="submitInput(1)">提交</button>
+        </div>
+        <div class="feedback-bar" id="s1-feedback"></div>
+        <div class="next-btn-wrap" id="s1-next">
+          <button class="btn-primary" onclick="nextQuestion(1)">下一题 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STAGE 2: 内角和 ===== -->
+  <div class="screen" id="screen-stage2">
+    <div class="stage-content">
+      <div class="stage-header">
+        <span class="stage-badge">STAGE 02</span>
+        <h2 class="stage-title">内角和</h2>
+        <p class="stage-progress">题目 <span id="s2-progress">1/5</span></p>
+      </div>
+      <div class="game-panel">
+        <div class="timer-bar-wrap"><div class="timer-bar" id="s2-timer"></div></div>
+        <div class="canvas-wrap">
+          <canvas id="canvas-s2" width="520" height="300"></canvas>
+          <div class="canvas-hint" id="s2-canvas-hint">◄ 运用内角和定理与外角定理 ►</div>
+        </div>
+        <div class="question-text" id="s2-question"></div>
+        <div class="options-grid" id="s2-options"></div>
+        <div class="input-group" id="s2-input" style="display:none;">
+          <input type="text" class="answer-input" id="s2-input-field" placeholder="输入答案">
+          <button class="btn-submit" onclick="submitInput(2)">提交</button>
+        </div>
+        <div class="feedback-bar" id="s2-feedback"></div>
+        <div class="next-btn-wrap" id="s2-next">
+          <button class="btn-primary" onclick="nextQuestion(2)">下一题 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STAGE 3: 全等判定 ===== -->
+  <div class="screen" id="screen-stage3">
+    <div class="stage-content">
+      <div class="stage-header">
+        <span class="stage-badge">STAGE 03</span>
+        <h2 class="stage-title">全等判定</h2>
+        <p class="stage-progress">题目 <span id="s3-progress">1/5</span></p>
+      </div>
+      <div class="game-panel">
+        <div class="timer-bar-wrap"><div class="timer-bar" id="s3-timer"></div></div>
+        <div class="canvas-wrap">
+          <canvas id="canvas-s3" width="520" height="300"></canvas>
+          <div class="canvas-hint" id="s3-canvas-hint">◄ 选择正确的全等判定条件 ►</div>
+        </div>
+        <div class="question-text" id="s3-question"></div>
+        <div class="options-grid" id="s3-options"></div>
+        <div class="input-group" id="s3-input" style="display:none;">
+          <input type="text" class="answer-input" id="s3-input-field" placeholder="输入答案">
+          <button class="btn-submit" onclick="submitInput(3)">提交</button>
+        </div>
+        <div class="feedback-bar" id="s3-feedback"></div>
+        <div class="next-btn-wrap" id="s3-next">
+          <button class="btn-primary" onclick="nextQuestion(3)">下一题 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STAGE 4: 综合挑战 ===== -->
+  <div class="screen" id="screen-stage4">
+    <div class="stage-content">
+      <div class="stage-header">
+        <span class="stage-badge">STAGE 04</span>
+        <h2 class="stage-title">综合挑战</h2>
+        <p class="stage-progress">题目 <span id="s4-progress">1/5</span></p>
+      </div>
+      <div class="game-panel">
+        <div class="timer-bar-wrap"><div class="timer-bar" id="s4-timer"></div></div>
+        <div class="canvas-wrap">
+          <canvas id="canvas-s4" width="520" height="300"></canvas>
+          <div class="canvas-hint" id="s4-canvas-hint">◄ 综合运用三角形性质与全等证明 ►</div>
+        </div>
+        <div class="question-text" id="s4-question"></div>
+        <div class="options-grid" id="s4-options"></div>
+        <div class="input-group" id="s4-input" style="display:none;">
+          <input type="text" class="answer-input" id="s4-input-field" placeholder="输入答案（数字即可）">
+          <button class="btn-submit" onclick="submitInput(4)">提交</button>
+        </div>
+        <div class="feedback-bar" id="s4-feedback"></div>
+        <div class="next-btn-wrap" id="s4-next">
+          <button class="btn-primary" onclick="nextQuestion(4)">下一题 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== END 画面 ===== -->
+  <div class="screen" id="screen-end">
+    <div class="end-screen">
+      <div class="end-rank" id="endRank">S</div>
+      <p class="end-rank-label" id="endRankLabel">完美特工</p>
+      <div class="end-stats">
+        <div class="end-stat">
+          <div class="val" id="endScore">0</div>
+          <div class="lbl">总分</div>
+        </div>
+        <div class="end-stat">
+          <div class="val" id="endCombo">0</div>
+          <div class="lbl">最高连击</div>
+        </div>
+        <div class="end-stat">
+          <div class="val" id="endTime">00:00</div>
+          <div class="lbl">用时</div>
+        </div>
+      </div>
+      <div class="end-actions">
+        <button class="btn-primary" onclick="restartGame()">↻ 重新任务</button>
+        <a href="tutorial.html" class="btn-secondary">📖 复习特勤手册</a>
+        <button class="btn-secondary" onclick="goToScreen('intro')">🏠 返回主页</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback 弹窗 -->
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Answer verified.</p>
+      <button class="btn" onclick="hideFeedback()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    // ==================== 游戏状态 ====================
+    const Game = {
+      score: 0,
+      lives: 3,
+      combo: 0,
+      maxCombo: 0,
+      stage: 0,
+      question: 0,
+      startTime: 0,
+      timerInterval: null,
+      questionTime: 0,
+      totalQuestions: 20,
+      correctCount: 0,
+      wrongCount: 0,
+      completed: [false, false, false, false],
+      animFrame: null,
+      canvasTime: 0,
+    };
+
+    const POINTS = {
+      base: 100,
+      comboBonus: 20,
+      timeBonus: 50,
+    };
+
+    // ==================== 题目库 ====================
+    const STAGES = [
+      // Stage 1: 三角形概念
+      [
+        { type:'choice', q:'下列长度的三条线段中，能组成三角形的是？', options:['3, 4, 5','1, 2, 3','2, 3, 6'], correct:0, hint:'三边关系：任意两边之和大于第三边。3+4>5 ✓' },
+        { type:'choice', q:'三角形两边长为 4 和 7，第三边长不可能是？', options:['5','8','12'], correct:2, hint:'第三边范围：7-4 < x < 7+4，即 3 < x < 11，12 超出范围。' },
+        { type:'choice', q:'一个三角形三个角分别为 40°, 60°, 80°，按角分类它是？', options:['锐角三角形','直角三角形','钝角三角形'], correct:0, hint:'三个角都小于90°，为锐角三角形。' },
+        { type:'input', q:'已知三角形的两边长分别为 5 和 8，第三边 x 的取值范围是 ___ < x < ___（用逗号分隔两个数）', answer:'3,13', hint:'两边之差 < 第三边 < 两边之和：8-5=3，8+5=13' },
+        { type:'choice', q:'一个三角形的三个内角度数之比为 1:2:3，按角分类它属于？', options:['锐角三角形','直角三角形','钝角三角形'], correct:1, hint:'x+2x+3x=180° → x=30°，三个角为30°,60°,90°，直角三角形。' },
+      ],
+      // Stage 2: 内角和
+      [
+        { type:'input', q:'三角形中，∠A=45°, ∠B=55°，则∠C = ___°', answer:'80', hint:'内角和180°：∠C = 180 - 45 - 55 = 80°' },
+        { type:'input', q:'直角三角形的一个锐角为 35°，另一个锐角 = ___°', answer:'55', hint:'直角三角形两锐角互余：90° - 35° = 55°' },
+        { type:'input', q:'三角形的一个外角为 110°，与它不相邻的一个内角为 45°，另一个不相邻内角 = ___°', answer:'65', hint:'外角=不相邻两内角之和：110° - 45° = 65°' },
+        { type:'choice', q:'在△ABC中，∠A=50°, ∠B=60°，则∠C的外角等于？', options:['110°','120°','130°'], correct:0, hint:'∠C=70°，外角=180°-70°=110°；或外角=∠A+∠B=50°+60°=110°' },
+        { type:'choice', q:'下列说法正确的是？', options:['三角形外角和为180°','三角形外角大于相邻内角','三角形三个外角的和等于360°'], correct:2, hint:'三角形三个外角的和等于360°，外角大于不相邻内角（非相邻）。' },
+      ],
+      // Stage 3: 全等判定
+      [
+        { type:'choice', q:'下列不能判定两个三角形全等的是？', options:['SSS','SAS','SSA'], correct:2, hint:'SSA（两边及非夹角）不能保证全等，是经典反例。' },
+        { type:'choice', q:'已知△ABC ≌ △DEF，∠A=60°, ∠B=50°，则∠F=？', options:['70°','50°','60°'], correct:0, hint:'∠C=180°-60°-50°=70°，对应角∠F=∠C=70°' },
+        { type:'choice', q:'直角三角形全等的专用判定定理是？', options:['SSA','HL','AAA'], correct:1, hint:'HL（斜边直角边）是直角三角形专用的全等判定。' },
+        { type:'choice', q:'在△ABC和△DEF中，AB=DE，∠A=∠D，AC=DF，可用什么判定全等？', options:['SSS','SAS','ASA'], correct:1, hint:'两边及其夹角对应相等 → SAS判定。' },
+        { type:'choice', q:'已知∠A=∠D，∠B=∠E，BC=EF，可用什么判定△ABC ≌ △DEF？', options:['ASA','AAS','SAS'], correct:1, hint:'两角及其中一角的对边对应相等 → AAS判定。' },
+      ],
+      // Stage 4: 综合挑战
+      [
+        { type:'choice', q:'等腰三角形的一个底角为 50°，则顶角为？', options:['50°','80°','100°'], correct:1, hint:'等边对等角：底角相等，顶角=180°-2×50°=80°' },
+        { type:'input', q:'等腰△ABC中，AB=AC=10，BC=12，AD是底边上的高，则 AD = ___', answer:'8', hint:'三线合一：BD=6，勾股定理 AD²+6²=10² → AD=8' },
+        { type:'choice', q:'等边三角形的每个内角为？', options:['45°','90°','60°'], correct:2, hint:'等边三角形三边相等，三角相等，各为180°÷3=60°' },
+        { type:'choice', q:'下列说法错误的是？', options:['等腰三角形底边上的高也是中线','等边三角形是特殊的等腰三角形','有两边相等的三角形叫等边三角形'], correct:2, hint:'有两边相等叫等腰三角形，三边相等才叫等边三角形。' },
+        { type:'input', q:'在△ABC中，AB=AC，∠A=40°，AD平分∠BAC交BC于D，则∠BAD = ___°', answer:'20', hint:'三线合一：AD平分顶角，∠BAD=40°÷2=20°' },
+      ],
+    ];
+
+    // ==================== 工具函数 ====================
+    function $(id) { return document.getElementById(id); }
+    function toggleNav() {
+      $('navPanel').classList.toggle('open');
+      $('navOverlay').classList.toggle('show');
+    }
+    function goToScreen(name) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      $('screen-' + name).classList.add('active');
+      updateNavActive(name);
+      if (window.innerWidth <= 768) toggleNav();
+    }
+    function updateNavActive(name) {
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      const map = { intro:0, stage1:1, stage2:2, stage3:3, stage4:4, end:5 };
+      const links = document.querySelectorAll('.nav-link');
+      if (links[map[name]] !== undefined) links[map[name]].classList.add('active');
+    }
+    function updateHUD() {
+      $('hudScore').textContent = Game.score;
+      const livesEl = $('hudLives');
+      livesEl.innerHTML = '';
+      for (let i = 0; i < 3; i++) {
+        const d = document.createElement('span');
+        d.className = 'life' + (i >= Game.lives ? ' lost' : '');
+        livesEl.appendChild(d);
+      }
+    }
+    function updateTimer(stageIdx) {
+      const elapsed = Math.floor((Date.now() - Game.questionTime) / 1000);
+      const maxTime = 45;
+      const pct = Math.max(0, (maxTime - elapsed) / maxTime * 100);
+      const bar = $('s' + stageIdx + '-timer');
+      if (bar) {
+        bar.style.width = pct + '%';
+        bar.className = 'timer-bar' + (pct < 20 ? ' danger' : pct < 40 ? ' warn' : '');
+      }
+      const total = Math.floor((Date.now() - Game.startTime) / 1000);
+      const m = String(Math.floor(total / 60)).padStart(2, '0');
+      const s = String(total % 60).padStart(2, '0');
+      $('hudTime').textContent = m + ':' + s;
+    }
+    function startStageTimer(stageIdx) {
+      if (Game.timerInterval) clearInterval(Game.timerInterval);
+      Game.questionTime = Date.now();
+      Game.timerInterval = setInterval(() => updateTimer(stageIdx), 1000);
+    }
+    function stopStageTimer() {
+      if (Game.timerInterval) { clearInterval(Game.timerInterval); Game.timerInterval = null; }
+    }
+    function showCombo() {
+      const el = $('comboDisplay');
+      const num = $('comboNum');
+      if (Game.combo >= 2) {
+        num.textContent = '×' + Game.combo;
+        el.classList.add('active');
+        setTimeout(() => el.classList.remove('active'), 300);
+      } else {
+        num.textContent = '';
+      }
+    }
+    function popScore(x, y, text) {
+      const el = document.createElement('div');
+      el.className = 'score-pop';
+      el.textContent = text;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1000);
+    }
+    function showFeedback(isCorrect, customText) {
+      const data = isCorrect
+        ? { icon: '✓', title: 'CONFIRMED', text: customText || 'Answer verified. Proceed.' }
+        : { icon: '✗', title: 'DENIED', text: customText || 'Incorrect. Review theory.' };
+      $('feedbackIcon').textContent = data.icon;
+      $('feedbackTitle').textContent = data.title;
+      $('feedbackText').textContent = data.text;
+      $('feedbackOverlay').classList.add('show');
+    }
+    function hideFeedback() {
+      $('feedbackOverlay').classList.remove('show');
+    }
+
+    // ==================== 游戏流程 ====================
+    function startGame() {
+      Game.score = 0;
+      Game.lives = 3;
+      Game.combo = 0;
+      Game.maxCombo = 0;
+      Game.stage = 0;
+      Game.question = 0;
+      Game.correctCount = 0;
+      Game.wrongCount = 0;
+      Game.completed = [false, false, false, false];
+      Game.startTime = Date.now();
+      updateHUD();
+      showCombo();
+      loadStage(0);
+    }
+    function restartGame() { startGame(); }
+
+    function loadStage(idx) {
+      Game.stage = idx;
+      Game.question = 0;
+      Game.completed[idx] = true;
+      goToScreen('stage' + (idx + 1));
+      renderQuestion(idx, 0);
+      startStageTimer(idx + 1);
+      startCanvasAnim(idx);
+    }
+
+    function renderQuestion(stageIdx, qIdx) {
+      const q = STAGES[stageIdx][qIdx];
+      const prefix = 's' + (stageIdx + 1);
+      $(prefix + '-progress').textContent = (qIdx + 1) + '/' + STAGES[stageIdx].length;
+      $(prefix + '-question').innerHTML = q.q;
+      $(prefix + '-feedback').className = 'feedback-bar';
+      $(prefix + '-feedback').textContent = '';
+      $(prefix + '-next').classList.remove('show');
+
+      const optsEl = $(prefix + '-options');
+      const inputEl = $(prefix + '-input');
+      const inputField = $(prefix + '-input-field');
+
+      if (q.type === 'choice') {
+        optsEl.style.display = 'grid';
+        inputEl.style.display = 'none';
+        optsEl.innerHTML = '';
+        q.options.forEach((opt, i) => {
+          const btn = document.createElement('button');
+          btn.className = 'option-btn';
+          btn.textContent = ['A','B','C','D'][i] + '. ' + opt;
+          btn.onclick = () => checkChoice(stageIdx, qIdx, i, btn);
+          optsEl.appendChild(btn);
+        });
+      } else {
+        optsEl.style.display = 'none';
+        inputEl.style.display = 'flex';
+        inputField.value = '';
+        inputField.disabled = false;
+        inputField.focus();
+        inputField.onkeydown = (e) => { if (e.key === 'Enter') submitInput(stageIdx + 1); };
+      }
+
+      const hints = [
+        '◄ 观察图形，判断三角形类型 ►',
+        '◄ 运用内角和定理与外角定理 ►',
+        '◄ 选择正确的全等判定条件 ►',
+        '◄ 综合运用三角形性质与全等证明 ►'
+      ];
+      $(prefix + '-canvas-hint').textContent = hints[stageIdx];
+    }
+
+    function checkChoice(stageIdx, qIdx, selected, btn) {
+      const q = STAGES[stageIdx][qIdx];
+      const prefix = 's' + (stageIdx + 1);
+      const isCorrect = selected === q.correct;
+      const allBtns = document.querySelectorAll('#' + prefix + '-options .option-btn');
+      allBtns.forEach(b => { b.disabled = true; });
+
+      if (isCorrect) {
+        btn.classList.add('correct');
+        handleCorrect(stageIdx, qIdx, prefix);
+      } else {
+        btn.classList.add('wrong');
+        if (q.correct !== undefined) allBtns[q.correct].classList.add('correct');
+        handleWrong(stageIdx, qIdx, prefix);
+      }
+    }
+
+    function submitInput(stageNum) {
+      const stageIdx = stageNum - 1;
+      const qIdx = Game.question;
+      const q = STAGES[stageIdx][qIdx];
+      const prefix = 's' + stageNum;
+      const val = $(prefix + '-input-field').value.trim();
+      const isCorrect = val === q.answer;
+
+      $(prefix + '-input-field').disabled = true;
+      if (isCorrect) {
+        handleCorrect(stageIdx, qIdx, prefix);
+      } else {
+        handleWrong(stageIdx, qIdx, prefix);
+      }
+    }
+
+    function handleCorrect(stageIdx, qIdx, prefix) {
+      Game.combo++;
+      if (Game.combo > Game.maxCombo) Game.maxCombo = Game.combo;
+      showCombo();
+
+      const elapsed = Math.floor((Date.now() - Game.questionTime) / 1000);
+      const timeBonus = Math.max(0, POINTS.timeBonus - elapsed);
+      const comboBonus = (Game.combo - 1) * POINTS.comboBonus;
+      const points = POINTS.base + timeBonus + comboBonus;
+      Game.score += points;
+      Game.correctCount++;
+      updateHUD();
+
+      const rect = $(prefix + '-question').getBoundingClientRect();
+      popScore(rect.left + rect.width / 2, rect.top, '+' + points);
+
+      $(prefix + '-feedback').textContent = '✓ 正确！' + (Game.combo >= 2 ? ' 连击 ×' + Game.combo : '');
+      $(prefix + '-feedback').className = 'feedback-bar show correct';
+      $(prefix + '-next').classList.add('show');
+
+      showFeedback(true, 'Answer verified. +' + points + ' pts');
+
+      document.getElementById('nav-s' + (stageIdx + 1)).textContent = stageIdx === 3 && qIdx === 4 ? '✓' : '';
+    }
+
+    function handleWrong(stageIdx, qIdx, prefix) {
+      Game.combo = 0;
+      showCombo();
+      Game.lives--;
+      Game.wrongCount++;
+      updateHUD();
+
+      const q = STAGES[stageIdx][qIdx];
+      $(prefix + '-feedback').textContent = '✗ 错误。提示：' + q.hint;
+      $(prefix + '-feedback').className = 'feedback-bar show wrong';
+      $(prefix + '-next').classList.add('show');
+
+      showFeedback(false, 'Incorrect. Lives remaining: ' + Game.lives);
+
+      if (Game.lives <= 0) {
+        stopStageTimer();
+        setTimeout(() => showGameOver(), 1500);
+        return;
+      }
+    }
+
+    function nextQuestion(stageNum) {
+      const stageIdx = stageNum - 1;
+      Game.question++;
+      if (Game.question >= STAGES[stageIdx].length) {
+        if (stageIdx < 3) {
+          stopStageTimer();
+          loadStage(stageIdx + 1);
+        } else {
+          stopStageTimer();
+          showEnd();
+        }
+      } else {
+        Game.questionTime = Date.now();
+        renderQuestion(stageIdx, Game.question);
+      }
+    }
+
+    function showGameOver() {
+      goToScreen('end');
+      $('endRank').textContent = 'F';
+      $('endRank').className = 'end-rank c';
+      $('endRankLabel').textContent = '任务失败';
+      $('endScore').textContent = Game.score;
+      $('endCombo').textContent = Game.maxCombo;
+      const total = Math.floor((Date.now() - Game.startTime) / 1000);
+      const m = String(Math.floor(total / 60)).padStart(2, '0');
+      const s = String(total % 60).padStart(2, '0');
+      $('endTime').textContent = m + ':' + s;
+    }
+
+    function showEnd() {
+      goToScreen('end');
+      const total = Math.floor((Date.now() - Game.startTime) / 1000);
+      const m = String(Math.floor(total / 60)).padStart(2, '0');
+      const s = String(total % 60).padStart(2, '0');
+      const maxScore = STAGES.length * STAGES[0].length * (POINTS.base + POINTS.timeBonus);
+      const pct = Math.min(100, Math.floor(Game.score / maxScore * 100));
+      let rank, label, cls;
+      if (pct >= 90 && Game.lives === 3) { rank = 'S'; label = '完美特工'; cls = 's'; }
+      else if (pct >= 80) { rank = 'A'; label = '优秀特工'; cls = 'a'; }
+      else if (pct >= 60) { rank = 'B'; label = '合格特工'; cls = 'b'; }
+      else { rank = 'C'; label = '待训练'; cls = 'c'; }
+
+      $('endRank').textContent = rank;
+      $('endRank').className = 'end-rank ' + cls;
+      $('endRankLabel').textContent = label;
+      $('endScore').textContent = Game.score;
+      $('endCombo').textContent = Game.maxCombo;
+      $('endTime').textContent = m + ':' + s;
+    }
+
+    // ==================== Canvas 动画 ====================
+    function startCanvasAnim(stageIdx) {
+      const ids = ['canvas-s1', 'canvas-s2', 'canvas-s3', 'canvas-s4'];
+      const canvas = $(ids[stageIdx]);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (Game.animFrame) cancelAnimationFrame(Game.animFrame);
+      Game.canvasTime = 0;
+
+      const drawers = [drawStage1, drawStage2, drawStage3, drawStage4];
+      function frame() {
+        Game.canvasTime++;
+        drawers[stageIdx](canvas, ctx, Game.canvasTime);
+        Game.animFrame = requestAnimationFrame(frame);
+      }
+      frame();
+    }
+
+    function drawGrid(ctx, w, h) {
+      ctx.strokeStyle = 'rgba(0,245,212,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < w; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke(); }
+      for (let i = 0; i < h; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke(); }
+    }
+
+    // --- Stage 1: 三角形类型动画 ---
+    function drawStage1(c, ctx, t) {
+      const w = c.width, h = c.height;
+      ctx.clearRect(0, 0, w, h);
+      drawGrid(ctx, w, h);
+
+      const pulse = (Math.sin(t * 0.04) + 1) / 2;
+
+      // 锐角三角形
+      ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(60, 220); ctx.lineTo(130, 80); ctx.lineTo(200, 220); ctx.closePath(); ctx.stroke();
+      ctx.fillStyle = '#00f5d4'; ctx.font = '12px "Share Tech Mono"';
+      ctx.fillText('锐角△', 108, 245);
+      ctx.font = '10px "Share Tech Mono"'; ctx.fillStyle = 'rgba(138,149,168,0.7)';
+      ctx.fillText('60° 70° 50°', 100, 260);
+
+      // 直角三角形
+      ctx.strokeStyle = '#ffb800'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(260, 220); ctx.lineTo(260, 80); ctx.lineTo(380, 220); ctx.closePath(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,184,0,0.6)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(260, 200); ctx.lineTo(280, 200); ctx.lineTo(280, 220); ctx.stroke();
+      ctx.fillStyle = '#ffb800'; ctx.font = '12px "Share Tech Mono"';
+      ctx.fillText('直角△', 298, 245);
+      ctx.font = '10px "Share Tech Mono"'; ctx.fillStyle = 'rgba(138,149,168,0.7)';
+      ctx.fillText('90° 45° 45°', 290, 260);
+
+      // 钝角三角形
+      ctx.strokeStyle = `rgba(255,56,96,${0.5 + pulse * 0.5})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(420, 220); ctx.lineTo(480, 80); ctx.lineTo(500, 220); ctx.closePath(); ctx.stroke();
+      ctx.fillStyle = '#ff3860'; ctx.font = '12px "Share Tech Mono"';
+      ctx.fillText('钝角△', 448, 245);
+      ctx.font = '10px "Share Tech Mono"'; ctx.fillStyle = 'rgba(138,149,168,0.7)';
+      ctx.fillText('120° 30° 30°', 435, 260);
+
+      // 三边关系公式
+      ctx.fillStyle = '#00f5d4'; ctx.font = 'bold 14px Orbitron';
+      ctx.fillText('三边关系 | a + b > c | |a - b| < c', 60, 40);
+    }
+
+    // --- Stage 2: 内角和 + 外角 ---
+    function drawStage2(c, ctx, t) {
+      const w = c.width, h = c.height;
+      ctx.clearRect(0, 0, w, h);
+      drawGrid(ctx, w, h);
+
+      const pulse = (Math.sin(t * 0.05) + 1) / 2;
+      const cx = w / 2, cy = 140;
+      const r = 90;
+
+      // 三角形
+      const A = { x: cx, y: cy - r };
+      const B = { x: cx - r * 0.87, y: cy + r * 0.5 };
+      const C = { x: cx + r * 0.87, y: cy + r * 0.5 };
+
+      ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.lineTo(C.x, C.y); ctx.closePath(); ctx.stroke();
+
+      // 顶点标注
+      ctx.fillStyle = '#8a95a8'; ctx.font = '13px Orbitron';
+      ctx.fillText('A', A.x - 6, A.y - 12);
+      ctx.fillText('B', B.x - 20, B.y + 18);
+      ctx.fillText('C', C.x + 10, C.y + 18);
+
+      // 内角标注
+      ctx.fillStyle = '#00f5d4'; ctx.font = '11px "Share Tech Mono"';
+      ctx.fillText('∠A + ∠B + ∠C = 180°', cx - 70, cy + 5);
+
+      // 外角示意
+      ctx.strokeStyle = `rgba(255,184,0,${0.4 + pulse * 0.6})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(C.x, C.y); ctx.lineTo(C.x + 60, C.y); ctx.stroke();
+      ctx.beginPath(); ctx.arc(C.x, C.y, 25, 0, -0.6, true); ctx.stroke();
+      ctx.fillStyle = '#ffb800'; ctx.font = '11px "Share Tech Mono"';
+      ctx.fillText('外角 = ∠A + ∠B', C.x + 65, C.y - 6);
+
+      // 公式
+      ctx.fillStyle = '#00f5d4'; ctx.font = 'bold 13px Orbitron';
+      ctx.fillText('内角和 180° | 外角和 360°', 60, 35);
+    }
+
+    // --- Stage 3: 全等判定 ---
+    function drawStage3(c, ctx, t) {
+      const w = c.width, h = c.height;
+      ctx.clearRect(0, 0, w, h);
+      drawGrid(ctx, w, h);
+
+      const pulse = (Math.sin(t * 0.04) + 1) / 2;
+
+      // 左三角形
+      ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(80, 230); ctx.lineTo(160, 70); ctx.lineTo(240, 230); ctx.closePath(); ctx.stroke();
+      ctx.fillStyle = '#00f5d4'; ctx.font = '12px Orbitron';
+      ctx.fillText('△ABC', 140, 255);
+
+      // 右三角形
+      ctx.beginPath(); ctx.moveTo(300, 230); ctx.lineTo(380, 70); ctx.lineTo(460, 230); ctx.closePath(); ctx.stroke();
+      ctx.fillText('△DEF', 360, 255);
+
+      // 全等符号
+      ctx.fillStyle = `rgba(0,245,212,${0.5 + pulse * 0.5})`; ctx.font = 'bold 20px Orbitron';
+      ctx.fillText('≌', 265, 155);
+
+      // 判定标注
+      ctx.fillStyle = '#ffb800'; ctx.font = '11px "Share Tech Mono"';
+      ctx.fillText('SSS  SAS  ASA  AAS  HL', 140, 40);
+      ctx.fillStyle = '#ff3860';
+      ctx.fillText('SSA / AAA → ✗', 320, 40);
+    }
+
+    // --- Stage 4: 综合 - 等腰三角形三线合一 ---
+    function drawStage4(c, ctx, t) {
+      const w = c.width, h = c.height;
+      ctx.clearRect(0, 0, w, h);
+      drawGrid(ctx, w, h);
+
+      const pulse = (Math.sin(t * 0.03) + 1) / 2;
+      const cx = w / 2, topY = 60, botY = 240;
+      const halfBase = 90;
+
+      // 等腰三角形
+      ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(cx, topY); ctx.lineTo(cx - halfBase, botY); ctx.lineTo(cx + halfBase, botY); ctx.closePath(); ctx.stroke();
+
+      // 三线合一（中线/高/角平分线）
+      ctx.strokeStyle = `rgba(255,184,0,${0.4 + pulse * 0.6})`; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(cx, topY); ctx.lineTo(cx, botY); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 直角标记
+      ctx.strokeStyle = '#ffb800'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(cx + 8, botY - 8); ctx.lineTo(cx + 8, botY); ctx.lineTo(cx, botY); ctx.stroke();
+
+      // 顶点标注
+      ctx.fillStyle = '#8a95a8'; ctx.font = '13px Orbitron';
+      ctx.fillText('A', cx - 6, topY - 10);
+      ctx.fillText('B', cx - halfBase - 18, botY + 18);
+      ctx.fillText('C', cx + halfBase + 8, botY + 18);
+      ctx.fillText('D', cx + 8, botY + 18);
+
+      // 标注
+      ctx.fillStyle = '#00f5d4'; ctx.font = '11px "Share Tech Mono"';
+      ctx.fillText('AB = AC', cx - 100, (topY + botY) / 2);
+      ctx.fillStyle = '#ffb800';
+      ctx.fillText('AD⊥BC', cx + 12, (topY + botY) / 2 - 10);
+      ctx.fillText('BD=DC', cx + 12, (topY + botY) / 2 + 10);
+      ctx.fillText('∠BAD=∠CAD', cx + 12, (topY + botY) / 2 + 30);
+
+      // 标题
+      ctx.fillStyle = '#00f5d4'; ctx.font = 'bold 13px Orbitron';
+      ctx.fillText('三线合一: 顶角平分线 = 中线 = 高', 80, 35);
+    }
+
+    // ==================== 初始化 ====================
+    function init() {
+      updateHUD();
+      document.querySelectorAll('.nav-link').forEach((l, i) => {
+        if (i === 0) l.classList.add('active');
+      });
+    }
+    init();
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        hideFeedback();
+        if ($('navPanel').classList.contains('open')) toggleNav();
+      }
+    });
+  </script>
+</body>
+</html>
