@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第19章 实数 | 勘测队 REAL</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f;
+  --bg-panel: rgba(6,8,15,0.85);
+  --accent: #00f5d4;
+  --accent-dim: rgba(0,245,212,0.3);
+  --accent-glow: rgba(0,245,212,0.15);
+  --text: #e8ecf1;
+  --text-dim: #8a9ab0;
+  --danger: #ff3864;
+  --warn: #ffcc00;
+  --grid: rgba(0,245,212,0.06);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Share Tech Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+  position: relative;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(0deg, var(--grid) 1px, transparent 1px) 0 0 / 40px 40px;
+  pointer-events: none;
+  z-index: 1;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 2;
+  animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+.corner-deco {
+  position: fixed;
+  width: 60px; height: 60px;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  z-index: 10;
+}
+.corner-deco.tl { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+.corner-deco.tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+.corner-deco.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; }
+.corner-deco.br { bottom: 12px; right: 12px; border-left: none; border-top: none; }
+.scan-beam {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.4;
+  animation: scanbeam 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 11;
+}
+@keyframes scanbeam {
+  0%,100% { top: 5%; opacity: 0.1; }
+  50% { top: 95%; opacity: 0.5; }
+}
+.header {
+  position: relative;
+  z-index: 5;
+  padding: 60px 20px 40px;
+  text-align: center;
+  border-bottom: 1px solid var(--accent-dim);
+}
+.header h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent-glow), 0 0 60px var(--accent-glow);
+  letter-spacing: 0.15em;
+  animation: titlePulse 3s ease-in-out infinite;
+}
+@keyframes titlePulse {
+  0%,100% { text-shadow: 0 0 20px var(--accent-glow), 0 0 40px var(--accent-glow); }
+  50% { text-shadow: 0 0 30px var(--accent-glow), 0 0 80px var(--accent-glow), 0 0 120px rgba(0,245,212,0.1); }
+}
+.header .codename {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.2rem;
+  color: var(--accent-dim);
+  letter-spacing: 0.5em;
+  margin-top: 12px;
+}
+.header .subtitle {
+  font-size: 1rem;
+  color: var(--text-dim);
+  margin-top: 16px;
+  letter-spacing: 0.1em;
+}
+.progress-track {
+  width: 300px; max-width: 80%;
+  height: 4px;
+  background: rgba(0,245,212,0.1);
+  margin: 24px auto 0;
+  border-radius: 2px;
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 10px var(--accent);
+  animation: progressGrow 2s ease-out forwards;
+}
+@keyframes progressGrow { to { width: 100%; } }
+.module-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(6,8,15,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--accent-dim);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.module-nav a {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 6px 14px;
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 4px;
+  transition: all 0.3s;
+  letter-spacing: 0.05em;
+}
+.module-nav a:hover, .module-nav a.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.module {
+  position: relative;
+  z-index: 5;
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+.module-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--accent-dim);
+}
+.module-number {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: var(--accent);
+  opacity: 0.6;
+  line-height: 1;
+}
+.module-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.08em;
+}
+.module-tag {
+  font-size: 0.75rem;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  padding: 2px 10px;
+  border-radius: 12px;
+  margin-left: auto;
+  letter-spacing: 0.1em;
+}
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.6;
+}
+.glass-panel h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-bottom: 16px;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.glass-panel h3::before { content: '▸'; color: var(--accent); font-size: 1.2rem; }
+.theory-content p { margin-bottom: 14px; color: var(--text); font-size: 0.95rem; }
+.theory-content .highlight { color: var(--accent); font-weight: bold; }
+.theory-content .formula-inline {
+  display: inline-block;
+  background: rgba(0,245,212,0.08);
+  border: 1px solid var(--accent-dim);
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 1.05rem;
+  color: var(--accent);
+}
+.theory-content ul { margin: 12px 0 12px 20px; color: var(--text-dim); }
+.theory-content li { margin-bottom: 8px; }
+.math-symbol {
+  display: inline-block;
+  font-size: 1.3rem;
+  color: var(--accent);
+  animation: mathFloat 3s ease-in-out infinite;
+}
+@keyframes mathFloat {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.canvas-container {
+  position: relative;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  text-align: center;
+}
+.canvas-container canvas, .canvas-container svg { max-width: 100%; border-radius: 4px; }
+.canvas-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 10px;
+  letter-spacing: 0.05em;
+}
+.canvas-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.btn-hud {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent-dim);
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 0.1em;
+}
+.btn-hud:hover {
+  background: var(--accent-glow);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+.example-box { margin-bottom: 16px; }
+.example-box summary {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+  padding: 12px 16px;
+  background: rgba(0,245,212,0.05);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.3s;
+}
+.example-box summary:hover {
+  background: rgba(0,245,212,0.1);
+  border-color: var(--accent);
+}
+.example-box summary::before { content: '[ + ]'; color: var(--accent); font-size: 0.8rem; }
+.example-box[open] summary::before { content: '[ - ]'; }
+.example-body {
+  padding: 20px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--accent-dim);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+.example-question {
+  color: var(--text);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--accent-dim);
+}
+.example-solution { color: var(--text-dim); }
+.example-solution .step {
+  margin-bottom: 10px;
+  padding-left: 16px;
+  border-left: 2px solid var(--accent-dim);
+}
+.example-solution .answer {
+  color: var(--accent);
+  font-weight: bold;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(0,245,212,0.08);
+  border-radius: 4px;
+  display: inline-block;
+}
+.quiz-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.quiz-card {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.3s;
+}
+.quiz-card:hover {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+.quiz-card .quiz-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-bottom: 10px;
+  letter-spacing: 0.1em;
+}
+.quiz-card .quiz-q { color: var(--text); margin-bottom: 14px; font-size: 0.9rem; }
+.quiz-options { display: flex; flex-direction: column; gap: 8px; }
+.quiz-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  transition: all 0.2s;
+}
+.quiz-options label:hover {
+  border-color: var(--accent-dim);
+  background: rgba(0,245,212,0.05);
+}
+.quiz-options input[type="radio"] {
+  appearance: none;
+  width: 14px; height: 14px;
+  border: 2px solid var(--accent-dim);
+  border-radius: 50%;
+  position: relative;
+}
+.quiz-options input[type="radio"]:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.quiz-feedback {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  display: none;
+}
+.quiz-feedback.correct {
+  display: block;
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+.quiz-feedback.wrong {
+  display: block;
+  background: rgba(255,56,100,0.1);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+.formula-box {
+  background: linear-gradient(135deg, rgba(0,245,212,0.05), rgba(0,245,212,0.02));
+  border: 1px solid var(--accent-dim);
+  border-radius: 10px;
+  padding: 24px;
+  position: relative;
+}
+.formula-box::after {
+  content: '∑';
+  position: absolute;
+  top: 12px; right: 20px;
+  font-size: 2rem;
+  color: var(--accent);
+  opacity: 0.15;
+}
+.formula-box h4 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.9rem;
+  color: var(--accent);
+  margin-bottom: 16px;
+  letter-spacing: 0.1em;
+}
+.formula-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0,245,212,0.08);
+}
+.formula-item:last-child { border-bottom: none; }
+.formula-expr {
+  font-size: 1.15rem;
+  color: var(--accent);
+  min-width: 160px;
+  text-align: center;
+  background: rgba(0,245,212,0.05);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-dim);
+}
+.formula-desc { color: var(--text-dim); font-size: 0.85rem; }
+.interactive-numberline {
+  position: relative;
+  padding: 20px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  margin: 20px 0;
+}
+.interactive-numberline .instruction {
+  text-align: center;
+  color: var(--accent);
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  letter-spacing: 0.1em;
+}
+.next-chapter-nav {
+  position: relative;
+  z-index: 5;
+  max-width: 1000px;
+  margin: 60px auto 40px;
+  padding: 0 20px;
+}
+.next-chapter-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, rgba(0,245,212,0.05), rgba(0,245,212,0.15), rgba(0,245,212,0.05));
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 24px 32px;
+  text-decoration: none;
+  transition: all 0.4s;
+}
+.next-chapter-box:hover {
+  box-shadow: 0 0 30px var(--accent-glow);
+  transform: translateY(-2px);
+}
+.next-chapter-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem;
+  color: var(--accent-dim);
+  letter-spacing: 0.2em;
+}
+.next-chapter-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.4rem;
+  color: var(--accent);
+  margin-top: 6px;
+  letter-spacing: 0.1em;
+}
+.next-chapter-arrow {
+  font-size: 2rem;
+  color: var(--accent);
+  animation: arrowPulse 1.5s ease-in-out infinite;
+}
+@keyframes arrowPulse {
+  0%,100% { opacity: 0.6; transform: translateX(0); }
+  50% { opacity: 1; transform: translateX(8px); }
+}
+.footer {
+  text-align: center;
+  padding: 30px 20px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  border-top: 1px solid var(--accent-dim);
+  position: relative;
+  z-index: 5;
+}
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+@keyframes fadeInUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+.proof-box {
+  background: rgba(0,245,212,0.03);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+}
+.proof-box .proof-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin-bottom: 10px;
+  letter-spacing: 0.1em;
+}
+.proof-box .proof-step {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  padding-left: 12px;
+  position: relative;
+}
+.proof-box .proof-step::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+.class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.class-card {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s;
+}
+.class-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
+  transform: translateY(-3px);
+}
+.class-card .card-icon { font-size: 2rem; margin-bottom: 10px; }
+.class-card .card-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.9rem;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.class-card .card-desc { font-size: 0.8rem; color: var(--text-dim); }
+@media (max-width: 768px) {
+  .header h1 { font-size: 2rem; }
+  .module-title { font-size: 1.2rem; }
+  .module-number { font-size: 1.8rem; }
+  .quiz-container { grid-template-columns: 1fr; }
+  .class-grid { grid-template-columns: 1fr; }
+  .formula-item { flex-direction: column; gap: 8px; }
+  .formula-expr { min-width: auto; width: 100%; }
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+::selection { background: var(--accent-dim); color: var(--text); }
+</style>
+</head>
+<body>
+<div class="corner-deco tl"></div>
+<div class="corner-deco tr"></div>
+<div class="corner-deco bl"></div>
+<div class="corner-deco br"></div>
+<div class="scan-beam"></div>
+
+<header class="header">
+  <h1>实 数</h1>
+  <div class="codename">◈ 勘测队 REAL ◈</div>
+  <div class="subtitle">第19章 · 八年级数学上册 · 代数与几何的连接点</div>
+  <div class="progress-track"><div class="progress-fill"></div></div>
+</header>
+
+<nav class="module-nav" id="moduleNav">
+  <a href="#m1" class="active">01 概念</a>
+  <a href="#m2">02 平方根</a>
+  <a href="#m3">03 立方根</a>
+  <a href="#m4">04 n次方根</a>
+  <a href="#m5">05 运算</a>
+</nav>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 模块 1：实数的概念 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="module" id="m1">
+  <div class="module-header">
+    <div class="module-number">01</div>
+    <div class="module-title">实数的概念</div>
+    <div class="module-tag">REAL.CONCEPT</div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>理论扫描 // THEORY</h3>
+    <div class="theory-content">
+      <p>
+        <span class="highlight">实数</span>是有理数和无理数的总称，是数系扩张的最终形态。
+        从整数到分数，从有限小数到无限循环小数，人类在数轴上不断探索——直到有一天，
+        <span class="math-symbol">√2</span> 的出现打破了「所有数都能写成两个整数之比」的信念。
+      </p>
+      <div class="class-grid">
+        <div class="class-card">
+          <div class="card-icon">ℚ</div>
+          <div class="card-title">有理数</div>
+          <div class="card-desc">可写成 p/q 形式的数<br>有限小数或无限循环小数</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">𝕀</div>
+          <div class="card-title">无理数</div>
+          <div class="card-desc">无限不循环小数<br>不能写成两个整数之比</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">ℝ</div>
+          <div class="card-title">实数</div>
+          <div class="card-desc">有理数 ∪ 无理数<br>填满整个数轴</div>
+        </div>
+      </div>
+      <p>
+        <span class="highlight">无限不循环小数</span>的典型代表：<br>
+        <span class="formula-inline">√2 = 1.4142135623730950...</span><br>
+        <span class="formula-inline">π = 3.1415926535897932...</span><br>
+        <span class="formula-inline">e = 2.7182818284590452...</span>
+      </p>
+      <p>这些数的小数部分既不终止，也不呈现周期性重复——这就是「无限不循环」的精确含义。</p>
+      <div class="proof-box">
+        <div class="proof-title">[ 核心档案 ] √2 的无理性证明（反证法）</div>
+        <div class="proof-step">假设 √2 是有理数，则可写成最简分数 √2 = p/q（p,q 互质）</div>
+        <div class="proof-step">两边平方得：2 = p²/q² → p² = 2q²</div>
+        <div class="proof-step">∴ p² 是偶数 → p 也是偶数（奇数的平方仍是奇数）</div>
+        <div class="proof-step">设 p = 2k，代入得：(2k)² = 2q² → 4k² = 2q² → q² = 2k²</div>
+        <div class="proof-step">∴ q² 也是偶数 → q 也是偶数</div>
+        <div class="proof-step">矛盾：p,q 同为偶数，与「最简分数」假设冲突</div>
+        <div class="proof-step" style="color:var(--accent); font-weight:bold;">∴ √2 是无理数 ∎</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — √2 在数轴上的位置</h3>
+    <div class="canvas-container">
+      <canvas id="sqrt2Numberline" width="900" height="320"></canvas>
+      <div class="canvas-label">▲ 构造法：以单位长度为直角边作等腰直角三角形，斜边即为 √2</div>
+      <div class="canvas-controls">
+        <button class="btn-hud" onclick="animateSqrt2()">▶ 演示构造</button>
+        <button class="btn-hud" onclick="resetSqrt2()">↺ 重置</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — 实数分类结构</h3>
+    <div class="canvas-container">
+      <svg id="realTree" width="900" height="400" viewBox="0 0 900 400"></svg>
+      <div class="canvas-label">▲ 实数分类树状图 — 点击节点高亮查看子类</div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>例题 // EXAMPLES</h3>
+    <details class="example-box">
+      <summary>例题 1 — 判断下列数是有理数还是无理数</summary>
+      <div class="example-body">
+        <div class="example-question">
+          判断：3.14, √9, √3, 0.̄3̄, π/2, ∛8, 0.1010010001...（每两个1之间多一个0）
+        </div>
+        <div class="example-solution">
+          <div class="step">① 3.14 — 有限小数 → 有理数</div>
+          <div class="step">② √9 = 3 — 整数 → 有理数</div>
+          <div class="step">③ √3 = 1.73205... — 无限不循环 → 无理数</div>
+          <div class="step">④ 0.̄3̄ = 1/3 — 无限循环小数 → 有理数</div>
+          <div class="step">⑤ π/2 — π 是无理数，除以2仍是无理数</div>
+          <div class="step">⑥ ∛8 = 2 — 整数 → 有理数</div>
+          <div class="step">⑦ 0.1010010001... — 有规律但不循环 → 无理数</div>
+          <div class="answer">有理数：①②④⑥ | 无理数：③⑤⑦</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 2 — 证明 √3 是无理数</summary>
+      <div class="example-body">
+        <div class="example-question">用反证法证明 √3 是无理数。</div>
+        <div class="example-solution">
+          <div class="step">假设 √3 = p/q（最简分数，p,q 互质）</div>
+          <div class="step">平方得：3 = p²/q² → p² = 3q²</div>
+          <div class="step">∴ p² 是 3 的倍数 → p 也是 3 的倍数（若 p 不是3的倍数，p² 也不是）</div>
+          <div class="step">设 p = 3k，代入：(3k)² = 3q² → 9k² = 3q² → q² = 3k²</div>
+          <div class="step">∴ q² 是 3 的倍数 → q 也是 3 的倍数</div>
+          <div class="step">矛盾：p,q 同为 3 的倍数，与「互质」冲突</div>
+          <div class="answer">∴ √3 是无理数 ∎</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 3 — 数系填空</summary>
+      <div class="example-body">
+        <div class="example-question">
+          在 0, -3.14, 22/7, √2, π, -∛(-27), 0.010010001... 中：<br>
+          (1) 整数有 ______<br>
+          (2) 负分数有 ______<br>
+          (3) 无理数有 ______
+        </div>
+        <div class="example-solution">
+          <div class="step">-∛(-27) = -(-3) = 3，是整数</div>
+          <div class="step">(1) 整数：0, -∛(-27) 即 0, 3</div>
+          <div class="step">(2) 负分数：-3.14（有限小数可化为分数）</div>
+          <div class="step">(3) 无理数：√2, π, 0.010010001...（有规律但不循环）</div>
+          <div class="answer">(1) 0, 3 | (2) -3.14 | (3) √2, π, 0.010010001...</div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>随堂测验 // QUIZ</h3>
+    <div class="quiz-container">
+      <div class="quiz-card" data-answer="B">
+        <div class="quiz-num">QUIZ 1.1</div>
+        <div class="quiz-q">下列说法正确的是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q11" value="A" onchange="checkQuiz(this)"><span>A. 无限小数都是无理数</span></label>
+          <label><input type="radio" name="q11" value="B" onchange="checkQuiz(this)"><span>B. 无理数都是无限小数</span></label>
+          <label><input type="radio" name="q11" value="C" onchange="checkQuiz(this)"><span>C. 带根号的数都是无理数</span></label>
+          <label><input type="radio" name="q11" value="D" onchange="checkQuiz(this)"><span>D. 无理数不能在数轴上表示</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="B">✓ 正确！无理数的定义就是「无限不循环小数」，所以无理数必为无限小数。A错（无限循环是有理数）；C错（如√9=3）；D错（所有实数都在数轴上）。</div>
+      </div>
+      <div class="quiz-card" data-answer="C">
+        <div class="quiz-num">QUIZ 1.2</div>
+        <div class="quiz-q">下列各数中，无理数的个数是（ ）<br>-π/3, 0, 0.101001..., 3.14, √4, ∛9</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q12" value="A" onchange="checkQuiz(this)"><span>A. 1个</span></label>
+          <label><input type="radio" name="q12" value="B" onchange="checkQuiz(this)"><span>B. 2个</span></label>
+          <label><input type="radio" name="q12" value="C" onchange="checkQuiz(this)"><span>C. 3个</span></label>
+          <label><input type="radio" name="q12" value="D" onchange="checkQuiz(this)"><span>D. 4个</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="C">✓ 正确！无理数：-π/3（π无理），0.101001...（不循环），∛9（不是完全立方数）。共3个。</div>
+      </div>
+      <div class="quiz-card" data-answer="B">
+        <div class="quiz-num">QUIZ 1.3</div>
+        <div class="quiz-q">若一个数的平方等于 2，则这个数（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q13" value="A" onchange="checkQuiz(this)"><span>A. 一定是有理数</span></label>
+          <label><input type="radio" name="q13" value="B" onchange="checkQuiz(this)"><span>B. 一定是无理数</span></label>
+          <label><input type="radio" name="q13" value="C" onchange="checkQuiz(this)"><span>C. 可能是有理数也可能是无理数</span></label>
+          <label><input type="radio" name="q13" value="D" onchange="checkQuiz(this)"><span>D. 以上都不对</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="B">✓ 正确！x²=2 → x=±√2，已证明 √2 是无理数。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>公式总结 // FORMULAS</h3>
+    <div class="formula-box">
+      <h4>MODULE 01 — 实数概念</h4>
+      <div class="formula-item"><div class="formula-expr">ℝ = ℚ ∪ 𝕀</div><div class="formula-desc">实数 = 有理数 ∪ 无理数</div></div>
+      <div class="formula-item"><div class="formula-expr">ℚ = { p/q | p,q∈ℤ, q≠0 }</div><div class="formula-desc">有理数：可写成两整数之比</div></div>
+      <div class="formula-item"><div class="formula-expr">𝕀 = 无限不循环小数</div><div class="formula-desc">无理数：无限且不循环</div></div>
+      <div class="formula-item"><div class="formula-expr">实数 ⟷ 数轴上的点</div><div class="formula-desc">一一对应：每个实数对应数轴上唯一一点</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 模块 2：平方根与算术平方根 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="module" id="m2">
+  <div class="module-header">
+    <div class="module-number">02</div>
+    <div class="module-title">平方根与算术平方根</div>
+    <div class="module-tag">REAL.SQRT</div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>理论扫描 // THEORY</h3>
+    <div class="theory-content">
+      <p>
+        <span class="highlight">平方根</span>：若 x² = a，则 x 叫做 a 的平方根。<br>
+        正数 a 有两个平方根，互为相反数：<span class="formula-inline">±√a</span><br>
+        0 的平方根是 0；负数在实数范围内没有平方根。
+      </p>
+      <p>
+        <span class="highlight">算术平方根</span>：正数 a 的正平方根叫做 a 的算术平方根，记作 <span class="formula-inline">√a</span>。<br>
+        特别规定：0 的算术平方根是 0。<br>
+        算术平方根具有<span class="highlight">非负性</span>：√a ≥ 0（a ≥ 0）
+      </p>
+      <p>
+        <span class="highlight">几何意义</span>：面积为 a 的正方形，其边长就是 √a。这是平方根最直观的几何解释——从「面积」到「边长」的逆运算。
+      </p>
+      <div class="class-grid">
+        <div class="class-card">
+          <div class="card-icon">±√</div>
+          <div class="card-title">平方根</div>
+          <div class="card-desc">正数有两个，互为相反数<br>负数无实数平方根</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">√</div>
+          <div class="card-title">算术平方根</div>
+          <div class="card-desc">只取非负的那个<br>结果 ≥ 0</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">□</div>
+          <div class="card-title">几何意义</div>
+          <div class="card-desc">正方形面积 → 边长<br>a² → a</div>
+        </div>
+      </div>
+      <p>
+        <span class="highlight">性质总结</span>：<br>
+        ① (√a)² = a（a ≥ 0）<br>
+        ② √(a²) = |a| = { a (a≥0), -a (a<0) }<br>
+        ③ 若 a > b > 0，则 √a > √b（单调性）<br>
+        ④ √(ab) = √a · √b（a,b ≥ 0）<br>
+        ⑤ √(a/b) = √a/√b（a ≥ 0, b > 0）
+      </p>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — 平方根的几何意义</h3>
+    <div class="canvas-container">
+      <canvas id="sqrtGeo" width="900" height="340"></canvas>
+      <div class="canvas-label">▲ 正方形面积与边长的关系 — 面积为 S 的正方形，边长为 √S</div>
+      <div class="canvas-controls">
+        <button class="btn-hud" onclick="animateSqrtGeo()">▶ 面积→边长</button>
+        <button class="btn-hud" onclick="changeArea(4)">面积=4</button>
+        <button class="btn-hud" onclick="changeArea(9)">面积=9</button>
+        <button class="btn-hud" onclick="changeArea(2)">面积=2</button>
+        <button class="btn-hud" onclick="changeArea(5)">面积=5</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — 平方根 vs 算术平方根</h3>
+    <div class="canvas-container">
+      <canvas id="sqrtCompare" width="900" height="280"></canvas>
+      <div class="canvas-label">▲ 数轴上的平方根 — 正数有两个对称点，算术平方根只取右半轴</div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>例题 // EXAMPLES</h3>
+    <details class="example-box">
+      <summary>例题 1 — 求下列数的平方根与算术平方根</summary>
+      <div class="example-body">
+        <div class="example-question">求 25, 0, 1/16, (-3)² 的平方根与算术平方根。</div>
+        <div class="example-solution">
+          <div class="step">① 25：平方根 ±5，算术平方根 5</div>
+          <div class="step">② 0：平方根 0，算术平方根 0</div>
+          <div class="step">③ 1/16：平方根 ±1/4，算术平方根 1/4</div>
+          <div class="step">④ (-3)² = 9：平方根 ±3，算术平方根 3（注意：先算平方！）</div>
+          <div class="answer">见上述各步解析</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 2 — 计算与化简</summary>
+      <div class="example-body">
+        <div class="example-question">计算：(1) √(25/49) (2) √(0.36) (3) √((-5)²) (4) √(3-π)²</div>
+        <div class="example-solution">
+          <div class="step">(1) √(25/49) = √25/√49 = 5/7</div>
+          <div class="step">(2) √0.36 = √(36/100) = 6/10 = 0.6</div>
+          <div class="step">(3) √((-5)²) = √25 = 5（注意：结果非负！）</div>
+          <div class="step">(4) √(3-π)² = |3-π| = π-3（∵ 3-π < 0）</div>
+          <div class="answer">(1) 5/7 | (2) 0.6 | (3) 5 | (4) π-3</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 3 — 解方程</summary>
+      <div class="example-body">
+        <div class="example-question">解方程：(1) x² = 16 (2) (x-1)² = 9 (3) 4x² - 1 = 0</div>
+        <div class="example-solution">
+          <div class="step">(1) x² = 16 → x = ±√16 = ±4</div>
+          <div class="step">(2) (x-1)² = 9 → x-1 = ±3 → x = 1±3 → x₁=4, x₂=-2</div>
+          <div class="step">(3) 4x² - 1 = 0 → x² = 1/4 → x = ±1/2</div>
+          <div class="answer">(1) x = ±4 | (2) x = 4 或 -2 | (3) x = ±1/2</div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>随堂测验 // QUIZ</h3>
+    <div class="quiz-container">
+      <div class="quiz-card" data-answer="D">
+        <div class="quiz-num">QUIZ 2.1</div>
+        <div class="quiz-q">√81 的平方根是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q21" value="A" onchange="checkQuiz(this)"><span>A. 9</span></label>
+          <label><input type="radio" name="q21" value="B" onchange="checkQuiz(this)"><span>B. ±9</span></label>
+          <label><input type="radio" name="q21" value="C" onchange="checkQuiz(this)"><span>C. 3</span></label>
+          <label><input type="radio" name="q21" value="D" onchange="checkQuiz(this)"><span>D. ±3</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="D">✓ 正确！√81 = 9，而 9 的平方根是 ±3。注意是「√81的平方根」不是「81的平方根」！</div>
+      </div>
+      <div class="quiz-card" data-answer="B">
+        <div class="quiz-num">QUIZ 2.2</div>
+        <div class="quiz-q">若 √(x-2) + √(2-x) = y + 3，则 x + y =（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q22" value="A" onchange="checkQuiz(this)"><span>A. 5</span></label>
+          <label><input type="radio" name="q22" value="B" onchange="checkQuiz(this)"><span>B. -1</span></label>
+          <label><input type="radio" name="q22" value="C" onchange="checkQuiz(this)"><span>C. 1</span></label>
+          <label><input type="radio" name="q22" value="D" onchange="checkQuiz(this)"><span>D. -5</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="B">✓ 正确！由根号非负性，需 x-2≥0 且 2-x≥0，∴ x=2。代入得 0+0=y+3 → y=-3。x+y = 2+(-3) = -1。</div>
+      </div>
+      <div class="quiz-card" data-answer="C">
+        <div class="quiz-num">QUIZ 2.3</div>
+        <div class="quiz-q">一个正数的两个平方根分别是 2a-1 与 -a+2，则这个正数是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q23" value="A" onchange="checkQuiz(this)"><span>A. 1</span></label>
+          <label><input type="radio" name="q23" value="B" onchange="checkQuiz(this)"><span>B. 3</span></label>
+          <label><input type="radio" name="q23" value="C" onchange="checkQuiz(this)"><span>C. 9</span></label>
+          <label><input type="radio" name="q23" value="D" onchange="checkQuiz(this)"><span>D. 4</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="C">✓ 正确！两平方根互为相反数：(2a-1) + (-a+2) = 0 → a = -1。平方根为 -3 和 3，∴ 这个正数是 9。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>公式总结 // FORMULAS</h3>
+    <div class="formula-box">
+      <h4>MODULE 02 — 平方根</h4>
+      <div class="formula-item"><div class="formula-expr">x² = a → x = ±√a</div><div class="formula-desc">平方根定义（a ≥ 0）</div></div>
+      <div class="formula-item"><div class="formula-expr">√a ≥ 0 (a ≥ 0)</div><div class="formula-desc">算术平方根非负性</div></div>
+      <div class="formula-item"><div class="formula-expr">(√a)² = a</div><div class="formula-desc">平方与开方互逆（外层先开方）</div></div>
+      <div class="formula-item"><div class="formula-expr">√(a²) = |a|</div><div class="formula-desc">先平方再开方 = 绝对值</div></div>
+      <div class="formula-item"><div class="formula-expr">√(ab) = √a·√b</div><div class="formula-desc">积的算术平方根（a,b≥0）</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 模块 3：立方根 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="module" id="m3">
+  <div class="module-header">
+    <div class="module-number">03</div>
+    <div class="module-title">立方根</div>
+    <div class="module-tag">REAL.CBRT</div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>理论扫描 // THEORY</h3>
+    <div class="theory-content">
+      <p>
+        <span class="highlight">立方根</span>：若 x³ = a，则 x 叫做 a 的立方根，记作 <span class="formula-inline">∛a</span>。<br>
+        与平方根最大的不同：<span class="highlight">任何实数都有且只有一个立方根</span>。
+      </p>
+      <div class="class-grid">
+        <div class="class-card">
+          <div class="card-icon">∛</div>
+          <div class="card-title">立方根</div>
+          <div class="card-desc">每个实数唯一<br>符号与被开方数相同</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">³</div>
+          <div class="card-title">几何意义</div>
+          <div class="card-desc">立方体体积 → 棱长<br>V → ∛V</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">≡</div>
+          <div class="card-title">唯一性</div>
+          <div class="card-desc">正数→正根<br>负数→负根</div>
+        </div>
+      </div>
+      <p>
+        <span class="highlight">性质</span>：<br>
+        ① ∛(a³) = a（对任意实数 a 都成立）<br>
+        ② (∛a)³ = a<br>
+        ③ ∛(-a) = -∛a（立方根保持符号）<br>
+        ④ ∛(ab) = ∛a · ∛b<br>
+        ⑤ ∛(a/b) = ∛a / ∛b
+      </p>
+      <p><span class="highlight">平方根 vs 立方根</span> 对比表：</p>
+      <table style="width:100%; border-collapse:collapse; margin:16px 0; font-size:0.85rem;">
+        <tr style="border-bottom:2px solid var(--accent-dim);">
+          <th style="padding:10px; color:var(--accent); text-align:left;">性质</th>
+          <th style="padding:10px; color:var(--accent); text-align:center;">平方根</th>
+          <th style="padding:10px; color:var(--accent); text-align:center;">立方根</th>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(0,245,212,0.08);">
+          <td style="padding:10px; color:var(--text-dim);">负数能否开方</td>
+          <td style="padding:10px; color:var(--danger); text-align:center;">❌ 不能（实数内）</td>
+          <td style="padding:10px; color:var(--accent); text-align:center;">✓ 能</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(0,245,212,0.08);">
+          <td style="padding:10px; color:var(--text-dim);">正数的根</td>
+          <td style="padding:10px; color:var(--text); text-align:center;">两个（±）</td>
+          <td style="padding:10px; color:var(--text); text-align:center;">一个（正）</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(0,245,212,0.08);">
+          <td style="padding:10px; color:var(--text-dim);">零的根</td>
+          <td style="padding:10px; color:var(--text); text-align:center;">一个（0）</td>
+          <td style="padding:10px; color:var(--text); text-align:center;">一个（0）</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(0,245,212,0.08);">
+          <td style="padding:10px; color:var(--text-dim);">符号保持</td>
+          <td style="padding:10px; color:var(--text-dim); text-align:center;">算术根非负</td>
+          <td style="padding:10px; color:var(--text); text-align:center;">与被开方数同号</td>
+        </tr>
+        <tr>
+          <td style="padding:10px; color:var(--text-dim);">公式</td>
+          <td style="padding:10px; color:var(--text); text-align:center;">√(a²)=|a|</td>
+          <td style="padding:10px; color:var(--text); text-align:center;">∛(a³)=a</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — 立方根的几何意义</h3>
+    <div class="canvas-container">
+      <canvas id="cbrtGeo" width="900" height="340"></canvas>
+      <div class="canvas-label">▲ 立方体体积与棱长的关系 — 体积为 V 的立方体，棱长为 ∛V</div>
+      <div class="canvas-controls">
+        <button class="btn-hud" onclick="animateCbrtGeo()">▶ 体积→棱长</button>
+        <button class="btn-hud" onclick="changeVolume(8)">体积=8</button>
+        <button class="btn-hud" onclick="changeVolume(27)">体积=27</button>
+        <button class="btn-hud" onclick="changeVolume(-8)">体积=-8</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — y=√x 与 y=∛x 图像对比</h3>
+    <div class="canvas-container">
+      <canvas id="sqrtCbrtGraph" width="900" height="360"></canvas>
+      <div class="canvas-label">▲ 绿色 = y=∛x（全体实数定义），青色 = y=√x（仅x≥0）— 注意定义域差异</div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>例题 // EXAMPLES</h3>
+    <details class="example-box">
+      <summary>例题 1 — 求立方根</summary>
+      <div class="example-body">
+        <div class="example-question">求 64, -27, 0, 1/125, -0.064 的立方根。</div>
+        <div class="example-solution">
+          <div class="step">① ∛64 = 4（∵ 4³ = 64）</div>
+          <div class="step">② ∛(-27) = -3（∵ (-3)³ = -27）</div>
+          <div class="step">③ ∛0 = 0</div>
+          <div class="step">④ ∛(1/125) = 1/5（∵ (1/5)³ = 1/125）</div>
+          <div class="step">⑤ ∛(-0.064) = ∛(-64/1000) = -4/10 = -0.4</div>
+          <div class="answer">4, -3, 0, 1/5, -0.4</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 2 — 计算与化简</summary>
+      <div class="example-body">
+        <div class="example-question">计算：(1) ∛(-8)³ (2) (∛5)³ (3) ∛(-125/64) (4) ∛0.001 + ∛(-27)</div>
+        <div class="example-solution">
+          <div class="step">(1) ∛(-8)³ = -8（直接抵消）</div>
+          <div class="step">(2) (∛5)³ = 5（互逆运算）</div>
+          <div class="step">(3) ∛(-125/64) = ∛(-125)/∛64 = -5/4</div>
+          <div class="step">(4) ∛0.001 + ∛(-27) = 0.1 + (-3) = -2.9</div>
+          <div class="answer">(1) -8 | (2) 5 | (3) -5/4 | (4) -2.9</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 3 — 解方程</summary>
+      <div class="example-body">
+        <div class="example-question">解方程：(1) x³ = -64 (2) (x+1)³ = 27 (3) 8x³ + 1 = 0</div>
+        <div class="example-solution">
+          <div class="step">(1) x³ = -64 → x = ∛(-64) = -4</div>
+          <div class="step">(2) (x+1)³ = 27 → x+1 = ∛27 = 3 → x = 2</div>
+          <div class="step">(3) 8x³ + 1 = 0 → x³ = -1/8 → x = ∛(-1/8) = -1/2</div>
+          <div class="answer">(1) x = -4 | (2) x = 2 | (3) x = -1/2</div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>随堂测验 // QUIZ</h3>
+    <div class="quiz-container">
+      <div class="quiz-card" data-answer="A">
+        <div class="quiz-num">QUIZ 3.1</div>
+        <div class="quiz-q">下列等式成立的是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q31" value="A" onchange="checkQuiz(this)"><span>A. ∛(-8) = -∛8</span></label>
+          <label><input type="radio" name="q31" value="B" onchange="checkQuiz(this)"><span>B. ∛(-8) = ∛8</span></label>
+          <label><input type="radio" name="q31" value="C" onchange="checkQuiz(this)"><span>C. ∛(-8) = ±2</span></label>
+          <label><input type="radio" name="q31" value="D" onchange="checkQuiz(this)"><span>D. ∛(-8) 无意义</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="A">✓ 正确！∛(-8) = -2，-∛8 = -2。立方根保持符号，且只有一个。</div>
+      </div>
+      <div class="quiz-card" data-answer="C">
+        <div class="quiz-num">QUIZ 3.2</div>
+        <div class="quiz-q">若 ∛(2x+1) + ∛(3-x) = 0，则 x =（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q32" value="A" onchange="checkQuiz(this)"><span>A. -2</span></label>
+          <label><input type="radio" name="q32" value="B" onchange="checkQuiz(this)"><span>B. 4</span></label>
+          <label><input type="radio" name="q32" value="C" onchange="checkQuiz(this)"><span>C. -4</span></label>
+          <label><input type="radio" name="q32" value="D" onchange="checkQuiz(this)"><span>D. -2/3</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="C">✓ 正确！∛A + ∛B = 0 → A = -B（∵ ∛(-a) = -∛a）。∴ (2x+1) = -(3-x) → 2x+1 = -3+x → x = -4。</div>
+      </div>
+      <div class="quiz-card" data-answer="B">
+        <div class="quiz-num">QUIZ 3.3</div>
+        <div class="quiz-q">一个正方体的体积扩大为原来的 8 倍，则棱长扩大为原来的（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q33" value="A" onchange="checkQuiz(this)"><span>A. 2√2 倍</span></label>
+          <label><input type="radio" name="q33" value="B" onchange="checkQuiz(this)"><span>B. 2 倍</span></label>
+          <label><input type="radio" name="q33" value="C" onchange="checkQuiz(this)"><span>C. 4 倍</span></label>
+          <label><input type="radio" name="q33" value="D" onchange="checkQuiz(this)"><span>D. 8 倍</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="B">✓ 正确！V₂ = 8V₁ → ∛V₂ = ∛(8V₁) = 2∛V₁。棱长变为 2 倍。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>公式总结 // FORMULAS</h3>
+    <div class="formula-box">
+      <h4>MODULE 03 — 立方根</h4>
+      <div class="formula-item"><div class="formula-expr">x³ = a → x = ∛a</div><div class="formula-desc">立方根定义（a 为任意实数）</div></div>
+      <div class="formula-item"><div class="formula-expr">∛(a³) = a</div><div class="formula-desc">对任意实数 a 成立（与平方根不同！）</div></div>
+      <div class="formula-item"><div class="formula-expr">∛(-a) = -∛a</div><div class="formula-desc">立方根保持符号（奇函数性质）</div></div>
+      <div class="formula-item"><div class="formula-expr">∛(ab) = ∛a · ∛b</div><div class="formula-desc">积的立方根</div></div>
+      <div class="formula-item"><div class="formula-expr">∛0 = 0, ∛1 = 1, ∛(-1) = -1</div><div class="formula-desc">特殊值</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 模块 4：n次方根 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="module" id="m4">
+  <div class="module-header">
+    <div class="module-number">04</div>
+    <div class="module-title">n次方根</div>
+    <div class="module-tag">REAL.NROOT</div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>理论扫描 // THEORY</h3>
+    <div class="theory-content">
+      <p>
+        <span class="highlight">n次方根</span>：若 xⁿ = a，则 x 叫做 a 的 n 次方根。<br>
+        当 n = 2 时就是平方根，n = 3 时就是立方根。现在我们把视野扩展到任意正整数 n。
+      </p>
+      <p>
+        <span class="highlight">n次根式</span>：记作 <span class="formula-inline">ⁿ√a</span>，其中 n 叫做<span class="highlight">根指数</span>，a 叫做<span class="highlight">被开方数</span>。
+      </p>
+      <p>
+        <span class="highlight">核心规律：奇偶性决定一切</span>
+      </p>
+      <div class="class-grid">
+        <div class="class-card">
+          <div class="card-icon">ⁿ√</div>
+          <div class="card-title">n 为偶数</div>
+          <div class="card-desc">如 √a, ⁴√a<br>a≥0 才有实数根<br>正数有两个根（±）</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">ⁿ√</div>
+          <div class="card-title">n 为奇数</div>
+          <div class="card-desc">如 ∛a, ⁵√a<br>任意实数都有根<br>只有一个，符号保持</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">|x|</div>
+          <div class="card-title">偶次根式</div>
+          <div class="card-desc">ⁿ√(aⁿ) = |a|（n偶）<br>结果非负</div>
+        </div>
+        <div class="class-card">
+          <div class="card-icon">x</div>
+          <div class="card-title">奇次根式</div>
+          <div class="card-desc">ⁿ√(aⁿ) = a（n奇）<br>保持原符号</div>
+        </div>
+      </div>
+      <p>
+        <span class="highlight">性质</span>：<br>
+        ① (ⁿ√a)ⁿ = a（在定义域内）<br>
+        ② ⁿ√(aⁿ) = |a|（n 为偶数）；ⁿ√(aⁿ) = a（n 为奇数）<br>
+        ③ ⁿ√(ab) = ⁿ√a · ⁿ√b（a,b 在定义域内）<br>
+        ④ ⁿ√(a/b) = ⁿ√a / ⁿ√b<br>
+        ⑤ ⁿ√(ᵐ√a) = ᵐⁿ√a（多重根式化简）
+      </p>
+      <div class="proof-box">
+        <div class="proof-title">[ 扩展档案 ] 偶次与奇次的核心差异</div>
+        <div class="proof-step">偶次幂：(-2)⁴ = 16，2⁴ = 16 → 16 的四次方根有两个：±2</div>
+        <div class="proof-step">奇次幂：(-2)³ = -8 → -8 的立方根只有一个：-2</div>
+        <div class="proof-step">本质：xⁿ = a，当 n 为偶数时，xⁿ 的图像关于 y 轴对称，水平线 y=a(a>0) 交于两点</div>
+        <div class="proof-step">当 n 为奇数时，xⁿ 严格单调，水平线 y=a 只交于一点</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — n次方根函数图像族</h3>
+    <div class="canvas-container">
+      <canvas id="nrootGraph" width="900" height="380"></canvas>
+      <div class="canvas-label">▲ y = ⁿ√x 函数族 — 青色=平方根，绿=立方根，黄=四次方根，粉=五次方根</div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — 奇偶根式对比演示</h3>
+    <div class="canvas-container">
+      <canvas id="oddEvenDemo" width="900" height="300"></canvas>
+      <div class="canvas-label">▲ 点击按钮切换被开方数，观察偶次根与奇次根的不同反应</div>
+      <div class="canvas-controls">
+        <button class="btn-hud" onclick="setDemoValue(16)">a = 16</button>
+        <button class="btn-hud" onclick="setDemoValue(-16)">a = -16</button>
+        <button class="btn-hud" onclick="setDemoValue(32)">a = 32</button>
+        <button class="btn-hud" onclick="setDemoValue(-32)">a = -32</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>例题 // EXAMPLES</h3>
+    <details class="example-box">
+      <summary>例题 1 — 求 n 次方根</summary>
+      <div class="example-body">
+        <div class="example-question">求：(1) ⁴√16 (2) ⁵√(-32) (3) ⁶√0 (4) ³√(-1/8)</div>
+        <div class="example-solution">
+          <div class="step">(1) ⁴√16 = ±2（∵ (±2)⁴ = 16，偶次有两个根）</div>
+          <div class="step">(2) ⁵√(-32) = -2（∵ (-2)⁵ = -32，奇次只有一个）</div>
+          <div class="step">(3) ⁶√0 = 0（0 的任何次方根都是 0）</div>
+          <div class="step">(4) ³√(-1/8) = -1/2（∵ (-1/2)³ = -1/8）</div>
+          <div class="answer">(1) ±2 | (2) -2 | (3) 0 | (4) -1/2</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 2 — 化简根式</summary>
+      <div class="example-body">
+        <div class="example-question">化简：(1) ⁴√((-3)⁴) (2) ⁵√((-2)⁵) (3) √((π-4)²) (4) ⁶√((a-b)⁶)（a&lt;b）</div>
+        <div class="example-solution">
+          <div class="step">(1) ⁴√((-3)⁴) = ⁴√81 = |-3| = 3（偶次 → 绝对值）</div>
+          <div class="step">(2) ⁵√((-2)⁵) = ⁵√(-32) = -2（奇次 → 保持符号）</div>
+          <div class="step">(3) √((π-4)²) = |π-4| = 4-π（∵ π &lt; 4）</div>
+          <div class="step">(4) ⁶√((a-b)⁶) = |a-b| = b-a（∵ a &lt; b）</div>
+          <div class="answer">(1) 3 | (2) -2 | (3) 4-π | (4) b-a</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 3 — 解方程</summary>
+      <div class="example-body">
+        <div class="example-question">解方程：(1) x⁴ = 81 (2) x⁵ = -1/32 (3) (2x-1)⁶ = 64</div>
+        <div class="example-solution">
+          <div class="step">(1) x⁴ = 81 → x = ±⁴√81 = ±3（偶次 → 两个根）</div>
+          <div class="step">(2) x⁵ = -1/32 → x = ⁵√(-1/32) = -1/2（奇次 → 一个根）</div>
+          <div class="step">(3) (2x-1)⁶ = 64 → 2x-1 = ±⁶√64 = ±2</div>
+          <div class="step">　　2x-1 = 2 → x = 3/2；2x-1 = -2 → x = -1/2</div>
+          <div class="answer">(1) x = ±3 | (2) x = -1/2 | (3) x = 3/2 或 -1/2</div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>随堂测验 // QUIZ</h3>
+    <div class="quiz-container">
+      <div class="quiz-card" data-answer="C">
+        <div class="quiz-num">QUIZ 4.1</div>
+        <div class="quiz-q">若 ⁿ√((-5)ⁿ) = -5，则 n 可以是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q41" value="A" onchange="checkQuiz(this)"><span>A. 2</span></label>
+          <label><input type="radio" name="q41" value="B" onchange="checkQuiz(this)"><span>B. 4</span></label>
+          <label><input type="radio" name="q41" value="C" onchange="checkQuiz(this)"><span>C. 3</span></label>
+          <label><input type="radio" name="q41" value="D" onchange="checkQuiz(this)"><span>D. 6</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="C">✓ 正确！结果为 -5（负数），说明 n 必须是奇数。选项中只有 3 是奇数。</div>
+      </div>
+      <div class="quiz-card" data-answer="A">
+        <div class="quiz-num">QUIZ 4.2</div>
+        <div class="quiz-q">⁴√81 的值是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q42" value="A" onchange="checkQuiz(this)"><span>A. 3</span></label>
+          <label><input type="radio" name="q42" value="B" onchange="checkQuiz(this)"><span>B. ±3</span></label>
+          <label><input type="radio" name="q42" value="C" onchange="checkQuiz(this)"><span>C. 9</span></label>
+          <label><input type="radio" name="q42" value="D" onchange="checkQuiz(this)"><span>D. 不存在</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="A">✓ 正确！⁴√81 表示 81 的四次算术方根，只取非负值 = 3。若写 ±⁴√81 才是 ±3。</div>
+      </div>
+      <div class="quiz-card" data-answer="D">
+        <div class="quiz-num">QUIZ 4.3</div>
+        <div class="quiz-q">下列各式中，对任意实数 a 都有意义的是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q43" value="A" onchange="checkQuiz(this)"><span>A. √a</span></label>
+          <label><input type="radio" name="q43" value="B" onchange="checkQuiz(this)"><span>B. ⁴√a</span></label>
+          <label><input type="radio" name="q43" value="C" onchange="checkQuiz(this)"><span>C. ⁶√(-a)</span></label>
+          <label><input type="radio" name="q43" value="D" onchange="checkQuiz(this)"><span>D. ³√a</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="D">✓ 正确！只有奇次根式对任意实数都有意义。√a、⁴√a、⁶√(-a) 在 a&lt;0 时无实数意义。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>公式总结 // FORMULAS</h3>
+    <div class="formula-box">
+      <h4>MODULE 04 — n次方根</h4>
+      <div class="formula-item"><div class="formula-expr">xⁿ = a → x = ⁿ√a</div><div class="formula-desc">n 次方根定义</div></div>
+      <div class="formula-item"><div class="formula-expr">ⁿ√(aⁿ) = |a|（n 偶）</div><div class="formula-desc">偶次根式 → 绝对值</div></div>
+      <div class="formula-item"><div class="formula-expr">ⁿ√(aⁿ) = a（n 奇）</div><div class="formula-desc">奇次根式 → 保持符号</div></div>
+      <div class="formula-item"><div class="formula-expr">(ⁿ√a)ⁿ = a</div><div class="formula-desc">根式与幂互逆</div></div>
+      <div class="formula-item"><div class="formula-expr">ⁿ√(ᵐ√a) = ᵐⁿ√a</div><div class="formula-desc">多重根式化简</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 模块 5：实数运算与比较 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="module" id="m5">
+  <div class="module-header">
+    <div class="module-number">05</div>
+    <div class="module-title">实数运算与比较</div>
+    <div class="module-tag">REAL.OPS</div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>理论扫描 // THEORY</h3>
+    <div class="theory-content">
+      <p>
+        <span class="highlight">实数与数轴</span>：每一个实数都对应数轴上唯一的一个点，反之数轴上的每一个点都对应唯一的一个实数。这就是著名的<span class="highlight">实数完备性</span>——实数「填满」了整个数轴，没有缝隙。
+      </p>
+      <p>
+        <span class="highlight">数轴表示无理数</span>的方法：<br>
+        ① <span class="highlight">几何构造法</span>：如 √2 可通过直角三角形斜边在数轴上精确标出<br>
+        ② <span class="highlight">逼近法</span>：用有理数序列无限逼近（如 1.4, 1.41, 1.414... 逼近 √2）<br>
+        ③ <span class="highlight">尺规作图</span>：圆规配合直尺，将几何长度转移到数轴上
+      </p>
+      <p>
+        <span class="highlight">实数大小比较</span>：<br>
+        ① 正数 > 0 > 负数<br>
+        ② 两个正数，绝对值大的数大<br>
+        ③ 两个负数，绝对值大的反而小<br>
+        ④ 数轴上右边的数总比左边的大<br>
+        ⑤ 比较无理数：可比较它们的近似值，或移项后比较平方/立方
+      </p>
+      <p>
+        <span class="highlight">实数运算律</span>：有理数的运算律在实数范围内仍然成立<br>
+        交换律：a + b = b + a；ab = ba<br>
+        结合律：(a+b)+c = a+(b+c)；(ab)c = a(bc)<br>
+        分配律：a(b+c) = ab + ac
+      </p>
+      <p>
+        <span class="highlight">含根号的混合运算</span>：<br>
+        ① 先化简各根式（将能开方的部分提出来）<br>
+        ② 同类根式（被开方数相同）可以合并<br>
+        ③ 运算顺序：先乘方开方，再乘除，最后加减，有括号先算括号内
+      </p>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — 交互式无理数定位</h3>
+    <div class="interactive-numberline">
+      <div class="instruction">◆ 点击数轴上的位置，系统将判定你点击的是有理数还是无理数区域 ◆</div>
+      <canvas id="interactiveNL" width="900" height="200" style="cursor:crosshair;"></canvas>
+      <div class="canvas-label" id="nlFeedback" style="color:var(--accent); min-height:24px;">点击数轴进行勘测...</div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>可视化 // VISUAL — 数轴上的有理数与无理数</h3>
+    <div class="canvas-container">
+      <canvas id="realNumberline" width="900" height="260"></canvas>
+      <div class="canvas-label">▲ 数轴上的实数分布 — 有理数「可数」，无理数「不可数」，但无理数比有理数「多得多」</div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>例题 // EXAMPLES</h3>
+    <details class="example-box">
+      <summary>例题 1 — 比较大小</summary>
+      <div class="example-body">
+        <div class="example-question">比较：(1) √5 与 2.2 (2) -√3 与 -∛3 (3) √2 + √3 与 √10</div>
+        <div class="example-solution">
+          <div class="step">(1) √5 ≈ 2.236 > 2.2，∴ √5 > 2.2</div>
+          <div class="step">(2) √3 ≈ 1.732，∛3 ≈ 1.442；∴ -√3 ≈ -1.732 < -1.442 ≈ -∛3</div>
+          <div class="step">(3) 两边平方：(√2+√3)² = 2 + 2√6 + 3 = 5 + 2√6 ≈ 5 + 4.899 = 9.899</div>
+          <div class="step">　　(√10)² = 10；∵ 9.899 < 10 且两边均为正</div>
+          <div class="step">　　∴ √2 + √3 < √10</div>
+          <div class="answer">(1) √5 > 2.2 | (2) -√3 < -∛3 | (3) √2+√3 < √10</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 2 — 混合运算</summary>
+      <div class="example-body">
+        <div class="example-question">计算：√16 - ∛(-27) + |√2 - 2| - (√3)²</div>
+        <div class="example-solution">
+          <div class="step">√16 = 4</div>
+          <div class="step">∛(-27) = -3</div>
+          <div class="step">|√2 - 2| = 2 - √2（∵ √2 ≈ 1.414 < 2）</div>
+          <div class="step">(√3)² = 3</div>
+          <div class="step">原式 = 4 - (-3) + (2-√2) - 3 = 4 + 3 + 2 - √2 - 3 = 6 - √2</div>
+          <div class="answer">6 - √2</div>
+        </div>
+      </div>
+    </details>
+    <details class="example-box">
+      <summary>例题 3 — 数轴与实数</summary>
+      <div class="example-body">
+        <div class="example-question">如图，数轴上 A, B 两点对应的实数分别是 -√2 和 2，若点 C 到 A 的距离等于 A 到 B 的距离，求 C 表示的数。</div>
+        <div class="example-solution">
+          <div class="step">A = -√2，B = 2</div>
+          <div class="step">AB 的距离 = 2 - (-√2) = 2 + √2</div>
+          <div class="step">C 在 A 左侧：C = A - AB = -√2 - (2+√2) = -2 - 2√2</div>
+          <div class="answer">C = -2 - 2√2</div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>随堂测验 // QUIZ</h3>
+    <div class="quiz-container">
+      <div class="quiz-card" data-answer="B">
+        <div class="quiz-num">QUIZ 5.1</div>
+        <div class="quiz-q">下列比较正确的是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q51" value="A" onchange="checkQuiz(this)"><span>A. √10 < 3</span></label>
+          <label><input type="radio" name="q51" value="B" onchange="checkQuiz(this)"><span>B. ∛(-8) > ∛(-27)</span></label>
+          <label><input type="radio" name="q51" value="C" onchange="checkQuiz(this)"><span>C. -√2 > -1</span></label>
+          <label><input type="radio" name="q51" value="D" onchange="checkQuiz(this)"><span>D. √3 + √2 < √5</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="B">✓ 正确！∛(-8)=-2，∛(-27)=-3，-2 > -3。A错（√10≈3.16>3）；C错（-√2≈-1.414<-1）；D错（√3+√2≈3.15>√5≈2.24）。</div>
+      </div>
+      <div class="quiz-card" data-answer="C">
+        <div class="quiz-num">QUIZ 5.2</div>
+        <div class="quiz-q">计算 |√3 - 2| + √3 的结果是（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q52" value="A" onchange="checkQuiz(this)"><span>A. 2√3 - 2</span></label>
+          <label><input type="radio" name="q52" value="B" onchange="checkQuiz(this)"><span>B. 0</span></label>
+          <label><input type="radio" name="q52" value="C" onchange="checkQuiz(this)"><span>C. 2</span></label>
+          <label><input type="radio" name="q52" value="D" onchange="checkQuiz(this)"><span>D. 2√3</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="C">✓ 正确！|√3-2| = 2-√3（∵ √3≈1.732<2），∴ 原式 = 2-√3+√3 = 2。</div>
+      </div>
+      <div class="quiz-card" data-answer="A">
+        <div class="quiz-num">QUIZ 5.3</div>
+        <div class="quiz-q">数轴上表示 -√3 的点在原点的（ ）</div>
+        <div class="quiz-options">
+          <label><input type="radio" name="q53" value="A" onchange="checkQuiz(this)"><span>A. 左边，距离约 1.732</span></label>
+          <label><input type="radio" name="q53" value="B" onchange="checkQuiz(this)"><span>B. 右边，距离约 1.732</span></label>
+          <label><input type="radio" name="q53" value="C" onchange="checkQuiz(this)"><span>C. 左边，距离约 3</span></label>
+          <label><input type="radio" name="q53" value="D" onchange="checkQuiz(this)"><span>D. 右边，距离约 3</span></label>
+        </div>
+        <div class="quiz-feedback" data-correct="A">✓ 正确！-√3 ≈ -1.732，在原点左侧，距离 |-√3| = √3 ≈ 1.732。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel fade-in">
+    <h3>公式总结 // FORMULAS</h3>
+    <div class="formula-box">
+      <h4>MODULE 05 — 实数运算</h4>
+      <div class="formula-item"><div class="formula-expr">实数 ⟷ 数轴上的点</div><div class="formula-desc">一一对应，实数填满数轴</div></div>
+      <div class="formula-item"><div class="formula-expr">|a| = { a (a≥0), -a (a<0) }</div><div class="formula-desc">绝对值定义</div></div>
+      <div class="formula-item"><div class="formula-expr">a > b ⟺ a-b > 0</div><div class="formula-desc">比较大小：作差法</div></div>
+      <div class="formula-item"><div class="formula-expr">√a > √b ⟺ a > b (a,b≥0)</div><div class="formula-desc">算术平方根的单调性</div></div>
+      <div class="formula-item"><div class="formula-expr">运算顺序：括号 → 乘方/开方 → 乘除 → 加减</div><div class="formula-desc">混合运算优先级</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 下一章导航 -->
+<!-- ═══════════════════════════════════════ -->
+<nav class="next-chapter-nav">
+  <a href="../grade8-sem1-ch20/tutorial.html" class="next-chapter-box">
+    <div>
+      <div class="next-chapter-label">下一章 // NEXT CHAPTER</div>
+      <div class="next-chapter-title">第20章 · 二次根式</div>
+    </div>
+    <div class="next-chapter-arrow">→</div>
+  </a>
+</nav>
+
+<!-- 页脚 -->
+<footer class="footer">
+  <div>◈ 勘测队 REAL · 第19章 实数 · 八年级数学上册 ◈</div>
+  <div style="margin-top:6px; color:rgba(0,245,212,0.3);">代数与几何的连接点 · 数系扩张的里程碑</div>
+</footer>
+
+</body>
+</html>
+
