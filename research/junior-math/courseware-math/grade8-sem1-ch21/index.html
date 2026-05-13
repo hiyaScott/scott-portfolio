@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：QUAD | 方程攻坚队</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f;
+  --bg2: #0a0e18;
+  --bg3: #101520;
+  --accent: #00f5d4;
+  --accent2: #00d4b8;
+  --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0e6f0;
+  --text2: #8a9ab0;
+  --text3: #4a5a70;
+  --border: rgba(0,245,212,0.2);
+  --glass: rgba(10,14,24,0.75);
+  --glass-border: rgba(0,245,212,0.12);
+  --green: #00ff88;
+  --yellow: #ffcc00;
+  --red: #ff3366;
+  --orange: #ff8844;
+  --purple: #cc66ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-x: hidden;
+  position: relative;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px;
+  pointer-events: none; z-index: 1;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2;
+  animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+
+/* HUD corners */
+.hud-corners { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+.hud-corners::before, .hud-corners::after, .hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute; width: 40px; height: 40px; border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* Header */
+.hero { text-align: center; padding: 60px 0 30px; position: relative; }
+.hero-badge { display: inline-block; border: 1px solid var(--accent); padding: 4px 16px; font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px; color: var(--accent); margin-bottom: 16px; text-transform: uppercase; animation: badgePulse 3s ease-in-out infinite; }
+@keyframes badgePulse { 0%,100% { box-shadow: 0 0 8px rgba(0,245,212,0.2); } 50% { box-shadow: 0 0 20px rgba(0,245,212,0.4); } }
+.hero h1 { font-family: 'Orbitron', sans-serif; font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 30px rgba(0,245,212,0.3); margin-bottom: 8px; }
+.hero-sub { font-size: 14px; color: var(--text2); letter-spacing: 3px; }
+.hero-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 18px auto; }
+
+/* Top HUD Bar */
+.top-hud {
+  position: fixed; top: 0; left: 0; right: 0; height: 48px;
+  background: var(--glass); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; z-index: 90; font-family: 'Orbitron', sans-serif; font-size: 13px;
+}
+.top-hud .hud-left { display: flex; align-items: center; gap: 20px; }
+.top-hud .hud-right { display: flex; align-items: center; gap: 20px; }
+.hud-item { display: flex; align-items: center; gap: 6px; }
+.hud-item .hud-label { color: var(--text3); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+.hud-item .hud-val { color: var(--accent); font-weight: 600; }
+.hud-item .hud-val.red { color: var(--red); }
+.hud-item .hud-val.green { color: var(--green); }
+.hud-item .hud-val.yellow { color: var(--yellow); }
+.life-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 6px var(--red); display: inline-block; }
+.life-dot.lost { background: var(--text3); box-shadow: none; }
+
+/* Stage Selector */
+.stage-nav {
+  display: flex; gap: 8px; justify-content: center; margin: 20px 0 30px;
+  flex-wrap: wrap;
+}
+.stage-btn {
+  background: var(--bg3); border: 1px solid var(--glass-border); color: var(--text2);
+  padding: 10px 20px; border-radius: 6px; font-family: 'Orbitron', sans-serif; font-size: 12px;
+  cursor: pointer; transition: all 0.3s; letter-spacing: 1px;
+}
+.stage-btn:hover { border-color: var(--border); color: var(--text); }
+.stage-btn.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 12px rgba(0,245,212,0.2); background: var(--accent-dim); }
+.stage-btn.locked { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.stage-btn .stage-num { font-size: 18px; font-weight: 800; display: block; text-align: center; }
+.stage-btn .stage-name { font-size: 10px; opacity: 0.8; }
+
+/* Stage Panel */
+.stage-panel { display: none; }
+.stage-panel.active { display: block; }
+.stage-panel .stage-title {
+  font-family: 'Orbitron', sans-serif; font-size: 24px; color: var(--accent);
+  text-align: center; margin-bottom: 8px; letter-spacing: 2px;
+}
+.stage-panel .stage-desc {
+  text-align: center; color: var(--text2); font-size: 14px; margin-bottom: 30px;
+}
+
+/* Game Card */
+.game-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px);
+  overflow: hidden; margin-bottom: 24px; position: relative;
+}
+.game-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.game-card-header {
+  padding: 20px 28px 16px; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.game-card-header .gc-title { font-family: 'Orbitron', sans-serif; font-size: 16px; color: var(--text); letter-spacing: 1px; }
+.game-card-header .gc-counter { color: var(--text3); font-size: 13px; }
+.game-card-body { padding: 24px 28px 28px; }
+
+/* Question */
+.question-text {
+  font-size: 18px; color: var(--text); margin-bottom: 20px; line-height: 1.8;
+}
+.question-text .math-inline { color: var(--accent); }
+
+/* Input */
+.answer-input-wrap { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.answer-input {
+  background: var(--bg2); border: 1px solid var(--glass-border); color: var(--text);
+  padding: 12px 16px; border-radius: 6px; font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; min-width: 220px; outline: none; transition: all 0.2s;
+}
+.answer-input:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(0,245,212,0.15); }
+.submit-btn {
+  background: var(--accent); border: none; color: var(--bg); padding: 12px 28px;
+  border-radius: 6px; font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 1px;
+}
+.submit-btn:hover { box-shadow: 0 0 16px rgba(0,245,212,0.4); }
+.submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Options */
+.opts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+@media(max-width: 600px) { .opts-grid { grid-template-columns: 1fr; } }
+.opt-btn {
+  padding: 14px 16px; border: 1px solid var(--glass-border); border-radius: 8px;
+  background: var(--bg2); color: var(--text); cursor: pointer; transition: all 0.2s;
+  font-family: 'Share Tech Mono', monospace; font-size: 15px; text-align: left;
+}
+.opt-btn:hover { border-color: var(--border); background: var(--bg3); }
+.opt-btn.correct { border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green); }
+.opt-btn.wrong { border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red); }
+.opt-btn.disabled { pointer-events: none; }
+
+/* Feedback */
+.feedback-bar {
+  padding: 14px 18px; border-radius: 8px; margin-top: 12px; font-size: 14px;
+  display: none; border-left: 3px solid;
+}
+.feedback-bar.show { display: block; }
+.feedback-bar.good { background: rgba(0,255,136,0.06); border-color: var(--green); color: var(--green); }
+.feedback-bar.bad { background: rgba(255,51,102,0.06); border-color: var(--red); color: var(--red); }
+.feedback-bar.info { background: rgba(0,245,212,0.06); border-color: var(--accent); color: var(--accent); }
+
+/* Canvas */
+.canvas-wrap {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 20px; margin: 20px 0; text-align: center;
+}
+.canvas-wrap h4 {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 12px; text-transform: uppercase;
+}
+.canvas-wrap canvas { background: var(--bg); border-radius: 6px; border: 1px solid var(--glass-border); max-width: 100%; }
+.canvas-controls { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+.canvas-btn {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+  padding: 6px 14px; border-radius: 4px; font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+}
+.canvas-btn:hover, .canvas-btn.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px rgba(0,245,212,0.2); }
+
+/* Result Screen */
+.result-screen {
+  display: none; text-align: center; padding: 40px 20px;
+}
+.result-screen.show { display: block; }
+.result-grade {
+  font-family: 'Orbitron', sans-serif; font-size: 72px; font-weight: 900;
+  margin-bottom: 16px; text-shadow: 0 0 40px;
+}
+.result-grade.S { color: var(--accent); text-shadow-color: rgba(0,245,212,0.5); }
+.result-grade.A { color: var(--green); text-shadow-color: rgba(0,255,136,0.5); }
+.result-grade.B { color: var(--yellow); text-shadow-color: rgba(255,204,0,0.5); }
+.result-grade.C { color: var(--red); text-shadow-color: rgba(255,51,102,0.5); }
+.result-stats { display: flex; gap: 30px; justify-content: center; margin: 24px 0; flex-wrap: wrap; }
+.result-stat { text-align: center; }
+.result-stat .rs-val { font-family: 'Orbitron', sans-serif; font-size: 28px; color: var(--accent); }
+.result-stat .rs-label { font-size: 11px; color: var(--text3); letter-spacing: 1px; margin-top: 4px; }
+.result-msg { color: var(--text2); font-size: 16px; margin-bottom: 28px; max-width: 500px; margin-left: auto; margin-right: auto; }
+
+/* Vieta diagram */
+.vieta-diagram { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 20px 0; flex-wrap: wrap; }
+.vieta-node { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px 24px; text-align: center; min-width: 140px; }
+.vieta-node .vn-label { font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--text3); letter-spacing: 1px; margin-bottom: 6px; }
+.vieta-node .vn-val { color: var(--accent); font-size: 18px; }
+.vieta-arrow { color: var(--text3); font-size: 24px; }
+
+/* Delta cards */
+.delta-demo { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 20px 0; }
+.delta-case { width: 260px; border-radius: 8px; padding: 18px; text-align: center; border: 1px solid; transition: all 0.3s; }
+.delta-case:hover { transform: translateY(-4px); }
+.delta-case.d-gt0 { border-color: var(--green); background: rgba(0,255,136,0.05); }
+.delta-case.d-eq0 { border-color: var(--yellow); background: rgba(255,204,0,0.05); }
+.delta-case.d-lt0 { border-color: var(--red); background: rgba(255,51,102,0.05); }
+.delta-case .d-val { font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 800; margin-bottom: 6px; }
+.delta-case.d-gt0 .d-val { color: var(--green); }
+.delta-case.d-eq0 .d-val { color: var(--yellow); }
+.delta-case.d-lt0 .d-val { color: var(--red); }
+.delta-case .d-desc { font-size: 12px; color: var(--text2); }
+.delta-case .d-roots { margin-top: 10px; font-size: 13px; color: var(--text); }
+
+/* Progress bar */
+.progress-track {
+  width: 100%; height: 6px; background: var(--bg3); border-radius: 3px; margin: 12px 0; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), var(--green));
+  border-radius: 3px; transition: width 0.5s ease;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 26px; }
+  .stage-btn { padding: 8px 12px; }
+  .top-hud { font-size: 11px; padding: 0 12px; }
+  .delta-case { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<!-- Top HUD -->
+<div class="top-hud">
+  <div class="hud-left">
+    <div class="hud-item"><span class="hud-label">Lives</span><span id="hud-lives"></span></div>
+    <div class="hud-item"><span class="hud-label">Combo</span><span id="hud-combo" class="hud-val">×1</span></div>
+    <div class="hud-item"><span class="hud-label">Score</span><span id="hud-score" class="hud-val">0</span></div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-item"><span class="hud-label">Time</span><span id="hud-timer" class="hud-val">00:00</span></div>
+    <div class="hud-item"><span class="hud-label">Stage</span><span id="hud-stage" class="hud-val">1/4</span></div>
+  </div>
+</div>
+
+<div class="container" style="padding-top:60px;">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">代号 QUAD · 方程攻坚队</div>
+  <h1>一元二次方程 · 实战演练</h1>
+  <div class="hero-sub">八年级上册 · 第21章 战术闯关</div>
+  <div class="hero-line"></div>
+</div>
+
+<!-- STAGE NAV -->
+<div class="stage-nav" id="stageNav">
+  <button class="stage-btn active" data-stage="0" onclick="switchStage(0)">
+    <span class="stage-num">01</span>
+    <span class="stage-name">直接开平方法</span>
+  </button>
+  <button class="stage-btn" data-stage="1" onclick="switchStage(1)">
+    <span class="stage-num">02</span>
+    <span class="stage-name">配方法</span>
+  </button>
+  <button class="stage-btn" data-stage="2" onclick="switchStage(2)">
+    <span class="stage-num">03</span>
+    <span class="stage-name">公式法</span>
+  </button>
+  <button class="stage-btn" data-stage="3" onclick="switchStage(3)">
+    <span class="stage-num">04</span>
+    <span class="stage-name">因式分解法</span>
+  </button>
+</div>
+
+<!-- ========== STAGE 1: Direct Square Root ========== -->
+<div class="stage-panel active" id="stage0">
+  <div class="stage-title">STAGE 01 · 直接开平方法</div>
+  <div class="stage-desc">解 x² = a 和 (x+m)² = n 型方程 · 基础攻坚</div>
+
+  <div class="game-card">
+    <div class="game-card-header">
+      <span class="gc-title">▌ 战术原理</span>
+      <span class="gc-counter">01 / 06</span>
+    </div>
+    <div class="game-card-body">
+      <div style="color:var(--text2);margin-bottom:16px;">
+        直接开平方法适用于可化为 <span style="color:var(--accent)">x² = a</span> 或 <span style="color:var(--accent)">(x+m)² = n</span> 形式的方程。<br>
+        核心口诀：<strong>右边非负 → 两边开方 → 取正负根</strong>
+      </div>
+      <div class="canvas-wrap">
+        <h4>▌ 抛物线映射：方程的根 = 函数与 x 轴的交点</h4>
+        <canvas id="c-s1-parabola" width="700" height="320"></canvas>
+        <div class="canvas-controls">
+          <button class="canvas-btn active" onclick="drawS1Parabola(1,0,-4)">x²=4 → y=x²-4</button>
+          <button class="canvas-btn" onclick="drawS1Parabola(1,-6,9)">(x-3)²=0 → y=x²-6x+9</button>
+          <button class="canvas-btn" onclick="drawS1Parabola(1,0,4)">x²=-4 → y=x²+4</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="s1-questions"></div>
+
+  <div class="result-screen" id="s1-result">
+    <div class="result-grade" id="s1-grade">S</div>
+    <div class="result-msg" id="s1-msg"></div>
+    <div class="result-stats">
+      <div class="result-stat"><div class="rs-val" id="s1-stat-score">0</div><div class="rs-label">得分</div></div>
+      <div class="result-stat"><div class="rs-val" id="s1-stat-time">0s</div><div class="rs-label">用时</div></div>
+      <div class="result-stat"><div class="rs-val" id="s1-stat-correct">0/5</div><div class="rs-label">正确率</div></div>
+    </div>
+    <button class="submit-btn" onclick="switchStage(1)">进入 Stage 02 →</button>
+  </div>
+</div>
+
+<!-- ========== STAGE 2: Completing the Square ========== -->
+<div class="stage-panel" id="stage1">
+  <div class="stage-title">STAGE 02 · 配方法</div>
+  <div class="stage-desc">配方步骤 · 将方程转化为完全平方形式 · 几何补全正方形</div>
+
+  <div class="game-card">
+    <div class="game-card-header">
+      <span class="gc-title">▌ 战术原理</span>
+      <span class="gc-counter">02 / 06</span>
+    </div>
+    <div class="game-card-body">
+      <div style="color:var(--text2);margin-bottom:16px;">
+        核心思想：左边配成 <span style="color:var(--accent)">完全平方式</span>，右边变为常数。<br>
+        配方口诀：<strong>「一次项系数一半的平方」</strong>
+      </div>
+      <div class="canvas-wrap">
+        <h4>▌ 几何意义：补全正方形动画</h4>
+        <canvas id="c-s2-geo" width="520" height="340"></canvas>
+        <div class="canvas-controls">
+          <button class="canvas-btn active" onclick="drawS2Geo(0)">x²+6x=7</button>
+          <button class="canvas-btn" onclick="drawS2Geo(1)">x²+4x=5</button>
+          <button class="canvas-btn" onclick="drawS2Geo(2)">x²+2x=3</button>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin-top:8px;">蓝色：x² 正方形 | 橙色：bx 矩形 | 绿色：配方补上的小正方形</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="s2-questions"></div>
+
+  <div class="result-screen" id="s2-result">
+    <div class="result-grade" id="s2-grade">S</div>
+    <div class="result-msg" id="s2-msg"></div>
+    <div class="result-stats">
+      <div class="result-stat"><div class="rs-val" id="s2-stat-score">0</div><div class="rs-label">得分</div></div>
+      <div class="result-stat"><div class="rs-val" id="s2-stat-time">0s</div><div class="rs-label">用时</div></div>
+      <div class="result-stat"><div class="rs-val" id="s2-stat-correct">0/5</div><div class="rs-label">正确率</div></div>
+    </div>
+    <button class="submit-btn" onclick="switchStage(2)">进入 Stage 03 →</button>
+  </div>
+</div>
+
+<!-- ========== STAGE 3: Quadratic Formula ========== -->
+<div class="stage-panel" id="stage2">
+  <div class="stage-title">STAGE 03 · 公式法</div>
+  <div class="stage-desc">求根公式 x = [-b ± √Δ] / 2a · 判别式三色预警系统</div>
+
+  <div class="game-card">
+    <div class="game-card-header">
+      <span class="gc-title">▌ 判别式三色预警</span>
+      <span class="gc-counter">03 / 06</span>
+    </div>
+    <div class="game-card-body">
+      <div class="delta-demo">
+        <div class="delta-case d-gt0">
+          <div class="d-val">Δ > 0</div>
+          <div class="d-desc" style="color:var(--green);">绿色警报 · 两个不等实根</div>
+          <div class="d-roots">x₁ ≠ x₂<br>x = [-b ± √Δ] / 2a</div>
+        </div>
+        <div class="delta-case d-eq0">
+          <div class="d-val">Δ = 0</div>
+          <div class="d-desc" style="color:var(--yellow);">黄色警报 · 两个相等实根</div>
+          <div class="d-roots">x₁ = x₂ = -b / 2a</div>
+        </div>
+        <div class="delta-case d-lt0">
+          <div class="d-val">Δ < 0</div>
+          <div class="d-desc" style="color:var(--red);">红色警报 · 无实数根</div>
+          <div class="d-roots">方程在实数范围内无解</div>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <h4>▌ 判别式动画：三种情况的抛物线图像</h4>
+        <canvas id="c-s3-delta" width="700" height="340"></canvas>
+        <div class="canvas-controls">
+          <button class="canvas-btn active" onclick="drawS3Delta(0)" style="border-color:var(--green);color:var(--green);">Δ>0: 两交点</button>
+          <button class="canvas-btn" onclick="drawS3Delta(1)" style="border-color:var(--yellow);color:var(--yellow);">Δ=0: 一切点</button>
+          <button class="canvas-btn" onclick="drawS3Delta(2)" style="border-color:var(--red);color:var(--red);">Δ<0: 无交点</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="s3-questions"></div>
+
+  <div class="result-screen" id="s3-result">
+    <div class="result-grade" id="s3-grade">S</div>
+    <div class="result-msg" id="s3-msg"></div>
+    <div class="result-stats">
+      <div class="result-stat"><div class="rs-val" id="s3-stat-score">0</div><div class="rs-label">得分</div></div>
+      <div class="result-stat"><div class="rs-val" id="s3-stat-time">0s</div><div class="rs-label">用时</div></div>
+      <div class="result-stat"><div class="rs-val" id="s3-stat-correct">0/5</div><div class="rs-label">正确率</div></div>
+    </div>
+    <button class="submit-btn" onclick="switchStage(3)">进入 Stage 04 →</button>
+  </div>
+</div>
+
+<!-- ========== STAGE 4: Factorization ========== -->
+<div class="stage-panel" id="stage3">
+  <div class="stage-title">STAGE 04 · 因式分解法</div>
+  <div class="stage-desc">十字相乘 · 提取公因式 · 韦达定理交互图表</div>
+
+  <div class="game-card">
+    <div class="game-card-header">
+      <span class="gc-title">▌ 战术原理</span>
+      <span class="gc-counter">04 / 06</span>
+    </div>
+    <div class="game-card-body">
+      <div style="color:var(--text2);margin-bottom:16px;">
+        核心原理：<span style="color:var(--accent)">若 AB = 0，则 A = 0 或 B = 0</span>。<br>
+        将方程左边分解为两个一次因式乘积，分别令每个因式等于零求解。
+      </div>
+      <div class="canvas-wrap">
+        <h4>▌ 十字相乘可视化</h4>
+        <canvas id="c-s4-cross" width="500" height="260"></canvas>
+        <div class="canvas-controls" id="cross-controls">
+          <button class="canvas-btn active" onclick="drawS4Cross(0)">x²+5x+6</button>
+          <button class="canvas-btn" onclick="drawS4Cross(1)">x²-5x+6</button>
+          <button class="canvas-btn" onclick="drawS4Cross(2)">x²+x-6</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="game-card">
+    <div class="game-card-header">
+      <span class="gc-title">▌ 韦达定理 · 根与系数关系</span>
+      <span class="gc-counter">05 / 06</span>
+    </div>
+    <div class="game-card-body">
+      <div style="color:var(--text2);margin-bottom:16px;">
+        对于 ax² + bx + c = 0 的两根 x₁, x₂：<br>
+        <span style="color:var(--accent)">x₁ + x₂ = -b/a</span> &nbsp;&nbsp; <span style="color:var(--accent)">x₁ · x₂ = c/a</span>
+      </div>
+      <div class="vieta-diagram">
+        <div class="vieta-node">
+          <div class="vn-label">方程系数</div>
+          <div class="vn-val">a, b, c</div>
+        </div>
+        <div class="vieta-arrow">→</div>
+        <div class="vieta-node">
+          <div class="vn-label">韦达定理</div>
+          <div class="vn-val">x₁+x₂=-b/a<br>x₁x₂=c/a</div>
+        </div>
+        <div class="vieta-arrow">→</div>
+        <div class="vieta-node">
+          <div class="vn-label">根的性质</div>
+          <div class="vn-val">和与积</div>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <h4>▌ 韦达定理交互图表</h4>
+        <canvas id="c-s4-vieta" width="700" height="280"></canvas>
+        <div class="canvas-controls" id="vieta-controls">
+          <button class="canvas-btn active" onclick="drawS4Vieta(0)">x²-5x+6=0</button>
+          <button class="canvas-btn" onclick="drawS4Vieta(1)">x²+3x-10=0</button>
+          <button class="canvas-btn" onclick="drawS4Vieta(2)">x²-4x+4=0</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="s4-questions"></div>
+
+  <div class="result-screen" id="s4-result">
+    <div class="result-grade" id="s4-grade">S</div>
+    <div class="result-msg" id="s4-msg"></div>
+    <div class="result-stats">
+      <div class="result-stat"><div class="rs-val" id="s4-stat-score">0</div><div class="rs-label">得分</div></div>
+      <div class="result-stat"><div class="rs-val" id="s4-stat-time">0s</div><div class="rs-label">用时</div></div>
+      <div class="result-stat"><div class="rs-val" id="s4-stat-correct">0/5</div><div class="rs-label">正确率</div></div>
+    </div>
+    <div style="margin-top:16px;">
+      <button class="submit-btn" onclick="showFinalResult()">查看总评</button>
+      <button class="submit-btn" style="background:var(--bg3);border:1px solid var(--accent);color:var(--accent);margin-left:12px;" onclick="switchStage(0)">重新挑战</button>
+    </div>
+  </div>
+</div>
+
+<!-- Final Result Overlay -->
+<div class="result-screen" id="final-result" style="margin-top:40px;">
+  <div class="result-grade" id="final-grade">S</div>
+  <div class="result-msg" id="final-msg">任务完成！方程攻坚队全员集结完毕。</div>
+  <div class="result-stats">
+    <div class="result-stat"><div class="rs-val" id="final-score">0</div><div class="rs-label">总分</div></div>
+    <div class="result-stat"><div class="rs-val" id="final-time">0s</div><div class="rs-label">总用时</div></div>
+    <div class="result-stat"><div class="rs-val" id="final-correct">0/20</div><div class="rs-label">总正确</div></div>
+    <div class="result-stat"><div class="rs-val" id="final-maxcombo">×1</div><div class="rs-label">最大连击</div></div>
+  </div>
+  <div style="margin-top:20px;">
+    <button class="submit-btn" onclick="switchStage(0)">重新挑战</button>
+    <a href="tutorial.html" class="submit-btn" style="background:var(--bg3);border:1px solid var(--accent);color:var(--accent);text-decoration:none;display:inline-block;margin-left:12px;">返回教案</a>
+  </div>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ==================== GAME STATE ====================
+const STATE = {
+  lives: 3,
+  combo: 1,
+  maxCombo: 1,
+  score: 0,
+  stageScore: [0,0,0,0],
+  stageCorrect: [0,0,0,0],
+  stageTotal: [5,5,5,5],
+  stageStartTime: [0,0,0,0],
+  stageTime: [0,0,0,0],
+  currentStage: 0,
+  currentQ: [0,0,0,0],
+  timerInterval: null,
+  stageTimerStart: 0,
+  completed: false
+};
+
+function updateHUD() {
+  const livesEl = document.getElementById('hud-lives');
+  livesEl.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'life-dot' + (i >= STATE.lives ? ' lost' : '');
+    dot.style.marginRight = '4px';
+    livesEl.appendChild(dot);
+  }
+  document.getElementById('hud-combo').textContent = '×' + STATE.combo;
+  document.getElementById('hud-score').textContent = STATE.score;
+  document.getElementById('hud-stage').textContent = (STATE.currentStage + 1) + '/4';
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  return m + ':' + s;
+}
+
+function startTimer() {
+  STATE.stageTimerStart = Date.now();
+  if (STATE.timerInterval) clearInterval(STATE.timerInterval);
+  STATE.timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - STATE.stageTimerStart) / 1000);
+    document.getElementById('hud-timer').textContent = formatTime(elapsed);
+  }, 1000);
+}
+
+function stopTimer() {
+  if (STATE.timerInterval) { clearInterval(STATE.timerInterval); STATE.timerInterval = null; }
+}
+
+// ==================== STAGE SWITCHING ====================
+function switchStage(n) {
+  // Stop current timer
+  stopTimer();
+  if (STATE.currentStage >= 0 && STATE.currentStage < 4) {
+    const elapsed = Math.floor((Date.now() - STATE.stageTimerStart) / 1000);
+    STATE.stageTime[STATE.currentStage] += elapsed;
+  }
+
+  STATE.currentStage = n;
+  STATE.stageStartTime[n] = Date.now();
+
+  // Hide all panels
+  document.querySelectorAll('.stage-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('final-result').classList.remove('show');
+
+  // Show target panel
+  document.getElementById('stage' + n).classList.add('active');
+
+  // Update nav
+  document.querySelectorAll('.stage-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === n);
+  });
+
+  // Reset stage question index if starting fresh
+  if (STATE.currentQ[n] === 0 || STATE.currentQ[n] >= STAGE_DATA[n].length) {
+    STATE.currentQ[n] = 0;
+    renderStageQuestions(n);
+  }
+
+  // Hide result screen
+  document.getElementById('s'+(n+1)+'-result').classList.remove('show');
+
+  updateHUD();
+  startTimer();
+
+  // Init canvases for this stage
+  if (n === 0) { drawS1Parabola(1,0,-4); }
+  if (n === 1) { drawS2Geo(0); }
+  if (n === 2) { drawS3Delta(0); }
+  if (n === 3) { drawS4Cross(0); drawS4Vieta(0); }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ==================== FEEDBACK ====================
+function showFeedback(stageIdx, good, msg) {
+  const container = document.getElementById('s' + (stageIdx+1) + '-questions');
+  // Remove old feedback
+  const old = container.querySelector('.feedback-bar');
+  if (old) old.remove();
+
+  const fb = document.createElement('div');
+  fb.className = 'feedback-bar ' + (good ? 'good' : 'bad') + ' show';
+  fb.textContent = msg;
+  container.appendChild(fb);
+  setTimeout(() => { if (fb.parentNode) fb.remove(); }, 2500);
+}
+
+// ==================== QUESTION DATA ====================
+const STAGE_DATA = [
+  // Stage 0: Direct Square Root
+  [
+    { type:'opt', q:'方程 x² = 9 的解是？', opts:['x = 3','x = ±3','x = -3','无解'], ans:1, fb:'x²=9 有两个根：x=3 和 x=-3。开平方别忘了正负！' },
+    { type:'opt', q:'方程 (x+2)² = 0 的解是？', opts:['x = 2','x = ±2','x = -2（重根）','无解'], ans:2, fb:'(x+2)²=0 时 x+2=0，x=-2，两个相同的根称为重根。' },
+    { type:'input', q:'解方程：x² = 25，x = ?（用逗号分隔两个根）', ans:'5,-5', altAns:'-5,5', fb:'x²=25 → x=±5，即 x=5 或 x=-5。' },
+    { type:'opt', q:'方程 (x-3)² = 16 的解是？', opts:['x=7, x=-1','x=7, x=1','x=-7, x=1','x=-7, x=-1'], ans:0, fb:'(x-3)²=16 → x-3=±4 → x=7 或 x=-1。' },
+    { type:'input', q:'解方程：4x² - 9 = 0，x = ?（用逗号分隔，分数用/表示）', ans:'3/2,-3/2', altAns:'-3/2,3/2', fb:'4x²=9 → x²=9/4 → x=±3/2。' }
+  ],
+  // Stage 1: Completing the Square
+  [
+    { type:'opt', q:'配方 x² + 8x + __ = (x + __)²', opts:['4, 4','16, 4','8, 8','64, 8'], ans:1, fb:'一次项系数8的一半是4，4²=16，所以 x²+8x+16=(x+4)²。' },
+    { type:'opt', q:'用配方法解 x² - 4x = 5，配方后得到？', opts:['(x-2)² = 1','(x-2)² = 9','(x-4)² = 9','(x+2)² = 9'], ans:1, fb:'两边加4：x²-4x+4=9 → (x-2)²=9。' },
+    { type:'input', q:'用配方法解 x² + 6x + 5 = 0，配方后 (x + __)² = __', ans:'3,4', fb:'移项：x²+6x=-5；配方：x²+6x+9=4 → (x+3)²=4。' },
+    { type:'opt', q:'将 x² - 6x + 7 = 0 配方，结果正确的是？', opts:['(x-3)² = 2','(x-3)² = -2','(x+3)² = 2','(x-6)² = 29'], ans:0, fb:'x²-6x=-7 → x²-6x+9=2 → (x-3)²=2。' },
+    { type:'input', q:'配方法配方时，两边同时加的是「一次项系数__的平方」', ans:'一半', altAns:'1/2', fb:'配方口诀：一次项系数一半的平方，即 (b/2)²。' }
+  ],
+  // Stage 2: Quadratic Formula
+  [
+    { type:'opt', q:'方程 x² - 4x + 4 = 0 的判别式 Δ = ?', opts:['0','0（Δ=0，两个相等实根）','16','-16'], ans:1, fb:'Δ=(-4)²-4×1×4=16-16=0，两个相等实根。' },
+    { type:'opt', q:'方程 2x² + 3x + 5 = 0 的根的情况是？', opts:['两个不等实根','两个相等实根','无实数根','只有一个实根'], ans:2, fb:'Δ=9-40=-31<0，红色警报，无实数根。' },
+    { type:'input', q:'方程 x² - 5x + 6 = 0，用公式法求根：x₁=__, x₂=__（从小到大）', ans:'2,3', fb:'Δ=25-24=1>0，x=(5±1)/2，x₁=2，x₂=3。' },
+    { type:'opt', q:'下列方程中，有两个不等实根的是？', opts:['x²+2x+1=0','x²+x+1=0','x²-3x+2=0','x²+4x+4=0'], ans:2, fb:'x²-3x+2=0 的 Δ=9-8=1>0，绿色警报，两个不等实根。' },
+    { type:'input', q:'方程 x² + 2x + 3 = 0，判别式 Δ = __（填数字）', ans:'-8', fb:'Δ=2²-4×1×3=4-12=-8<0，红色警报。' }
+  ],
+  // Stage 3: Factorization
+  [
+    { type:'opt', q:'x² - 7x + 12 = 0 因式分解为？', opts:['(x-2)(x-6)','(x-3)(x-4)','(x-1)(x-12)','(x+3)(x+4)'], ans:1, fb:'3×4=12，3+4=7，所以 x²-7x+12=(x-3)(x-4)。' },
+    { type:'opt', q:'x² + 2x = 0 的解是？', opts:['x=-2','x₁=0, x₂=-2','x=2','无解'], ans:1, fb:'提取公因式：x(x+2)=0 → x=0 或 x=-2。' },
+    { type:'input', q:'方程 x² + 5x + 6 = 0 因式分解：(x+__)(x+__) = 0', ans:'2,3', altAns:'3,2', fb:'2×3=6，2+3=5，所以 x²+5x+6=(x+2)(x+3)。' },
+    { type:'opt', q:'方程 x² - 9 = 0 用因式分解法解，结果是？', opts:['x=3','x=±3','x=-3','x=9'], ans:1, fb:'平方差公式：x²-9=(x+3)(x-3)=0 → x=±3。' },
+    { type:'input', q:'方程 x² - 5x + 6 = 0 的两根之和为 __，两根之积为 __', ans:'5,6', fb:'韦达定理：x₁+x₂=5，x₁x₂=6。验证：根为2和3，2+3=5，2×3=6。' }
+  ]
+];
+
+// ==================== RENDER QUESTIONS ====================
+function renderStageQuestions(stageIdx) {
+  const container = document.getElementById('s' + (stageIdx+1) + '-questions');
+  container.innerHTML = '';
+
+  const questions = STAGE_DATA[stageIdx];
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    const card = document.createElement('div');
+    card.className = 'game-card';
+    card.id = 'q-card-' + stageIdx + '-' + i;
+
+    let bodyHTML = '';
+    if (q.type === 'opt') {
+      let optsHTML = '';
+      for (let j = 0; j < q.opts.length; j++) {
+        optsHTML += `<button class="opt-btn" onclick="checkOpt(${stageIdx},${i},${j})">${['A','B','C','D'][j]}. ${q.opts[j]}</button>`;
+      }
+      bodyHTML = `
+        <div class="game-card-header">
+          <span class="gc-title">▌ 题目 ${i+1}</span>
+          <span class="gc-counter">${i+1} / ${questions.length}</span>
+        </div>
+        <div class="game-card-body">
+          <div class="question-text">${q.q}</div>
+          <div class="opts-grid">${optsHTML}</div>
+        </div>`;
+    } else if (q.type === 'input') {
+      bodyHTML = `
+        <div class="game-card-header">
+          <span class="gc-title">▌ 题目 ${i+1}</span>
+          <span class="gc-counter">${i+1} / ${questions.length}</span>
+        </div>
+        <div class="game-card-body">
+          <div class="question-text">${q.q}</div>
+          <div class="answer-input-wrap">
+            <input type="text" class="answer-input" id="inp-${stageIdx}-${i}" placeholder="输入答案..." onkeydown="if(event.key==='Enter')checkInput(${stageIdx},${i})">
+            <button class="submit-btn" onclick="checkInput(${stageIdx},${i})">提交</button>
+          </div>
+        </div>`;
+    }
+
+    card.innerHTML = bodyHTML;
+    container.appendChild(card);
+  }
+}
+
+// ==================== CHECK ANSWERS ====================
+function checkOpt(stageIdx, qIdx, optIdx) {
+  const card = document.getElementById('q-card-' + stageIdx + '-' + qIdx);
+  if (card.classList.contains('answered')) return;
+  card.classList.add('answered');
+
+  const q = STAGE_DATA[stageIdx][qIdx];
+  const isCorrect = optIdx === q.ans;
+  const opts = card.querySelectorAll('.opt-btn');
+
+  opts.forEach((btn, i) => {
+    btn.classList.add('disabled');
+    if (i === optIdx) {
+      btn.classList.add(isCorrect ? 'correct' : 'wrong');
+    }
+    if (i === q.ans && !isCorrect) {
+      btn.classList.add('correct');
+    }
+  });
+
+  processAnswer(stageIdx, qIdx, isCorrect, q.fb);
+}
+
+function checkInput(stageIdx, qIdx) {
+  const card = document.getElementById('q-card-' + stageIdx + '-' + qIdx);
+  if (card.classList.contains('answered')) return;
+
+  const inp = document.getElementById('inp-' + stageIdx + '-' + qIdx);
+  const val = inp.value.trim().replace(/[，\s]+/g, ',').replace(/[（(]/g, '').replace(/[）)]/g, '');
+  const q = STAGE_DATA[stageIdx][qIdx];
+
+  let isCorrect = val === q.ans;
+  if (!isCorrect && q.altAns) {
+    isCorrect = val === q.altAns;
+  }
+
+  card.classList.add('answered');
+  inp.disabled = true;
+  const btn = card.querySelector('.submit-btn');
+  if (btn) btn.disabled = true;
+
+  const fbDiv = document.createElement('div');
+  fbDiv.className = 'feedback-bar ' + (isCorrect ? 'good' : 'bad') + ' show';
+  fbDiv.textContent = (isCorrect ? '✓ ' : '✗ 正确答案：' + q.ans + ' · ') + q.fb;
+  card.querySelector('.game-card-body').appendChild(fbDiv);
+
+  processAnswer(stageIdx, qIdx, isCorrect, q.fb);
+}
+
+function processAnswer(stageIdx, qIdx, isCorrect, fbMsg) {
+  if (isCorrect) {
+    STATE.combo++;
+    if (STATE.combo > STATE.maxCombo) STATE.maxCombo = STATE.combo;
+    const pts = 100 * STATE.combo;
+    STATE.score += pts;
+    STATE.stageScore[stageIdx] += pts;
+    STATE.stageCorrect[stageIdx]++;
+    showFeedback(stageIdx, true, '正确！ +' + pts + '分 · 连击 ×' + STATE.combo);
+  } else {
+    STATE.combo = 1;
+    STATE.lives--;
+    showFeedback(stageIdx, false, '错误！生命值 -1 · ' + fbMsg);
+    if (STATE.lives <= 0) {
+      showFeedback(stageIdx, false, '生命值归零！请重新挑战。');
+      setTimeout(() => { resetGame(); }, 1500);
+      return;
+    }
+  }
+
+  updateHUD();
+  STATE.currentQ[stageIdx]++;
+
+  // Check if stage complete
+  if (STATE.currentQ[stageIdx] >= STAGE_DATA[stageIdx].length) {
+    stopTimer();
+    const elapsed = Math.floor((Date.now() - STATE.stageStartTime[stageIdx]) / 1000);
+    STATE.stageTime[stageIdx] += elapsed;
+    showStageResult(stageIdx);
+  }
+}
+
+// ==================== STAGE RESULT ====================
+function showStageResult(stageIdx) {
+  const correct = STATE.stageCorrect[stageIdx];
+  const total = STAGE_DATA[stageIdx].length;
+  const score = STATE.stageScore[stageIdx];
+  const time = STATE.stageTime[stageIdx];
+
+  let grade = 'C';
+  if (correct === total && time < 120) grade = 'S';
+  else if (correct === total && time < 180) grade = 'A';
+  else if (correct >= total - 1) grade = 'B';
+
+  const gradeEl = document.getElementById('s'+(stageIdx+1)+'-grade');
+  gradeEl.textContent = grade;
+  gradeEl.className = 'result-grade ' + grade;
+
+  const msgs = {
+    S: '完美执行！战术素养 MAX，QUAD 精锐认证。',
+    A: '优秀表现！只有一处微小偏差，继续保持。',
+    B: '合格通过！还有提升空间，建议复盘错题。',
+    C: '勉强过关。请回顾教案重点，强化基础。'
+  };
+  document.getElementById('s'+(stageIdx+1)+'-msg').textContent = msgs[grade];
+  document.getElementById('s'+(stageIdx+1)+'-stat-score').textContent = score;
+  document.getElementById('s'+(stageIdx+1)+'-stat-time').textContent = time + 's';
+  document.getElementById('s'+(stageIdx+1)+'-stat-correct').textContent = correct + '/' + total;
+
+  document.getElementById('s'+(stageIdx+1)+'-result').classList.add('show');
+
+  // Hide questions
+  document.getElementById('s'+(stageIdx+1)+'-questions').style.display = 'none';
+}
+
+// ==================== FINAL RESULT ====================
+function showFinalResult() {
+  const totalCorrect = STATE.stageCorrect.reduce((a,b)=>a+b,0);
+  const totalScore = STATE.score;
+  const totalTime = STATE.stageTime.reduce((a,b)=>a+b,0);
+  const totalQ = STAGE_DATA.reduce((a,s)=>a+s.length,0);
+
+  let grade = 'C';
+  if (totalCorrect === totalQ && totalTime < 300) grade = 'S';
+  else if (totalCorrect === totalQ && totalTime < 480) grade = 'A';
+  else if (totalCorrect >= totalQ - 2) grade = 'B';
+
+  const gradeEl = document.getElementById('final-grade');
+  gradeEl.textContent = grade;
+  gradeEl.className = 'result-grade ' + grade;
+
+  const msgs = {
+    S: '全体任务完美执行！QUAD 王牌攻坚队认证通过。',
+    A: '全队表现优异，战术执行精准，准予结业。',
+    B: '任务完成，部分区域需要加强，建议复习。',
+    C: '任务勉强完成。建议重新阅读教案并再次挑战。'
+  };
+  document.getElementById('final-msg').textContent = msgs[grade];
+  document.getElementById('final-score').textContent = totalScore;
+  document.getElementById('final-time').textContent = totalTime + 's';
+  document.getElementById('final-correct').textContent = totalCorrect + '/' + totalQ;
+  document.getElementById('final-maxcombo').textContent = '×' + STATE.maxCombo;
+
+  document.getElementById('final-result').classList.add('show');
+  STATE.completed = true;
+
+  // Scroll to final
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function resetGame() {
+  STATE.lives = 3;
+  STATE.combo = 1;
+  STATE.maxCombo = 1;
+  STATE.score = 0;
+  STATE.stageScore = [0,0,0,0];
+  STATE.stageCorrect = [0,0,0,0];
+  STATE.stageTime = [0,0,0,0];
+  STATE.currentQ = [0,0,0,0];
+  STATE.completed = false;
+
+  document.querySelectorAll('.stage-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('final-result').classList.remove('show');
+  document.querySelectorAll('[id^=s][id$=-result]').forEach(r => r.classList.remove('show'));
+  document.querySelectorAll('[id^=s][id$=-questions]').forEach(q => q.style.display = 'block');
+
+  switchStage(0);
+}
+
+// ==================== CANVAS: S1 PARABOLA ====================
+function drawS1Parabola(a, b, c) {
+  const canvas = document.getElementById('c-s1-parabola');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,245,212,0.08)'; ctx.lineWidth = 1;
+  for (let i=0;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+  for (let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+
+  const ox=W/2, oy=H/2+30, scale=35;
+  ctx.strokeStyle='rgba(138,154,176,0.4)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(W,oy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ox,0);ctx.lineTo(ox,H);ctx.stroke();
+
+  // Determine discriminant color
+  const delta = b*b - 4*a*c;
+  let curveColor = '#00f5d4';
+  if (delta > 0) curveColor = 'var(--green)';
+  else if (delta === 0) curveColor = 'var(--yellow)';
+  else curveColor = 'var(--red)';
+  // Use hex for canvas
+  if (delta > 0) curveColor = '#00ff88';
+  else if (delta === 0) curveColor = '#ffcc00';
+  else curveColor = '#ff3366';
+
+  // Parabola
+  ctx.strokeStyle = curveColor; ctx.lineWidth = 3;
+  ctx.shadowColor = curveColor; ctx.shadowBlur = 15;
+  ctx.beginPath();
+  for (let px=0; px<W; px++) {
+    const x=(px-ox)/scale;
+    const y=a*x*x+b*x+c;
+    const py=oy-y*scale;
+    if (px===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  }
+  ctx.stroke(); ctx.shadowBlur = 0;
+
+  // X-intercepts (roots)
+  if (delta >= 0) {
+    const r1=(-b+Math.sqrt(delta))/(2*a);
+    const r2=(-b-Math.sqrt(delta))/(2*a);
+    const roots = delta===0 ? [r1] : [r1,r2];
+    roots.forEach((r,i)=>{
+      if (Math.abs(r)<10) {
+        const rx=ox+r*scale;
+        ctx.fillStyle = delta===0 ? '#ffcc00' : '#00ff88';
+        ctx.beginPath(); ctx.arc(rx,oy,7,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#e0e6f0'; ctx.font='12px "Share Tech Mono"';
+        ctx.fillText('('+r.toFixed(2)+',0)', rx-25, oy+22);
+      }
+    });
+  } else {
+    // No real roots indicator
+    ctx.fillStyle = '#ff3366'; ctx.font = '16px "Orbitron"';
+    ctx.fillText('Δ < 0 · 无实数根 · 抛物线不与 x 轴相交', W/2-180, oy-40);
+  }
+
+  // Delta label
+  ctx.fillStyle = curveColor; ctx.font = '14px "Orbitron"';
+  const eq = (a===1?'':'')+'x²'+(b>0?'+':'')+(b===0?'':b)+'x'+(c>0?'+':'')+(c===0?'':c);
+  ctx.fillText('y = '+eq, 16, 26);
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('Δ = '+delta, 16, 46);
+
+  // Update buttons
+  const cases = [[1,0,-4],[1,-6,9],[1,0,4]];
+  document.querySelectorAll('#stage0 .canvas-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', a===cases[i][0] && b===cases[i][1] && c===cases[i][2]);
+  });
+}
+
+// ==================== CANVAS: S2 GEOMETRY ====================
+let s2GeoCases = [
+  {b:6, c:-7, label:'x²+6x=7 → (x+3)²=16'},
+  {b:4, c:-5, label:'x²+4x=5 → (x+2)²=9'},
+  {b:2, c:-3, label:'x²+2x=3 → (x+1)²=4'}
+];
+function drawS2Geo(idx) {
+  const canvas = document.getElementById('c-s2-geo');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const g = s2GeoCases[idx];
+  const scale = 32;
+  const offX = 70, offY = H - 55;
+  const halfB = g.b / 2;
+  const bigSize = scale + halfB;
+
+  // Draw x² square (blue)
+  ctx.fillStyle = 'rgba(0,245,212,0.22)'; ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.fillRect(offX, offY - scale, scale, scale);
+  ctx.strokeRect(offX, offY - scale, scale, scale);
+  ctx.fillStyle = '#00f5d4'; ctx.font = '14px "Share Tech Mono"';
+  ctx.fillText('x²', offX + scale/2 - 12, offY - scale/2 + 5);
+
+  // Rectangle 1: width=scale, height=halfB (orange)
+  ctx.fillStyle = 'rgba(255,136,68,0.22)'; ctx.strokeStyle = '#ff8844';
+  ctx.fillRect(offX + scale, offY - halfB, scale, halfB);
+  ctx.strokeRect(offX + scale, offY - halfB, scale, halfB);
+  ctx.fillStyle = '#ff8844'; ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText((halfB===1?'':halfB)+'x', offX + scale + scale/2 - 14, offY - halfB/2 + 4);
+
+  // Rectangle 2: width=halfB, height=scale (orange)
+  ctx.fillStyle = 'rgba(255,136,68,0.22)'; ctx.strokeStyle = '#ff8844';
+  ctx.fillRect(offX, offY - scale - halfB, halfB, scale);
+  ctx.strokeRect(offX, offY - scale - halfB, halfB, scale);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText((halfB===1?'':halfB)+'x', offX + halfB/2 - 14, offY - scale - halfB/2 + 4);
+
+  // Missing piece (green)
+  ctx.fillStyle = 'rgba(0,255,136,0.28)'; ctx.strokeStyle = '#00ff88';
+  ctx.fillRect(offX + scale, offY - scale - halfB, halfB, halfB);
+  ctx.strokeRect(offX + scale, offY - scale - halfB, halfB, halfB);
+  ctx.fillStyle = '#00ff88'; ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('+'+(halfB*halfB), offX + scale + halfB/2 - 14, offY - scale - halfB/2 + 4);
+
+  // Big square outline (dashed)
+  ctx.strokeStyle = 'rgba(0,245,212,0.4)'; ctx.setLineDash([5,5]); ctx.lineWidth = 2;
+  ctx.strokeRect(offX, offY - bigSize, bigSize, bigSize); ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = 'rgba(224,230,240,0.6)'; ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('边长: x+'+halfB, offX, 34);
+  ctx.fillText(g.label, offX, 54);
+
+  // Legend
+  ctx.fillStyle = '#00f5d4'; ctx.fillText('■ x² 正方形', 340, 110);
+  ctx.fillStyle = '#ff8844'; ctx.fillText('■ '+g.b+'x 拆成两个矩形', 340, 135);
+  ctx.fillStyle = '#00ff88'; ctx.fillText('■ 配方补上的小正方形 ('+(halfB*halfB)+')', 340, 160);
+
+  // Animate glow on the green piece
+  const t = Date.now() / 800;
+  const glow = 0.3 + 0.15 * Math.sin(t);
+  ctx.fillStyle = 'rgba(0,255,136,'+glow+')';
+  ctx.fillRect(offX + scale, offY - scale - halfB, halfB, halfB);
+
+  document.querySelectorAll('#stage1 .canvas-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', i===idx);
+  });
+}
+
+// ==================== CANVAS: S3 DELTA ====================
+let s3DeltaCases = [
+  {a:1, b:-3, c:2, color:'#00ff88', label:'Δ>0: 两个不等实根', roots:[1,2]},
+  {a:1, b:-4, c:4, color:'#ffcc00', label:'Δ=0: 两个相等实根', roots:[2]},
+  {a:1, b:2, c:5, color:'#ff3366', label:'Δ<0: 无实数根', roots:[]}
+];
+function drawS3Delta(idx) {
+  const canvas = document.getElementById('c-s3-delta');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const g = s3DeltaCases[idx];
+  ctx.clearRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(0,245,212,0.06)';ctx.lineWidth=1;
+  for(let i=0;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+  for(let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+
+  const ox=W/2, oy=H/2+30, a=g.a, b=g.b, c=g.c, scale=35;
+
+  // Axes
+  ctx.strokeStyle='rgba(138,154,176,0.3)';ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(W,oy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ox,0);ctx.lineTo(ox,H);ctx.stroke();
+
+  // Parabola
+  ctx.strokeStyle=g.color;ctx.lineWidth=3;ctx.shadowColor=g.color;ctx.shadowBlur=18;
+  ctx.beginPath();
+  for(let px=0;px<W;px++){
+    const x=(px-ox)/scale;
+    const y=a*x*x+b*x+c;
+    const py=oy-y*scale;
+    if(px===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  ctx.stroke();ctx.shadowBlur=0;
+
+  // X-intercepts
+  g.roots.forEach((r,i)=>{
+    const rx=ox+r*scale;
+    ctx.fillStyle=g.color;
+    ctx.beginPath();ctx.arc(rx,oy,8,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#e0e6f0';ctx.font='13px "Share Tech Mono"';
+    if (g.roots.length===1) ctx.fillText('切点('+r+',0)', rx-30, oy+24);
+    else ctx.fillText('('+r+',0)', rx-18, oy+24);
+  });
+
+  if (g.roots.length === 0) {
+    // Dashed x-axis to show no intersection
+    ctx.strokeStyle='rgba(255,51,102,0.3)';ctx.setLineDash([6,6]);ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(40,oy);ctx.lineTo(W-40,oy);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#ff3366';ctx.font='16px "Orbitron"';
+    ctx.fillText('抛物线不与 x 轴相交', W/2-100, oy-50);
+  }
+
+  // Labels
+  ctx.fillStyle=g.color;ctx.font='16px "Orbitron"';
+  ctx.fillText(g.label, 16, 30);
+  const delta=b*b-4*a*c;
+  ctx.font='13px "Share Tech Mono"';
+  ctx.fillText('Δ = '+b+'² - 4×'+a+'×'+c+' = '+(b*b)+' - '+(4*a*c)+' = '+delta, 16, 52);
+
+  document.querySelectorAll('#stage2 .canvas-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', i===idx);
+  });
+}
+
+// ==================== CANVAS: S4 CROSS ====================
+let s4CrossCases = [
+  {p:2, q:3, b:5, c:6},
+  {p:-2, q:-3, b:-5, c:6},
+  {p:-2, q:3, b:1, c:-6}
+];
+function drawS4Cross(idx) {
+  const canvas = document.getElementById('c-s4-cross');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const g = s4CrossCases[idx];
+  const cx=W/2, cy=H/2-10;
+
+  // Draw cross lines
+  ctx.strokeStyle='rgba(0,245,212,0.5)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(cx-70,cy-50);ctx.lineTo(cx+70,cy+50);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+70,cy-50);ctx.lineTo(cx-70,cy+50);ctx.stroke();
+
+  // Vertical center line
+  ctx.strokeStyle='rgba(138,154,176,0.3)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx,cy-65);ctx.lineTo(cx,cy+65);ctx.stroke();
+  // Horizontal center line
+  ctx.beginPath();ctx.moveTo(cx-80,cy);ctx.lineTo(cx+80,cy);ctx.stroke();
+
+  // Numbers
+  ctx.font='bold 20px "Share Tech Mono"';ctx.fillStyle='#00f5d4';
+  ctx.fillText('1', cx-60, cy-30);
+  ctx.fillText(''+g.p, cx+45, cy-30);
+  ctx.fillText('1', cx-60, cy+45);
+  ctx.fillText(''+g.q, cx+45, cy+45);
+
+  // Verification
+  ctx.font='13px "Share Tech Mono"';ctx.fillStyle='#00ff88';
+  const crossSum = 1*g.q + 1*g.p;
+  ctx.fillText('1×'+g.q+' + 1×'+g.p+' = '+crossSum+' ✓', cx-110, cy-80);
+  ctx.fillText(''+g.p+'×'+g.q+' = '+(g.p*g.q)+' ✓', cx+15, cy+75);
+
+  // Result
+  ctx.font='15px "Orbitron"';ctx.fillStyle='#00f5d4';
+  const sign1=g.p>0?'+':''; const sign2=g.q>0?'+':'';
+  ctx.fillText('x²'+sign1+g.b+'x'+sign2+g.c, cx-80, cy+115);
+  ctx.fillText('= (x'+sign1+g.p+')(x'+sign2+g.q+')', cx-80, cy+138);
+
+  // Highlight boxes
+  ctx.strokeStyle='rgba(0,245,212,0.2)';ctx.lineWidth=1;
+  ctx.strokeRect(cx-72,cy-48,44,32); ctx.strokeRect(cx+38,cy-48,44,32);
+  ctx.strokeRect(cx-72,cy+20,44,32); ctx.strokeRect(cx+38,cy+20,44,32);
+
+  document.querySelectorAll('#cross-controls .canvas-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', i===idx);
+  });
+}
+
+// ==================== CANVAS: S4 VIETA ====================
+let s4VietaCases = [
+  {a:1, b:-5, c:6, r1:2, r2:3},
+  {a:1, b:3, c:-10, r1:-5, r2:2},
+  {a:1, b:-4, c:4, r1:2, r2:2}
+];
+function drawS4Vieta(idx) {
+  const canvas = document.getElementById('c-s4-vieta');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const g = s4VietaCases[idx];
+  const ox=W/2, oy=H/2+25, scale=48;
+
+  // Axes
+  ctx.strokeStyle='rgba(138,154,176,0.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(W,oy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ox,0);ctx.lineTo(ox,H);ctx.stroke();
+
+  // Number line
+  ctx.strokeStyle='rgba(0,245,212,0.25)';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(50,oy);ctx.lineTo(W-50,oy);ctx.stroke();
+
+  // Ticks
+  for(let i=-5;i<=5;i++){
+    const tx=ox+i*scale;
+    ctx.strokeStyle='rgba(138,154,176,0.4)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(tx,oy-7);ctx.lineTo(tx,oy+7);ctx.stroke();
+    ctx.fillStyle='rgba(138,154,176,0.6)';ctx.font='12px "Share Tech Mono"';
+    ctx.fillText(''+i, tx-5, oy+24);
+  }
+
+  // Zero mark highlight
+  ctx.fillStyle='rgba(0,245,212,0.15)';
+  ctx.beginPath();ctx.arc(ox,oy,14,0,Math.PI*2);ctx.fill();
+
+  // Roots
+  const roots = g.r1===g.r2 ? [g.r1] : [g.r1, g.r2];
+  roots.forEach((r,i)=>{
+    const rx=ox+r*scale;
+    ctx.fillStyle = i===0 ? '#00ff88' : '#ffcc00';
+    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(rx, oy, 9, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#e0e6f0'; ctx.font = '14px "Share Tech Mono"';
+    ctx.fillText('x'+(i+1)+'='+r, rx-20, oy-20);
+  });
+
+  // Connection arc for sum
+  if (roots.length === 2) {
+    ctx.strokeStyle='rgba(0,245,212,0.2)';ctx.setLineDash([4,4]);ctx.lineWidth=1.5;
+    const r1x=ox+g.r1*scale, r2x=ox+g.r2*scale;
+    const arcY=oy-50;
+    ctx.beginPath();
+    ctx.moveTo(r1x, oy-12);
+    ctx.quadraticCurveTo((r1x+r2x)/2, arcY-20, r2x, oy-12);
+    ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.fillStyle='#00f5d4';ctx.font='13px "Orbitron"';
+    ctx.fillText('和 = '+(g.r1+g.r2)+' = -b/a', (r1x+r2x)/2-40, arcY-28);
+  }
+
+  // Product annotation
+  ctx.fillStyle='#cc66ff';ctx.font='13px "Orbitron"';
+  ctx.fillText('积 = '+(g.r1*g.r2)+' = c/a', 20, 30);
+
+  // Formula
+  ctx.fillStyle='#00f5d4';ctx.font='14px "Orbitron"';
+  ctx.fillText('x₁ + x₂ = '+(g.r1+g.r2)+' = '+(-g.b/g.a), 20, 54);
+  ctx.fillText('x₁ · x₂ = '+(g.r1*g.r2)+' = '+(g.c/g.a), 20, 78);
+
+  document.querySelectorAll('#vieta-controls .canvas-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', i===idx);
+  });
+}
+
+// ==================== INIT ====================
+window.onload = function() {
+  updateHUD();
+  renderStageQuestions(0);
+  renderStageQuestions(1);
+  renderStageQuestions(2);
+  renderStageQuestions(3);
+  startTimer();
+  drawS1Parabola(1,0,-4);
+};
+</script>
+</body>
+</html>
