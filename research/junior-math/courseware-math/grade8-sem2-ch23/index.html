@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：LINEAR | 函数信号塔</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f;
+  --bg2: #0a0e18;
+  --bg3: #101520;
+  --accent: #00f5d4;
+  --accent2: #00d4b8;
+  --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0e6f0;
+  --text2: #8a9ab0;
+  --text3: #4a5a70;
+  --border: rgba(0,245,212,0.2);
+  --glass: rgba(10,14,24,0.85);
+  --glass-border: rgba(0,245,212,0.12);
+  --green: #00ff88;
+  --yellow: #ffcc00;
+  --red: #ff3366;
+  --orange: #ff8844;
+  --purple: #cc66ff;
+  --blue: #4488ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-x: hidden;
+  position: relative;
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px;
+  pointer-events: none; z-index: 1;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2;
+  animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute;
+  width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+.container { max-width: 1000px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* ===== HUD BAR ===== */
+.game-hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
+  z-index: 200;
+  padding: 10px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.hud-left { display: flex; align-items: center; gap: 20px; }
+.hud-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--accent);
+  letter-spacing: 2px;
+}
+.hud-lives { display: flex; gap: 4px; }
+.heart { font-size: 18px; transition: all 0.3s; }
+.heart.alive { opacity: 1; text-shadow: 0 0 8px rgba(255,51,102,0.5); }
+.heart.lost { opacity: 0.2; filter: grayscale(1); }
+.hud-combo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px; color: var(--yellow);
+  letter-spacing: 1px;
+}
+.hud-combo.active { animation: comboPulse 0.6s ease; }
+@keyframes comboPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+.hud-right { display: flex; align-items: center; gap: 20px; }
+.hud-timer {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--text);
+  letter-spacing: 2px;
+  min-width: 70px; text-align: right;
+}
+.hud-timer.warning { color: var(--red); animation: timerBlink 1s infinite; }
+@keyframes timerBlink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+.hud-stage {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--text3);
+  letter-spacing: 1px;
+}
+.hud-score {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--green);
+  letter-spacing: 1px;
+}
+
+/* ===== TITLE SCREEN ===== */
+.title-screen {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 100px 24px 40px;
+}
+.title-badge {
+  display: inline-block; border: 1px solid var(--accent);
+  padding: 4px 20px; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; letter-spacing: 5px; color: var(--accent);
+  margin-bottom: 24px; text-transform: uppercase;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+@keyframes badgePulse { 0%,100%{box-shadow:0 0 8px rgba(0,245,212,0.2);} 50%{box-shadow:0 0 20px rgba(0,245,212,0.4);} }
+.title-screen h1 {
+  font-family: 'Orbitron', sans-serif; font-size: 52px;
+  font-weight: 900; color: var(--accent); letter-spacing: 3px;
+  text-shadow: 0 0 40px rgba(0,245,212,0.4);
+  margin-bottom: 12px;
+}
+.title-sub { font-size: 16px; color: var(--text2); letter-spacing: 4px; margin-bottom: 8px; }
+.title-desc { font-size: 14px; color: var(--text3); max-width: 600px; margin: 20px auto; }
+.title-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 24px auto; }
+.start-btn {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 16px 48px; border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); text-decoration: none;
+  font-family: 'Orbitron', sans-serif; font-size: 16px; letter-spacing: 2px;
+  background: transparent; cursor: pointer; transition: all 0.3s;
+  margin-top: 20px;
+}
+.start-btn:hover {
+  background: var(--accent); color: var(--bg);
+  box-shadow: 0 0 30px rgba(0,245,212,0.4);
+}
+.stage-preview {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 16px; max-width: 800px; margin: 32px auto;
+}
+.stage-card {
+  border: 1px solid var(--glass-border); border-radius: 8px;
+  background: var(--bg2); padding: 16px; text-align: left;
+  transition: all 0.3s;
+}
+.stage-card:hover { border-color: var(--border); transform: translateY(-2px); }
+.stage-card .st-num { font-family: 'Orbitron'; font-size: 28px; color: var(--accent); opacity: 0.3; }
+.stage-card .st-name { font-size: 13px; color: var(--text); margin-top: 4px; }
+.stage-card .st-topics { font-size: 11px; color: var(--text3); margin-top: 6px; line-height: 1.6; }
+
+/* ===== GAME SCREEN ===== */
+.game-screen { display: none; padding: 80px 24px 40px; min-height: 100vh; }
+.game-stage-header {
+  text-align: center; padding: 20px 0 24px;
+}
+.game-stage-header .st-badge {
+  display: inline-block; border: 1px solid var(--accent);
+  padding: 3px 14px; font-family: 'Orbitron'; font-size: 11px;
+  letter-spacing: 3px; color: var(--accent); margin-bottom: 12px;
+}
+.game-stage-header h2 {
+  font-family: 'Orbitron', sans-serif; font-size: 28px;
+  color: var(--accent); letter-spacing: 2px; margin-bottom: 8px;
+}
+.game-stage-header .st-sub { font-size: 14px; color: var(--text2); }
+
+.question-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px);
+  overflow: hidden; margin-bottom: 24px;
+}
+.question-card::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.q-progress {
+  padding: 12px 24px; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; gap: 12px;
+}
+.q-progress-bar {
+  flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden;
+}
+.q-progress-fill {
+  height: 100%; background: var(--accent); border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.q-progress-text { font-family: 'Orbitron'; font-size: 12px; color: var(--text3); }
+
+.q-body { padding: 24px 28px 20px; }
+.q-text { font-size: 16px; color: var(--text); margin-bottom: 16px; line-height: 1.8; }
+.q-text .math { color: var(--accent); font-size: 17px; }
+
+/* Canvas area in question */
+.q-canvas-wrap {
+  background: var(--bg2); border: 1px solid var(--glass-border);
+  border-radius: 8px; padding: 16px; margin: 16px 0; text-align: center;
+}
+.q-canvas-wrap h4 {
+  font-family: 'Orbitron'; font-size: 11px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.q-canvas-wrap canvas {
+  background: var(--bg); border-radius: 6px;
+  border: 1px solid var(--glass-border); max-width: 100%;
+}
+.q-canvas-controls {
+  display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap;
+}
+.q-canvas-btn {
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text2); padding: 5px 12px; border-radius: 4px;
+  font-family: 'Share Tech Mono'; font-size: 11px; cursor: pointer;
+  transition: all 0.2s;
+}
+.q-canvas-btn:hover, .q-canvas-btn.active {
+  border-color: var(--accent); color: var(--accent);
+  box-shadow: 0 0 8px rgba(0,245,212,0.2);
+}
+.q-slider-wrap {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+  margin-top: 8px; flex-wrap: wrap;
+}
+.q-slider-wrap label { color: var(--text3); font-size: 11px; }
+input[type="range"] {
+  -webkit-appearance: none; width: 120px; height: 4px;
+  background: var(--bg3); border-radius: 2px; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--accent); cursor: pointer;
+  box-shadow: 0 0 8px rgba(0,245,212,0.4);
+}
+.slider-val { color: var(--accent); font-family: 'Orbitron'; font-size: 12px; min-width: 28px; }
+
+.q-options { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.q-opt {
+  padding: 14px 18px; border: 1px solid var(--glass-border);
+  border-radius: 8px; cursor: pointer; transition: all 0.25s;
+  font-size: 15px; display: flex; align-items: center; gap: 10px;
+}
+.q-opt:hover { border-color: var(--border); background: var(--bg3); }
+.q-opt .opt-letter {
+  font-family: 'Orbitron'; font-size: 13px; color: var(--accent);
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--border); display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.q-opt:hover .opt-letter { border-color: var(--accent); background: var(--accent-dim); }
+.q-opt.correct { border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green); }
+.q-opt.correct .opt-letter { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.15); }
+.q-opt.wrong { border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red); }
+.q-opt.wrong .opt-letter { border-color: var(--red); color: var(--red); background: rgba(255,51,102,0.15); }
+.q-opt.disabled { pointer-events: none; opacity: 0.7; }
+
+.q-feedback {
+  margin-top: 16px; padding: 14px 18px;
+  border-radius: 8px; border-left: 3px solid;
+  font-size: 14px; display: none; animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+.q-feedback.correct-fb {
+  background: rgba(0,255,136,0.06); border-color: var(--green); color: var(--green);
+}
+.q-feedback.wrong-fb {
+  background: rgba(255,51,102,0.06); border-color: var(--red); color: var(--red);
+}
+.q-feedback .fb-title { font-family: 'Orbitron'; font-size: 12px; letter-spacing: 1px; margin-bottom: 6px; }
+.q-feedback .fb-text { color: var(--text2); font-size: 13px; line-height: 1.7; }
+
+.next-btn {
+  display: none; margin: 20px auto 0;
+  padding: 12px 36px; border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); background: transparent; cursor: pointer;
+  font-family: 'Orbitron'; font-size: 14px; letter-spacing: 2px;
+  transition: all 0.3s;
+}
+.next-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* ===== RESULT SCREEN ===== */
+.result-screen { display: none; padding: 100px 24px 40px; min-height: 100vh; }
+.result-box {
+  max-width: 600px; margin: 0 auto;
+  border: 1px solid var(--glass-border); border-radius: 16px;
+  background: var(--glass); backdrop-filter: blur(16px);
+  padding: 40px 36px; text-align: center;
+  overflow: hidden; position: relative;
+}
+.result-box::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height: 3px;
+  background: linear-gradient(90deg, var(--green), var(--accent), var(--yellow), var(--red));
+}
+.result-grade {
+  font-family: 'Orbitron', sans-serif; font-size: 72px; font-weight: 900;
+  color: var(--accent); text-shadow: 0 0 40px rgba(0,245,212,0.4);
+  margin: 16px 0; letter-spacing: 4px;
+}
+.result-title { font-family: 'Orbitron'; font-size: 18px; color: var(--text2); letter-spacing: 2px; }
+.result-stats {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 16px; margin: 28px 0;
+}
+.stat-item { padding: 16px; background: var(--bg2); border-radius: 8px; }
+.stat-label { font-size: 11px; color: var(--text3); letter-spacing: 1px; margin-bottom: 6px; }
+.stat-value { font-family: 'Orbitron'; font-size: 22px; color: var(--accent); }
+.result-actions { display: flex; gap: 16px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+.result-btn {
+  padding: 12px 28px; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text2); background: var(--bg3); cursor: pointer;
+  font-family: 'Orbitron'; font-size: 13px; letter-spacing: 1px;
+  transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+}
+.result-btn:hover { border-color: var(--accent); color: var(--accent); }
+.result-btn.primary { border-color: var(--accent); color: var(--accent); }
+.result-btn.primary:hover { background: var(--accent); color: var(--bg); }
+
+/* ===== CHAPTER PANEL ===== */
+.chapter-panel {
+  position: fixed; top: 56px; right: 16px;
+  width: 220px; background: var(--glass); backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border); border-radius: 10px;
+  padding: 16px; z-index: 190; display: none;
+  animation: panelIn 0.3s ease;
+}
+@keyframes panelIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
+.chapter-panel h4 {
+  font-family: 'Orbitron'; font-size: 12px; color: var(--accent);
+  letter-spacing: 2px; margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.chapter-item {
+  padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; color: var(--text2); transition: all 0.2s;
+  display: flex; align-items: center; gap: 10px; margin-bottom: 4px;
+}
+.chapter-item:hover { background: var(--bg3); color: var(--text); }
+.chapter-item .ch-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--text3);
+  transition: all 0.2s;
+}
+.chapter-item.active { color: var(--accent); }
+.chapter-item.active .ch-dot { background: var(--accent); box-shadow: 0 0 8px rgba(0,245,212,0.4); }
+.chapter-item.locked { opacity: 0.4; cursor: not-allowed; }
+.chapter-item.locked:hover { background: transparent; }
+.ch-panel-toggle {
+  position: fixed; top: 56px; right: 16px;
+  width: 40px; height: 40px; border-radius: 8px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--accent); cursor: pointer; z-index: 195;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron'; font-size: 16px; transition: all 0.2s;
+}
+.ch-panel-toggle:hover { border-color: var(--accent); box-shadow: 0 0 12px rgba(0,245,212,0.2); }
+
+/* ===== FEEDBACK OVERLAY ===== */
+.feedback-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6,8,15,0.6); backdrop-filter: blur(4px);
+  pointer-events: none; opacity: 0; transition: opacity 0.3s;
+}
+.feedback-overlay.show { opacity: 1; }
+.feedback-bubble {
+  padding: 16px 32px; border-radius: 10px;
+  font-family: 'Orbitron'; font-size: 20px; letter-spacing: 2px;
+  transform: scale(0.5); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.feedback-overlay.show .feedback-bubble { transform: scale(1); }
+.feedback-bubble.perfect {
+  border: 2px solid var(--green); color: var(--green);
+  background: rgba(0,255,136,0.08); box-shadow: 0 0 30px rgba(0,255,136,0.2);
+}
+.feedback-bubble.good {
+  border: 2px solid var(--yellow); color: var(--yellow);
+  background: rgba(255,204,0,0.08); box-shadow: 0 0 30px rgba(255,204,0,0.2);
+}
+.feedback-bubble.miss {
+  border: 2px solid var(--red); color: var(--red);
+  background: rgba(255,51,102,0.08); box-shadow: 0 0 30px rgba(255,51,102,0.2);
+}
+
+/* ===== STAGE TRANSITION ===== */
+.stage-transition {
+  position: fixed; inset: 0; z-index: 250;
+  background: var(--bg); display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+}
+.stage-transition.show { display: flex; }
+.st-tr-num {
+  font-family: 'Orbitron'; font-size: 80px; font-weight: 900;
+  color: var(--accent); opacity: 0.15;
+}
+.st-tr-title {
+  font-family: 'Orbitron'; font-size: 28px; color: var(--accent);
+  letter-spacing: 3px; margin-top: -20px;
+}
+.st-tr-sub { font-size: 14px; color: var(--text2); margin-top: 12px; }
+
+@media (max-width: 768px) {
+  .title-screen h1 { font-size: 32px; }
+  .stage-preview { grid-template-columns: repeat(2, 1fr); }
+  .game-stage-header h2 { font-size: 22px; }
+  .result-stats { grid-template-columns: 1fr; }
+  .result-grade { font-size: 48px; }
+  .chapter-panel { width: calc(100% - 32px); right: 16px; }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<!-- ===== FEEDBACK OVERLAY ===== -->
+<div class="feedback-overlay" id="feedbackOverlay">
+  <div class="feedback-bubble" id="feedbackBubble">PERFECT</div>
+</div>
+
+<!-- ===== STAGE TRANSITION ===== -->
+<div class="stage-transition" id="stageTransition">
+  <div class="st-tr-num" id="stTrNum">01</div>
+  <div class="st-tr-title" id="stTrTitle">函数的概念</div>
+  <div class="st-tr-sub" id="stTrSub">判断 · 求值 · 定义域</div>
+</div>
+
+<!-- ===== GAME HUD ===== -->
+<div class="game-hud" id="gameHud" style="display:none;">
+  <div class="hud-left">
+    <div class="hud-title">LINEAR</div>
+    <div class="hud-lives" id="hudLives">
+      <span class="heart alive" id="heart1">❤️</span>
+      <span class="heart alive" id="heart2">❤️</span>
+      <span class="heart alive" id="heart3">❤️</span>
+    </div>
+    <div class="hud-combo" id="hudCombo">COMBO: 0</div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-stage" id="hudStage">STAGE 1/4</div>
+    <div class="hud-score" id="hudScore">0</div>
+    <div class="hud-timer" id="hudTimer">00:00</div>
+  </div>
+</div>
+
+<!-- ===== CHAPTER PANEL ===== -->
+<button class="ch-panel-toggle" id="chPanelToggle" onclick="toggleChapterPanel()" style="display:none;">☰</button>
+<div class="chapter-panel" id="chapterPanel">
+  <h4>章节选择</h4>
+  <div class="chapter-item active" onclick="jumpToStage(0)">
+    <div class="ch-dot"></div>Stage 1 · 函数概念
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(1)">
+    <div class="ch-dot"></div>Stage 2 · 正比例函数
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(2)">
+    <div class="ch-dot"></div>Stage 3 · 一次函数性质
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(3)">
+    <div class="ch-dot"></div>Stage 4 · 实际应用
+  </div>
+</div>
+
+<!-- ===== TITLE SCREEN ===== -->
+<div class="title-screen" id="titleScreen">
+  <div class="title-badge">函数信号塔 · 代号 LINEAR</div>
+  <h1>函数信号塔</h1>
+  <div class="title-sub">第23章 · 一次函数 · 战术考核</div>
+  <div class="title-line"></div>
+  <div class="title-desc">
+    4个Stage · 20道题目 · 限时挑战<br>
+    判断函数关系、分析图像特征、求解坐标交点、建立实际模型<br>
+    在坐标系中捕捉一次函数的每一条线索
+  </div>
+  <div class="stage-preview">
+    <div class="stage-card">
+      <div class="st-num">01</div>
+      <div class="st-name">函数概念</div>
+      <div class="st-topics">判断函数关系<br>求函数值<br>确定自变量范围</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">02</div>
+      <div class="st-name">正比例函数</div>
+      <div class="st-topics">识别 y=kx<br>根据图像求k<br>判断象限</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">03</div>
+      <div class="st-name">一次函数性质</div>
+      <div class="st-topics">增减性与象限<br>坐标轴交点<br>k与b的影响</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">04</div>
+      <div class="st-name">实际应用</div>
+      <div class="st-topics">路程-时间建模<br>费用-数量图像<br>图像法解方程</div>
+    </div>
+  </div>
+  <button class="start-btn" onclick="startGame()">▶ 启动考核</button>
+</div>
+
+<!-- ===== GAME SCREEN ===== -->
+<div class="game-screen" id="gameScreen">
+  <div class="container">
+    <div class="game-stage-header" id="gameStageHeader">
+      <div class="st-badge" id="stageBadge">STAGE 01</div>
+      <h2 id="stageTitle">函数的概念</h2>
+      <div class="st-sub" id="stageSub">变量 · 常量 · 函数关系</div>
+    </div>
+    <div id="questionContainer"></div>
+  </div>
+</div>
+
+<!-- ===== RESULT SCREEN ===== -->
+<div class="result-screen" id="resultScreen">
+  <div class="container">
+    <div class="result-box">
+      <div class="result-title">考核报告</div>
+      <div class="result-grade" id="resultGrade">S</div>
+      <div class="result-stats">
+        <div class="stat-item">
+          <div class="stat-label">总分</div>
+          <div class="stat-value" id="statScore">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">正确率</div>
+          <div class="stat-value" id="statAccuracy">0%</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">最高连击</div>
+          <div class="stat-value" id="statMaxCombo">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">用时</div>
+          <div class="stat-value" id="statTime">00:00</div>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="result-btn" onclick="restartGame()">↻ 重新考核</button>
+        <button class="result-btn primary" onclick="backToTitle()">🏠 返回主页</button>
+        <a href="tutorial.html" class="result-btn">📖 复习教案</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GAME STATE
+// ============================================================
+let gameState = {
+  currentStage: 0,
+  currentQuestion: 0,
+  lives: 3,
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  correctCount: 0,
+  totalQuestions: 0,
+  startTime: 0,
+  timerInterval: null,
+  answered: false,
+  stageCompleted: [false, false, false, false],
+  canvasCache: {}
+};
+
+// ============================================================
+// STAGES DATA (20 questions, 5 per stage)
+// ============================================================
+const STAGES = [
+  {
+    id: 0, name: "函数概念", sub: "变量 · 常量 · 函数关系",
+    questions: [
+      {
+        id: "s1q1", text: "在 s = 60t（路程=速度×时间）中，常量是？",
+        options: [
+          { letter: "A", text: "s 和 t", correct: false },
+          { letter: "B", text: "60", correct: true },
+          { letter: "C", text: "s", correct: false },
+          { letter: "D", text: "没有常量", correct: false }
+        ],
+        explanation: "速度 60 是固定不变的常量，s 和 t 是变量。",
+        hasCanvas: false
+      },
+      {
+        id: "s1q2", text: "下列哪个<b>不是</b>函数关系？",
+        options: [
+          { letter: "A", text: "y = 3x - 1", correct: false },
+          { letter: "B", text: "y = |x|", correct: false },
+          { letter: "C", text: "x² + y² = 4", correct: true },
+          { letter: "D", text: "y = √x", correct: false }
+        ],
+        explanation: "x² + y² = 4 是圆的方程，同一个 x 对应两个 y 值（上半圆和下半圆），不满足唯一性。",
+        hasCanvas: true, canvasType: "function_check", canvasData: {}
+      },
+      {
+        id: "s1q3", text: "函数 y = √(2x-6) 的自变量取值范围是？",
+        options: [
+          { letter: "A", text: "x > 3", correct: false },
+          { letter: "B", text: "x ≥ 3", correct: true },
+          { letter: "C", text: "x < 3", correct: false },
+          { letter: "D", text: "x ≤ 3", correct: false }
+        ],
+        explanation: "根号内要求 2x - 6 ≥ 0，即 x ≥ 3。",
+        hasCanvas: false
+      },
+      {
+        id: "s1q4", text: "已知 f(x) = 2x² - 3x + 1，求 f(2) 的值。",
+        options: [
+          { letter: "A", text: "1", correct: false },
+          { letter: "B", text: "3", correct: true },
+          { letter: "C", text: "5", correct: false },
+          { letter: "D", text: "-1", correct: false }
+        ],
+        explanation: "f(2) = 2×(2)² - 3×2 + 1 = 8 - 6 + 1 = 3。",
+        hasCanvas: false
+      },
+      {
+        id: "s1q5", text: "函数 y = 1/(x-2) + √(x+1) 的自变量取值范围是？",
+        options: [
+          { letter: "A", text: "x ≥ -1", correct: false },
+          { letter: "B", text: "x > 2", correct: false },
+          { letter: "C", text: "x ≥ -1 且 x ≠ 2", correct: true },
+          { letter: "D", text: "x > -1", correct: false }
+        ],
+        explanation: "分式要求 x ≠ 2；根式要求 x ≥ -1。综合得 x ≥ -1 且 x ≠ 2。",
+        hasCanvas: false
+      }
+    ]
+  },
+  {
+    id: 1, name: "正比例函数", sub: "y = kx · 斜率 · 象限",
+    questions: [
+      {
+        id: "s2q1", text: "下列函数中，是正比例函数的是？",
+        options: [
+          { letter: "A", text: "y = 2x + 1", correct: false },
+          { letter: "B", text: "y = x²", correct: false },
+          { letter: "C", text: "y = -3x", correct: true },
+          { letter: "D", text: "y = 1/x", correct: false }
+        ],
+        explanation: "正比例函数形如 y = kx（k≠0），只有 C 符合。",
+        hasCanvas: false
+      },
+      {
+        id: "s2q2", text: "正比例函数 y = -5x 的图像经过哪些象限？",
+        options: [
+          { letter: "A", text: "一、三", correct: false },
+          { letter: "B", text: "二、四", correct: true },
+          { letter: "C", text: "一、二", correct: false },
+          { letter: "D", text: "三、四", correct: false }
+        ],
+        explanation: "k = -5 < 0，图像经过第二、四象限。",
+        hasCanvas: true, canvasType: "proportional_quad", canvasData: { k: -5 }
+      },
+      {
+        id: "s2q3", text: "正比例函数 y = kx 的图像上有一点 P(4, -12)，则 k = ?",
+        options: [
+          { letter: "A", text: "3", correct: false },
+          { letter: "B", text: "-3", correct: true },
+          { letter: "C", text: "1/3", correct: false },
+          { letter: "D", text: "-1/3", correct: false }
+        ],
+        explanation: "代入得 -12 = 4k → k = -3。",
+        hasCanvas: true, canvasType: "find_k", canvasData: { x: 4, y: -12 }
+      },
+      {
+        id: "s2q4", text: "若 y = (m-2)x 是正比例函数且 y 随 x 增大而增大，则 m 的取值范围是？",
+        options: [
+          { letter: "A", text: "m < 2", correct: false },
+          { letter: "B", text: "m > 2", correct: true },
+          { letter: "C", text: "m = 2", correct: false },
+          { letter: "D", text: "m ≠ 2", correct: false }
+        ],
+        explanation: "y 随 x 增大而增大 → k = m-2 > 0 → m > 2。",
+        hasCanvas: false
+      },
+      {
+        id: "s2q5", text: "正比例函数 y = kx 经过第二、四象限，判断点 (k, k-1) 在第几象限？",
+        options: [
+          { letter: "A", text: "第一象限", correct: false },
+          { letter: "B", text: "第二象限", correct: false },
+          { letter: "C", text: "第三象限", correct: true },
+          { letter: "D", text: "第四象限", correct: false }
+        ],
+        explanation: "过二、四象限 → k < 0。点 (k, k-1) 横纵坐标均为负 → 第三象限。",
+        hasCanvas: true, canvasType: "point_quadrant", canvasData: { k: -1 }
+      }
+    ]
+  },
+  {
+    id: 2, name: "一次函数性质", sub: "y = kx+b · 增减 · 象限 · 交点",
+    questions: [
+      {
+        id: "s3q1", text: "一次函数 y = -3x + 6 与 x 轴的交点是？",
+        options: [
+          { letter: "A", text: "(0, 6)", correct: false },
+          { letter: "B", text: "(2, 0)", correct: true },
+          { letter: "C", text: "(6, 0)", correct: false },
+          { letter: "D", text: "(-2, 0)", correct: false }
+        ],
+        explanation: "令 y = 0：-3x + 6 = 0 → x = 2，交点为 (2, 0)。",
+        hasCanvas: true, canvasType: "intersection", canvasData: { k: -3, b: 6 }
+      },
+      {
+        id: "s3q2", text: "直线 y = kx + b 经过第一、二、四象限，则 k 和 b 的符号是？",
+        options: [
+          { letter: "A", text: "k > 0, b > 0", correct: false },
+          { letter: "B", text: "k < 0, b > 0", correct: true },
+          { letter: "C", text: "k > 0, b < 0", correct: false },
+          { letter: "D", text: "k < 0, b < 0", correct: false }
+        ],
+        explanation: "k < 0 直线下降，b > 0 与 y 轴交于正半轴，图像过一、二、四象限。",
+        hasCanvas: true, canvasType: "quadrant_kb", canvasData: { k: -1, b: 2 }
+      },
+      {
+        id: "s3q3", text: "函数 y = -0.5x + 4 中，当 x₁ < x₂ 时，y₁ 与 y₂ 的大小关系是？",
+        options: [
+          { letter: "A", text: "y₁ < y₂", correct: false },
+          { letter: "B", text: "y₁ > y₂", correct: true },
+          { letter: "C", text: "y₁ = y₂", correct: false },
+          { letter: "D", text: "不确定", correct: false }
+        ],
+        explanation: "k = -0.5 < 0，函数递减。x₁ < x₂ → y₁ > y₂。",
+        hasCanvas: false
+      },
+      {
+        id: "s3q4", text: "一次函数 y = (2m-1)x + m + 2，若函数值 y 随 x 增大而增大，求 m 的范围。",
+        options: [
+          { letter: "A", text: "m > 1/2", correct: true },
+          { letter: "B", text: "m < 1/2", correct: false },
+          { letter: "C", text: "m > -2", correct: false },
+          { letter: "D", text: "m < -2", correct: false }
+        ],
+        explanation: "y 随 x 增大而增大 → 斜率 k = 2m - 1 > 0 → m > 1/2。",
+        hasCanvas: true, canvasType: "slope_animation", canvasData: { k: 1 }
+      },
+      {
+        id: "s3q5", text: "过点 (2, 3) 且与直线 y = -2x + 1 垂直的直线方程是？",
+        options: [
+          { letter: "A", text: "y = 2x - 1", correct: false },
+          { letter: "B", text: "y = (1/2)x + 2", correct: true },
+          { letter: "C", text: "y = -2x + 7", correct: false },
+          { letter: "D", text: "y = -(1/2)x + 4", correct: false }
+        ],
+        explanation: "垂直条件 k₁×k₂ = -1 → k₂ = 1/2。过 (2,3)：3 = (1/2)×2 + b → b = 2。∴ y = (1/2)x + 2。",
+        hasCanvas: true, canvasType: "perpendicular", canvasData: { k1: -2, b1: 1, k2: 0.5, b2: 2 }
+      }
+    ]
+  },
+  {
+    id: 3, name: "实际应用", sub: "建模 · 图像法解方程",
+    questions: [
+      {
+        id: "s4q1", text: "某出租车起步价 10 元（含 3km），超出部分每千米 2 元。写出费用 y 与里程 x（x≥3）的函数关系。",
+        options: [
+          { letter: "A", text: "y = 2x", correct: false },
+          { letter: "B", text: "y = 2x + 4", correct: true },
+          { letter: "C", text: "y = 2x + 10", correct: false },
+          { letter: "D", text: "y = 2x - 6", correct: false }
+        ],
+        explanation: "y = 10 + 2(x-3) = 2x + 4（x ≥ 3）。起步价10元 + 超出部分2(x-3)。",
+        hasCanvas: true, canvasType: "taxi_cost", canvasData: { base: 10, rate: 2, threshold: 3 }
+      },
+      {
+        id: "s4q2", text: "用图像法解方程 3x - 6 = 0，直线 y = 3x - 6 与 x 轴交于 (2, 0)，则方程的解是？",
+        options: [
+          { letter: "A", text: "x = -6", correct: false },
+          { letter: "B", text: "x = -3", correct: false },
+          { letter: "C", text: "x = 2", correct: true },
+          { letter: "D", text: "x = 6", correct: false }
+        ],
+        explanation: "方程的解就是直线与 x 轴交点的横坐标 x = 2。",
+        hasCanvas: true, canvasType: "solve_by_graph", canvasData: { k: 3, b: -6 }
+      },
+      {
+        id: "s4q3", text: "不等式 -x + 4 > 0 的解集对应图像中的哪部分？",
+        options: [
+          { letter: "A", text: "直线在 x 轴上方的部分", correct: true },
+          { letter: "B", text: "直线在 x 轴下方的部分", correct: false },
+          { letter: "C", text: "直线与 x 轴交点的右侧", correct: false },
+          { letter: "D", text: "整个图像", correct: false }
+        ],
+        explanation: "-x + 4 > 0 即 y > 0，对应直线在 x 轴上方（y 值为正）的部分。",
+        hasCanvas: true, canvasType: "inequality_region", canvasData: { k: -1, b: 4 }
+      },
+      {
+        id: "s4q4", text: "甲馆 y₁ = 20x，乙馆 y₂ = 10x + 60。两家费用相同时，x = ?",
+        options: [
+          { letter: "A", text: "3", correct: false },
+          { letter: "B", text: "4", correct: false },
+          { letter: "C", text: "5", correct: false },
+          { letter: "D", text: "6", correct: true }
+        ],
+        explanation: "令 20x = 10x + 60 → 10x = 60 → x = 6。交点 (6, 120) 为最优决策分界点。",
+        hasCanvas: true, canvasType: "compare_lines", canvasData: { k1: 20, b1: 0, k2: 10, b2: 60 }
+      },
+      {
+        id: "s4q5", text: "小明步行速度 60 米/分钟，先走了 100 米后开始计时，t 分钟后路程 s 的函数关系是？",
+        options: [
+          { letter: "A", text: "s = 60t", correct: false },
+          { letter: "B", text: "s = 60t + 100", correct: true },
+          { letter: "C", text: "s = 60(t + 100)", correct: false },
+          { letter: "D", text: "s = 100t + 60", correct: false }
+        ],
+        explanation: "初始路程 100 米 + 速度×时间 = 60t + 100，是一次函数（b=100≠0，不是正比例）。",
+        hasCanvas: true, canvasType: "distance_time", canvasData: { v: 60, s0: 100 }
+      }
+    ]
+  }
+];
+
+// ============================================================
+// CANVAS DRAWING UTILITIES (from tutorial.html)
+// ============================================================
+function drawGridAxes(ctx, W, H, scale, ox, oy) {
+  ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i += scale) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += scale) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(138,154,176,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
+  ctx.fillStyle = 'rgba(138,154,176,0.5)';
+  ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox-4, 10); ctx.lineTo(ox+4, 10); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(W, oy); ctx.lineTo(W-10, oy-4); ctx.lineTo(W-10, oy+4); ctx.fill();
+  ctx.fillStyle = 'rgba(138,154,176,0.7)';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('O', ox + 5, oy + 16);
+  ctx.fillText('x', W - 18, oy - 8);
+  ctx.fillText('y', ox + 8, 16);
+  ctx.fillStyle = 'rgba(138,154,176,0.4)';
+  ctx.font = '10px "Share Tech Mono"';
+  const maxX = Math.ceil((W - ox) / scale);
+  const minX = Math.ceil(-ox / scale);
+  for (let i = minX; i <= maxX; i++) {
+    if (i === 0) continue;
+    const tx = ox + i * scale;
+    if (tx > 0 && tx < W) ctx.fillText('' + i, tx - 4, oy + 16);
+  }
+  const maxY = Math.ceil(oy / scale);
+  const minY = Math.ceil(-(H - oy) / scale);
+  for (let i = minY; i <= maxY; i++) {
+    if (i === 0) continue;
+    const ty = oy - i * scale;
+    if (ty > 0 && ty < H) ctx.fillText('' + i, ox - 20, ty + 4);
+  }
+}
+
+function drawAnimatedLine(ctx, x1, y1, x2, y2, color, width) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x1, y1, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x2, y2, 4, 0, Math.PI * 2); ctx.fill();
+}
+
+function lineColor(k) {
+  return k >= 0 ? '#00ff88' : '#ff3366';
+}
+
+function drawLineFunction(ctx, W, H, k, b, scale, ox, oy, label) {
+  ctx.clearRect(0, 0, W, H);
+  drawGridAxes(ctx, W, H, scale, ox, oy);
+  const color = lineColor(k);
+  const pts = [];
+  for (let x = -6; x <= 6; x += 0.1) {
+    const y = k * x + b;
+    pts.push({ x: ox + x * scale, y: oy - y * scale });
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.shadowColor = color; ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  if (b !== 0 || (b === 0 && Math.abs(k) > 0.01)) {
+    const iy = oy - b * scale;
+    if (iy > 0 && iy < H) {
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath(); ctx.arc(ox, iy, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.fillText('(0, ' + (Math.abs(b) < 0.01 ? '0' : b.toFixed ? b.toFixed(1) : b) + ')', ox + 10, iy - 8);
+    }
+  }
+  if (Math.abs(k) > 0.01) {
+    const xi = -b / k;
+    const ix = ox + xi * scale;
+    if (ix > 0 && ix < W) {
+      ctx.fillStyle = '#cc66ff';
+      ctx.beginPath(); ctx.arc(ix, oy, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.fillText('(' + (Math.abs(xi) < 0.01 ? '0' : xi.toFixed(1)) + ', 0)', ix + 10, oy - 8);
+    }
+  }
+  if (label) {
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText(label, 20, 30);
+  }
+  ctx.fillStyle = color;
+  ctx.font = '16px "Orbitron"';
+  let expr = 'y = ';
+  if (Math.abs(k - 1) < 0.01) expr += 'x';
+  else if (Math.abs(k + 1) < 0.01) expr += '-x';
+  else expr += k + 'x';
+  if (b > 0) expr += ' + ' + b;
+  else if (b < 0) expr += ' - ' + Math.abs(b);
+  ctx.fillText(expr, 20, 54);
+  if (k > 0) {
+    ctx.fillStyle = '#00ff88'; ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('k > 0：递增（上升）', 20, 76);
+  } else if (k < 0) {
+    ctx.fillStyle = '#ff3366'; ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('k < 0：递减（下降）', 20, 76);
+  }
+}
+
+// ============================================================
+// CANVAS RENDERERS FOR EACH TYPE
+// ============================================================
+const CANVAS_RENDERERS = {
+  function_check: (canvasId) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    const scale = 45, ox = W / 2, oy = H / 2 + 10;
+    drawGridAxes(ctx, W, H, scale, ox, oy);
+    // Draw a circle (NOT a function)
+    ctx.strokeStyle = '#ff3366';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([6, 4]);
+    ctx.shadowColor = 'rgba(255,51,102,0.3)'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(ox, oy, 60, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ff3366';
+    ctx.font = '13px "Share Tech Mono"';
+    ctx.fillText('x² + y² = 4', ox + 70, oy - 50);
+    ctx.fillText('同一个 x → 两个 y', ox + 70, oy - 34);
+    // Draw a vertical test line
+    ctx.strokeStyle = 'rgba(255,204,0,0.5)';
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ox + 40, oy - 80); ctx.lineTo(ox + 40, oy + 80); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('垂直检验：相交2次', ox + 48, oy + 90);
+    // Label
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('垂直线检验法', 20, 30);
+    ctx.fillStyle = '#ff3366';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('不是函数！', 20, 52);
+  },
+
+  proportional_quad: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const k = data.k || -5;
+    drawLineFunction(ctx, W, H, k, 0, 40, W / 2, H / 2 + 20, '正比例函数图像');
+    // Quadrant labels
+    const qLabels = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'];
+    const qColors = ['rgba(0,255,136,0.06)', 'rgba(255,204,0,0.06)', 'rgba(255,51,102,0.06)', 'rgba(204,102,255,0.06)'];
+    for (let q = 0; q < 4; q++) {
+      let rx, ry, rw, rh;
+      const ox = W / 2, oy = H / 2 + 20;
+      if (q === 0) { rx = ox; ry = 0; rw = W - ox; rh = oy; }
+      else if (q === 1) { rx = 0; ry = 0; rw = ox; rh = oy; }
+      else if (q === 2) { rx = 0; ry = oy; rw = ox; rh = H - oy; }
+      else { rx = ox; ry = oy; rw = W - ox; rh = H - oy; }
+      ctx.fillStyle = qColors[q]; ctx.fillRect(rx, ry, rw, rh);
+      ctx.fillStyle = 'rgba(138,154,176,0.25)';
+      ctx.font = 'bold 20px "Orbitron"';
+      ctx.fillText(qLabels[q], rx + rw / 2 - 10, ry + rh / 2 + 6);
+    }
+    // Highlight passed quadrants
+    ctx.fillStyle = k >= 0 ? '#00ff88' : '#ff3366';
+    ctx.font = '12px "Share Tech Mono"';
+    const passed = k >= 0 ? '经过：第一、第三象限' : '经过：第二、第四象限';
+    ctx.fillText(passed, 20, 96);
+  },
+
+  find_k: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const x = data.x || 4, y = data.y || -12;
+    const k = y / x;
+    drawLineFunction(ctx, W, H, k, 0, 40, W / 2, H / 2 + 20, '根据点求 k 值');
+    const ox = W / 2, oy = H / 2 + 20;
+    const px = ox + x * 40, py = oy - y * 40;
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 12px "Share Tech Mono"';
+    ctx.fillText('P(' + x + ', ' + y + ')', px + 10, py - 10);
+    // Show calculation
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '13px "Share Tech Mono"';
+    ctx.fillText('k = y/x = ' + y + '/' + x + ' = ' + k, 20, 96);
+  },
+
+  point_quadrant: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const k = data.k || -1;
+    const scale = 40, ox = W / 2, oy = H / 2 + 20;
+    drawGridAxes(ctx, W, H, scale, ox, oy);
+    // Draw quadrants with colors
+    const qColors = ['rgba(0,255,136,0.08)', 'rgba(255,204,0,0.08)', 'rgba(255,51,102,0.08)', 'rgba(204,102,255,0.08)'];
+    const qLabels = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'];
+    for (let q = 0; q < 4; q++) {
+      let rx, ry, rw, rh;
+      if (q === 0) { rx = ox; ry = 0; rw = W - ox; rh = oy; }
+      else if (q === 1) { rx = 0; ry = 0; rw = ox; rh = oy; }
+      else if (q === 2) { rx = 0; ry = oy; rw = ox; rh = H - oy; }
+      else { rx = ox; ry = oy; rw = W - ox; rh = H - oy; }
+      ctx.fillStyle = qColors[q]; ctx.fillRect(rx, ry, rw, rh);
+      ctx.fillStyle = 'rgba(138,154,176,0.3)';
+      ctx.font = 'bold 22px "Orbitron"';
+      ctx.fillText(qLabels[q], rx + rw / 2 - 12, ry + rh / 2 + 8);
+    }
+    // Draw the proportional line
+    const color = lineColor(k);
+    const x1 = -4, y1 = k * x1;
+    const x2 = 4, y2 = k * x2;
+    const px1 = ox + x1 * scale, py1 = oy - y1 * scale;
+    const px2 = ox + x2 * scale, py2 = oy - y2 * scale;
+    drawAnimatedLine(ctx, px1, py1, px2, py2, color, 2.5);
+    // Draw point (k, k-1)
+    const pk = ox + k * scale, pky = oy - (k - 1) * scale;
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(pk, pky, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 12px "Share Tech Mono"';
+    ctx.fillText('(' + k + ', ' + (k-1) + ')', pk + 10, pky - 10);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('过二、四象限 → k < 0', 20, 30);
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('k < 0, k-1 < 0 → 横负纵负 → 第三象限', 20, 52);
+  },
+
+  intersection: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const k = data.k, b = data.b;
+    drawLineFunction(ctx, W, H, k, b, 40, W / 2, H / 2 + 20, '与坐标轴的交点');
+  },
+
+  quadrant_kb: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const k = data.k, b = data.b;
+    const scale = 40, ox = W / 2, oy = H / 2 + 20;
+    // Draw colored quadrants
+    const qColors = ['rgba(0,255,136,0.08)', 'rgba(255,204,0,0.08)', 'rgba(255,51,102,0.08)', 'rgba(204,102,255,0.08)'];
+    const qLabels = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'];
+    for (let q = 0; q < 4; q++) {
+      let rx, ry, rw, rh;
+      if (q === 0) { rx = ox; ry = 0; rw = W - ox; rh = oy; }
+      else if (q === 1) { rx = 0; ry = 0; rw = ox; rh = oy; }
+      else if (q === 2) { rx = 0; ry = oy; rw = ox; rh = H - oy; }
+      else { rx = ox; ry = oy; rw = W - ox; rh = H - oy; }
+      ctx.fillStyle = qColors[q]; ctx.fillRect(rx, ry, rw, rh);
+      ctx.fillStyle = 'rgba(138,154,176,0.3)';
+      ctx.font = 'bold 22px "Orbitron"';
+      ctx.fillText(qLabels[q], rx + rw / 2 - 12, ry + rh / 2 + 8);
+    }
+    drawGridAxes(ctx, W, H, scale, ox, oy);
+    const color = lineColor(k);
+    const pts = [];
+    for (let x = -5; x <= 5; x += 0.1) {
+      const y = k * x + b;
+      pts.push({ x: ox + x * scale, y: oy - y * scale });
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = color; ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('k < 0, b > 0 → 一、二、四象限', 20, 30);
+    ctx.fillStyle = color;
+    ctx.font = '13px "Share Tech Mono"';
+    let expr = 'y = ' + k + 'x + ' + b;
+    ctx.fillText(expr, 20, 54);
+  },
+
+  slope_animation: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    // Draw a family of lines showing increasing slope
+    const scale = 40, ox = W / 2, oy = H / 2 + 20;
+    drawGridAxes(ctx, W, H, scale, ox, oy);
+    const slopes = [0.5, 1, 1.5, 2, 2.5];
+    slopes.forEach((sk, i) => {
+      const alpha = 0.3 + i * 0.15;
+      const color = 'rgba(0,255,136,' + alpha + ')';
+      const pts = [];
+      for (let x = -5; x <= 5; x += 0.1) {
+        const y = sk * x + 2;
+        pts.push({ x: ox + x * scale, y: oy - y * scale });
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y);
+      ctx.stroke();
+    });
+    // Highlight the steepest
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 10;
+    const pts2 = [];
+    for (let x = -5; x <= 5; x += 0.1) {
+      const y = 2.5 * x + 2;
+      pts2.push({ x: ox + x * scale, y: oy - y * scale });
+    }
+    ctx.beginPath();
+    ctx.moveTo(pts2[0].x, pts2[0].y);
+    for (let j = 1; j < pts2.length; j++) ctx.lineTo(pts2[j].x, pts2[j].y);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('斜率越大，直线越陡', 20, 30);
+    ctx.fillStyle = '#00ff88';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('k 增大 → 倾斜加剧 → y 随 x 增大更快', 20, 54);
+  },
+
+  perpendicular: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const scale = 40, ox = W / 2, oy = H / 2 + 20;
+    drawGridAxes(ctx, W, H, scale, ox, oy);
+    const k1 = data.k1, b1 = data.b1;
+    const k2 = data.k2, b2 = data.b2;
+    [ { k: k1, b: b1, color: '#00ff88' }, { k: k2, b: b2, color: '#ff3366' } ].forEach(line => {
+      const pts = [];
+      for (let x = -5; x <= 5; x += 0.1) {
+        const y = line.k * x + line.b;
+        pts.push({ x: ox + x * scale, y: oy - y * scale });
+      }
+      ctx.strokeStyle = line.color;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = line.color; ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    });
+    const ix = (b2 - b1) / (k1 - k2);
+    const iy = k1 * ix + b1;
+    const px = ox + ix * scale, py = oy - iy * scale;
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px - 8, py - 8, 12, 12);
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 13px "Orbitron"';
+    ctx.fillText('⊥', px + 10, py - 10);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('垂直条件：k₁ × k₂ = -1', 20, 30);
+    ctx.fillStyle = '#00ff88';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('y = ' + k1 + 'x + ' + b1, 20, 54);
+    ctx.fillStyle = '#ff3366';
+    ctx.fillText('y = ' + k2 + 'x + ' + b2 + '  (k₂ = ' + k2 + ')', 20, 72);
+  },
+
+  taxi_cost: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const base = data.base || 10, rate = data.rate || 2, threshold = data.threshold || 3;
+    const scaleX = 70, scaleY = 1.2;
+    const ox = 70, oy = H - 60;
+    ctx.strokeStyle = 'rgba(138,154,176,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ox, 20); ctx.lineTo(ox, oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(W - 20, oy); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,154,176,0.7)';
+    ctx.font = '13px "Share Tech Mono"';
+    ctx.fillText('里程 x (km)', W - 100, oy + 18);
+    ctx.fillText('费用 y (元)', ox - 10, 20);
+    ctx.fillStyle = 'rgba(138,154,176,0.5)';
+    ctx.font = '11px "Share Tech Mono"';
+    for (let x = 0; x <= 10; x++) {
+      const tx = ox + x * scaleX;
+      ctx.fillText('' + x, tx - 4, oy + 16);
+      ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+      ctx.beginPath(); ctx.moveTo(tx, 0); ctx.lineTo(tx, oy); ctx.stroke();
+    }
+    for (let y = 0; y <= 50; y += 10) {
+      const ty = oy - y * scaleY;
+      ctx.fillStyle = 'rgba(138,154,176,0.5)';
+      ctx.fillText('' + y, ox - 35, ty + 4);
+      ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+      ctx.beginPath(); ctx.moveTo(ox, ty); ctx.lineTo(W, ty); ctx.stroke();
+    }
+    // Draw piecewise: flat line up to threshold, then slope
+    const tPx = ox + threshold * scaleX;
+    const basePy = oy - base * scaleY;
+    ctx.strokeStyle = '#4488ff';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(ox, basePy); ctx.lineTo(tPx, basePy); ctx.stroke();
+    ctx.setLineDash([]);
+    const x2 = 8, y2 = base + rate * (x2 - threshold);
+    const px2 = ox + x2 * scaleX, py2 = oy - y2 * scaleY;
+    drawAnimatedLine(ctx, tPx, basePy, px2, py2, '#00f5d4', 3);
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(tPx, basePy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('起步价 ' + base + '元', tPx - 30, basePy - 10);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('出租车计费模型', 20, 30);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('y = ' + rate + 'x + ' + (base - rate * threshold) + ' (x ≥ ' + threshold + ')', 20, 54);
+    ctx.fillStyle = '#4488ff';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('前' + threshold + 'km：起步价' + base + '元', 20, 74);
+  },
+
+  solve_by_graph: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const k = data.k, b = data.b;
+    drawLineFunction(ctx, W, H, k, b, 45, W / 2, H / 2 + 20, '图像法解方程');
+    const ox = W / 2, oy = H / 2 + 20;
+    const xi = -b / k;
+    const ix = ox + xi * 45;
+    // Highlight the x-intercept with glow
+    ctx.fillStyle = '#cc66ff';
+    ctx.shadowColor = '#cc66ff'; ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.arc(ix, oy, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#cc66ff';
+    ctx.font = 'bold 14px "Orbitron"';
+    ctx.fillText('x = ' + xi, ix + 14, oy - 12);
+    ctx.fillStyle = '#00ff88';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('方程 ' + k + 'x + (' + b + ') = 0 的解', 20, 96);
+  },
+
+  inequality_region: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const k = data.k, b = data.b;
+    const scale = 45, ox = W / 2, oy = H / 2 + 20;
+    drawGridAxes(ctx, W, H, scale, ox, oy);
+    const color = lineColor(k);
+    const pts = [];
+    for (let x = -4; x <= 4; x += 0.1) {
+      const y = k * x + b;
+      pts.push({ x: ox + x * scale, y: oy - y * scale });
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = color; ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Fill the region above x-axis
+    ctx.fillStyle = 'rgba(0,255,136,0.08)';
+    ctx.beginPath();
+    ctx.moveTo(ox - 4 * scale, oy);
+    for (let x = -4; x <= 4; x += 0.1) {
+      const y = k * x + b;
+      ctx.lineTo(ox + x * scale, oy - y * scale);
+    }
+    ctx.lineTo(ox + 4 * scale, oy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,255,136,0.3)';
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ox - 4 * scale, oy); ctx.lineTo(ox + 4 * scale, oy); ctx.stroke();
+    ctx.setLineDash([]);
+    const xi = -b / k;
+    const ix = ox + xi * scale;
+    ctx.fillStyle = '#cc66ff';
+    ctx.beginPath(); ctx.arc(ix, oy, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#cc66ff';
+    ctx.font = 'bold 12px "Orbitron"';
+    ctx.fillText('x = ' + xi.toFixed(0), ix + 10, oy - 8);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('不等式 ' + k + 'x + ' + b + ' > 0', 20, 30);
+    ctx.fillStyle = '#00ff88';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('解集：x < ' + xi.toFixed(0) + '（绿色区域）', 20, 54);
+  },
+
+  compare_lines: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const k1 = data.k1, b1 = data.b1;
+    const k2 = data.k2, b2 = data.b2;
+    const scale = 6, ox = 70, oy = H - 60;
+    // Custom axes for cost comparison
+    ctx.strokeStyle = 'rgba(138,154,176,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ox, 20); ctx.lineTo(ox, oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(W - 20, oy); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,154,176,0.7)';
+    ctx.font = '13px "Share Tech Mono"';
+    ctx.fillText('次数 x', W - 70, oy + 18);
+    ctx.fillText('费用 y', ox - 10, 20);
+    for (let x = 0; x <= 10; x++) {
+      const tx = ox + x * scale * 5;
+      ctx.fillStyle = 'rgba(138,154,176,0.5)';
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.fillText('' + x, tx - 4, oy + 16);
+      ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+      ctx.beginPath(); ctx.moveTo(tx, 0); ctx.lineTo(tx, oy); ctx.stroke();
+    }
+    for (let y = 0; y <= 200; y += 40) {
+      const ty = oy - y * 1;
+      ctx.fillStyle = 'rgba(138,154,176,0.5)';
+      ctx.fillText('' + y, ox - 40, ty + 4);
+      ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+      ctx.beginPath(); ctx.moveTo(ox, ty); ctx.lineTo(W, ty); ctx.stroke();
+    }
+    const color1 = '#00ff88', color2 = '#ff3366';
+    // Line 1
+    const p11 = ox + 0 * scale * 5, q11 = oy - (k1 * 0 + b1) * 1;
+    const p12 = ox + 10 * scale * 5, q12 = oy - (k1 * 10 + b1) * 1;
+    drawAnimatedLine(ctx, p11, q11, p12, q12, color1, 2.5);
+    // Line 2
+    const p21 = ox + 0 * scale * 5, q21 = oy - (k2 * 0 + b2) * 1;
+    const p22 = ox + 10 * scale * 5, q22 = oy - (k2 * 10 + b2) * 1;
+    drawAnimatedLine(ctx, p21, q21, p22, q22, color2, 2.5);
+    // Intersection
+    const ix = (b2 - b1) / (k1 - k2);
+    const iy = k1 * ix + b1;
+    const ixPx = ox + ix * scale * 5, iyPy = oy - iy * 1;
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(ixPx, iyPy, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 11px "Share Tech Mono"';
+    ctx.fillText('交点(' + ix + ', ' + iy + ')', ixPx - 30, iyPy - 12);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('两方案费用对比', 20, 30);
+    ctx.fillStyle = color1;
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('甲馆: y = ' + k1 + 'x', 20, 54);
+    ctx.fillStyle = color2;
+    ctx.fillText('乙馆: y = ' + k2 + 'x + ' + b2, 20, 72);
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillText('交点 = 费用相同的次数', 20, 92);
+  },
+
+  distance_time: (canvasId, data) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const v = data.v || 60, s0 = data.s0 || 100;
+    const scaleX = 90, scaleY = 0.5;
+    const ox = 70, oy = H - 60;
+    ctx.strokeStyle = 'rgba(138,154,176,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ox, 20); ctx.lineTo(ox, oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(W - 20, oy); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,154,176,0.7)';
+    ctx.font = '13px "Share Tech Mono"';
+    ctx.fillText('t(min)', W - 60, oy + 18);
+    ctx.fillText('s(m)', ox - 10, 20);
+    ctx.fillStyle = 'rgba(138,154,176,0.5)';
+    ctx.font = '11px "Share Tech Mono"';
+    for (let t = 0; t <= 5; t++) {
+      const tx = ox + t * scaleX;
+      ctx.fillText('' + t, tx - 4, oy + 16);
+      ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+      ctx.beginPath(); ctx.moveTo(tx, 0); ctx.lineTo(tx, oy); ctx.stroke();
+    }
+    for (let s = 0; s <= 400; s += 100) {
+      const sy = oy - s * scaleY;
+      ctx.fillStyle = 'rgba(138,154,176,0.5)';
+      ctx.fillText('' + s, ox - 40, sy + 4);
+      ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+      ctx.beginPath(); ctx.moveTo(ox, sy); ctx.lineTo(W, sy); ctx.stroke();
+    }
+    const color = lineColor(v);
+    const t1 = 0, s1 = s0;
+    const t2 = 5, s2 = s0 + v * 5;
+    const px1 = ox + t1 * scaleX, py1 = oy - s1 * scaleY;
+    const px2 = ox + t2 * scaleX, py2 = oy - s2 * scaleY;
+    drawAnimatedLine(ctx, px1, py1, px2, py2, color, 3);
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(px1, py1, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('(0, ' + s1 + ') 起点', px1 + 8, py1 - 6);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '14px "Orbitron"';
+    ctx.fillText('路程-时间图像', 20, 30);
+    ctx.fillStyle = color;
+    ctx.font = '13px "Share Tech Mono"';
+    ctx.fillText('s = ' + v + 't + ' + s0, 20, 54);
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('初始位置 ' + s0 + 'm + 速度 ' + v + 'm/min', 20, 74);
+  }
+};
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function startGame() {
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'flex';
+  document.getElementById('chPanelToggle').style.display = 'flex';
+  document.getElementById('gameScreen').style.display = 'block';
+  gameState.currentStage = 0;
+  gameState.currentQuestion = 0;
+  gameState.lives = 3;
+  gameState.score = 0;
+  gameState.combo = 0;
+  gameState.maxCombo = 0;
+  gameState.correctCount = 0;
+  gameState.totalQuestions = 0;
+  gameState.answered = false;
+  gameState.stageCompleted = [false, false, false, false];
+  updateLivesDisplay();
+  updateComboDisplay();
+  updateScoreDisplay();
+  gameState.startTime = Date.now();
+  if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+  gameState.timerInterval = setInterval(updateTimer, 1000);
+  showStageTransition(0, () => loadQuestion(0, 0));
+}
+
+function showStageTransition(stageIdx, callback) {
+  const tr = document.getElementById('stageTransition');
+  const num = document.getElementById('stTrNum');
+  const title = document.getElementById('stTrTitle');
+  const sub = document.getElementById('stTrSub');
+  const stage = STAGES[stageIdx];
+  num.textContent = '0' + (stageIdx + 1);
+  title.textContent = stage.name;
+  sub.textContent = stage.sub;
+  tr.classList.add('show');
+  setTimeout(() => {
+    tr.classList.remove('show');
+    if (callback) callback();
+  }, 1800);
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  const timer = document.getElementById('hudTimer');
+  timer.textContent = mins + ':' + secs;
+  if (elapsed > 180) timer.classList.add('warning');
+}
+
+function updateLivesDisplay() {
+  for (let i = 1; i <= 3; i++) {
+    const heart = document.getElementById('heart' + i);
+    if (i <= gameState.lives) {
+      heart.className = 'heart alive';
+    } else {
+      heart.className = 'heart lost';
+    }
+  }
+}
+
+function updateComboDisplay() {
+  const comboEl = document.getElementById('hudCombo');
+  comboEl.textContent = 'COMBO: ' + gameState.combo;
+  if (gameState.combo >= 3) {
+    comboEl.classList.add('active');
+    setTimeout(() => comboEl.classList.remove('active'), 600);
+  }
+}
+
+function updateScoreDisplay() {
+  document.getElementById('hudScore').textContent = gameState.score;
+  document.getElementById('hudStage').textContent = 'STAGE ' + (gameState.currentStage + 1) + '/4';
+}
+
+function loadQuestion(stageIdx, qIdx) {
+  gameState.currentStage = stageIdx;
+  gameState.currentQuestion = qIdx;
+  gameState.answered = false;
+  updateScoreDisplay();
+  const stage = STAGES[stageIdx];
+  const q = stage.questions[qIdx];
+  const container = document.getElementById('questionContainer');
+  
+  // Update stage header
+  document.getElementById('stageBadge').textContent = 'STAGE 0' + (stageIdx + 1);
+  document.getElementById('stageTitle').textContent = stage.name;
+  document.getElementById('stageSub').textContent = stage.sub;
+  
+  // Build question HTML
+  let html = '<div class="question-card">';
+  html += '<div class="q-progress">';
+  html += '<div class="q-progress-bar"><div class="q-progress-fill" style="width:' + ((qIdx / stage.questions.length) * 100) + '%"></div></div>';
+  html += '<div class="q-progress-text">' + (qIdx + 1) + '/' + stage.questions.length + '</div>';
+  html += '</div>';
+  html += '<div class="q-body">';
+  html += '<div class="q-text">' + q.text + '</div>';
+  
+  // Canvas
+  if (q.hasCanvas && CANVAS_RENDERERS[q.canvasType]) {
+    const canvasId = 'canvas_' + q.id;
+    html += '<div class="q-canvas-wrap">';
+    html += '<h4>▌ 可视化辅助</h4>';
+    html += '<canvas id="' + canvasId + '" width="720" height="340"></canvas>';
+    html += '</div>';
+  }
+  
+  // Options
+  html += '<div class="q-options">';
+  q.options.forEach((opt, i) => {
+    html += '<div class="q-opt" onclick="selectOption(this, ' + i + ')" data-correct="' + opt.correct + '">';
+    html += '<span class="opt-letter">' + opt.letter + '</span>';
+    html += '<span>' + opt.text + '</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+  
+  // Feedback
+  html += '<div class="q-feedback" id="feedback_' + q.id + '">';
+  html += '<div class="fb-title"></div>';
+  html += '<div class="fb-text"></div>';
+  html += '</div>';
+  
+  // Next button
+  html += '<button class="next-btn" id="nextBtn_' + q.id + '" onclick="nextQuestion()">继续 →</button>';
+  
+  html += '</div></div>';
+  container.innerHTML = html;
+  
+  // Render canvas
+  if (q.hasCanvas && CANVAS_RENDERERS[q.canvasType]) {
+    const canvasId = 'canvas_' + q.id;
+    setTimeout(() => {
+      CANVAS_RENDERERS[q.canvasType](canvasId, q.canvasData);
+    }, 50);
+  }
+  
+  // Update chapter panel active
+  document.querySelectorAll('.chapter-item').forEach((item, i) => {
+    item.classList.toggle('active', i === stageIdx);
+  });
+}
+
+function selectOption(el, optIdx) {
+  if (gameState.answered) return;
+  gameState.answered = true;
+  gameState.totalQuestions++;
+  
+  const isCorrect = el.dataset.correct === 'true';
+  const qId = STAGES[gameState.currentStage].questions[gameState.currentQuestion].id;
+  const feedback = document.getElementById('feedback_' + qId);
+  const fbTitle = feedback.querySelector('.fb-title');
+  const fbText = feedback.querySelector('.fb-text');
+  const nextBtn = document.getElementById('nextBtn_' + qId);
+  
+  // Disable all options
+  document.querySelectorAll('.q-opt').forEach(opt => opt.classList.add('disabled'));
+  
+  if (isCorrect) {
+    el.classList.add('correct');
+    gameState.combo++;
+    if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+    gameState.correctCount++;
+    // Score: base 100 + combo bonus + speed bonus (up to 50)
+    const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+    const speedBonus = Math.max(0, 50 - Math.floor(elapsed / 10));
+    const comboBonus = Math.min(gameState.combo * 20, 100);
+    const points = 100 + comboBonus + speedBonus;
+    gameState.score += points;
+    feedback.className = 'q-feedback correct-fb';
+    fbTitle.textContent = '✓ 正确！+' + points + '分';
+    fbText.textContent = STAGES[gameState.currentStage].questions[gameState.currentQuestion].explanation;
+    showFeedbackOverlay(gameState.combo >= 3 ? 'perfect' : 'good');
+  } else {
+    el.classList.add('wrong');
+    // Highlight correct answer
+    document.querySelectorAll('.q-opt').forEach(opt => {
+      if (opt.dataset.correct === 'true') opt.classList.add('correct');
+    });
+    gameState.combo = 0;
+    gameState.lives--;
+    updateLivesDisplay();
+    feedback.className = 'q-feedback wrong-fb';
+    fbTitle.textContent = '✗ 错误';
+    fbText.textContent = STAGES[gameState.currentStage].questions[gameState.currentQuestion].explanation;
+    showFeedbackOverlay('miss');
+    
+    if (gameState.lives <= 0) {
+      setTimeout(() => showGameOver(), 1500);
+      return;
+    }
+  }
+  
+  updateComboDisplay();
+  updateScoreDisplay();
+  feedback.style.display = 'block';
+  nextBtn.style.display = 'block';
+}
+
+function showFeedbackOverlay(type) {
+  const overlay = document.getElementById('feedbackOverlay');
+  const bubble = document.getElementById('feedbackBubble');
+  const texts = { perfect: 'PERFECT!', good: 'GOOD!', miss: 'MISS' };
+  bubble.textContent = texts[type] || 'OK';
+  bubble.className = 'feedback-bubble ' + type;
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), 800);
+}
+
+function nextQuestion() {
+  const stage = STAGES[gameState.currentStage];
+  if (gameState.currentQuestion < stage.questions.length - 1) {
+    loadQuestion(gameState.currentStage, gameState.currentQuestion + 1);
+  } else {
+    gameState.stageCompleted[gameState.currentStage] = true;
+    if (gameState.currentStage < STAGES.length - 1) {
+      showStageTransition(gameState.currentStage + 1, () => {
+        loadQuestion(gameState.currentStage + 1, 0);
+      });
+    } else {
+      showResults();
+    }
+  }
+}
+
+function showGameOver() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+  document.getElementById('resultGrade').textContent = 'F';
+  document.getElementById('resultGrade').style.color = 'var(--red)';
+  document.getElementById('statScore').textContent = gameState.score;
+  const acc = gameState.totalQuestions > 0 ? Math.round(gameState.correctCount / gameState.totalQuestions * 100) : 0;
+  document.getElementById('statAccuracy').textContent = acc + '%';
+  document.getElementById('statMaxCombo').textContent = gameState.maxCombo;
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('statTime').textContent = mins + ':' + secs;
+}
+
+function showResults() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+  
+  const totalQ = STAGES.reduce((sum, s) => sum + s.questions.length, 0);
+  const accuracy = Math.round(gameState.correctCount / totalQ * 100);
+  let grade = 'C';
+  let gradeColor = 'var(--yellow)';
+  if (accuracy >= 95 && gameState.maxCombo >= 5) { grade = 'S'; gradeColor = 'var(--accent)'; }
+  else if (accuracy >= 85) { grade = 'A'; gradeColor = 'var(--green)'; }
+  else if (accuracy >= 70) { grade = 'B'; gradeColor = 'var(--blue)'; }
+  else if (accuracy >= 50) { grade = 'C'; gradeColor = 'var(--yellow)'; }
+  else { grade = 'D'; gradeColor = 'var(--red)'; }
+  
+  const gradeEl = document.getElementById('resultGrade');
+  gradeEl.textContent = grade;
+  gradeEl.style.color = gradeColor;
+  
+  document.getElementById('statScore').textContent = gameState.score;
+  document.getElementById('statAccuracy').textContent = accuracy + '%';
+  document.getElementById('statMaxCombo').textContent = gameState.maxCombo;
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('statTime').textContent = mins + ':' + secs;
+}
+
+function restartGame() {
+  document.getElementById('resultScreen').style.display = 'none';
+  startGame();
+}
+
+function backToTitle() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('resultScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('titleScreen').style.display = 'flex';
+}
+
+function toggleChapterPanel() {
+  const panel = document.getElementById('chapterPanel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+function jumpToStage(stageIdx) {
+  document.getElementById('chapterPanel').style.display = 'none';
+  if (stageIdx === gameState.currentStage && document.getElementById('gameScreen').style.display === 'block') {
+    return;
+  }
+  gameState.currentStage = stageIdx;
+  gameState.currentQuestion = 0;
+  gameState.answered = false;
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'flex';
+  document.getElementById('chPanelToggle').style.display = 'flex';
+  document.getElementById('gameScreen').style.display = 'block';
+  document.getElementById('resultScreen').style.display = 'none';
+  loadQuestion(stageIdx, 0);
+}
+
+// Close chapter panel when clicking outside
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('chapterPanel');
+  const toggle = document.getElementById('chPanelToggle');
+  if (panel.style.display === 'block' && !panel.contains(e.target) && !toggle.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+</script>
+</body>
+</html>
