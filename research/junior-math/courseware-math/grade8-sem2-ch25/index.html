@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：STAT | 数据波动监测站</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f;
+  --bg2: #0a0e18;
+  --bg3: #101520;
+  --accent: #00f5d4;
+  --accent2: #00d4b8;
+  --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0e6f0;
+  --text2: #8a9ab0;
+  --text3: #4a5a70;
+  --border: rgba(0,245,212,0.2);
+  --glass: rgba(10,14,24,0.85);
+  --glass-border: rgba(0,245,212,0.12);
+  --green: #00ff88;
+  --yellow: #ffcc00;
+  --red: #ff3366;
+  --orange: #ff8844;
+  --purple: #cc66ff;
+  --blue: #4488ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-x: hidden;
+  position: relative;
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px;
+  pointer-events: none; z-index: 1;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2;
+  animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute;
+  width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+.container { max-width: 1000px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* ===== HUD BAR ===== */
+.game-hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
+  z-index: 200;
+  padding: 10px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.hud-left { display: flex; align-items: center; gap: 20px; }
+.hud-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--accent);
+  letter-spacing: 2px;
+}
+.hud-lives { display: flex; gap: 4px; }
+.heart { font-size: 18px; transition: all 0.3s; }
+.heart.alive { opacity: 1; text-shadow: 0 0 8px rgba(255,51,102,0.5); }
+.heart.lost { opacity: 0.2; filter: grayscale(1); }
+.hud-combo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px; color: var(--yellow);
+  letter-spacing: 1px;
+}
+.hud-combo.active { animation: comboPulse 0.6s ease; }
+@keyframes comboPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+.hud-right { display: flex; align-items: center; gap: 20px; }
+.hud-timer {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--text);
+  letter-spacing: 2px;
+  min-width: 70px; text-align: right;
+}
+.hud-timer.warning { color: var(--red); animation: timerBlink 1s infinite; }
+@keyframes timerBlink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+.hud-stage {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--text3);
+  letter-spacing: 1px;
+}
+.hud-score {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px; color: var(--green);
+  letter-spacing: 1px;
+}
+
+/* ===== TITLE SCREEN ===== */
+.title-screen {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 100px 24px 40px;
+}
+.title-badge {
+  display: inline-block; border: 1px solid var(--accent);
+  padding: 4px 20px; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; letter-spacing: 5px; color: var(--accent);
+  margin-bottom: 24px; text-transform: uppercase;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+@keyframes badgePulse { 0%,100%{box-shadow:0 0 8px rgba(0,245,212,0.2);} 50%{box-shadow:0 0 20px rgba(0,245,212,0.4);} }
+.title-screen h1 {
+  font-family: 'Orbitron', sans-serif; font-size: 52px;
+  font-weight: 900; color: var(--accent); letter-spacing: 3px;
+  text-shadow: 0 0 40px rgba(0,245,212,0.4);
+  margin-bottom: 12px;
+}
+.title-sub { font-size: 16px; color: var(--text2); letter-spacing: 4px; margin-bottom: 8px; }
+.title-desc { font-size: 14px; color: var(--text3); max-width: 600px; margin: 20px auto; }
+.title-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 24px auto; }
+.start-btn {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 16px 48px; border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); text-decoration: none;
+  font-family: 'Orbitron', sans-serif; font-size: 16px; letter-spacing: 2px;
+  background: transparent; cursor: pointer; transition: all 0.3s;
+  margin-top: 20px;
+}
+.start-btn:hover {
+  background: var(--accent); color: var(--bg);
+  box-shadow: 0 0 30px rgba(0,245,212,0.4);
+}
+.stage-preview {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 16px; max-width: 900px; margin: 32px auto;
+}
+.stage-card {
+  border: 1px solid var(--glass-border); border-radius: 8px;
+  background: var(--bg2); padding: 16px; text-align: left;
+  transition: all 0.3s;
+}
+.stage-card:hover { border-color: var(--border); transform: translateY(-2px); }
+.stage-card .st-num { font-family: 'Orbitron'; font-size: 28px; color: var(--accent); opacity: 0.3; }
+.stage-card .st-name { font-size: 13px; color: var(--text); margin-top: 4px; }
+.stage-card .st-topics { font-size: 11px; color: var(--text3); margin-top: 6px; line-height: 1.6; }
+
+/* ===== GAME SCREEN ===== */
+.game-screen { display: none; padding: 80px 24px 40px; min-height: 100vh; }
+.game-stage-header {
+  text-align: center; padding: 20px 0 24px;
+}
+.game-stage-header .st-badge {
+  display: inline-block; border: 1px solid var(--accent);
+  padding: 3px 14px; font-family: 'Orbitron'; font-size: 11px;
+  letter-spacing: 3px; color: var(--accent); margin-bottom: 12px;
+}
+.game-stage-header h2 {
+  font-family: 'Orbitron', sans-serif; font-size: 28px;
+  color: var(--accent); letter-spacing: 2px; margin-bottom: 8px;
+}
+.game-stage-header .st-sub { font-size: 14px; color: var(--text2); }
+
+.question-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px);
+  overflow: hidden; margin-bottom: 24px; position: relative;
+}
+.question-card::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.q-progress {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px 0;
+}
+.q-progress-bar {
+  flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden;
+}
+.q-progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), var(--green));
+  border-radius: 2px; transition: width 0.3s;
+}
+.q-progress-text {
+  font-family: 'Orbitron'; font-size: 11px; color: var(--text3);
+  letter-spacing: 1px; min-width: 40px; text-align: right;
+}
+.q-body { padding: 20px 24px 28px; }
+.q-text {
+  font-size: 17px; color: var(--text); line-height: 1.7; margin-bottom: 20px;
+}
+.q-canvas-wrap {
+  background: var(--bg2); border: 1px solid var(--glass-border);
+  border-radius: 8px; padding: 16px; margin-bottom: 20px; text-align: center;
+}
+.q-canvas-wrap h4 {
+  font-family: 'Orbitron'; font-size: 11px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.q-canvas-wrap canvas {
+  background: var(--bg); border-radius: 6px;
+  border: 1px solid var(--glass-border); max-width: 100%;
+}
+.q-options { display: flex; flex-direction: column; gap: 10px; }
+.q-opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border: 1px solid var(--glass-border);
+  border-radius: 8px; cursor: pointer; transition: all 0.2s;
+  font-size: 15px; background: var(--bg2);
+}
+.q-opt:hover { border-color: var(--border); background: var(--bg3); }
+.q-opt.disabled { pointer-events: none; }
+.q-opt.correct {
+  border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green);
+}
+.q-opt.wrong {
+  border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red);
+}
+.opt-letter {
+  font-family: 'Orbitron'; font-size: 14px; font-weight: 700;
+  color: var(--accent); min-width: 28px; text-align: center;
+  border: 1px solid var(--glass-border); border-radius: 4px;
+  padding: 2px 0;
+}
+.q-opt.correct .opt-letter { border-color: var(--green); color: var(--green); }
+.q-opt.wrong .opt-letter { border-color: var(--red); color: var(--red); }
+
+.q-feedback {
+  display: none; margin-top: 16px;
+  padding: 14px 18px; border-radius: 8px; border-left: 3px solid;
+}
+.q-feedback.correct-fb {
+  background: rgba(0,255,136,0.06); border-color: var(--green);
+}
+.q-feedback.wrong-fb {
+  background: rgba(255,51,102,0.06); border-color: var(--red);
+}
+.fb-title {
+  font-family: 'Orbitron'; font-size: 13px; letter-spacing: 1px; margin-bottom: 6px;
+}
+.correct-fb .fb-title { color: var(--green); }
+.wrong-fb .fb-title { color: var(--red); }
+.fb-text { color: var(--text2); font-size: 14px; line-height: 1.6; }
+
+.next-btn {
+  display: none; margin-top: 20px;
+  padding: 12px 32px; border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); background: transparent; cursor: pointer;
+  font-family: 'Orbitron'; font-size: 14px; letter-spacing: 1px;
+  transition: all 0.3s;
+}
+.next-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* ===== RESULT SCREEN ===== */
+.result-screen { display: none; min-height: 100vh; padding: 80px 24px 40px; }
+.result-box {
+  max-width: 600px; margin: 0 auto;
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px);
+  padding: 40px 32px; text-align: center;
+}
+.result-box::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.result-title {
+  font-family: 'Orbitron'; font-size: 18px; color: var(--accent);
+  letter-spacing: 3px; margin-bottom: 20px;
+}
+.result-grade {
+  font-family: 'Orbitron'; font-size: 72px; font-weight: 900;
+  color: var(--accent); text-shadow: 0 0 40px rgba(0,245,212,0.3);
+  margin-bottom: 24px;
+}
+.result-stats {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 16px; margin-bottom: 32px;
+}
+.stat-item {
+  border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 16px; background: var(--bg2);
+}
+.stat-label { font-size: 12px; color: var(--text3); letter-spacing: 1px; margin-bottom: 6px; }
+.stat-value { font-family: 'Orbitron'; font-size: 24px; color: var(--accent); }
+.result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.result-btn {
+  padding: 12px 24px; border: 1px solid var(--glass-border); border-radius: 6px;
+  color: var(--text2); background: var(--bg2); cursor: pointer;
+  font-family: 'Orbitron'; font-size: 13px; letter-spacing: 1px;
+  text-decoration: none; transition: all 0.3s;
+}
+.result-btn:hover { border-color: var(--accent); color: var(--accent); }
+.result-btn.primary { border-color: var(--accent); color: var(--accent); }
+.result-btn.primary:hover { background: var(--accent); color: var(--bg); }
+
+/* ===== FEEDBACK OVERLAY ===== */
+.feedback-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  display: none; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.feedback-overlay.show { display: flex; }
+.feedback-bubble {
+  font-family: 'Orbitron'; font-size: 48px; font-weight: 900;
+  letter-spacing: 4px; padding: 20px 48px; border-radius: 12px;
+  animation: fbPop 0.5s ease;
+}
+@keyframes fbPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.feedback-bubble.perfect {
+  border: 2px solid var(--accent); color: var(--accent);
+  background: rgba(0,245,212,0.08); box-shadow: 0 0 30px rgba(0,245,212,0.2);
+}
+.feedback-bubble.good {
+  border: 2px solid var(--green); color: var(--green);
+  background: rgba(0,255,136,0.08); box-shadow: 0 0 30px rgba(0,255,136,0.2);
+}
+.feedback-bubble.miss {
+  border: 2px solid var(--red); color: var(--red);
+  background: rgba(255,51,102,0.08); box-shadow: 0 0 30px rgba(255,51,102,0.2);
+}
+
+/* ===== CHAPTER PANEL ===== */
+.ch-panel-toggle {
+  position: fixed; top: 56px; right: 16px; z-index: 210;
+  width: 40px; height: 40px; border-radius: 6px;
+  border: 1px solid var(--glass-border); background: var(--glass);
+  color: var(--accent); font-size: 18px; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+}
+.chapter-panel {
+  position: fixed; top: 100px; right: 16px; z-index: 210;
+  width: 260px; max-height: calc(100vh - 120px); overflow-y: auto;
+  border: 1px solid var(--glass-border); border-radius: 8px;
+  background: var(--glass); backdrop-filter: blur(16px);
+  padding: 16px; display: none;
+}
+.chapter-panel h4 {
+  font-family: 'Orbitron'; font-size: 12px; color: var(--accent);
+  letter-spacing: 2px; margin-bottom: 12px; text-transform: uppercase;
+}
+.chapter-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; color: var(--text2); transition: all 0.2s;
+}
+.chapter-item:hover { background: var(--bg3); color: var(--text); }
+.chapter-item.active { background: var(--accent-dim); color: var(--accent); }
+.ch-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text3); flex-shrink: 0;
+}
+.chapter-item.active .ch-dot { background: var(--accent); box-shadow: 0 0 6px rgba(0,245,212,0.4); }
+
+/* ===== STAGE TRANSITION ===== */
+.stage-transition {
+  position: fixed; inset: 0; z-index: 250;
+  background: var(--bg); display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+}
+.stage-transition.show { display: flex; }
+.st-tr-num {
+  font-family: 'Orbitron'; font-size: 80px; font-weight: 900;
+  color: var(--accent); opacity: 0.15;
+}
+.st-tr-title {
+  font-family: 'Orbitron'; font-size: 28px; color: var(--accent);
+  letter-spacing: 3px; margin-top: -20px;
+}
+.st-tr-sub { font-size: 14px; color: var(--text2); margin-top: 12px; }
+
+.green { color: var(--green); }
+.red { color: var(--red); }
+.yellow { color: var(--yellow); }
+
+@media (max-width: 768px) {
+  .title-screen h1 { font-size: 32px; }
+  .stage-preview { grid-template-columns: repeat(2, 1fr); }
+  .game-stage-header h2 { font-size: 22px; }
+  .result-stats { grid-template-columns: 1fr; }
+  .result-grade { font-size: 48px; }
+  .chapter-panel { width: calc(100% - 32px); right: 16px; }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<!-- ===== FEEDBACK OVERLAY ===== -->
+<div class="feedback-overlay" id="feedbackOverlay">
+  <div class="feedback-bubble" id="feedbackBubble">PERFECT</div>
+</div>
+
+<!-- ===== STAGE TRANSITION ===== -->
+<div class="stage-transition" id="stageTransition">
+  <div class="st-tr-num" id="stTrNum">01</div>
+  <div class="st-tr-title" id="stTrTitle">统计量基础</div>
+  <div class="st-tr-sub" id="stTrSub">平均数 · 中位数 · 众数</div>
+</div>
+
+<!-- ===== GAME HUD ===== -->
+<div class="game-hud" id="gameHud" style="display:none;">
+  <div class="hud-left">
+    <div class="hud-title">STAT</div>
+    <div class="hud-lives" id="hudLives">
+      <span class="heart alive" id="heart1">❤️</span>
+      <span class="heart alive" id="heart2">❤️</span>
+      <span class="heart alive" id="heart3">❤️</span>
+    </div>
+    <div class="hud-combo" id="hudCombo">COMBO: 0</div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-stage" id="hudStage">STAGE 1/4</div>
+    <div class="hud-score" id="hudScore">0</div>
+    <div class="hud-timer" id="hudTimer">00:00</div>
+  </div>
+</div>
+
+<!-- ===== CHAPTER PANEL ===== -->
+<button class="ch-panel-toggle" id="chPanelToggle" onclick="toggleChapterPanel()" style="display:none;">☰</button>
+<div class="chapter-panel" id="chapterPanel">
+  <h4>章节选择</h4>
+  <div class="chapter-item active" onclick="jumpToStage(0)">
+    <div class="ch-dot"></div>Stage 1 · 统计量基础
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(1)">
+    <div class="ch-dot"></div>Stage 2 · 方差概念
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(2)">
+    <div class="ch-dot"></div>Stage 3 · 标准差
+  </div>
+  <div class="chapter-item" onclick="jumpToStage(3)">
+    <div class="ch-dot"></div>Stage 4 · 统计应用
+  </div>
+</div>
+
+<!-- ===== TITLE SCREEN ===== -->
+<div class="title-screen" id="titleScreen">
+  <div class="title-badge">数据波动监测站 · 代号 STAT</div>
+  <h1>数据波动监测站</h1>
+  <div class="title-sub">第25章 · 数据的离散程度 · 战术考核</div>
+  <div class="title-line"></div>
+  <div class="title-desc">
+    4个Stage · 20道题目 · 限时挑战<br>
+    从集中趋势到离散程度，从靶心弹孔到方差公式<br>
+    用可视化方式理解数据"有多散"——波动越大的数据，越不稳定
+  </div>
+  <div class="stage-preview">
+    <div class="stage-card">
+      <div class="st-num">01</div>
+      <div class="st-name">统计量基础</div>
+      <div class="st-topics">平均数计算<br>中位数定位<br>众数识别<br>加权平均</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">02</div>
+      <div class="st-name">方差概念</div>
+      <div class="st-topics">偏差计算<br>方差公式<br>靶心比喻<br>离散程度</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">03</div>
+      <div class="st-name">标准差</div>
+      <div class="st-topics">标准差定义<br>方差与标准差<br>单位一致性<br>开方运算</div>
+    </div>
+    <div class="stage-card">
+      <div class="st-num">04</div>
+      <div class="st-name">统计应用</div>
+      <div class="st-topics">稳定性比较<br>实际决策<br>数据选择<br>综合判断</div>
+    </div>
+  </div>
+  <button class="start-btn" onclick="startGame()">▶ 启动考核</button>
+</div>
+
+<!-- ===== GAME SCREEN ===== -->
+<div class="game-screen" id="gameScreen">
+  <div class="container">
+    <div class="game-stage-header" id="gameStageHeader">
+      <div class="st-badge" id="stageBadge">STAGE 01</div>
+      <h2 id="stageTitle">统计量基础</h2>
+      <div class="st-sub" id="stageSub">平均数 · 中位数 · 众数</div>
+    </div>
+    <div id="questionContainer"></div>
+  </div>
+</div>
+
+<!-- ===== RESULT SCREEN ===== -->
+<div class="result-screen" id="resultScreen">
+  <div class="container">
+    <div class="result-box">
+      <div class="result-title">考核报告</div>
+      <div class="result-grade" id="resultGrade">S</div>
+      <div class="result-stats">
+        <div class="stat-item">
+          <div class="stat-label">总分</div>
+          <div class="stat-value" id="statScore">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">正确率</div>
+          <div class="stat-value" id="statAccuracy">0%</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">最高连击</div>
+          <div class="stat-value" id="statMaxCombo">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">用时</div>
+          <div class="stat-value" id="statTime">00:00</div>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="result-btn" onclick="restartGame()">↻ 重新考核</button>
+        <button class="result-btn primary" onclick="backToTitle()">🏠 返回主页</button>
+        <a href="tutorial.html" class="result-btn">📖 复习教案</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GAME STATE
+// ============================================================
+let gameState = {
+  currentStage: 0,
+  currentQuestion: 0,
+  lives: 3,
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  correctCount: 0,
+  totalQuestions: 0,
+  startTime: 0,
+  timerInterval: null,
+  answered: false,
+  stageCompleted: [false, false, false, false],
+};
+
+// ============================================================
+// STAGES DATA (20 questions, 5 per stage)
+// ============================================================
+const STAGES = [
+  {
+    id: 0, name: "统计量基础", sub: "平均数 · 中位数 · 众数 · 加权平均",
+    questions: [
+      {
+        id: "s1q1", text: "数据：12, 15, 18, 18, 20, 22。求平均数、中位数、众数",
+        options: [
+          { letter: "A", text: "x̄=17.5, 中位数=18, 众数=18", correct: true },
+          { letter: "B", text: "x̄=18, 中位数=17.5, 众数=15", correct: false },
+          { letter: "C", text: "x̄=17.5, 中位数=18, 众数=20", correct: false },
+          { letter: "D", text: "x̄=18, 中位数=18, 众数=无", correct: false }
+        ],
+        explanation: "平均数 = (12+15+18+18+20+22)/6 = 105/6 = 17.5。中位数 = (18+18)/2 = 18。众数 = 18（出现2次）。",
+        hasCanvas: true, canvasType: "bar_stats", canvasData: { data: [12,15,18,18,20,22], mean: 17.5, median: 18, mode: 18 }
+      },
+      {
+        id: "s1q2", text: "某班5名学生体重(kg)：40, 45, 50, 55, 60。平均体重是多少？",
+        options: [
+          { letter: "A", text: "48 kg", correct: false },
+          { letter: "B", text: "50 kg", correct: true },
+          { letter: "C", text: "52 kg", correct: false },
+          { letter: "D", text: "55 kg", correct: false }
+        ],
+        explanation: "x̄ = (40+45+50+55+60)/5 = 250/5 = 50 kg。",
+        hasCanvas: true, canvasType: "bar_simple", canvasData: { data: [40,45,50,55,60], labels: ["A","B","C","D","E"] }
+      },
+      {
+        id: "s1q3", text: "数据：3, 5, 7, 7, 8, 9, 10。中位数是？",
+        options: [
+          { letter: "A", text: "6", correct: false },
+          { letter: "B", text: "7", correct: true },
+          { letter: "C", text: "7.5", correct: false },
+          { letter: "D", text: "8", correct: false }
+        ],
+        explanation: "共7个数（奇数），取第(7+1)/2 = 第4个数 = 7。",
+        hasCanvas: false
+      },
+      {
+        id: "s1q4", text: "小明平时80分，期中85分，期末90分。权重为平时30%、期中30%、期末40%。加权平均分是？",
+        options: [
+          { letter: "A", text: "84.5", correct: false },
+          { letter: "B", text: "85", correct: false },
+          { letter: "C", text: "85.5", correct: true },
+          { letter: "D", text: "86", correct: false }
+        ],
+        explanation: "加权平均 = 80×0.3 + 85×0.3 + 90×0.4 = 24 + 25.5 + 36 = 85.5。",
+        hasCanvas: true, canvasType: "weighted_bar", canvasData: { scores: [80,85,90], weights: [0.3,0.3,0.4], result: 85.5 }
+      },
+      {
+        id: "s1q5", text: "数据：2, 3, 3, 5, 5, 5, 7, 7。众数是？",
+        options: [
+          { letter: "A", text: "3", correct: false },
+          { letter: "B", text: "5", correct: true },
+          { letter: "C", text: "3和5", correct: false },
+          { letter: "D", text: "5和7", correct: false }
+        ],
+        explanation: "5出现3次，出现次数最多，是唯一众数。3出现2次，7出现2次。",
+        hasCanvas: true, canvasType: "freq_bar", canvasData: { values: [2,3,5,7], freqs: [1,2,3,2] }
+      }
+    ]
+  },
+  {
+    id: 1, name: "方差概念", sub: "偏差 · 平方 · 方差公式 · 离散程度",
+    questions: [
+      {
+        id: "s2q1", text: "数据：4, 6, 8, 10, 12。求方差。",
+        options: [
+          { letter: "A", text: "6", correct: false },
+          { letter: "B", text: "8", correct: true },
+          { letter: "C", text: "10", correct: false },
+          { letter: "D", text: "12", correct: false }
+        ],
+        explanation: "x̄ = 8。偏差平方：(4-8)²=16, (6-8)²=4, (8-8)²=0, (10-8)²=4, (12-8)²=16。方差 = (16+4+0+4+16)/5 = 40/5 = 8。",
+        hasCanvas: true, canvasType: "deviation_bars", canvasData: { data: [4,6,8,10,12], mean: 8 }
+      },
+      {
+        id: "s2q2", text: "两组数据平均数都是5：A组(3,4,5,6,7)，B组(1,3,5,7,9)。哪组方差更大？",
+        options: [
+          { letter: "A", text: "A组", correct: false },
+          { letter: "B", text: "B组", correct: true },
+          { letter: "C", text: "一样大", correct: false },
+          { letter: "D", text: "无法判断", correct: false }
+        ],
+        explanation: "B组数据离平均数更远，最大偏离|9-5|=4 > |7-5|=2。验证：s²(A)=2，s²(B)=8。",
+        hasCanvas: true, canvasType: "variance_compare", canvasData: { dataA: [3,4,5,6,7], dataB: [1,3,5,7,9], mean: 5 }
+      },
+      {
+        id: "s2q3", text: "方差公式中为什么要对偏差平方？",
+        options: [
+          { letter: "A", text: "让计算更简单", correct: false },
+          { letter: "B", text: "消除正负偏差相互抵消", correct: true },
+          { letter: "C", text: "让方差变大", correct: false },
+          { letter: "D", text: "因为平方后更好看", correct: false }
+        ],
+        explanation: "偏差有正有负，直接相加会抵消为0。平方后全部非负，才能真实反映离散程度。",
+        hasCanvas: true, canvasType: "target_anim", canvasData: { data: [3,7,8,9,13], mean: 8, label: "高方差靶心" }
+      },
+      {
+        id: "s2q4", text: "数据 5, 5, 5, 5, 5 的方差是？",
+        options: [
+          { letter: "A", text: "0", correct: true },
+          { letter: "B", text: "5", correct: false },
+          { letter: "C", text: "1", correct: false },
+          { letter: "D", text: "25", correct: false }
+        ],
+        explanation: "所有数据都等于平均数5，偏差全为0，方差为0。数据完全没有波动。",
+        hasCanvas: true, canvasType: "target_anim", canvasData: { data: [5,5,5,5,5], mean: 5, label: "零方差（所有弹孔重合）" }
+      },
+      {
+        id: "s2q5", text: "若一组数据每个数都加上常数c，方差如何变化？",
+        options: [
+          { letter: "A", text: "增大c²", correct: false },
+          { letter: "B", text: "不变", correct: true },
+          { letter: "C", text: "减小", correct: false },
+          { letter: "D", text: "变为原来的c倍", correct: false }
+        ],
+        explanation: "数据整体平移不改变离散程度。平均数也平移c，偏差(xᵢ+c)-(x̄+c)=xᵢ-x̄不变，方差不变。",
+        hasCanvas: false
+      }
+    ]
+  },
+  {
+    id: 2, name: "标准差", sub: "标准差定义 · 方差与标准差关系 · 单位",
+    questions: [
+      {
+        id: "s3q1", text: "数据：2, 4, 6, 8, 10。方差为8，则标准差是？",
+        options: [
+          { letter: "A", text: "2", correct: false },
+          { letter: "B", text: "2√2 ≈ 2.83", correct: true },
+          { letter: "C", text: "4", correct: false },
+          { letter: "D", text: "8", correct: false }
+        ],
+        explanation: "标准差s = √s² = √8 = 2√2 ≈ 2.83。标准差是方差的算术平方根。",
+        hasCanvas: true, canvasType: "std_visual", canvasData: { variance: 8, std: 2.828 }
+      },
+      {
+        id: "s3q2", text: "标准差与方差相比，最大的优势是？",
+        options: [
+          { letter: "A", text: "计算更简单", correct: false },
+          { letter: "B", text: "单位与原数据一致", correct: true },
+          { letter: "C", text: "数值更大", correct: false },
+          { letter: "D", text: "更稳定", correct: false }
+        ],
+        explanation: "方差的单位是原数据单位的平方（如cm²），标准差开方后单位与原数据一致（如cm），更便于理解和比较。",
+        hasCanvas: false
+      },
+      {
+        id: "s3q3", text: "一组数据的方差为16，则其标准差为？",
+        options: [
+          { letter: "A", text: "2", correct: false },
+          { letter: "B", text: "4", correct: true },
+          { letter: "C", text: "8", correct: false },
+          { letter: "D", text: "16", correct: false }
+        ],
+        explanation: "s = √16 = 4。标准差是方差的算术平方根。",
+        hasCanvas: true, canvasType: "std_visual", canvasData: { variance: 16, std: 4 }
+      },
+      {
+        id: "s3q4", text: "若数据每个数都乘以2，则方差变为原来的多少倍？",
+        options: [
+          { letter: "A", text: "2倍", correct: false },
+          { letter: "B", text: "4倍", correct: true },
+          { letter: "C", text: "不变", correct: false },
+          { letter: "D", text: "8倍", correct: false }
+        ],
+        explanation: "数据放大k倍，平均数也放大k倍，偏差放大k倍，偏差平方放大k²倍。∴ 方差变为原来的4倍。",
+        hasCanvas: true, canvasType: "scale_demo", canvasData: { original: [2,4,6,8,10], scaled: [4,8,12,16,20], factor: 2 }
+      },
+      {
+        id: "s3q5", text: "标准差s与方差s²的关系，下列说法正确的是？",
+        options: [
+          { letter: "A", text: "s = s² / 2", correct: false },
+          { letter: "B", text: "s = √s²", correct: true },
+          { letter: "C", text: "s = s² × n", correct: false },
+          { letter: "D", text: "s = 1/s²", correct: false }
+        ],
+        explanation: "标准差是方差的算术平方根：s = √s²。两者都是衡量离散程度的量，但标准差单位与原数据一致。",
+        hasCanvas: false
+      }
+    ]
+  },
+  {
+    id: 3, name: "统计应用", sub: "稳定性比较 · 实际决策 · 数据选择",
+    questions: [
+      {
+        id: "s4q1", text: "甲、乙两射手各射5次，环数如下。甲：8,8,9,9,10；乙：7,8,9,10,11。谁更稳定？",
+        options: [
+          { letter: "A", text: "甲（方差更小）", correct: true },
+          { letter: "B", text: "乙（方差更小）", correct: false },
+          { letter: "C", text: "一样稳定", correct: false },
+          { letter: "D", text: "无法判断", correct: false }
+        ],
+        explanation: "甲平均=8.8，偏差平方和=2.8，方差=0.56。乙平均=9，偏差平方和=10，方差=2。甲方差更小，更稳定。",
+        hasCanvas: true, canvasType: "stability_compare", canvasData: { nameA: "甲", dataA: [8,8,9,9,10], nameB: "乙", dataB: [7,8,9,10,11] }
+      },
+      {
+        id: "s4q2", text: "工厂选机器，A机产品尺寸方差0.04，B机方差0.16。应选哪台？",
+        options: [
+          { letter: "A", text: "A机（更稳定）", correct: true },
+          { letter: "B", text: "B机（更稳定）", correct: false },
+          { letter: "C", text: "两台一样", correct: false },
+          { letter: "D", text: "数据不足", correct: false }
+        ],
+        explanation: "方差越小，数据越集中，产品尺寸越稳定。A机方差0.04 < B机0.16，A机更稳定。",
+        hasCanvas: true, canvasType: "stability_compare", canvasData: { nameA: "A机", dataA: [10.1,9.9,10.0,10.0,10.0], nameB: "B机", dataB: [10.4,9.6,10.2,9.8,10.0] }
+      },
+      {
+        id: "s4q3", text: "某股票A近5天涨跌幅(%): +1,+2,-1,+3,-2；股票B: +5,-4,+3,-2,+1。哪只更稳健？",
+        options: [
+          { letter: "A", text: "A（波动小）", correct: true },
+          { letter: "B", text: "B（波动小）", correct: false },
+          { letter: "C", text: "一样稳健", correct: false },
+          { letter: "D", text: "无法判断", correct: false }
+        ],
+        explanation: "A平均=0.6，方差≈3.44。B平均=0.6，方差≈14.64。A方差更小，波动更小，更稳健。",
+        hasCanvas: true, canvasType: "line_compare", canvasData: { nameA: "股票A", dataA: [1,2,-1,3,-2], nameB: "股票B", dataB: [5,-4,3,-2,1] }
+      },
+      {
+        id: "s4q4", text: "两组数据平均数相同，方差小的那组意味着？",
+        options: [
+          { letter: "A", text: "数据更大", correct: false },
+          { letter: "B", text: "数据更集中、更稳定", correct: true },
+          { letter: "C", text: "数据个数更多", correct: false },
+          { letter: "D", text: "中位数更大", correct: false }
+        ],
+        explanation: "方差衡量离散程度。方差小 = 数据点更靠近平均数 = 数据更集中、更稳定。",
+        hasCanvas: true, canvasType: "variance_compare", canvasData: { dataA: [48,49,50,51,52], dataB: [40,45,50,55,60], mean: 50 }
+      },
+      {
+        id: "s4q5", text: "选拔运动员参加稳定性要求高的项目，应该优先看什么指标？",
+        options: [
+          { letter: "A", text: "平均成绩最高", correct: false },
+          { letter: "B", text: "方差或标准差最小", correct: true },
+          { letter: "C", text: "众数最大", correct: false },
+          { letter: "D", text: "中位数最高", correct: false }
+        ],
+        explanation: "稳定性要求高的项目，需要运动员发挥稳定、波动小。方差/标准差最小意味着成绩最稳定，波动最小。",
+        hasCanvas: true, canvasType: "target_anim", canvasData: { data: [9,9.5,10,9.5,10], mean: 9.6, label: "稳定发挥（弹孔集中）" }
+      }
+    ]
+  }
+];
+
+// ============================================================
+// CANVAS DRAWING UTILITIES
+// ============================================================
+function clearCanvas(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  return { canvas, ctx, W: canvas.width, H: canvas.height };
+}
+
+function drawGridBg(ctx, W, H) {
+  ctx.strokeStyle = 'rgba(0,245,212,0.04)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+}
+
+function drawLabel(ctx, text, x, y, color, font) {
+  ctx.fillStyle = color || '#e0e6f0';
+  ctx.font = font || '12px "Share Tech Mono"';
+  ctx.fillText(text, x, y);
+}
+
+// Color by deviation: deep red = large deviation, light green = small deviation
+function deviationColor(dev, maxDev) {
+  const ratio = Math.min(Math.abs(dev) / (maxDev || 1), 1);
+  if (ratio < 0.33) return '#88ffaa';
+  if (ratio < 0.66) return '#ff8844';
+  return '#ff2244';
+}
+
+// ============================================================
+// CANVAS RENDERERS
+// ============================================================
+const CANVAS_RENDERERS = {
+  bar_simple: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const vals = data.data || [];
+    const labels = data.labels || vals.map((_, i) => String(i + 1));
+    const maxV = Math.max(...vals) * 1.2;
+    const barW = (W - 80) / vals.length * 0.6;
+    const gap = (W - 80) / vals.length;
+    const baseY = H - 40;
+    const scale = (H - 80) / maxV;
+    vals.forEach((v, i) => {
+      const x = 50 + i * gap + gap * 0.2;
+      const h = v * scale;
+      const y = baseY - h;
+      ctx.fillStyle = 'rgba(0,245,212,0.25)';
+      ctx.fillRect(x, y, barW, h);
+      ctx.strokeStyle = '#00f5d4';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, barW, h);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '12px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, y - 6);
+      ctx.fillText(labels[i], x + barW / 2, baseY + 16);
+      ctx.textAlign = 'left';
+    });
+    drawLabel(ctx, '数据分布柱状图', 20, 28, '#00f5d4', '13px Orbitron');
+  },
+
+  bar_stats: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const vals = data.data || [];
+    const mean = data.mean || 0;
+    const maxV = Math.max(...vals) * 1.2;
+    const barW = (W - 80) / vals.length * 0.6;
+    const gap = (W - 80) / vals.length;
+    const baseY = H - 40;
+    const scale = (H - 80) / maxV;
+    const maxDev = Math.max(...vals.map(v => Math.abs(v - mean)));
+    vals.forEach((v, i) => {
+      const x = 50 + i * gap + gap * 0.2;
+      const h = v * scale;
+      const y = baseY - h;
+      const dev = v - mean;
+      const color = deviationColor(dev, maxDev);
+      ctx.fillStyle = color + '33';
+      ctx.fillRect(x, y, barW, h);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, barW, h);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '12px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, y - 6);
+      ctx.fillStyle = color;
+      ctx.fillText((dev > 0 ? '+' : '') + dev, x + barW / 2, baseY + 16);
+      ctx.textAlign = 'left';
+    });
+    // Mean line
+    const meanY = baseY - mean * scale;
+    ctx.strokeStyle = '#00f5d4';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath(); ctx.moveTo(40, meanY); ctx.lineTo(W - 40, meanY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#00f5d4';
+    ctx.fillText('x̄ = ' + mean, W - 100, meanY - 6);
+    drawLabel(ctx, '柱状图 + 平均数线（颜色=偏离程度）', 20, 28, '#00f5d4', '13px Orbitron');
+  },
+
+  weighted_bar: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const scores = data.scores || [80, 85, 90];
+    const weights = data.weights || [0.3, 0.3, 0.4];
+    const result = data.result || 85.5;
+    const labels = ['平时', '期中', '期末'];
+    const maxV = 100;
+    const barW = (W - 100) / scores.length * 0.5;
+    const gap = (W - 100) / scores.length;
+    const baseY = H - 40;
+    const scale = (H - 80) / maxV;
+    scores.forEach((v, i) => {
+      const x = 60 + i * gap + gap * 0.25;
+      const h = v * scale;
+      const y = baseY - h;
+      // Score bar
+      ctx.fillStyle = 'rgba(0,245,212,0.2)';
+      ctx.fillRect(x, y, barW, h);
+      ctx.strokeStyle = '#00f5d4';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, barW, h);
+      // Weight bar (smaller, below)
+      const wh = weights[i] * 60;
+      ctx.fillStyle = 'rgba(255,204,0,0.3)';
+      ctx.fillRect(x + barW + 4, baseY - wh, 16, wh);
+      ctx.strokeStyle = '#ffcc00';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + barW + 4, baseY - wh, 16, wh);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, y - 6);
+      ctx.fillStyle = '#ffcc00';
+      ctx.fillText((weights[i] * 100).toFixed(0) + '%', x + barW + 12, baseY - wh - 4);
+      ctx.fillStyle = '#8a9ab0';
+      ctx.fillText(labels[i], x + barW / 2, baseY + 16);
+      ctx.textAlign = 'left';
+    });
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 14px Orbitron';
+    ctx.fillText('加权平均 = ' + result, 60, 32);
+  },
+
+  freq_bar: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const vals = data.values || [2, 3, 5, 7];
+    const freqs = data.freqs || [1, 2, 3, 2];
+    const maxF = Math.max(...freqs) * 1.3;
+    const barW = (W - 80) / vals.length * 0.5;
+    const gap = (W - 80) / vals.length;
+    const baseY = H - 40;
+    const scale = (H - 80) / maxF;
+    vals.forEach((v, i) => {
+      const x = 50 + i * gap + gap * 0.25;
+      const h = freqs[i] * scale;
+      const isMode = freqs[i] === Math.max(...freqs);
+      ctx.fillStyle = isMode ? 'rgba(0,255,136,0.25)' : 'rgba(0,245,212,0.15)';
+      ctx.fillRect(x, baseY - h, barW, h);
+      ctx.strokeStyle = isMode ? '#00ff88' : '#00f5d4';
+      ctx.lineWidth = isMode ? 2.5 : 1.5;
+      ctx.strokeRect(x, baseY - h, barW, h);
+      ctx.fillStyle = isMode ? '#00ff88' : '#e0e6f0';
+      ctx.font = '13px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(freqs[i]) + '次', x + barW / 2, baseY - h - 6);
+      ctx.fillStyle = '#8a9ab0';
+      ctx.fillText(String(v), x + barW / 2, baseY + 16);
+      ctx.textAlign = 'left';
+    });
+    drawLabel(ctx, '频率分布图（绿色=众数）', 20, 28, '#00f5d4', '13px Orbitron');
+  },
+
+  deviation_bars: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const vals = data.data || [4, 6, 8, 10, 12];
+    const mean = data.mean || 8;
+    const maxV = Math.max(...vals) * 1.2;
+    const barW = (W - 80) / vals.length * 0.55;
+    const gap = (W - 80) / vals.length;
+    const baseY = H - 40;
+    const scale = (H - 80) / maxV;
+    const maxDev = Math.max(...vals.map(v => Math.abs(v - mean)));
+    vals.forEach((v, i) => {
+      const x = 50 + i * gap + gap * 0.22;
+      const h = v * scale;
+      const y = baseY - h;
+      const dev = v - mean;
+      const color = deviationColor(dev, maxDev);
+      // Bar
+      ctx.fillStyle = color + '30';
+      ctx.fillRect(x, y, barW, h);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, barW, h);
+      // Deviation line from top of bar to mean line
+      const meanY = baseY - mean * scale;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x + barW / 2, y + h);
+      ctx.lineTo(x + barW / 2, meanY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Value label
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '12px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, y - 6);
+      // Deviation label
+      ctx.fillStyle = color;
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.fillText((dev > 0 ? '+' : '') + dev, x + barW / 2, (y + h + meanY) / 2);
+      ctx.textAlign = 'left';
+    });
+    // Mean line
+    const meanY = baseY - mean * scale;
+    ctx.strokeStyle = '#00f5d4';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath(); ctx.moveTo(40, meanY); ctx.lineTo(W - 40, meanY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '12px Orbitron';
+    ctx.fillText('x̄ = ' + mean, W - 90, meanY - 6);
+    drawLabel(ctx, '偏离程度可视化（深红=大偏离，浅绿=小偏离）', 20, 28, '#00f5d4', '12px Orbitron');
+  },
+
+  target_anim: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const vals = data.data || [3, 7, 8, 9, 13];
+    const mean = data.mean || 8;
+    const label = data.label || '靶心比喻';
+    const cx = W / 2, cy = H / 2;
+    const maxDev = Math.max(...vals.map(v => Math.abs(v - mean))) || 1;
+    // Draw target circles (concentric)
+    const rings = [140, 100, 60, 30];
+    const ringColors = ['rgba(255,34,68,0.08)', 'rgba(255,136,68,0.1)', 'rgba(136,255,170,0.12)', 'rgba(0,245,212,0.15)'];
+    rings.forEach((r, i) => {
+      ctx.fillStyle = ringColors[i];
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,245,212,0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    });
+    // Bullseye
+    ctx.fillStyle = '#00f5d4';
+    ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '11px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.fillText('x̄=' + mean, cx, cy + 22);
+    ctx.textAlign = 'left';
+    // Data points as bullet holes
+    const angleStep = (Math.PI * 2) / vals.length;
+    vals.forEach((v, i) => {
+      const dev = v - mean;
+      const dist = Math.abs(dev) / maxDev * 120;
+      const angle = i * angleStep - Math.PI / 2;
+      const px = cx + dist * Math.cos(angle);
+      const py = cy + dist * Math.sin(angle);
+      const color = deviationColor(dev, maxDev);
+      // Bullet hole
+      ctx.fillStyle = color + '99';
+      ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.stroke();
+      // Inner hole
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+      // Label
+      ctx.fillStyle = color;
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), px, py - 16);
+      ctx.textAlign = 'left';
+    });
+    // Legend
+    const legendY = H - 30;
+    ctx.fillStyle = '#ff2244';
+    ctx.beginPath(); ctx.arc(50, legendY, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8a9ab0'; ctx.font = '11px "Share Tech Mono"'; ctx.fillText('大偏离', 62, legendY + 4);
+    ctx.fillStyle = '#ff8844';
+    ctx.beginPath(); ctx.arc(130, legendY, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8a9ab0'; ctx.fillText('中等', 142, legendY + 4);
+    ctx.fillStyle = '#88ffaa';
+    ctx.beginPath(); ctx.arc(190, legendY, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8a9ab0'; ctx.fillText('小偏离', 202, legendY + 4);
+    drawLabel(ctx, '▌ ' + label, 20, 28, '#00f5d4', '13px Orbitron');
+  },
+
+  variance_compare: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const dataA = data.dataA || [3, 4, 5, 6, 7];
+    const dataB = data.dataB || [1, 3, 5, 7, 9];
+    const mean = data.mean || 5;
+    const maxV = Math.max(...dataA, ...dataB) * 1.2;
+    const sectionW = (W - 80) / 2;
+    const barW = sectionW / 5 * 0.55;
+    const gap = sectionW / 5;
+    const baseY = H - 50;
+    const scale = (H - 100) / maxV;
+    const maxDev = Math.max(...dataA.map(v => Math.abs(v - mean)), ...dataB.map(v => Math.abs(v - mean))) || 1;
+    // Draw A
+    drawLabel(ctx, 'A组', 50, 28, '#00ff88', '13px Orbitron');
+    dataA.forEach((v, i) => {
+      const x = 50 + i * gap + gap * 0.2;
+      const h = v * scale;
+      const dev = v - mean;
+      const color = deviationColor(dev, maxDev);
+      ctx.fillStyle = color + '30';
+      ctx.fillRect(x, baseY - h, barW, h);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, baseY - h, barW, h);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, baseY - h - 4);
+      ctx.textAlign = 'left';
+    });
+    // Mean line A
+    const meanY = baseY - mean * scale;
+    ctx.strokeStyle = '#00f5d4';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(40, meanY); ctx.lineTo(sectionW + 30, meanY); ctx.stroke();
+    ctx.setLineDash([]);
+    // Draw B
+    const offsetX = sectionW + 40;
+    drawLabel(ctx, 'B组', offsetX + 10, 28, '#ff8844', '13px Orbitron');
+    dataB.forEach((v, i) => {
+      const x = offsetX + i * gap + gap * 0.2;
+      const h = v * scale;
+      const dev = v - mean;
+      const color = deviationColor(dev, maxDev);
+      ctx.fillStyle = color + '30';
+      ctx.fillRect(x, baseY - h, barW, h);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, baseY - h, barW, h);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, baseY - h - 4);
+      ctx.textAlign = 'left';
+    });
+    // Mean line B
+    ctx.strokeStyle = '#00f5d4';
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(offsetX, meanY); ctx.lineTo(W - 40, meanY); ctx.stroke();
+    ctx.setLineDash([]);
+    // Divider
+    ctx.strokeStyle = 'rgba(0,245,212,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(W / 2, 40); ctx.lineTo(W / 2, H - 40); ctx.stroke();
+    // Variance labels
+    const varA = dataA.reduce((sum, v) => sum + (v - mean) ** 2, 0) / dataA.length;
+    const varB = dataB.reduce((sum, v) => sum + (v - mean) ** 2, 0) / dataB.length;
+    ctx.fillStyle = '#00ff88';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('s² = ' + varA.toFixed(1), 50, H - 18);
+    ctx.fillStyle = '#ff8844';
+    ctx.fillText('s² = ' + varB.toFixed(1), offsetX + 10, H - 18);
+  },
+
+  std_visual: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const variance = data.variance || 8;
+    const std = data.std || Math.sqrt(variance);
+    const cx = W / 2, cy = H / 2;
+    // Draw nested squares to represent variance vs std
+    const maxSize = 180;
+    const varSize = maxSize;
+    const stdSize = maxSize * (std / Math.sqrt(Math.max(variance, 16)));
+    // Variance square (outer, area concept)
+    ctx.strokeStyle = 'rgba(255,51,102,0.3)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cx - varSize / 2, cy - varSize / 2, varSize, varSize);
+    ctx.fillStyle = 'rgba(255,51,102,0.05)';
+    ctx.fillRect(cx - varSize / 2, cy - varSize / 2, varSize, varSize);
+    // Std square (inner, side length concept)
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(cx - stdSize / 2, cy - stdSize / 2, stdSize, stdSize);
+    ctx.fillStyle = 'rgba(0,255,136,0.08)';
+    ctx.fillRect(cx - stdSize / 2, cy - stdSize / 2, stdSize, stdSize);
+    // Labels
+    ctx.fillStyle = '#ff3366';
+    ctx.font = '14px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.fillText('s² = ' + variance, cx, cy - varSize / 2 - 10);
+    ctx.fillStyle = '#00ff88';
+    ctx.fillText('s = √' + variance + ' = ' + (typeof std === 'number' ? std.toFixed(2) : std), cx, cy + stdSize / 2 + 22);
+    ctx.textAlign = 'left';
+    // Formula
+    ctx.fillStyle = '#8a9ab0';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('标准差 = 方差的算术平方根', 20, 28);
+  },
+
+  scale_demo: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const orig = data.original || [2, 4, 6, 8, 10];
+    const scaled = data.scaled || [4, 8, 12, 16, 20];
+    const factor = data.factor || 2;
+    const maxV = Math.max(...scaled) * 1.15;
+    const sectionW = (W - 80) / 2;
+    const barW = sectionW / orig.length * 0.5;
+    const gap = sectionW / orig.length;
+    const baseY = H - 40;
+    const scale = (H - 80) / maxV;
+    // Original
+    drawLabel(ctx, '原始数据', 50, 28, '#00f5d4', '13px Orbitron');
+    orig.forEach((v, i) => {
+      const x = 50 + i * gap + gap * 0.25;
+      const h = v * scale;
+      ctx.fillStyle = 'rgba(0,245,212,0.2)';
+      ctx.fillRect(x, baseY - h, barW, h);
+      ctx.strokeStyle = '#00f5d4';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, baseY - h, barW, h);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, baseY - h - 4);
+      ctx.textAlign = 'left';
+    });
+    // Mean for original
+    const meanO = orig.reduce((a, b) => a + b, 0) / orig.length;
+    ctx.strokeStyle = '#00f5d4';
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath(); ctx.moveTo(40, baseY - meanO * scale); ctx.lineTo(sectionW + 30, baseY - meanO * scale); ctx.stroke();
+    ctx.setLineDash([]);
+    // Scaled
+    const offsetX = sectionW + 40;
+    drawLabel(ctx, '×' + factor + ' 后', offsetX + 10, 28, '#ffcc00', '13px Orbitron');
+    scaled.forEach((v, i) => {
+      const x = offsetX + i * gap + gap * 0.25;
+      const h = v * scale;
+      ctx.fillStyle = 'rgba(255,204,0,0.2)';
+      ctx.fillRect(x, baseY - h, barW, h);
+      ctx.strokeStyle = '#ffcc00';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, baseY - h, barW, h);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, baseY - h - 4);
+      ctx.textAlign = 'left';
+    });
+    const meanS = scaled.reduce((a, b) => a + b, 0) / scaled.length;
+    ctx.strokeStyle = '#ffcc00';
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath(); ctx.moveTo(offsetX, baseY - meanS * scale); ctx.lineTo(W - 40, baseY - meanS * scale); ctx.stroke();
+    ctx.setLineDash([]);
+    // Divider
+    ctx.strokeStyle = 'rgba(0,245,212,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(W / 2, 40); ctx.lineTo(W / 2, H - 40); ctx.stroke();
+    // Variance ratio
+    const varO = orig.reduce((sum, v) => sum + (v - meanO) ** 2, 0) / orig.length;
+    const varS = scaled.reduce((sum, v) => sum + (v - meanS) ** 2, 0) / scaled.length;
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('s² = ' + varO.toFixed(2), 50, H - 18);
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillText('s² = ' + varS.toFixed(2) + ' (' + (varS / varO).toFixed(0) + '倍)', offsetX + 10, H - 18);
+  },
+
+  stability_compare: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const nameA = data.nameA || "甲";
+    const nameB = data.nameB || "乙";
+    const dataA = data.dataA || [8, 8, 9, 9, 10];
+    const dataB = data.dataB || [7, 8, 9, 10, 11];
+    const meanA = dataA.reduce((a, b) => a + b, 0) / dataA.length;
+    const meanB = dataB.reduce((a, b) => a + b, 0) / dataB.length;
+    const maxV = Math.max(...dataA, ...dataB) * 1.15;
+    const sectionW = (W - 80) / 2;
+    const barW = sectionW / dataA.length * 0.5;
+    const gap = sectionW / dataA.length;
+    const baseY = H - 50;
+    const scale = (H - 100) / maxV;
+    const maxDev = Math.max(...dataA.map(v => Math.abs(v - meanA)), ...dataB.map(v => Math.abs(v - meanB))) || 1;
+    // A
+    drawLabel(ctx, nameA, 50, 28, '#00ff88', '13px Orbitron');
+    dataA.forEach((v, i) => {
+      const x = 50 + i * gap + gap * 0.25;
+      const h = v * scale;
+      const dev = v - meanA;
+      const color = deviationColor(dev, maxDev);
+      ctx.fillStyle = color + '30';
+      ctx.fillRect(x, baseY - h, barW, h);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, baseY - h, barW, h);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, baseY - h - 4);
+      ctx.textAlign = 'left';
+    });
+    const meanYA = baseY - meanA * scale;
+    ctx.strokeStyle = '#00f5d4';
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath(); ctx.moveTo(40, meanYA); ctx.lineTo(sectionW + 30, meanYA); ctx.stroke();
+    ctx.setLineDash([]);
+    // B
+    const offsetX = sectionW + 40;
+    drawLabel(ctx, nameB, offsetX + 10, 28, '#ff8844', '13px Orbitron');
+    dataB.forEach((v, i) => {
+      const x = offsetX + i * gap + gap * 0.25;
+      const h = v * scale;
+      const dev = v - meanB;
+      const color = deviationColor(dev, maxDev);
+      ctx.fillStyle = color + '30';
+      ctx.fillRect(x, baseY - h, barW, h);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, baseY - h, barW, h);
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '11px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x + barW / 2, baseY - h - 4);
+      ctx.textAlign = 'left';
+    });
+    const meanYB = baseY - meanB * scale;
+    ctx.strokeStyle = '#00f5d4';
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath(); ctx.moveTo(offsetX, meanYB); ctx.lineTo(W - 40, meanYB); ctx.stroke();
+    ctx.setLineDash([]);
+    // Divider
+    ctx.strokeStyle = 'rgba(0,245,212,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(W / 2, 40); ctx.lineTo(W / 2, H - 40); ctx.stroke();
+    // Variance labels
+    const varA = dataA.reduce((sum, v) => sum + (v - meanA) ** 2, 0) / dataA.length;
+    const varB = dataB.reduce((sum, v) => sum + (v - meanB) ** 2, 0) / dataB.length;
+    ctx.fillStyle = '#00ff88';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('x̄=' + meanA.toFixed(1) + ' s²=' + varA.toFixed(2), 50, H - 20);
+    ctx.fillStyle = '#ff8844';
+    ctx.fillText('x̄=' + meanB.toFixed(1) + ' s²=' + varB.toFixed(2), offsetX + 10, H - 20);
+  },
+
+  line_compare: (canvasId, data) => {
+    const c = clearCanvas(canvasId);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    drawGridBg(ctx, W, H);
+    const nameA = data.nameA || "A";
+    const nameB = data.nameB || "B";
+    const dataA = data.dataA || [1, 2, -1, 3, -2];
+    const dataB = data.dataB || [5, -4, 3, -2, 1];
+    const minV = Math.min(...dataA, ...dataB) * 1.2;
+    const maxV = Math.max(...dataA, ...dataB) * 1.2;
+    const range = maxV - minV;
+    const baseY = H / 2;
+    const scaleY = (H - 80) / range / 2;
+    const stepX = (W - 100) / (dataA.length - 1);
+    // Zero line
+    ctx.strokeStyle = 'rgba(0,245,212,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(50, baseY); ctx.lineTo(W - 50, baseY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#4a5a70';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('0', 35, baseY + 4);
+    // Draw A line
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    dataA.forEach((v, i) => {
+      const x = 50 + i * stepX;
+      const y = baseY - v * scaleY;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    dataA.forEach((v, i) => {
+      const x = 50 + i * stepX;
+      const y = baseY - v * scaleY;
+      ctx.fillStyle = '#00ff88';
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '10px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x, y - 10);
+      ctx.textAlign = 'left';
+    });
+    // Draw B line
+    ctx.strokeStyle = '#ff8844';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath();
+    dataB.forEach((v, i) => {
+      const x = 50 + i * stepX;
+      const y = baseY - v * scaleY;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    dataB.forEach((v, i) => {
+      const x = 50 + i * stepX;
+      const y = baseY - v * scaleY;
+      ctx.fillStyle = '#ff8844';
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e0e6f0';
+      ctx.font = '10px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(v), x, y + 18);
+      ctx.textAlign = 'left';
+    });
+    // Legend
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(W - 150, 28, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e0e6f0'; ctx.font = '12px "Share Tech Mono"'; ctx.fillText(nameA, W - 138, 32);
+    ctx.fillStyle = '#ff8844';
+    ctx.beginPath(); ctx.arc(W - 80, 28, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e0e6f0'; ctx.fillText(nameB, W - 68, 32);
+    drawLabel(ctx, '波动对比折线图', 20, 28, '#00f5d4', '13px Orbitron');
+  }
+};
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function startGame() {
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'flex';
+  document.getElementById('chPanelToggle').style.display = 'flex';
+  document.getElementById('gameScreen').style.display = 'block';
+  gameState.currentStage = 0;
+  gameState.currentQuestion = 0;
+  gameState.lives = 3;
+  gameState.score = 0;
+  gameState.combo = 0;
+  gameState.maxCombo = 0;
+  gameState.correctCount = 0;
+  gameState.totalQuestions = 0;
+  gameState.answered = false;
+  gameState.stageCompleted = [false, false, false, false];
+  updateLivesDisplay();
+  updateComboDisplay();
+  updateScoreDisplay();
+  gameState.startTime = Date.now();
+  if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+  gameState.timerInterval = setInterval(updateTimer, 1000);
+  showStageTransition(0, () => loadQuestion(0, 0));
+}
+
+function showStageTransition(stageIdx, callback) {
+  const tr = document.getElementById('stageTransition');
+  const num = document.getElementById('stTrNum');
+  const title = document.getElementById('stTrTitle');
+  const sub = document.getElementById('stTrSub');
+  const stage = STAGES[stageIdx];
+  num.textContent = '0' + (stageIdx + 1);
+  title.textContent = stage.name;
+  sub.textContent = stage.sub;
+  tr.classList.add('show');
+  setTimeout(() => {
+    tr.classList.remove('show');
+    if (callback) callback();
+  }, 1800);
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  const timer = document.getElementById('hudTimer');
+  timer.textContent = mins + ':' + secs;
+  if (elapsed > 180) timer.classList.add('warning');
+}
+
+function updateLivesDisplay() {
+  for (let i = 1; i <= 3; i++) {
+    const heart = document.getElementById('heart' + i);
+    if (i <= gameState.lives) { heart.className = 'heart alive'; }
+    else { heart.className = 'heart lost'; }
+  }
+}
+
+function updateComboDisplay() {
+  const comboEl = document.getElementById('hudCombo');
+  comboEl.textContent = 'COMBO: ' + gameState.combo;
+  if (gameState.combo >= 3) {
+    comboEl.classList.add('active');
+    setTimeout(() => comboEl.classList.remove('active'), 600);
+  }
+}
+
+function updateScoreDisplay() {
+  document.getElementById('hudScore').textContent = gameState.score;
+  document.getElementById('hudStage').textContent = 'STAGE ' + (gameState.currentStage + 1) + '/4';
+}
+
+function loadQuestion(stageIdx, qIdx) {
+  gameState.currentStage = stageIdx;
+  gameState.currentQuestion = qIdx;
+  gameState.answered = false;
+  updateScoreDisplay();
+  const stage = STAGES[stageIdx];
+  const q = stage.questions[qIdx];
+  const container = document.getElementById('questionContainer');
+
+  document.getElementById('stageBadge').textContent = 'STAGE 0' + (stageIdx + 1);
+  document.getElementById('stageTitle').textContent = stage.name;
+  document.getElementById('stageSub').textContent = stage.sub;
+
+  let html = '<div class="question-card">';
+  html += '<div class="q-progress">';
+  html += '<div class="q-progress-bar"><div class="q-progress-fill" style="width:' + ((qIdx / stage.questions.length) * 100) + '%"></div></div>';
+  html += '<div class="q-progress-text">' + (qIdx + 1) + '/' + stage.questions.length + '</div>';
+  html += '</div>';
+  html += '<div class="q-body">';
+  html += '<div class="q-text">' + q.text + '</div>';
+
+  if (q.hasCanvas && CANVAS_RENDERERS[q.canvasType]) {
+    const canvasId = 'canvas_' + q.id;
+    html += '<div class="q-canvas-wrap">';
+    html += '<h4>▌ 可视化辅助</h4>';
+    html += '<canvas id="' + canvasId + '" width="720" height="340"></canvas>';
+    html += '</div>';
+  }
+
+  html += '<div class="q-options">';
+  q.options.forEach((opt, i) => {
+    html += '<div class="q-opt" onclick="selectOption(this, ' + i + ')" data-correct="' + opt.correct + '">';
+    html += '<span class="opt-letter">' + opt.letter + '</span>';
+    html += '<span>' + opt.text + '</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  html += '<div class="q-feedback" id="feedback_' + q.id + '">';
+  html += '<div class="fb-title"></div>';
+  html += '<div class="fb-text"></div>';
+  html += '</div>';
+
+  html += '<button class="next-btn" id="nextBtn_' + q.id + '" onclick="nextQuestion()">继续 →</button>';
+  html += '</div></div>';
+  container.innerHTML = html;
+
+  if (q.hasCanvas && CANVAS_RENDERERS[q.canvasType]) {
+    const canvasId = 'canvas_' + q.id;
+    setTimeout(() => { CANVAS_RENDERERS[q.canvasType](canvasId, q.canvasData); }, 50);
+  }
+
+  document.querySelectorAll('.chapter-item').forEach((item, i) => {
+    item.classList.toggle('active', i === stageIdx);
+  });
+}
+
+function selectOption(el, optIdx) {
+  if (gameState.answered) return;
+  gameState.answered = true;
+  gameState.totalQuestions++;
+
+  const isCorrect = el.dataset.correct === 'true';
+  const qId = STAGES[gameState.currentStage].questions[gameState.currentQuestion].id;
+  const feedback = document.getElementById('feedback_' + qId);
+  const fbTitle = feedback.querySelector('.fb-title');
+  const fbText = feedback.querySelector('.fb-text');
+  const nextBtn = document.getElementById('nextBtn_' + qId);
+
+  document.querySelectorAll('.q-opt').forEach(opt => opt.classList.add('disabled'));
+
+  if (isCorrect) {
+    el.classList.add('correct');
+    gameState.combo++;
+    if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+    gameState.correctCount++;
+    const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+    const speedBonus = Math.max(0, 50 - Math.floor(elapsed / 10));
+    const comboBonus = Math.min(gameState.combo * 20, 100);
+    const points = 100 + comboBonus + speedBonus;
+    gameState.score += points;
+    feedback.className = 'q-feedback correct-fb';
+    fbTitle.textContent = '✓ 正确！+' + points + '分';
+    fbText.textContent = STAGES[gameState.currentStage].questions[gameState.currentQuestion].explanation;
+    showFeedbackOverlay(gameState.combo >= 3 ? 'perfect' : 'good');
+  } else {
+    el.classList.add('wrong');
+    document.querySelectorAll('.q-opt').forEach(opt => {
+      if (opt.dataset.correct === 'true') opt.classList.add('correct');
+    });
+    gameState.combo = 0;
+    gameState.lives--;
+    updateLivesDisplay();
+    feedback.className = 'q-feedback wrong-fb';
+    fbTitle.textContent = '✗ 错误';
+    fbText.textContent = STAGES[gameState.currentStage].questions[gameState.currentQuestion].explanation;
+    showFeedbackOverlay('miss');
+    if (gameState.lives <= 0) {
+      setTimeout(() => showGameOver(), 1500);
+      return;
+    }
+  }
+
+  updateComboDisplay();
+  updateScoreDisplay();
+  feedback.style.display = 'block';
+  nextBtn.style.display = 'block';
+}
+
+function showFeedbackOverlay(type) {
+  const overlay = document.getElementById('feedbackOverlay');
+  const bubble = document.getElementById('feedbackBubble');
+  const texts = { perfect: 'PERFECT!', good: 'GOOD!', miss: 'MISS' };
+  bubble.textContent = texts[type] || 'OK';
+  bubble.className = 'feedback-bubble ' + type;
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), 800);
+}
+
+function nextQuestion() {
+  const stage = STAGES[gameState.currentStage];
+  if (gameState.currentQuestion < stage.questions.length - 1) {
+    loadQuestion(gameState.currentStage, gameState.currentQuestion + 1);
+  } else {
+    gameState.stageCompleted[gameState.currentStage] = true;
+    if (gameState.currentStage < STAGES.length - 1) {
+      showStageTransition(gameState.currentStage + 1, () => {
+        loadQuestion(gameState.currentStage + 1, 0);
+      });
+    } else {
+      showResults();
+    }
+  }
+}
+
+function showGameOver() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+  document.getElementById('resultGrade').textContent = 'F';
+  document.getElementById('resultGrade').style.color = 'var(--red)';
+  document.getElementById('statScore').textContent = gameState.score;
+  const acc = gameState.totalQuestions > 0 ? Math.round(gameState.correctCount / gameState.totalQuestions * 100) : 0;
+  document.getElementById('statAccuracy').textContent = acc + '%';
+  document.getElementById('statMaxCombo').textContent = gameState.maxCombo;
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('statTime').textContent = mins + ':' + secs;
+}
+
+function showResults() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+
+  const totalQ = STAGES.reduce((sum, s) => sum + s.questions.length, 0);
+  const accuracy = Math.round(gameState.correctCount / totalQ * 100);
+  let grade = 'C';
+  let gradeColor = 'var(--yellow)';
+  if (accuracy >= 95 && gameState.maxCombo >= 5) { grade = 'S'; gradeColor = 'var(--accent)'; }
+  else if (accuracy >= 85) { grade = 'A'; gradeColor = 'var(--green)'; }
+  else if (accuracy >= 70) { grade = 'B'; gradeColor = 'var(--blue)'; }
+  else if (accuracy >= 50) { grade = 'C'; gradeColor = 'var(--yellow)'; }
+  else { grade = 'D'; gradeColor = 'var(--red)'; }
+
+  const gradeEl = document.getElementById('resultGrade');
+  gradeEl.textContent = grade;
+  gradeEl.style.color = gradeColor;
+
+  document.getElementById('statScore').textContent = gameState.score;
+  document.getElementById('statAccuracy').textContent = accuracy + '%';
+  document.getElementById('statMaxCombo').textContent = gameState.maxCombo;
+  const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('statTime').textContent = mins + ':' + secs;
+}
+
+function restartGame() {
+  document.getElementById('resultScreen').style.display = 'none';
+  startGame();
+}
+
+function backToTitle() {
+  clearInterval(gameState.timerInterval);
+  document.getElementById('resultScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'none';
+  document.getElementById('chPanelToggle').style.display = 'none';
+  document.getElementById('chapterPanel').style.display = 'none';
+  document.getElementById('titleScreen').style.display = 'flex';
+}
+
+function toggleChapterPanel() {
+  const panel = document.getElementById('chapterPanel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+function jumpToStage(stageIdx) {
+  document.getElementById('chapterPanel').style.display = 'none';
+  if (stageIdx === gameState.currentStage && document.getElementById('gameScreen').style.display === 'block') {
+    return;
+  }
+  gameState.currentStage = stageIdx;
+  gameState.currentQuestion = 0;
+  gameState.answered = false;
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('gameHud').style.display = 'flex';
+  document.getElementById('chPanelToggle').style.display = 'flex';
+  document.getElementById('gameScreen').style.display = 'block';
+  document.getElementById('resultScreen').style.display = 'none';
+  loadQuestion(stageIdx, 0);
+}
+
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('chapterPanel');
+  const toggle = document.getElementById('chPanelToggle');
+  if (panel.style.display === 'block' && !panel.contains(e.target) && !toggle.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+</script>
+</body>
+</html>
