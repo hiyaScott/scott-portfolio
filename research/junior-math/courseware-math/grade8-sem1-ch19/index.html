@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：REAL | 实数勘测队</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f;
+  --bg-panel: rgba(6,8,15,0.92);
+  --accent: #00f5d4;
+  --accent-dim: rgba(0,245,212,0.3);
+  --accent-glow: rgba(0,245,212,0.15);
+  --text: #e8ecf1;
+  --text-dim: #8a9ab0;
+  --danger: #ff3864;
+  --warn: #ffcc00;
+  --grid: rgba(0,245,212,0.06);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Share Tech Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+  position: relative;
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(0deg, var(--grid) 1px, transparent 1px) 0 0 / 40px 40px;
+  pointer-events: none;
+  z-index: 1;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 2;
+  animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+.corner-deco {
+  position: fixed;
+  width: 60px; height: 60px;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  z-index: 10;
+}
+.corner-deco.tl { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+.corner-deco.tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+.corner-deco.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; }
+.corner-deco.br { bottom: 12px; right: 12px; border-left: none; border-top: none; }
+.scan-beam {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.4;
+  animation: scanbeam 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 11;
+}
+@keyframes scanbeam {
+  0%,100% { top: 5%; opacity: 0.1; }
+  50% { top: 95%; opacity: 0.5; }
+}
+
+/* ── Title Screen ── */
+#titleScreen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 100;
+  background: var(--bg);
+  transition: opacity 0.6s;
+}
+#titleScreen.hidden { opacity: 0; pointer-events: none; }
+.title-main {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 3.5rem; font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent-glow), 0 0 60px var(--accent-glow);
+  letter-spacing: 0.15em;
+  animation: titlePulse 3s ease-in-out infinite;
+}
+@keyframes titlePulse {
+  0%,100% { text-shadow: 0 0 20px var(--accent-glow), 0 0 40px var(--accent-glow); }
+  50% { text-shadow: 0 0 30px var(--accent-glow), 0 0 80px var(--accent-glow), 0 0 120px rgba(0,245,212,0.1); }
+}
+.title-sub {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.2rem;
+  color: var(--accent-dim);
+  letter-spacing: 0.5em;
+  margin-top: 12px;
+}
+.title-desc {
+  font-size: 1rem;
+  color: var(--text-dim);
+  margin-top: 20px;
+  letter-spacing: 0.1em;
+  max-width: 500px;
+  text-align: center;
+}
+.title-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  color: var(--accent);
+  background: transparent;
+  border: 2px solid var(--accent);
+  padding: 14px 48px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 0.2em;
+  margin-top: 40px;
+}
+.title-btn:hover {
+  background: var(--accent-glow);
+  box-shadow: 0 0 30px var(--accent-glow);
+}
+.title-stats {
+  display: flex; gap: 40px;
+  margin-top: 30px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.title-stats span { color: var(--accent); }
+
+/* ── HUD ── */
+#hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px;
+  background: rgba(6,8,15,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--accent-dim);
+  z-index: 50;
+}
+.hud-left, .hud-right, .hud-center {
+  display: flex; align-items: center; gap: 16px;
+}
+.hud-center {
+  position: absolute; left: 50%; transform: translateX(-50%);
+}
+.hud-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+}
+.hud-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+.hud-value.danger { color: var(--danger); }
+.hud-value.warn { color: var(--warn); }
+.heart { font-size: 1.2rem; transition: all 0.3s; }
+.heart.lost { opacity: 0.2; filter: grayscale(1); }
+.stage-indicator {
+  display: flex; gap: 6px;
+}
+.stage-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-dim);
+  transition: all 0.3s;
+}
+.stage-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.stage-dot.completed { background: var(--accent-dim); }
+.timer-bar {
+  width: 120px; height: 4px;
+  background: rgba(0,245,212,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.timer-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s linear;
+}
+.combo-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.9rem;
+  color: var(--warn);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.combo-text.show { opacity: 1; }
+
+/* ── Game Area ── */
+#gameArea {
+  position: relative; z-index: 5;
+  max-width: 900px; margin: 0 auto;
+  padding: 80px 20px 40px;
+  min-height: 100vh;
+}
+.game-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.game-panel::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.6;
+}
+.stage-header {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--accent-dim);
+}
+.stage-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.2rem; font-weight: 900;
+  color: var(--accent); opacity: 0.6;
+}
+.stage-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.4rem; color: var(--text);
+  letter-spacing: 0.08em;
+}
+.stage-tag {
+  font-size: 0.7rem; color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  padding: 2px 10px; border-radius: 12px;
+  margin-left: auto; letter-spacing: 0.1em;
+}
+.question-area {
+  margin-bottom: 20px;
+}
+.question-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem; color: var(--accent);
+  letter-spacing: 0.1em; margin-bottom: 12px;
+}
+.question-text {
+  font-size: 1.05rem; color: var(--text);
+  line-height: 1.8; margin-bottom: 20px;
+}
+.question-text .formula {
+  display: inline-block;
+  background: rgba(0,245,212,0.08);
+  border: 1px solid var(--accent-dim);
+  padding: 2px 10px; border-radius: 4px;
+  font-size: 1.1rem; color: var(--accent);
+}
+
+/* ── Options ── */
+.options-grid {
+  display: grid; grid-template-columns: 1fr;
+  gap: 10px;
+}
+.options-grid.cols2 {
+  grid-template-columns: 1fr 1fr;
+}
+.option-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 14px 18px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  position: relative;
+}
+.option-btn:hover {
+  border-color: var(--accent-dim);
+  background: rgba(0,245,212,0.05);
+}
+.option-btn.correct {
+  border-color: var(--accent);
+  background: rgba(0,245,212,0.12);
+  color: var(--accent);
+}
+.option-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(255,56,100,0.12);
+  color: var(--danger);
+}
+.option-btn:disabled { cursor: default; }
+.option-marker {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  color: var(--accent-dim);
+  margin-right: 10px;
+}
+
+/* ── Input Answer ── */
+.input-area {
+  display: flex; gap: 12px; align-items: center;
+  margin-top: 16px;
+}
+.input-area input {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1.1rem;
+  color: var(--text);
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--accent-dim);
+  border-radius: 6px;
+  padding: 10px 16px;
+  width: 200px;
+  outline: none;
+}
+.input-area input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+.submit-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  padding: 10px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.submit-btn:hover {
+  background: var(--accent-glow);
+}
+
+/* ── Feedback ── */
+.feedback-box {
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  display: none;
+  animation: fadeIn 0.3s ease-out;
+}
+.feedback-box.show { display: block; }
+.feedback-box.correct {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+.feedback-box.wrong {
+  background: rgba(255,56,100,0.1);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Canvas Containers ── */
+.canvas-wrap {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  text-align: center;
+}
+.canvas-wrap canvas {
+  max-width: 100%; border-radius: 4px;
+  cursor: crosshair;
+}
+.canvas-label {
+  font-size: 0.8rem; color: var(--text-dim);
+  margin-top: 10px; letter-spacing: 0.05em;
+}
+
+/* ── Progress Bar ── */
+.progress-track {
+  width: 100%; height: 4px;
+  background: rgba(0,245,212,0.1);
+  border-radius: 2px;
+  margin: 16px 0;
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 10px var(--accent);
+  transition: width 0.4s ease-out;
+}
+
+/* ── Stage Complete / Result ── */
+.result-panel {
+  text-align: center; padding: 40px 20px;
+}
+.result-grade {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 5rem; font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 0 30px var(--accent-glow);
+  margin-bottom: 16px;
+  animation: gradePop 0.5s ease-out;
+}
+@keyframes gradePop {
+  0% { transform: scale(0); opacity: 0; }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.result-stats {
+  display: flex; justify-content: center; gap: 40px;
+  margin: 24px 0;
+  flex-wrap: wrap;
+}
+.stat-box {
+  text-align: center;
+}
+.stat-label {
+  font-size: 0.7rem; color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+.stat-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.6rem; color: var(--accent);
+  margin-top: 4px;
+}
+.nav-btns {
+  display: flex; justify-content: center; gap: 16px;
+  margin-top: 30px; flex-wrap: wrap;
+}
+.nav-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent-dim);
+  padding: 10px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-block;
+}
+.nav-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+.nav-btn.primary {
+  border-color: var(--accent);
+  background: rgba(0,245,212,0.08);
+}
+
+/* ── Jump Panel ── */
+.jump-panel {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+.jump-card {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+.jump-card:hover {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+.jump-card .jump-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.2rem; color: var(--accent);
+}
+.jump-card .jump-title {
+  font-size: 0.85rem; color: var(--text);
+  margin-top: 6px;
+}
+.jump-card .jump-status {
+  font-size: 0.7rem; color: var(--text-dim);
+  margin-top: 4px;
+}
+.jump-card.locked {
+  opacity: 0.4; cursor: not-allowed;
+}
+
+/* ── Geometric Viz Panel ── */
+.viz-panel {
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+}
+.viz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem; color: var(--accent);
+  margin-bottom: 12px; letter-spacing: 0.1em;
+}
+
+/* ── Footer ── */
+.game-footer {
+  text-align: center; padding: 20px;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  border-top: 1px solid var(--accent-dim);
+  position: relative; z-index: 5;
+}
+
+@media (max-width: 768px) {
+  .title-main { font-size: 2.2rem; }
+  .stage-title { font-size: 1.1rem; }
+  .options-grid.cols2 { grid-template-columns: 1fr; }
+  .hud-center { position: static; transform: none; }
+  #hud { flex-wrap: wrap; gap: 8px; }
+  .result-grade { font-size: 3.5rem; }
+  .jump-panel { grid-template-columns: 1fr; }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 3px; }
+::selection { background: var(--accent-dim); color: var(--text); }
+</style>
+</head>
+<body>
+<div class="corner-deco tl"></div>
+<div class="corner-deco tr"></div>
+<div class="corner-deco bl"></div>
+<div class="corner-deco br"></div>
+<div class="scan-beam"></div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- TITLE SCREEN -->
+<!-- ═══════════════════════════════════════ -->
+<div id="titleScreen">
+  <div class="title-main">代号：REAL</div>
+  <div class="title-sub">◈ 实数勘测队 ◈</div>
+  <div class="title-desc">第19章 · 八年级数学上册<br>实数分类 · 平方根 · 立方根 · n次方根 · 实数运算</div>
+  <div class="title-stats">
+    <div>STAGES <span>04</span></div>
+    <div>QUESTIONS <span>32</span></div>
+    <div>LIVES <span>03</span></div>
+  </div>
+  <button class="title-btn" onclick="startGame()">▶ 启动勘测</button>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- HUD -->
+<!-- ═══════════════════════════════════════ -->
+<div id="hud" style="display:none;">
+  <div class="hud-left">
+    <div>
+      <div class="hud-label">STAGE</div>
+      <div class="hud-value" id="hudStage">01</div>
+    </div>
+    <div class="stage-indicator" id="stageDots">
+      <div class="stage-dot active"></div>
+      <div class="stage-dot"></div>
+      <div class="stage-dot"></div>
+      <div class="stage-dot"></div>
+    </div>
+  </div>
+  <div class="hud-center">
+    <div>
+      <div class="hud-label">TIMER</div>
+      <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+    </div>
+    <div>
+      <div class="hud-label">COMBO</div>
+      <div class="combo-text" id="comboText">×0</div>
+    </div>
+  </div>
+  <div class="hud-right">
+    <div>
+      <div class="hud-label">SCORE</div>
+      <div class="hud-value" id="hudScore">0</div>
+    </div>
+    <div>
+      <div class="hud-label">LIVES</div>
+      <div id="hudLives">
+        <span class="heart">❤️</span><span class="heart">❤️</span><span class="heart">❤️</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- GAME AREA -->
+<!-- ═══════════════════════════════════════ -->
+<div id="gameArea" style="display:none;">
+  <div id="stageContent"></div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- JUMP PANEL -->
+<!-- ═══════════════════════════════════════ -->
+<div id="jumpPanel" style="display:none; max-width: 900px; margin: 20px auto; padding: 0 20px; position: relative; z-index: 5;">
+  <div class="game-panel">
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:1rem; color:var(--accent); margin-bottom:16px; letter-spacing:0.1em;">▸ 章节跳转 // STAGE SELECT</h3>
+    <div class="jump-panel">
+      <div class="jump-card" onclick="jumpToStage(1)">
+        <div class="jump-num">STAGE 01</div>
+        <div class="jump-title">实数分类</div>
+        <div class="jump-status" id="status1">勘测中...</div>
+      </div>
+      <div class="jump-card" onclick="jumpToStage(2)">
+        <div class="jump-num">STAGE 02</div>
+        <div class="jump-title">平方根与算术平方根</div>
+        <div class="jump-status" id="status2">锁定</div>
+      </div>
+      <div class="jump-card" onclick="jumpToStage(3)">
+        <div class="jump-num">STAGE 03</div>
+        <div class="jump-title">立方根与n次方根</div>
+        <div class="jump-status" id="status3">锁定</div>
+      </div>
+      <div class="jump-card" onclick="jumpToStage(4)">
+        <div class="jump-num">STAGE 04</div>
+        <div class="jump-title">实数运算</div>
+        <div class="jump-status" id="status4">锁定</div>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:20px;">
+      <button class="nav-btn" onclick="showFinalResult()">📊 查看总评</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ═══════════════════════════════════════ -->
+<footer class="game-footer" id="gameFooter" style="display:none;">
+  <div>◈ 代号：REAL · 实数勘测队 · 第19章 实数 ◈</div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════
+// GAME DATA
+// ═══════════════════════════════════════
+const STAGES = [
+  {
+    id: 1, code: 'REAL.CLASS', title: '实数分类',
+    subtitle: '区分有理数与无理数，判断数的类型',
+    questions: [
+      {
+        type: 'choice',
+        q: '下列数中，无理数的个数是（ ）<br><span class="formula">-π/3, 0, 0.101001..., 3.14, √4, ∛9</span>',
+        options: ['1个', '2个', '3个', '4个'],
+        answer: 2,
+        explain: '-π/3（π无理），0.101001...（不循环），∛9（不是完全立方数）。共3个无理数。'
+      },
+      {
+        type: 'choice',
+        q: '下列说法正确的是（ ）',
+        options: ['无限小数都是无理数', '无理数都是无限小数', '带根号的数都是无理数', '无理数不能在数轴上表示'],
+        answer: 1,
+        explain: '无理数的定义就是「无限不循环小数」，所以无理数必为无限小数。A错（无限循环是有理数）；C错（如√9=3）；D错（所有实数都在数轴上）。'
+      },
+      {
+        type: 'choice',
+        q: '若一个数的平方等于 2，则这个数（ ）',
+        options: ['一定是有理数', '一定是无理数', '可能是有理数也可能是无理数', '以上都不对'],
+        answer: 1,
+        explain: 'x²=2 → x=±√2，已证明 √2 是无理数。'
+      },
+      {
+        type: 'choice',
+        q: '在 0, -3.14, 22/7, √2, π, -∛(-27), 0.010010001... 中，无理数有（ ）个',
+        options: ['2', '3', '4', '5'],
+        answer: 2,
+        explain: '无理数：√2, π, 0.010010001...（有规律但不循环）。-∛(-27)=3是有理数。-3.14和22/7都是有理数。共3个。'
+      },
+      {
+        type: 'input',
+        q: '写出下列数中最小的一个：<span class="formula">-π, -3.14, -√10, -22/7</span>',
+        answer: '-√10',
+        explain: '-π≈-3.14, -√10≈-3.16, -22/7≈-3.14。最小的是-√10（最负）。'
+      },
+      {
+        type: 'choice',
+        q: '0.101001000100001...（每两个1之间依次多一个0）是（ ）',
+        options: ['有理数', '无理数', '整数', '有限小数'],
+        answer: 1,
+        explain: '有规律但不循环，属于无限不循环小数，因此是无理数。'
+      },
+      {
+        type: 'choice',
+        q: '下列各数中，属于负分数的是（ ）',
+        options: ['-3', '-3.14', '-√2', '0'],
+        answer: 1,
+        explain: '-3.14 是有限小数，可化为分数，因此是负分数。-3是负整数，-√2是无理数。'
+      },
+      {
+        type: 'input',
+        q: '已知 a 是最小的正整数，b 是最大的负整数，c 是绝对值最小的实数，求 a+b+c 的值。',
+        answer: '0',
+        explain: 'a=1（最小正整数），b=-1（最大负整数），c=0（绝对值最小）。a+b+c=1+(-1)+0=0。'
+      }
+    ]
+  },
+  {
+    id: 2, code: 'REAL.SQRT', title: '平方根与算术平方根',
+    subtitle: '计算平方根，判断算术平方根',
+    questions: [
+      {
+        type: 'choice',
+        q: '<span class="formula">√81</span> 的平方根是（ ）',
+        options: ['9', '±9', '3', '±3'],
+        answer: 3,
+        explain: '√81 = 9，而 9 的平方根是 ±3。注意是「√81的平方根」不是「81的平方根」！'
+      },
+      {
+        type: 'choice',
+        q: '若 <span class="formula">√(x-2) + √(2-x) = y + 3</span>，则 x + y =（ ）',
+        options: ['5', '-1', '1', '-5'],
+        answer: 1,
+        explain: '由根号非负性，需 x-2≥0 且 2-x≥0，∴ x=2。代入得 0+0=y+3 → y=-3。x+y = 2+(-3) = -1。'
+      },
+      {
+        type: 'choice',
+        q: '一个正数的两个平方根分别是 2a-1 与 -a+2，则这个正数是（ ）',
+        options: ['1', '3', '9', '4'],
+        answer: 2,
+        explain: '两平方根互为相反数：(2a-1)+(-a+2)=0 → a=-1。平方根为-3和3，∴ 这个正数是9。'
+      },
+      {
+        type: 'input',
+        q: '计算：<span class="formula">√((-5)²)</span>',
+        answer: '5',
+        explain: '√((-5)²) = √25 = 5。注意：先平方再开方 = 绝对值，结果非负！'
+      },
+      {
+        type: 'choice',
+        q: '下列等式成立的是（ ）',
+        options: ['√((-3)²) = -3', '(√3)² = 9', '√(3²) = 3', '√((-3)²) = ±3'],
+        answer: 2,
+        explain: '√(3²) = √9 = 3 ✓。A错（应为3）；B错（(√3)²=3）；D错（算术平方根只取非负）。'
+      },
+      {
+        type: 'input',
+        q: '若 <span class="formula">√(a-1) + |b+2| = 0</span>，求 a+b 的值。',
+        answer: '-1',
+        explain: '两个非负数之和为0，则各自为0。∴ a-1=0 → a=1；b+2=0 → b=-2。a+b=-1。'
+      },
+      {
+        type: 'choice',
+        q: '面积为 7 的正方形，其边长为（ ）',
+        options: ['有理数', '无理数', '整数', '分数'],
+        answer: 1,
+        explain: '边长 = √7。7 不是完全平方数，√7 是无限不循环小数，因此是无理数。'
+      },
+      {
+        type: 'input',
+        q: '化简：<span class="formula">√(3-π)²</span>',
+        answer: 'π-3',
+        explain: '√(3-π)² = |3-π| = π-3（∵ π≈3.14 > 3，3-π < 0）。'
+      }
+    ]
+  },
+  {
+    id: 3, code: 'REAL.CBRT', title: '立方根与n次方根',
+    subtitle: '计算立方根，判断奇偶次方根',
+    questions: [
+      {
+        type: 'choice',
+        q: '下列等式成立的是（ ）',
+        options: ['∛(-8) = -∛8', '∛(-8) = ∛8', '∛(-8) = ±2', '∛(-8) 无意义'],
+        answer: 0,
+        explain: '∛(-8) = -2，-∛8 = -2。立方根保持符号，且只有一个。'
+      },
+      {
+        type: 'choice',
+        q: '若 <span class="formula">∛(2x+1) + ∛(3-x) = 0</span>，则 x =（ ）',
+        options: ['-2', '4', '-4', '-2/3'],
+        answer: 2,
+        explain: '∛A + ∛B = 0 → A = -B（∵ ∛(-a) = -∛a）。∴ (2x+1) = -(3-x) → 2x+1 = -3+x → x = -4。'
+      },
+      {
+        type: 'choice',
+        q: '一个正方体的体积扩大为原来的 8 倍，则棱长扩大为原来的（ ）',
+        options: ['2√2 倍', '2 倍', '4 倍', '8 倍'],
+        answer: 1,
+        explain: 'V₂ = 8V₁ → ∛V₂ = ∛(8V₁) = 2∛V₁。棱长变为 2 倍。'
+      },
+      {
+        type: 'input',
+        q: '计算：<span class="formula">∛(-64) + ∛27</span>',
+        answer: '-1',
+        explain: '∛(-64) = -4，∛27 = 3。原式 = -4 + 3 = -1。'
+      },
+      {
+        type: 'choice',
+        q: '若 <span class="formula">ⁿ√((-5)ⁿ) = -5</span>，则 n 可以是（ ）',
+        options: ['2', '4', '3', '6'],
+        answer: 2,
+        explain: '结果为 -5（负数），说明 n 必须是奇数。选项中只有 3 是奇数。'
+      },
+      {
+        type: 'input',
+        q: '化简：<span class="formula">⁴√((-3)⁴)</span>',
+        answer: '3',
+        explain: '⁴√((-3)⁴) = ⁴√81 = |-3| = 3。偶次根式 → 绝对值。'
+      },
+      {
+        type: 'choice',
+        q: '下列各式中，对任意实数 a 都有意义的是（ ）',
+        options: ['√a', '⁴√a', '⁶√(-a)', '³√a'],
+        answer: 3,
+        explain: '只有奇次根式对任意实数都有意义。√a、⁴√a、⁶√(-a) 在 a<0 时无实数意义。'
+      },
+      {
+        type: 'input',
+        q: '计算：<span class="formula">⁵√((-2)⁵) + ⁶√(2⁶)</span>',
+        answer: '0',
+        explain: '⁵√((-2)⁵) = -2（奇次保持符号），⁶√(2⁶) = 2（偶次取绝对值）。原式 = -2 + 2 = 0。'
+      }
+    ]
+  },
+  {
+    id: 4, code: 'REAL.OPS', title: '实数运算',
+    subtitle: '实数混合运算、大小比较、数轴定位',
+    questions: [
+      {
+        type: 'choice',
+        q: '下列比较正确的是（ ）',
+        options: ['√10 < 3', '∛(-8) > ∛(-27)', '-√2 > -1', '√3 + √2 < √5'],
+        answer: 1,
+        explain: '∛(-8)=-2，∛(-27)=-3，-2 > -3 ✓。A错（√10≈3.16>3）；C错（-√2≈-1.414<-1）；D错（√3+√2≈3.15>√5≈2.24）。'
+      },
+      {
+        type: 'choice',
+        q: '计算 <span class="formula">|√3 - 2| + √3</span> 的结果是（ ）',
+        options: ['2√3 - 2', '0', '2', '2√3'],
+        answer: 2,
+        explain: '|√3-2| = 2-√3（∵ √3≈1.732<2），∴ 原式 = 2-√3+√3 = 2。'
+      },
+      {
+        type: 'numberline',
+        q: '请在数轴上点击标记 <span class="formula">-√3</span> 的位置（约等于 -1.732）。点击提交后系统会判定准确度。',
+        target: -1.732,
+        tolerance: 0.15,
+        explain: '-√3 ≈ -1.732，位于 -1 和 -2 之间，更靠近 -2（距 -2 约 0.268，距 -1 约 0.732）。'
+      },
+      {
+        type: 'input',
+        q: '计算：<span class="formula">√16 - ∛(-27) + |√2 - 2| - (√3)²</span>',
+        answer: '6-√2',
+        explain: '√16=4, ∛(-27)=-3, |√2-2|=2-√2, (√3)²=3。原式=4-(-3)+(2-√2)-3=6-√2。'
+      },
+      {
+        type: 'choice',
+        q: '数轴上表示 -√3 的点在原点的（ ）',
+        options: ['左边，距离约 1.732', '右边，距离约 1.732', '左边，距离约 3', '右边，距离约 3'],
+        answer: 0,
+        explain: '-√3 ≈ -1.732，在原点左侧，距离 |-√3| = √3 ≈ 1.732。'
+      },
+      {
+        type: 'numberline',
+        q: '请在数轴上点击标记 <span class="formula">√5</span> 的位置（约等于 2.236）。',
+        target: 2.236,
+        tolerance: 0.15,
+        explain: '√5 ≈ 2.236，位于 2 和 3 之间，更靠近 2（距 2 约 0.236，距 3 约 0.764）。'
+      },
+      {
+        type: 'input',
+        q: '比较大小：用 ">" 或 "<" 填空：<span class="formula">√2 + √3</span> ____ <span class="formula">√10</span>',
+        answer: '<',
+        explain: '(√2+√3)² = 2+2√6+3 = 5+2√6 ≈ 9.899 < 10 = (√10)²，∴ √2+√3 < √10。'
+      },
+      {
+        type: 'input',
+        q: '计算：<span class="formula">∛0.001 + √0.25 - |1-√2|</span>',
+        answer: '1.6-√2',
+        explain: '∛0.001=0.1, √0.25=0.5, |1-√2|=√2-1。原式=0.1+0.5-(√2-1)=0.6-√2+1=1.6-√2。'
+      }
+    ]
+  }
+];
+
+// ═══════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════
+let gameState = {
+  currentStage: 0,
+  currentQ: 0,
+  lives: 3,
+  combo: 0,
+  score: 0,
+  maxCombo: 0,
+  stageResults: [{}, {}, {}, {}],
+  totalCorrect: 0,
+  totalWrong: 0,
+  timerInterval: null,
+  timeLeft: 0,
+  maxTime: 0,
+  answered: false
+};
+
+const QUESTION_TIME = 45; // seconds per question
+
+// ═══════════════════════════════════════
+// TITLE & START
+// ═══════════════════════════════════════
+function startGame() {
+  document.getElementById('titleScreen').classList.add('hidden');
+  setTimeout(() => {
+    document.getElementById('titleScreen').style.display = 'none';
+    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('gameArea').style.display = 'block';
+    document.getElementById('gameFooter').style.display = 'block';
+    loadStage(0);
+  }, 600);
+}
+
+// ═══════════════════════════════════════
+// HUD UPDATES
+// ═══════════════════════════════════════
+function updateHUD() {
+  document.getElementById('hudStage').textContent = String(gameState.currentStage + 1).padStart(2, '0');
+  document.getElementById('hudScore').textContent = gameState.score;
+
+  const hearts = document.getElementById('hudLives').querySelectorAll('.heart');
+  hearts.forEach((h, i) => {
+    h.classList.toggle('lost', i >= gameState.lives);
+  });
+
+  const comboText = document.getElementById('comboText');
+  if (gameState.combo > 1) {
+    comboText.textContent = '×' + gameState.combo;
+    comboText.classList.add('show');
+  } else {
+    comboText.classList.remove('show');
+  }
+
+  const dots = document.getElementById('stageDots').querySelectorAll('.stage-dot');
+  dots.forEach((d, i) => {
+    d.className = 'stage-dot';
+    if (i < gameState.currentStage) d.classList.add('completed');
+    if (i === gameState.currentStage) d.classList.add('active');
+  });
+}
+
+function updateTimer() {
+  const pct = gameState.maxTime > 0 ? (gameState.timeLeft / gameState.maxTime) * 100 : 0;
+  document.getElementById('timerFill').style.width = pct + '%';
+  const fill = document.getElementById('timerFill');
+  fill.style.background = pct < 20 ? 'var(--danger)' : pct < 40 ? 'var(--warn)' : 'var(--accent)';
+}
+
+function startTimer() {
+  clearInterval(gameState.timerInterval);
+  gameState.maxTime = QUESTION_TIME;
+  gameState.timeLeft = QUESTION_TIME;
+  updateTimer();
+  gameState.timerInterval = setInterval(() => {
+    gameState.timeLeft--;
+    updateTimer();
+    if (gameState.timeLeft <= 0) {
+      clearInterval(gameState.timerInterval);
+      handleTimeout();
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(gameState.timerInterval);
+}
+
+// ═══════════════════════════════════════
+// STAGE LOADING
+// ═══════════════════════════════════════
+function loadStage(stageIdx) {
+  if (stageIdx >= STAGES.length) {
+    showFinalResult();
+    return;
+  }
+  gameState.currentStage = stageIdx;
+  gameState.currentQ = 0;
+  gameState.stageResults[stageIdx] = { correct: 0, wrong: 0, timeBonus: 0, comboMax: 0 };
+  updateHUD();
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const stage = STAGES[gameState.currentStage];
+  const q = stage.questions[gameState.currentQ];
+  const container = document.getElementById('stageContent');
+  gameState.answered = false;
+
+  let html = `
+    <div class="game-panel">
+      <div class="stage-header">
+        <div class="stage-num">0${stage.id}</div>
+        <div class="stage-title">${stage.title}</div>
+        <div class="stage-tag">${stage.code}</div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${((gameState.currentQ)/stage.questions.length)*100}%"></div>
+      </div>
+      <div class="question-area">
+        <div class="question-num">QUESTION ${gameState.currentQ + 1} / ${stage.questions.length}</div>
+        <div class="question-text">${q.q}</div>
+  `;
+
+  if (q.type === 'choice') {
+    const cols = q.options.length <= 2 ? 'cols2' : '';
+    html += `<div class="options-grid ${cols}">`;
+    q.options.forEach((opt, i) => {
+      const marker = String.fromCharCode(65 + i);
+      html += `<button class="option-btn" onclick="checkChoice(${i}, this)" data-idx="${i}">
+        <span class="option-marker">[${marker}]</span>${opt}
+      </button>`;
+    });
+    html += `</div>`;
+  } else if (q.type === 'input') {
+    html += `
+      <div class="input-area">
+        <input type="text" id="answerInput" placeholder="输入答案..." onkeydown="if(event.key==='Enter')checkInput()">
+        <button class="submit-btn" onclick="checkInput()">提交 ▸</button>
+      </div>
+    `;
+  } else if (q.type === 'numberline') {
+    html += `
+      <div class="canvas-wrap">
+        <canvas id="nlCanvas" width="840" height="180"></canvas>
+        <div class="canvas-label" id="nlLabel">▲ 点击数轴上的目标位置，然后点击「提交」</div>
+        <div style="margin-top:12px;">
+          <button class="submit-btn" onclick="checkNumberline()">提交 ▸</button>
+        </div>
+      </div>
+    `;
+  }
+
+  html += `<div class="feedback-box" id="feedbackBox"></div>`;
+  html += `</div></div>`;
+
+  // Geometric visualization every 3 questions
+  if ((gameState.currentQ + 1) % 3 === 0 || gameState.currentQ === 0) {
+    html += renderGeoViz(stage.id, gameState.currentQ);
+  }
+
+  container.innerHTML = html;
+
+  if (q.type === 'numberline') {
+    setTimeout(() => drawNumberline('nlCanvas', q.target), 50);
+  }
+
+  startTimer();
+}
+
+// ═══════════════════════════════════════
+// GEOMETRIC VISUALIZATIONS
+// ═══════════════════════════════════════
+function renderGeoViz(stageId, qIdx) {
+  if (stageId === 2 && qIdx === 0) {
+    return `
+      <div class="game-panel">
+        <div class="viz-title">▸ 几何视图 // 平方根的几何意义</div>
+        <div class="canvas-wrap">
+          <canvas id="geoSqrt" width="840" height="280"></canvas>
+          <div class="canvas-label">▲ 正方形面积 → 边长 = √面积。点击按钮切换面积值观察变化。</div>
+          <div class="canvas-controls" style="display:flex; justify-content:center; gap:10px; margin-top:12px; flex-wrap:wrap;">
+            <button class="nav-btn" onclick="drawSqrtGeo(4)">面积=4</button>
+            <button class="nav-btn" onclick="drawSqrtGeo(9)">面积=9</button>
+            <button class="nav-btn" onclick="drawSqrtGeo(2)">面积=2</button>
+            <button class="nav-btn" onclick="drawSqrtGeo(5)">面积=5</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (stageId === 2 && qIdx === 3) {
+    return `
+      <div class="game-panel">
+        <div class="viz-title">▸ 几何视图 // 直角三角形与 √2</div>
+        <div class="canvas-wrap">
+          <canvas id="geoTriangle" width="840" height="280"></canvas>
+          <div class="canvas-label">▲ 等腰直角三角形，直角边为1，斜边 = √(1²+1²) = √2</div>
+        </div>
+      </div>
+    `;
+  }
+  if (stageId === 3 && qIdx === 0) {
+    return `
+      <div class="game-panel">
+        <div class="viz-title">▸ 几何视图 // 立方根的几何意义</div>
+        <div class="canvas-wrap">
+          <canvas id="geoCbrt" width="840" height="280"></canvas>
+          <div class="canvas-label">▲ 立方体体积 → 棱长 = ∛体积。点击按钮切换体积值。</div>
+          <div class="canvas-controls" style="display:flex; justify-content:center; gap:10px; margin-top:12px; flex-wrap:wrap;">
+            <button class="nav-btn" onclick="drawCbrtGeo(8)">体积=8</button>
+            <button class="nav-btn" onclick="drawCbrtGeo(27)">体积=27</button>
+            <button class="nav-btn" onclick="drawCbrtGeo(1)">体积=1</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (stageId === 4 && qIdx === 2) {
+    return `
+      <div class="game-panel">
+        <div class="viz-title">▸ 几何视图 // 数轴上的无理数定位</div>
+        <div class="canvas-wrap">
+          <canvas id="geoNumberline" width="840" height="200"></canvas>
+          <div class="canvas-label">▲ 数轴上的实数：有理数（青点）与无理数（绿点）分布示意</div>
+        </div>
+      </div>
+    `;
+  }
+  return '';
+}
+
+// ── Canvas: Numberline (Interactive) ──
+let nlClickX = null;
+function drawNumberline(canvasId, targetVal) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const PAD = 60;
+  const drawW = W - PAD * 2;
+
+  // Clear
+  ctx.fillStyle = 'rgba(6,8,15,0.9)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,245,212,0.08)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Range
+  let min, max, step;
+  if (targetVal < 0) { min = -4; max = 1; step = 1; }
+  else { min = -1; max = 4; step = 1; }
+
+  const toX = v => PAD + ((v - min) / (max - min)) * drawW;
+  const centerY = H / 2;
+
+  // Axis
+  ctx.strokeStyle = '#00f5d4';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(PAD, centerY);
+  ctx.lineTo(W - PAD, centerY);
+  ctx.stroke();
+
+  // Arrow
+  ctx.beginPath();
+  ctx.moveTo(W - PAD, centerY);
+  ctx.lineTo(W - PAD - 10, centerY - 5);
+  ctx.lineTo(W - PAD - 10, centerY + 5);
+  ctx.closePath();
+  ctx.fillStyle = '#00f5d4';
+  ctx.fill();
+
+  // Ticks
+  ctx.fillStyle = '#8a9ab0';
+  ctx.font = '14px "Share Tech Mono", monospace';
+  ctx.textAlign = 'center';
+  for (let v = min; v <= max; v += step) {
+    const x = toX(v);
+    ctx.strokeStyle = 'rgba(0,245,212,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, centerY - 8);
+    ctx.lineTo(x, centerY + 8);
+    ctx.stroke();
+    ctx.fillText(v, x, centerY + 28);
+  }
+
+  // Origin
+  ctx.fillStyle = '#00f5d4';
+  ctx.fillText('0', toX(0), centerY + 28);
+
+  // Click handler
+  nlClickX = null;
+  canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const scale = canvas.width / rect.width;
+    const cx = x * scale;
+    nlClickX = cx;
+
+    // Redraw
+    drawNumberline(canvasId, targetVal);
+
+    // Draw click marker
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, centerY - 15);
+    ctx.lineTo(cx, centerY + 15);
+    ctx.stroke();
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.arc(cx, centerY, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    const clickedVal = min + ((cx - PAD) / drawW) * (max - min);
+    document.getElementById('nlLabel').textContent = `标记位置 ≈ ${clickedVal.toFixed(3)} — 目标 ≈ ${targetVal}`;
+  };
+
+  // If already clicked, redraw marker
+  if (nlClickX !== null) {
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(nlClickX, centerY - 15);
+    ctx.lineTo(nlClickX, centerY + 15);
+    ctx.stroke();
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.arc(nlClickX, centerY, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ── Canvas: Square Root Geometry ──
+function drawSqrtGeo(area) {
+  const canvas = document.getElementById('geoSqrt');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const side = Math.sqrt(area);
+  const scale = Math.min(W, H) / 6;
+  const cx = W / 2, cy = H / 2 + 20;
+  const sPx = side * scale;
+
+  ctx.fillStyle = 'rgba(6,8,15,0.95)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Square
+  const x0 = cx - sPx / 2, y0 = cy - sPx / 2;
+  ctx.fillStyle = 'rgba(0,245,212,0.08)';
+  ctx.fillRect(x0, y0, sPx, sPx);
+  ctx.strokeStyle = '#00f5d4';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x0, y0, sPx, sPx);
+
+  // Side label
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '16px "Orbitron", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`边长 = √${area} ≈ ${side.toFixed(3)}`, cx, y0 - 12);
+
+  // Area label
+  ctx.font = '14px "Share Tech Mono", monospace';
+  ctx.fillStyle = '#8a9ab0';
+  ctx.fillText(`面积 = ${area}`, cx, cy + 6);
+
+  // Side dimension lines
+  ctx.strokeStyle = 'rgba(0,245,212,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x0, y0 + sPx + 10); ctx.lineTo(x0 + sPx, y0 + sPx + 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x0 - 10, y0); ctx.lineTo(x0 - 10, y0 + sPx); ctx.stroke();
+}
+
+// ── Canvas: Right Triangle (sqrt2) ──
+function drawTriangleGeo() {
+  const canvas = document.getElementById('geoTriangle');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const scale = 140;
+  const ox = W / 2 - scale / 2, oy = H / 2 + 40;
+
+  ctx.fillStyle = 'rgba(6,8,15,0.95)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Triangle
+  ctx.fillStyle = 'rgba(0,245,212,0.08)';
+  ctx.beginPath();
+  ctx.moveTo(ox, oy);
+  ctx.lineTo(ox + scale, oy);
+  ctx.lineTo(ox, oy - scale);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Right angle marker
+  ctx.strokeStyle = '#00f5d4';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(ox + 15, oy);
+  ctx.lineTo(ox + 15, oy - 15);
+  ctx.lineTo(ox, oy - 15);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '14px "Share Tech Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('1', ox + scale / 2, oy + 22);
+  ctx.textAlign = 'right';
+  ctx.fillText('1', ox - 10, oy - scale / 2);
+  ctx.textAlign = 'left';
+  ctx.fillText('斜边 = √2 ≈ 1.414', ox + scale + 10, oy - scale / 2);
+
+  ctx.textAlign = 'center';
+  ctx.font = '16px "Orbitron", sans-serif';
+  ctx.fillText('等腰直角三角形', W / 2, 30);
+}
+
+// ── Canvas: Cube Root Geometry ──
+function drawCbrtGeo(volume) {
+  const canvas = document.getElementById('geoCbrt');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const edge = Math.cbrt(volume);
+  const scale = 70;
+  const cx = W / 2, cy = H / 2 + 20;
+  const s = edge * scale;
+
+  ctx.fillStyle = 'rgba(6,8,15,0.95)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Isometric cube
+  const iso = s * 0.6;
+  const top = cy - s * 0.5;
+  const left = cx - iso;
+  const right = cx + iso;
+
+  // Front face
+  ctx.fillStyle = 'rgba(0,245,212,0.12)';
+  ctx.beginPath();
+  ctx.moveTo(cx, top);
+  ctx.lineTo(right, top + s * 0.4);
+  ctx.lineTo(right, top + s * 0.4 + s);
+  ctx.lineTo(cx, top + s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Top face
+  ctx.fillStyle = 'rgba(0,245,212,0.06)';
+  ctx.beginPath();
+  ctx.moveTo(cx, top);
+  ctx.lineTo(right, top + s * 0.4);
+  ctx.lineTo(cx + iso * 0.3, top + s * 0.4 - s * 0.25);
+  ctx.lineTo(cx - iso * 0.7, top - s * 0.25);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,245,212,0.6)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Left face
+  ctx.fillStyle = 'rgba(0,245,212,0.04)';
+  ctx.beginPath();
+  ctx.moveTo(cx, top);
+  ctx.lineTo(cx - iso * 0.7, top - s * 0.25);
+  ctx.lineTo(cx - iso * 0.7, top - s * 0.25 + s);
+  ctx.lineTo(cx, top + s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,245,212,0.4)';
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '16px "Orbitron", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`棱长 = ∛${volume} = ${edge % 1 === 0 ? edge : edge.toFixed(3)}`, cx, top - 25);
+  ctx.font = '13px "Share Tech Mono", monospace';
+  ctx.fillStyle = '#8a9ab0';
+  ctx.fillText(`体积 = ${volume}`, cx, top + s + 45);
+}
+
+// ── Canvas: Static Numberline for Stage 4 ──
+function drawStaticNumberline() {
+  const canvas = document.getElementById('geoNumberline');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const PAD = 50;
+  const drawW = W - PAD * 2;
+  const min = -4, max = 4;
+
+  ctx.fillStyle = 'rgba(6,8,15,0.95)';
+  ctx.fillRect(0, 0, W, H);
+
+  const toX = v => PAD + ((v - min) / (max - min)) * drawW;
+  const cy = H / 2;
+
+  // Axis
+  ctx.strokeStyle = '#00f5d4';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(PAD, cy);
+  ctx.lineTo(W - PAD, cy);
+  ctx.stroke();
+
+  // Arrow
+  ctx.beginPath();
+  ctx.moveTo(W - PAD, cy);
+  ctx.lineTo(W - PAD - 8, cy - 4);
+  ctx.lineTo(W - PAD - 8, cy + 4);
+  ctx.closePath();
+  ctx.fillStyle = '#00f5d4';
+  ctx.fill();
+
+  // Ticks and labels
+  ctx.fillStyle = '#8a9ab0';
+  ctx.font = '12px "Share Tech Mono", monospace';
+  ctx.textAlign = 'center';
+  for (let v = min; v <= max; v++) {
+    const x = toX(v);
+    ctx.strokeStyle = 'rgba(0,245,212,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, cy - 6);
+    ctx.lineTo(x, cy + 6);
+    ctx.stroke();
+    ctx.fillText(String(v), x, cy + 22);
+  }
+
+  // Rational points (cyan)
+  const rationals = [-3, -2, -1, 0, 1, 2, 3];
+  rationals.forEach(v => {
+    const x = toX(v);
+    ctx.fillStyle = '#00f5d4';
+    ctx.beginPath();
+    ctx.arc(x, cy, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Irrational points (yellow)
+  const irrationals = [-Math.PI, -Math.sqrt(3), -Math.sqrt(2), Math.sqrt(2), Math.sqrt(3), Math.PI];
+  irrationals.forEach(v => {
+    if (v >= min && v <= max) {
+      const x = toX(v);
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.arc(x, cy, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+
+  // Legend
+  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#00f5d4';
+  ctx.beginPath(); ctx.arc(PAD, H - 20, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('有理数', PAD + 12, H - 16);
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(PAD + 80, H - 20, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('无理数', PAD + 92, H - 16);
+}
+
+// ═══════════════════════════════════════
+// ANSWER CHECKING
+// ═══════════════════════════════════════
+function showFeedback(isCorrect, message) {
+  const box = document.getElementById('feedbackBox');
+  box.className = 'feedback-box show ' + (isCorrect ? 'correct' : 'wrong');
+  box.innerHTML = isCorrect
+    ? '✓ 正确！' + (message ? '<br><span style="font-size:0.85rem;opacity:0.8;">' + message + '</span>' : '')
+    : '✗ 错误。' + (message ? '<br><span style="font-size:0.85rem;opacity:0.8;">' + message + '</span>' : '');
+}
+
+function checkChoice(idx, btn) {
+  if (gameState.answered) return;
+  gameState.answered = true;
+  stopTimer();
+
+  const stage = STAGES[gameState.currentStage];
+  const q = stage.questions[gameState.currentQ];
+  const isCorrect = idx === q.answer;
+  const btns = document.querySelectorAll('.option-btn');
+
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (i === q.answer) b.classList.add('correct');
+    else if (i === idx && !isCorrect) b.classList.add('wrong');
+  });
+
+  processAnswer(isCorrect, q.explain);
+}
+
+function checkInput() {
+  if (gameState.answered) return;
+  const input = document.getElementById('answerInput');
+  if (!input) return;
+  const val = input.value.trim().replace(/\s/g, '').replace(/[\u2013]/g, '-');
+  if (!val) return;
+
+  gameState.answered = true;
+  stopTimer();
+
+  const stage = STAGES[gameState.currentStage];
+  const q = stage.questions[gameState.currentQ];
+  const expected = q.answer.toString().replace(/\s/g, '').replace(/[\u2013]/g, '-');
+
+  // Flexible matching
+  let isCorrect = val === expected;
+  if (!isCorrect) {
+    // Allow 1.6-√2 vs 1.6-√2
+    const normVal = val.replace(/[\u221a]/g, 'sqrt').toLowerCase();
+    const normExp = expected.replace(/[\u221a]/g, 'sqrt').toLowerCase();
+    isCorrect = normVal === normExp;
+  }
+  if (!isCorrect && q.answer === -1 && (val === '-1' || val === '—1')) isCorrect = true;
+
+  processAnswer(isCorrect, q.explain);
+}
+
+function checkNumberline() {
+  if (gameState.answered) return;
+  if (nlClickX === null) {
+    showFeedback(false, '请先点击数轴上的位置！');
+    return;
+  }
+  gameState.answered = true;
+  stopTimer();
+
+  const stage = STAGES[gameState.currentStage];
+  const q = stage.questions[gameState.currentQ];
+  const canvas = document.getElementById('nlCanvas');
+  if (!canvas) return;
+  const W = canvas.width;
+  const PAD = 60;
+  const drawW = W - PAD * 2;
+  let min, max;
+  if (q.target < 0) { min = -4; max = 1; }
+  else { min = -1; max = 4; }
+
+  const clickedVal = min + ((nlClickX - PAD) / drawW) * (max - min);
+  const isCorrect = Math.abs(clickedVal - q.target) <= q.tolerance;
+
+  processAnswer(isCorrect, q.explain);
+}
+
+function handleTimeout() {
+  if (gameState.answered) return;
+  gameState.answered = true;
+  const stage = STAGES[gameState.currentStage];
+  const q = stage.questions[gameState.currentQ];
+  showFeedback(false, '时间到！' + q.explain);
+  processResult(false);
+}
+
+function processAnswer(isCorrect, explain) {
+  showFeedback(isCorrect, explain);
+  processResult(isCorrect);
+}
+
+function processResult(isCorrect) {
+  const sr = gameState.stageResults[gameState.currentStage];
+  if (isCorrect) {
+    gameState.combo++;
+    if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+    if (gameState.combo > sr.comboMax) sr.comboMax = gameState.combo;
+    const baseScore = 100;
+    const comboBonus = Math.min(gameState.combo - 1, 5) * 20;
+    const timeBonus = Math.floor(gameState.timeLeft * 2);
+    gameState.score += baseScore + comboBonus + timeBonus;
+    sr.correct++;
+    gameState.totalCorrect++;
+  } else {
+    gameState.combo = 0;
+    gameState.lives--;
+    sr.wrong++;
+    gameState.totalWrong++;
+  }
+  updateHUD();
+
+  if (gameState.lives <= 0) {
+    setTimeout(() => showGameOver(), 1200);
+    return;
+  }
+
+  const stage = STAGES[gameState.currentStage];
+  if (gameState.currentQ + 1 < stage.questions.length) {
+    setTimeout(() => {
+      gameState.currentQ++;
+      renderQuestion();
+    }, isCorrect ? 1200 : 2000);
+  } else {
+    setTimeout(() => showStageResult(), 1200);
+  }
+}
+
+// ═══════════════════════════════════════
+// STAGE RESULT
+// ═══════════════════════════════════════
+function showStageResult() {
+  const stage = STAGES[gameState.currentStage];
+  const sr = gameState.stageResults[gameState.currentStage];
+  const total = stage.questions.length;
+  const correct = sr.correct;
+  const rate = correct / total;
+
+  let grade = 'C';
+  if (rate === 1 && sr.comboMax >= 3) grade = 'S';
+  else if (rate >= 0.875) grade = 'A';
+  else if (rate >= 0.625) grade = 'B';
+
+  sr.grade = grade;
+
+  const container = document.getElementById('stageContent');
+  let html = `
+    <div class="game-panel result-panel">
+      <div class="result-grade">${grade}</div>
+      <div style="font-family:'Orbitron',sans-serif; color:var(--accent-dim); letter-spacing:0.2em; font-size:0.9rem;">
+        STAGE 0${stage.id} — ${stage.title}
+      </div>
+      <div class="result-stats">
+        <div class="stat-box"><div class="stat-label">正确</div><div class="stat-value">${correct}</div></div>
+        <div class="stat-box"><div class="stat-label">错误</div><div class="stat-value" style="color:var(--danger)">${sr.wrong}</div></div>
+        <div class="stat-box"><div class="stat-label">连击MAX</div><div class="stat-value" style="color:var(--warn)">${sr.comboMax}</div></div>
+        <div class="stat-box"><div class="stat-label">得分</div><div class="stat-value">${gameState.score}</div></div>
+      </div>
+      <div class="nav-btns">
+  `;
+
+  if (gameState.currentStage < STAGES.length - 1) {
+    html += `<button class="nav-btn primary" onclick="nextStage()">下一关 ▸</button>`;
+  } else {
+    html += `<button class="nav-btn primary" onclick="showFinalResult()">查看总评 ▸</button>`;
+  }
+  html += `<button class="nav-btn" onclick="showJumpPanel()">章节跳转</button>`;
+  html += `</div></div>`;
+
+  container.innerHTML = html;
+  updateJumpStatus();
+}
+
+function nextStage() {
+  loadStage(gameState.currentStage + 1);
+}
+
+// ═══════════════════════════════════════
+// GAME OVER
+// ═══════════════════════════════════════
+function showGameOver() {
+  const container = document.getElementById('stageContent');
+  container.innerHTML = `
+    <div class="game-panel result-panel">
+      <div class="result-grade" style="color:var(--danger); font-size:3rem;">MISSION FAILED</div>
+      <div style="color:var(--text-dim); margin:16px 0;">生命值耗尽，勘测任务中断。</div>
+      <div class="result-stats">
+        <div class="stat-box"><div class="stat-label">完成到</div><div class="stat-value">STAGE 0${gameState.currentStage + 1}</div></div>
+        <div class="stat-box"><div class="stat-label">总得分</div><div class="stat-value">${gameState.score}</div></div>
+      </div>
+      <div class="nav-btns">
+        <button class="nav-btn primary" onclick="restartStage()">重新挑战</button>
+        <button class="nav-btn" onclick="restartGame()">从头开始</button>
+      </div>
+    </div>
+  `;
+}
+
+function restartStage() {
+  gameState.lives = 3;
+  gameState.combo = 0;
+  loadStage(gameState.currentStage);
+}
+
+function restartGame() {
+  gameState = {
+    currentStage: 0, currentQ: 0, lives: 3, combo: 0, score: 0,
+    maxCombo: 0, stageResults: [{}, {}, {}, {}],
+    totalCorrect: 0, totalWrong: 0,
+    timerInterval: null, timeLeft: 0, maxTime: 0, answered: false
+  };
+  document.getElementById('jumpPanel').style.display = 'none';
+  loadStage(0);
+}
+
+// ═══════════════════════════════════════
+// JUMP PANEL
+// ═══════════════════════════════════════
+function showJumpPanel() {
+  document.getElementById('jumpPanel').style.display = 'block';
+  document.getElementById('jumpPanel').scrollIntoView({ behavior: 'smooth' });
+  updateJumpStatus();
+}
+
+function updateJumpStatus() {
+  for (let i = 0; i < 4; i++) {
+    const sr = gameState.stageResults[i];
+    const el = document.getElementById('status' + (i + 1));
+    if (!el) continue;
+    if (sr.grade) {
+      el.textContent = '评级 ' + sr.grade + ' | ' + (sr.correct || 0) + '/' + STAGES[i].questions.length;
+      el.style.color = 'var(--accent)';
+    } else if (i === gameState.currentStage) {
+      el.textContent = '勘测中...';
+      el.style.color = 'var(--warn)';
+    } else if (i < gameState.currentStage) {
+      el.textContent = '未开始';
+    }
+  }
+}
+
+function jumpToStage(idx) {
+  const zeroBased = idx - 1;
+  // Allow jumping to any stage that's completed or current, or next after completed
+  let maxAllowed = 0;
+  for (let i = 0; i < 4; i++) {
+    if (gameState.stageResults[i].grade) maxAllowed = i + 1;
+  }
+  if (zeroBased <= maxAllowed) {
+    gameState.lives = Math.max(gameState.lives, 1);
+    loadStage(zeroBased);
+    document.getElementById('jumpPanel').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// ═══════════════════════════════════════
+// FINAL RESULT
+// ═══════════════════════════════════════
+function showFinalResult() {
+  stopTimer();
+  const totalQ = STAGES.reduce((s, st) => s + st.questions.length, 0);
+  const correct = gameState.totalCorrect;
+  const rate = totalQ > 0 ? correct / totalQ : 0;
+
+  let overallGrade = 'C';
+  if (rate === 1 && gameState.maxCombo >= 5) overallGrade = 'S';
+  else if (rate >= 0.9 && gameState.maxCombo >= 3) overallGrade = 'A';
+  else if (rate >= 0.7) overallGrade = 'B';
+
+  const container = document.getElementById('stageContent');
+  let html = `
+    <div class="game-panel result-panel">
+      <div class="result-grade">${overallGrade}</div>
+      <div style="font-family:'Orbitron',sans-serif; color:var(--accent-dim); letter-spacing:0.2em; font-size:0.9rem;">
+        最终评定 // FINAL REPORT
+      </div>
+      <div class="result-stats">
+        <div class="stat-box"><div class="stat-label">总正确</div><div class="stat-value">${correct}</div></div>
+        <div class="stat-box"><div class="stat-label">总错误</div><div class="stat-value" style="color:var(--danger)">${gameState.totalWrong}</div></div>
+        <div class="stat-box"><div class="stat-label">最大连击</div><div class="stat-value" style="color:var(--warn)">${gameState.maxCombo}</div></div>
+        <div class="stat-box"><div class="stat-label">总分</div><div class="stat-value">${gameState.score}</div></div>
+      </div>
+      <div style="margin:20px 0; color:var(--text-dim); font-size:0.85rem;">
+  `;
+
+  STAGES.forEach((st, i) => {
+    const sr = gameState.stageResults[i];
+    const g = sr.grade || '-';
+    html += `<div style="margin:4px 0;">STAGE 0${st.id} ${st.title} — 评级 <span style="color:var(--accent)">${g}</span></div>`;
+  });
+
+  html += `</div>
+      <div class="nav-btns">
+        <button class="nav-btn primary" onclick="restartGame()">重新勘测</button>
+        <button class="nav-btn" onclick="showJumpPanel()">章节跳转</button>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+  document.getElementById('jumpPanel').style.display = 'block';
+}
+
+// ═══════════════════════════════════════
+// GEO VIZ AUTO-INIT
+// ═══════════════════════════════════════
+function initGeoViz() {
+  drawSqrtGeo(4);
+  drawTriangleGeo();
+  drawCbrtGeo(8);
+  drawStaticNumberline();
+}
+
+// Use MutationObserver to init canvas when they appear
+const observer = new MutationObserver((mutations) => {
+  for (const m of mutations) {
+    for (const node of m.addedNodes) {
+      if (node.nodeType === 1) {
+        if (node.id === 'geoSqrt' || node.querySelector?.('#geoSqrt')) drawSqrtGeo(4);
+        if (node.id === 'geoTriangle' || node.querySelector?.('#geoTriangle')) drawTriangleGeo();
+        if (node.id === 'geoCbrt' || node.querySelector?.('#geoCbrt')) drawCbrtGeo(8);
+        if (node.id === 'geoNumberline' || node.querySelector?.('#geoNumberline')) drawStaticNumberline();
+      }
+    }
+  }
+});
+observer.observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>
