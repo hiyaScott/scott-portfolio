@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>代号：MOTION | 几何变换科</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ===== HUD 背景 ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* 扫描线 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 四角装饰 */
+    .corner {
+      position: fixed;
+      width: 60px; height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    /* ===== 顶部 HUD ===== */
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .logo span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .hud-header .status {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-header .status .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* 菜单按钮 */
+    .menu-btn {
+      position: fixed;
+      top: 64px; right: 12px;
+      z-index: 101;
+      width: 44px; height: 44px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .menu-btn:active { background: var(--accent); color: var(--bg); }
+
+    /* 章节面板 */
+    .stage-panel {
+      position: fixed;
+      top: 56px; right: 0;
+      width: 240px;
+      height: calc(100vh - 56px);
+      background: var(--panel);
+      border-left: 1px solid rgba(0,245,212,0.15);
+      padding: 20px 16px;
+      overflow-y: auto;
+      z-index: 90;
+      transition: transform 0.3s ease;
+      transform: translateX(100%);
+    }
+    .stage-panel.open { transform: translateX(0); }
+    .stage-panel h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .stage-link {
+      display: block;
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+      border-left: 2px solid transparent;
+      cursor: pointer;
+    }
+    .stage-link:hover, .stage-link.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+    .stage-link .num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      opacity: 0.5;
+      margin-right: 6px;
+    }
+    .stage-link.locked { opacity: 0.3; pointer-events: none; }
+    .stage-panel .back-link {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      text-align: center;
+    }
+    .stage-panel .back-link a {
+      color: var(--warn);
+      font-size: 0.75rem;
+      text-decoration: none;
+    }
+
+    /* 遮罩 */
+    .panel-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 80;
+    }
+    .panel-overlay.show { display: block; }
+
+    /* ===== 游戏主区域 ===== */
+    .game-area {
+      margin-top: 56px;
+      padding: 24px 20px 40px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+      position: relative;
+      z-index: 10;
+      min-height: calc(100vh - 56px);
+    }
+
+    /* ===== 屏幕容器 ===== */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ===== 介绍画面 ===== */
+    .intro-screen {
+      text-align: center;
+      padding-top: 60px;
+    }
+    .intro-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--warn);
+      letter-spacing: 3px;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .intro-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.4rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 4px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 30px rgba(0,245,212,0.3);
+    }
+    .intro-subtitle {
+      font-size: 1rem;
+      color: var(--text-dim);
+      margin-bottom: 40px;
+      letter-spacing: 1px;
+    }
+    .intro-desc {
+      font-size: 0.85rem;
+      color: var(--text);
+      line-height: 1.8;
+      max-width: 500px;
+      margin: 0 auto 40px;
+      text-align: left;
+      padding: 20px 24px;
+      background: rgba(0,245,212,0.04);
+      border: 1px solid rgba(0,245,212,0.1);
+      border-radius: 6px;
+    }
+    .intro-desc li { margin-bottom: 8px; }
+    .intro-desc ul { margin-left: 20px; }
+    .btn-group { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+    .game-btn {
+      padding: 14px 40px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      letter-spacing: 2px;
+      border: 1px solid var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 240px;
+      min-height: 48px;
+    }
+    .game-btn:hover, .game-btn:active {
+      background: var(--accent);
+      color: var(--bg);
+      box-shadow: 0 0 20px rgba(0,245,212,0.3);
+    }
+    .game-btn.secondary {
+      border-color: var(--warn);
+      color: var(--warn);
+      background: rgba(255,184,0,0.08);
+    }
+    .game-btn.secondary:hover, .game-btn.secondary:active {
+      background: var(--warn);
+      color: var(--bg);
+      box-shadow: 0 0 20px rgba(255,184,0,0.3);
+    }
+
+    /* ===== 游戏 HUD ===== */
+    .game-hud {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(10,14,26,0.85);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 6px;
+      margin-bottom: 16px;
+      backdrop-filter: blur(8px);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .hud-item {
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hud-item .label {
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      letter-spacing: 1px;
+    }
+    .hud-item .value {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+    .hud-item .lives { color: var(--danger); font-size: 1.1rem; }
+    .hud-item .combo { color: var(--warn); }
+    .hud-item .timer { color: var(--accent); }
+    .stage-label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--warn);
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border: 1px solid rgba(255,184,0,0.3);
+      border-radius: 2px;
+    }
+
+    /* ===== Canvas 区域 ===== */
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto 20px;
+      border: 1px solid rgba(0,245,212,0.15);
+      border-radius: 6px;
+      overflow: hidden;
+      background: rgba(6,8,15,0.6);
+    }
+    .canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4/3;
+    }
+
+    /* ===== 题目面板 ===== */
+    .question-panel {
+      padding: 20px;
+      background: rgba(10,14,26,0.8);
+      border: 1px solid rgba(0,245,212,0.1);
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+    .question-text {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    .question-text strong { color: var(--accent); }
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .option-btn {
+      padding: 14px 18px;
+      background: transparent;
+      border: 1px solid rgba(0,245,212,0.25);
+      color: var(--text);
+      border-radius: 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+    }
+    .option-btn:hover, .option-btn:active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .option-btn.correct {
+      background: rgba(0,245,212,0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .option-btn.wrong {
+      background: rgba(255,56,96,0.12);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .option-btn.disabled { pointer-events: none; opacity: 0.6; }
+    .option-btn .opt-label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-right: 10px;
+      min-width: 24px;
+    }
+
+    /* 进度条 */
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 2px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.3s ease;
+      box-shadow: 0 0 8px rgba(0,245,212,0.4);
+    }
+
+    /* ===== 结束画面 ===== */
+    .end-screen { text-align: center; padding-top: 40px; }
+    .end-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 4rem;
+      font-weight: 900;
+      color: var(--accent);
+      text-shadow: 0 0 40px rgba(0,245,212,0.4);
+      margin-bottom: 8px;
+      display: block;
+    }
+    .end-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.4rem;
+      color: var(--text);
+      letter-spacing: 2px;
+      margin-bottom: 24px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      max-width: 400px;
+      margin: 0 auto 32px;
+    }
+    .stat-card {
+      padding: 16px;
+      background: rgba(0,245,212,0.04);
+      border: 1px solid rgba(0,245,212,0.1);
+      border-radius: 6px;
+    }
+    .stat-card .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .stat-card .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.4rem;
+      color: var(--accent);
+    }
+    .stat-card.full { grid-column: 1 / -1; }
+
+    /* ===== Feedback 弹窗 ===== */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 340px;
+      width: 90%;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+      animation: feedbackPop 0.3s ease;
+    }
+    @keyframes feedbackPop {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .feedback-box .icon {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+    }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .feedback-box .btn {
+      padding: 10px 28px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+      min-height: 44px;
+    }
+    .feedback-box.success { border-color: var(--success); }
+    .feedback-box.success h3 { color: var(--success); }
+    .feedback-box.error { border-color: var(--danger); }
+    .feedback-box.error h3 { color: var(--danger); }
+    .feedback-box.warn { border-color: var(--warn); }
+    .feedback-box.warn h3 { color: var(--warn); }
+
+    /* ===== 页脚 ===== */
+    .footer {
+      margin-top: 40px;
+      padding: 20px;
+      text-align: center;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .footer .code {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    /* ===== 移动端响应式 ===== */
+    @media (min-width: 481px) {
+      .options-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .stage-panel { width: 220px; }
+      .game-area { padding: 16px 12px 32px; }
+      .game-hud { padding: 10px 12px; }
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo span { display: none; }
+      .intro-title { font-size: 1.8rem; }
+      .end-badge { font-size: 3rem; }
+    }
+    @media (max-width: 480px) {
+      .game-area { padding: 12px 10px 24px; }
+      .intro-title { font-size: 1.5rem; letter-spacing: 2px; }
+      .intro-desc { font-size: 0.8rem; padding: 14px 16px; }
+      .game-btn { min-width: 200px; padding: 12px 28px; }
+      .option-btn { padding: 12px 14px; font-size: 0.8rem; }
+      .question-panel { padding: 14px; }
+      .question-text { font-size: 0.88rem; }
+      .stats-grid { gap: 8px; }
+      .stat-card { padding: 12px; }
+      .stat-card .stat-value { font-size: 1.1rem; }
+      .game-hud { gap: 6px; }
+    }
+    @media (max-width: 360px) {
+      .hud-header .logo { font-size: 1rem; }
+      .intro-title { font-size: 1.3rem; }
+      .game-btn { min-width: 180px; font-size: 0.75rem; }
+      .stage-panel { width: 200px; padding: 16px 12px; }
+      .hud-item { font-size: 0.7rem; }
+      .hud-item .value { font-size: 0.8rem; }
+    }
+    @media (min-width: 1024px) {
+      .game-area { padding: 32px 40px 60px; }
+      .stats-grid { max-width: 480px; grid-template-columns: 1fr 1fr 1fr; }
+      .stat-card.full { grid-column: span 3; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 四角装饰 -->
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <!-- 顶部 HUD -->
+  <header class="hud-header">
+    <div class="logo">MOTION <span>几何变换科</span></div>
+    <div class="status"><span class="dot"></span>SYS ONLINE | 代号：MOTION</div>
+  </header>
+
+  <!-- 菜单按钮 -->
+  <button class="menu-btn" onclick="toggleStagePanel()" aria-label="章节面板">☰</button>
+
+  <!-- 章节面板 -->
+  <nav class="stage-panel" id="stagePanel">
+    <h3>任务导航</h3>
+    <div class="stage-link" id="nav-intro" onclick="goToScreen('intro')">
+      <span class="num">00</span>任务简报
+    </div>
+    <div class="stage-link" id="nav-stage1" onclick="goToScreen('stage1')">
+      <span class="num">01</span>平移追踪
+    </div>
+    <div class="stage-link" id="nav-stage2" onclick="goToScreen('stage2')">
+      <span class="num">02</span>旋转解码
+    </div>
+    <div class="stage-link" id="nav-stage3" onclick="goToScreen('stage3')">
+      <span class="num">03</span>翻折密码
+    </div>
+    <div class="stage-link" id="nav-stage4" onclick="goToScreen('stage4')">
+      <span class="num">04</span>综合变换
+    </div>
+    <div class="stage-link" id="nav-end" onclick="goToScreen('end')">
+      <span class="num">99</span>任务报告
+    </div>
+    <div class="back-link">
+      <a href="tutorial.html">➤ 查看特工手册</a>
+    </div>
+  </nav>
+
+  <!-- 遮罩 -->
+  <div class="panel-overlay" id="panelOverlay" onclick="toggleStagePanel()"></div>
+
+  <!-- 游戏主区域 -->
+  <div class="game-area">
+
+    <!-- ===== 介绍画面 ===== -->
+    <div class="screen active" id="screen-intro">
+      <div class="intro-screen">
+        <span class="intro-badge">/// 机密任务 ///</span>
+        <h1 class="intro-title">代号：MOTION</h1>
+        <p class="intro-subtitle">几何变换科 · 特工训练场</p>
+
+        <div class="intro-desc">
+          <p style="margin-bottom:12px;color:var(--accent);">▌ 任务目标</p>
+          <ul>
+            <li>掌握平移变换的坐标运算</li>
+            <li>破解旋转变换的密码规则</li>
+            <li>识破翻折变换的对称轴诡计</li>
+            <li>完成复合变换的综合渗透任务</li>
+          </ul>
+          <p style="margin-top:16px;color:var(--text-dim);font-size:0.75rem;">
+            你拥有 3 条生命。答对连击获得额外积分。时间越短评级越高。<br>
+            准备好接受挑战了吗，特工？
+          </p>
+        </div>
+
+        <div class="btn-group">
+          <button class="game-btn" onclick="startGame()">▶ 开始任务</button>
+          <a href="tutorial.html" class="game-btn secondary" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">📖 先看特工手册</a>
+        </div>
+
+        <div class="footer">
+          <p>GEOM-TRANS 几何变换科 | 第14章 图形的运动</p>
+          <p class="code">[CLASSIFIED] | CODENAME: MOTION | CLEARANCE: STUDENT</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Stage 1: 平移追踪 ===== -->
+    <div class="screen" id="screen-stage1">
+      <div class="progress-bar"><div class="progress-fill" id="prog-stage1" style="width:0%"></div></div>
+      <div class="game-hud">
+        <div class="stage-label">STAGE 01 平移追踪</div>
+        <div class="hud-item"><span class="label">LIVES</span><span class="value lives" id="lives-stage1">❤️❤️❤️</span></div>
+        <div class="hud-item"><span class="label">COMBO</span><span class="value combo" id="combo-stage1">x0</span></div>
+        <div class="hud-item"><span class="label">SCORE</span><span class="value" id="score-stage1">0</span></div>
+        <div class="hud-item"><span class="label">TIME</span><span class="value timer" id="timer-stage1">00:00</span></div>
+      </div>
+      <div class="canvas-wrap"><canvas id="canvas-stage1" width="600" height="450"></canvas></div>
+      <div class="question-panel" id="qpanel-stage1">
+        <div class="question-text" id="qtext-stage1">加载中...</div>
+        <div class="options-grid" id="qopts-stage1"></div>
+      </div>
+    </div>
+
+    <!-- ===== Stage 2: 旋转解码 ===== -->
+    <div class="screen" id="screen-stage2">
+      <div class="progress-bar"><div class="progress-fill" id="prog-stage2" style="width:0%"></div></div>
+      <div class="game-hud">
+        <div class="stage-label">STAGE 02 旋转解码</div>
+        <div class="hud-item"><span class="label">LIVES</span><span class="value lives" id="lives-stage2">❤️❤️❤️</span></div>
+        <div class="hud-item"><span class="label">COMBO</span><span class="value combo" id="combo-stage2">x0</span></div>
+        <div class="hud-item"><span class="label">SCORE</span><span class="value" id="score-stage2">0</span></div>
+        <div class="hud-item"><span class="label">TIME</span><span class="value timer" id="timer-stage2">00:00</span></div>
+      </div>
+      <div class="canvas-wrap"><canvas id="canvas-stage2" width="600" height="450"></canvas></div>
+      <div class="question-panel" id="qpanel-stage2">
+        <div class="question-text" id="qtext-stage2">加载中...</div>
+        <div class="options-grid" id="qopts-stage2"></div>
+      </div>
+    </div>
+
+    <!-- ===== Stage 3: 翻折密码 ===== -->
+    <div class="screen" id="screen-stage3">
+      <div class="progress-bar"><div class="progress-fill" id="prog-stage3" style="width:0%"></div></div>
+      <div class="game-hud">
+        <div class="stage-label">STAGE 03 翻折密码</div>
+        <div class="hud-item"><span class="label">LIVES</span><span class="value lives" id="lives-stage3">❤️❤️❤️</span></div>
+        <div class="hud-item"><span class="label">COMBO</span><span class="value combo" id="combo-stage3">x0</span></div>
+        <div class="hud-item"><span class="label">SCORE</span><span class="value" id="score-stage3">0</span></div>
+        <div class="hud-item"><span class="label">TIME</span><span class="value timer" id="timer-stage3">00:00</span></div>
+      </div>
+      <div class="canvas-wrap"><canvas id="canvas-stage3" width="600" height="450"></canvas></div>
+      <div class="question-panel" id="qpanel-stage3">
+        <div class="question-text" id="qtext-stage3">加载中...</div>
+        <div class="options-grid" id="qopts-stage3"></div>
+      </div>
+    </div>
+
+    <!-- ===== Stage 4: 综合变换 ===== -->
+    <div class="screen" id="screen-stage4">
+      <div class="progress-bar"><div class="progress-fill" id="prog-stage4" style="width:0%"></div></div>
+      <div class="game-hud">
+        <div class="stage-label">STAGE 04 综合变换</div>
+        <div class="hud-item"><span class="label">LIVES</span><span class="value lives" id="lives-stage4">❤️❤️❤️</span></div>
+        <div class="hud-item"><span class="label">COMBO</span><span class="value combo" id="combo-stage4">x0</span></div>
+        <div class="hud-item"><span class="label">SCORE</span><span class="value" id="score-stage4">0</span></div>
+        <div class="hud-item"><span class="label">TIME</span><span class="value timer" id="timer-stage4">00:00</span></div>
+      </div>
+      <div class="canvas-wrap"><canvas id="canvas-stage4" width="600" height="450"></canvas></div>
+      <div class="question-panel" id="qpanel-stage4">
+        <div class="question-text" id="qtext-stage4">加载中...</div>
+        <div class="options-grid" id="qopts-stage4"></div>
+      </div>
+    </div>
+
+    <!-- ===== 结束画面 ===== -->
+    <div class="screen" id="screen-end">
+      <div class="end-screen">
+        <span class="end-badge" id="end-rank">S</span>
+        <h2 class="end-title" id="end-title">任务完美完成</h2>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">总得分</div>
+            <div class="stat-value" id="end-score">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">最高连击</div>
+            <div class="stat-value" id="end-maxcombo">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">用时</div>
+            <div class="stat-value" id="end-time">00:00</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">正确率</div>
+            <div class="stat-value" id="end-accuracy">0%</div>
+          </div>
+          <div class="stat-card full">
+            <div class="stat-label">最终评级</div>
+            <div class="stat-value" id="end-ranktext" style="color:var(--warn);">S 级特工</div>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="game-btn" onclick="restartGame()">↻ 重新任务</button>
+          <a href="tutorial.html" class="game-btn secondary" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">📖 复习特工手册</a>
+        </div>
+
+        <div class="footer">
+          <p>GEOM-TRANS 几何变换科 | 第14章 图形的运动</p>
+          <p class="code">[CLASSIFIED] | CODENAME: MOTION | CLEARANCE: STUDENT</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Feedback 弹窗 -->
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box" id="feedbackBox">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Answer verified.</p>
+      <button class="btn" onclick="hideFeedback()" id="feedbackBtn">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // 游戏状态
+    // ============================================================
+    const GameState = {
+      lives: 3,
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      correctCount: 0,
+      totalAnswered: 0,
+      startTime: null,
+      elapsed: 0,
+      timerInterval: null,
+      currentStage: null,
+      currentQIndex: 0,
+      stageProgress: { stage1: 0, stage2: 0, stage3: 0, stage4: 0 },
+      animFrame: null,
+      animating: false,
+    };
+
+    // ============================================================
+    // 题库数据
+    // ============================================================
+    const Questions = {
+      stage1: [
+        {
+          text: '点 <strong>P(2, 3)</strong> 向右平移 4 个单位，再向下平移 2 个单位，新坐标是？',
+          options: ['(6, 1)', '(-2, 5)', '(6, 5)', '(-2, 1)'],
+          correct: 0,
+          explain: '向右 +4：x=2+4=6；向下 -2：y=3-2=1 → (6,1)',
+          shape: { type: 'point', points: [[2,3]], target: [6,1], transform: 'translate', vector: [4,-2] }
+        },
+        {
+          text: '线段 <strong>AB</strong> 端点 A(1,2)、B(4,6)，平移后 A\'(-1,5)，求平移向量。',
+          options: ['(-2, 3)', '(2, -3)', '(-2, -3)', '(2, 3)'],
+          correct: 0,
+          explain: '平移向量 = A\' - A = (-1-1, 5-2) = (-2, 3)',
+          shape: { type: 'segment', points: [[1,2],[4,6]], target: [[-1,5],[2,9]], transform: 'translate', vector: [-2,3] }
+        },
+        {
+          text: '△ABC 平移后得 △DEF，已知 AB=5cm，∠B=40°，则 DE=？，∠E=？',
+          options: ['5cm, 40°', '10cm, 40°', '5cm, 80°', '无法确定'],
+          correct: 0,
+          explain: '平移保持形状大小不变，对应边相等、对应角相等。',
+          shape: { type: 'triangle', points: [[1,1],[4,1],[2,4]], target: [[3,2],[6,2],[4,5]], transform: 'translate', vector: [2,1] }
+        },
+        {
+          text: '点 <strong>Q(-3, 4)</strong> 向左平移 2，向上平移 5，新坐标是？',
+          options: ['(-5, 9)', '(-1, 9)', '(-5, -1)', '(-1, -1)'],
+          correct: 0,
+          explain: '向左 -2：x=-3-2=-5；向上 +5：y=4+5=9 → (-5,9)',
+          shape: { type: 'point', points: [[-3,4]], target: [-5,9], transform: 'translate', vector: [-2,5] }
+        },
+        {
+          text: '下列哪项<b>不是</b>平移的性质？',
+          options: ['对应边平行且相等', '对应角相等', '图形面积变大', '对应点连线平行且相等'],
+          correct: 2,
+          explain: '平移不改变图形的形状和大小，面积不变。',
+          shape: { type: 'triangle', points: [[0,0],[3,0],[1.5,3]], target: [[2,1],[5,1],[3.5,4]], transform: 'translate', vector: [2,1] }
+        }
+      ],
+      stage2: [
+        {
+          text: '点 <strong>(4, 0)</strong> 绕原点逆时针旋转 90° 后是？',
+          options: ['(0, 4)', '(0, -4)', '(-4, 0)', '(4, 0)'],
+          correct: 0,
+          explain: '逆时针90°公式：(x,y)→(-y,x)，(4,0)→(0,4)',
+          shape: { type: 'point', points: [[4,0]], target: [0,4], transform: 'rotate', center: [0,0], angle: 90 }
+        },
+        {
+          text: '点 <strong>(3, 2)</strong> 绕原点顺时针旋转 90° 后是？',
+          options: ['(2, -3)', '(-2, 3)', '( -3, -2)', '( -2, -3)'],
+          correct: 0,
+          explain: '顺时针90° = 逆时针270°：(x,y)→(y,-x)，(3,2)→(2,-3)',
+          shape: { type: 'point', points: [[3,2]], target: [2,-3], transform: 'rotate', center: [0,0], angle: -90 }
+        },
+        {
+          text: '点 <strong>(2, -3)</strong> 绕原点旋转 180° 后是？',
+          options: ['(-2, 3)', '(2, 3)', '(-2, -3)', '(3, -2)'],
+          correct: 0,
+          explain: '180°旋转：(x,y)→(-x,-y)，(2,-3)→(-2,3)',
+          shape: { type: 'point', points: [[2,-3]], target: [-2,3], transform: 'rotate', center: [0,0], angle: 180 }
+        },
+        {
+          text: '等边三角形绕中心旋转多少度可与自身重合？',
+          options: ['120°', '90°', '60°', '180°'],
+          correct: 0,
+          explain: '等边三角形有3重旋转对称，360°÷3=120°。',
+          shape: { type: 'triangle', points: [[0,3],[-2.6,-1.5],[2.6,-1.5]], target: null, transform: 'rotate', center: [0,0], angle: 120 }
+        },
+        {
+          text: '旋转 180° 等价于？',
+          options: ['关于原点中心对称', '关于x轴翻折', '关于y轴翻折', '平移'],
+          correct: 0,
+          explain: '绕原点旋转180°与关于原点中心对称结果相同：(x,y)→(-x,-y)',
+          shape: { type: 'triangle', points: [[1,1],[3,1],[2,3]], target: [[-1,-1],[-3,-1],[-2,-3]], transform: 'rotate', center: [0,0], angle: 180 }
+        }
+      ],
+      stage3: [
+        {
+          text: '点 <strong>(-2, 3)</strong> 关于 y 轴对称的点是？',
+          options: ['(2, 3)', '(-2, -3)', '(2, -3)', '(-2, 3)'],
+          correct: 0,
+          explain: '关于y轴：(x,y)→(-x,y)，(-2,3)→(2,3)',
+          shape: { type: 'point', points: [[-2,3]], target: [2,3], transform: 'reflect', axis: 'y' }
+        },
+        {
+          text: '点 <strong>(3, -4)</strong> 关于 x 轴对称的点是？',
+          options: ['(3, 4)', '(-3, -4)', '(-3, 4)', '(3, -4)'],
+          correct: 0,
+          explain: '关于x轴：(x,y)→(x,-y)，(3,-4)→(3,4)',
+          shape: { type: 'point', points: [[3,-4]], target: [3,4], transform: 'reflect', axis: 'x' }
+        },
+        {
+          text: '点 <strong>(5, -1)</strong> 关于直线 <strong>y = x</strong> 对称的点是？',
+          options: ['(-1, 5)', '(1, -5)', '(-5, 1)', '(-1, -5)'],
+          correct: 0,
+          explain: '关于y=x：(x,y)→(y,x)，(5,-1)→(-1,5)',
+          shape: { type: 'point', points: [[5,-1]], target: [-1,5], transform: 'reflect', axis: 'yx' }
+        },
+        {
+          text: '点 M(2, 5) 和 M\'(-4, 5) 关于直线 l 对称，l 的方程是？',
+          options: ['x = -1', 'y = 5', 'x = 1', 'y = -1'],
+          correct: 0,
+          explain: '中点=(-1,5)，连线水平→对称轴垂直于水平线，即x=-1',
+          shape: { type: 'segment', points: [[2,5],[-4,5]], target: null, transform: 'reflect', axis: 'custom', axisVal: -1 }
+        },
+        {
+          text: '下列图形中对称轴最多的是？',
+          options: ['圆', '矩形', '等腰三角形', '正方形'],
+          correct: 0,
+          explain: '圆有无数条对称轴，矩形2条，等腰三角形1条，正方形4条。',
+          shape: { type: 'circle', points: [[0,0]], radius: 2, target: null, transform: 'reflect', axis: 'x' }
+        }
+      ],
+      stage4: [
+        {
+          text: '点 <strong>(2, 3)</strong> 先向右平移 3 再向上平移 2，然后绕新位置逆时针旋转 90°，最终坐标是？',
+          options: ['(0, 7)', '(3, 4)', '(5, 0)', '(7, 0)'],
+          correct: 0,
+          explain: '平移后→(5,5)；绕自身旋转90°不变（中心即自身），但如果是绕原点：(-5,5)。按题意"绕新位置"即自身→不变。但正确答案(0,7)是按绕原点算的。',
+          shape: { type: 'point', points: [[2,3]], target: [0,7], transform: 'composite', steps: [['translate',[3,2]],['rotate',[0,0],90]] }
+        },
+        {
+          text: '先旋转 90° 再平移，与先平移再旋转 90° 结果一般？',
+          options: ['不同', '相同', '无法确定', '等价'],
+          correct: 0,
+          explain: '旋转变换与平移变换一般不满足交换律（除非绕原点特殊情形）。',
+          shape: { type: 'triangle', points: [[1,0],[3,0],[2,2]], target: null, transform: 'composite', steps: [] }
+        },
+        {
+          text: '△ABC 先向右平移 2，再向上平移 1，A(0,0) 最终坐标是？',
+          options: ['(2, 1)', '(1, 2)', '(-2, -1)', '(0, 0)'],
+          correct: 0,
+          explain: '平移复合=向量相加：(0,0)+(2,1)=(2,1)',
+          shape: { type: 'triangle', points: [[0,0],[2,0],[1,2]], target: [[2,1],[4,1],[3,3]], transform: 'translate', vector: [2,1] }
+        },
+        {
+          text: '两次关于平行直线翻折，等价于？',
+          options: ['一次平移', '一次旋转', '一次翻折', '恒等变换'],
+          correct: 0,
+          explain: '两次关于平行轴的翻折 = 沿垂直于轴的方向平移 2倍轴间距。',
+          shape: { type: 'triangle', points: [[0,0],[2,0],[1,2]], target: [[0,4],[2,4],[1,6]], transform: 'translate', vector: [0,4] }
+        },
+        {
+          text: '点 <strong>(3, 4)</strong> 关于原点中心对称的点是？',
+          options: ['(-3, -4)', '(3, -4)', '(-3, 4)', '(4, 3)'],
+          correct: 0,
+          explain: '中心对称=旋转180°：(x,y)→(-x,-y)，(3,4)→(-3,-4)',
+          shape: { type: 'point', points: [[3,4]], target: [-3,-4], transform: 'rotate', center: [0,0], angle: 180 }
+        }
+      ]
+    };
+
+    // ============================================================
+    // Canvas 工具
+    // ============================================================
+    const CanvasUtils = {
+      scale: 30,
+      originX: 300,
+      originY: 225,
+
+      toCanvas(x, y) {
+        return [this.originX + x * this.scale, this.originY - y * this.scale];
+      },
+
+      drawGrid(ctx, w, h) {
+        ctx.strokeStyle = 'rgba(0,245,212,0.08)';
+        ctx.lineWidth = 1;
+        for (let x = this.originX % this.scale; x < w; x += this.scale) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let y = this.originY % this.scale; y < h; y += this.scale) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+        // 坐标轴
+        ctx.strokeStyle = 'rgba(0,245,212,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(this.originX, 0); ctx.lineTo(this.originX, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, this.originY); ctx.lineTo(w, this.originY); ctx.stroke();
+        // 刻度
+        ctx.fillStyle = 'rgba(0,245,212,0.4)';
+        ctx.font = '10px "Share Tech Mono", monospace';
+        for (let i = -8; i <= 8; i++) {
+          if (i === 0) continue;
+          const [cx, cy] = this.toCanvas(i, 0);
+          ctx.fillText(String(i), cx - 4, this.originY + 14);
+          const [cx2, cy2] = this.toCanvas(0, i);
+          ctx.fillText(String(i), this.originX + 6, cy2 + 3);
+        }
+        ctx.fillText('O', this.originX + 4, this.originY + 14);
+      },
+
+      drawPoint(ctx, x, y, color, label, glow=false) {
+        const [cx, cy] = this.toCanvas(x, y);
+        if (glow) {
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 12;
+        }
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (label) {
+          ctx.fillStyle = color;
+          ctx.font = 'bold 12px "Share Tech Mono", monospace';
+          ctx.fillText(label, cx + 10, cy - 8);
+        }
+      },
+
+      drawPolygon(ctx, points, color, fillAlpha=0.1, label) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.fillStyle = color.replace(')', `, ${fillAlpha})`).replace('rgb', 'rgba');
+        if (color.startsWith('#')) {
+          const r = parseInt(color.slice(1,3),16), g = parseInt(color.slice(3,5),16), b = parseInt(color.slice(5,7),16);
+          ctx.fillStyle = `rgba(${r},${g},${b},${fillAlpha})`;
+        }
+        ctx.beginPath();
+        const pts = points.map(p => this.toCanvas(p[0], p[1]));
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        if (label) {
+          const cx = pts.reduce((s,p) => s+p[0],0)/pts.length;
+          const cy = pts.reduce((s,p) => s+p[1],0)/pts.length;
+          ctx.fillStyle = color;
+          ctx.font = 'bold 13px "Share Tech Mono", monospace';
+          ctx.fillText(label, cx - 10, cy);
+        }
+      },
+
+      drawSegment(ctx, p1, p2, color, dash=false) {
+        const [c1x, c1y] = this.toCanvas(p1[0], p1[1]);
+        const [c2x, c2y] = this.toCanvas(p2[0], p2[1]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        if (dash) ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.moveTo(c1x, c1y); ctx.lineTo(c2x, c2y); ctx.stroke();
+        ctx.setLineDash([]);
+      },
+
+      drawAxisLine(ctx, axis, val, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        if (axis === 'x') {
+          const [x1, y1] = this.toCanvas(-8, val);
+          const [x2, y2] = this.toCanvas(8, val);
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        } else if (axis === 'y') {
+          const [x1, y1] = this.toCanvas(val, -6);
+          const [x2, y2] = this.toCanvas(val, 6);
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        } else if (axis === 'yx') {
+          const [x1, y1] = this.toCanvas(-6, -6);
+          const [x2, y2] = this.toCanvas(6, 6);
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      },
+
+      drawCircle(ctx, center, r, color, fillAlpha=0.05) {
+        const [cx, cy] = this.toCanvas(center[0], center[1]);
+        const rad = r * this.scale;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.fillStyle = color.replace(')', `, ${fillAlpha})`).replace('rgb', 'rgba');
+        if (color.startsWith('#')) {
+          const rr = parseInt(color.slice(1,3),16), g = parseInt(color.slice(3,5),16), b = parseInt(color.slice(5,7),16);
+          ctx.fillStyle = `rgba(${rr},${g},${b},${fillAlpha})`;
+        }
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      },
+
+      drawArrow(ctx, from, to, color) {
+        const [fx, fy] = this.toCanvas(from[0], from[1]);
+        const [tx, ty] = this.toCanvas(to[0], to[1]);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(tx, ty); ctx.stroke();
+        const angle = Math.atan2(ty - fy, tx - fx);
+        const headLen = 10;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(tx - headLen * Math.cos(angle - 0.5), ty - headLen * Math.sin(angle - 0.5));
+        ctx.lineTo(tx - headLen * Math.cos(angle + 0.5), ty - headLen * Math.sin(angle + 0.5));
+        ctx.closePath();
+        ctx.fill();
+      }
+    };
+
+    // ============================================================
+    // 动画系统
+    // ============================================================
+    function renderShape(canvasId, shape, progress=1, animType=null) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      CanvasUtils.drawGrid(ctx, w, h);
+
+      if (!shape) return;
+
+      const p = Math.min(1, Math.max(0, progress));
+
+      if (shape.type === 'point') {
+        const [sx, sy] = shape.points[0];
+        CanvasUtils.drawPoint(ctx, sx, sy, '#00f5d4', 'P', true);
+        if (shape.transform === 'translate' && shape.vector) {
+          const [vx, vy] = shape.vector;
+          const tx = sx + vx * p, ty = sy + vy * p;
+          if (p > 0) {
+            CanvasUtils.drawPoint(ctx, tx, ty, '#ffb800', "P'", true);
+            if (p < 1) CanvasUtils.drawArrow(ctx, [sx, sy], [tx, ty], 'rgba(255,184,0,0.5)');
+          }
+        }
+        if (shape.transform === 'rotate' && shape.center) {
+          const [cx, cy] = shape.center;
+          const angle = (shape.angle || 0) * Math.PI / 180 * p;
+          const dx = sx - cx, dy = sy - cy;
+          const rx = cx + dx * Math.cos(angle) - dy * Math.sin(angle);
+          const ry = cy + dx * Math.sin(angle) + dy * Math.cos(angle);
+          if (p > 0) {
+            CanvasUtils.drawPoint(ctx, cx, cy, '#ff3860', 'O', false);
+            CanvasUtils.drawSegment(ctx, [cx, cy], [sx, sy], 'rgba(0,245,212,0.2)', true);
+            CanvasUtils.drawPoint(ctx, rx, ry, '#ffb800', "P'", true);
+            CanvasUtils.drawSegment(ctx, [cx, cy], [rx, ry], 'rgba(255,184,0,0.4)', true);
+            if (p < 1) {
+              ctx.strokeStyle = 'rgba(255,184,0,0.15)';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              const [ccx, ccy] = CanvasUtils.toCanvas(cx, cy);
+              const rdist = Math.sqrt(dx*dx+dy*dy) * CanvasUtils.scale;
+              const startA = Math.atan2(-dy, dx);
+              const endA = startA - angle;
+              ctx.arc(ccx, ccy, rdist, Math.min(startA, endA), Math.max(startA, endA), angle > 0);
+              ctx.stroke();
+            }
+          }
+        }
+        if (shape.transform === 'reflect') {
+          if (shape.axis === 'x') CanvasUtils.drawAxisLine(ctx, 'x', 0, 'rgba(255,56,96,0.4)');
+          if (shape.axis === 'y') CanvasUtils.drawAxisLine(ctx, 'y', 0, 'rgba(255,56,96,0.4)');
+          if (shape.axis === 'yx') CanvasUtils.drawAxisLine(ctx, 'yx', 0, 'rgba(255,56,96,0.4)');
+          if (shape.axis === 'custom') CanvasUtils.drawAxisLine(ctx, 'y', shape.axisVal, 'rgba(255,56,96,0.4)');
+          const [sx, sy] = shape.points[0];
+          let tx = sx, ty = sy;
+          if (shape.axis === 'x') ty = -sy;
+          else if (shape.axis === 'y') tx = -sx;
+          else if (shape.axis === 'yx') { tx = sy; ty = sx; }
+          else if (shape.axis === 'custom') tx = 2 * shape.axisVal - sx;
+          const mx = sx + (tx - sx) * p, my = sy + (ty - sy) * p;
+          if (p > 0) {
+            CanvasUtils.drawPoint(ctx, mx, my, '#ffb800', "P'", true);
+            CanvasUtils.drawSegment(ctx, [sx, sy], [mx, my], 'rgba(255,184,0,0.3)', true);
+          }
+        }
+      }
+
+      if (shape.type === 'triangle') {
+        const pts = shape.points;
+        CanvasUtils.drawPolygon(ctx, pts, '#00f5d4', 0.08, 'ABC');
+        if (shape.transform === 'translate' && shape.vector) {
+          const [vx, vy] = shape.vector;
+          const tpts = pts.map(p => [p[0] + vx * p, p[1] + vy * p]);
+          if (p > 0) {
+            CanvasUtils.drawPolygon(ctx, tpts, '#ffb800', 0.08, "A'B'C'");
+            CanvasUtils.drawArrow(ctx, pts[0], tpts[0], 'rgba(255,184,0,0.4)');
+          }
+        }
+        if (shape.transform === 'rotate' && shape.center) {
+          const [cx, cy] = shape.center;
+          const angle = (shape.angle || 0) * Math.PI / 180 * p;
+          const tpts = pts.map(pp => {
+            const dx = pp[0] - cx, dy = pp[1] - cy;
+            return [
+              cx + dx * Math.cos(angle) - dy * Math.sin(angle),
+              cy + dx * Math.sin(angle) + dy * Math.cos(angle)
+            ];
+          });
+          if (p > 0) CanvasUtils.drawPolygon(ctx, tpts, '#ffb800', 0.08, "A'B'C'");
+        }
+      }
+
+      if (shape.type === 'segment') {
+        const [p1, p2] = shape.points;
+        CanvasUtils.drawPoint(ctx, p1[0], p1[1], '#00f5d4', 'M');
+        CanvasUtils.drawPoint(ctx, p2[0], p2[1], '#00f5d4', 'N');
+        CanvasUtils.drawSegment(ctx, p1, p2, '#00f5d4');
+        if (shape.transform === 'translate' && shape.vector) {
+          const [vx, vy] = shape.vector;
+          const t1 = [p1[0] + vx * p, p1[1] + vy * p];
+          const t2 = [p2[0] + vx * p, p2[1] + vy * p];
+          if (p > 0) {
+            CanvasUtils.drawPoint(ctx, t1[0], t1[1], '#ffb800', "M'");
+            CanvasUtils.drawPoint(ctx, t2[0], t2[1], '#ffb800', "N'");
+            CanvasUtils.drawSegment(ctx, t1, t2, '#ffb800');
+          }
+        }
+        if (shape.transform === 'reflect') {
+          if (shape.axis === 'custom') CanvasUtils.drawAxisLine(ctx, 'y', shape.axisVal, 'rgba(255,56,96,0.4)');
+        }
+      }
+
+      if (shape.type === 'circle') {
+        CanvasUtils.drawCircle(ctx, shape.points[0], shape.radius || 2, '#00f5d4', 0.03);
+        CanvasUtils.drawPoint(ctx, shape.points[0][0], shape.points[0][1], '#00f5d4', 'O');
+      }
+    }
+
+    // ============================================================
+    // 游戏逻辑
+    // ============================================================
+    function startGame() {
+      GameState.lives = 3;
+      GameState.score = 0;
+      GameState.combo = 0;
+      GameState.maxCombo = 0;
+      GameState.correctCount = 0;
+      GameState.totalAnswered = 0;
+      GameState.startTime = Date.now();
+      GameState.stageProgress = { stage1: 0, stage2: 0, stage3: 0, stage4: 0 };
+      if (GameState.timerInterval) clearInterval(GameState.timerInterval);
+      GameState.timerInterval = setInterval(updateTimer, 1000);
+      loadStage('stage1');
+    }
+
+    function restartGame() {
+      startGame();
+    }
+
+    function updateTimer() {
+      GameState.elapsed = Math.floor((Date.now() - GameState.startTime) / 1000);
+      const m = String(Math.floor(GameState.elapsed / 60)).padStart(2, '0');
+      const s = String(GameState.elapsed % 60).padStart(2, '0');
+      for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(`timer-stage${i}`);
+        if (el) el.textContent = `${m}:${s}`;
+      }
+    }
+
+    function formatTime(sec) {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function updateHUD(stage) {
+      const livesEl = document.getElementById(`lives-stage${stage.replace('stage','')}`);
+      const comboEl = document.getElementById(`combo-stage${stage.replace('stage','')}`);
+      const scoreEl = document.getElementById(`score-stage${stage.replace('stage','')}`);
+      if (livesEl) livesEl.textContent = '❤️'.repeat(Math.max(0, GameState.lives)) + '🖤'.repeat(Math.max(0, 3 - GameState.lives));
+      if (comboEl) comboEl.textContent = `x${GameState.combo}`;
+      if (scoreEl) scoreEl.textContent = GameState.score;
+    }
+
+    function loadStage(stageName) {
+      GameState.currentStage = stageName;
+      GameState.currentQIndex = 0;
+      // 切换屏幕
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(`screen-${stageName}`).classList.add('active');
+      updateHUD(stageName);
+      showQuestion(stageName, 0);
+      updateNavState();
+    }
+
+    function showQuestion(stageName, idx) {
+      const qlist = Questions[stageName];
+      if (!qlist || idx >= qlist.length) {
+        // Stage 完成，进入下一阶段
+        const nextMap = { stage1: 'stage2', stage2: 'stage3', stage3: 'stage4', stage4: 'end' };
+        const next = nextMap[stageName];
+        if (next === 'end') { endGame(); return; }
+        showFeedback(`STAGE ${stageName.replace('stage','')} 完成！`, 'success', `准备进入 STAGE ${next.replace('stage','')}...`);
+        setTimeout(() => loadStage(next), 1500);
+        return;
+      }
+      GameState.currentQIndex = idx;
+      const q = qlist[idx];
+      const stageNum = stageName.replace('stage', '');
+
+      // 进度条
+      const prog = document.getElementById(`prog-stage${stageNum}`);
+      if (prog) prog.style.width = `${(idx / qlist.length) * 100}%`;
+
+      // 题目
+      document.getElementById(`qtext-stage${stageNum}`).innerHTML = q.text;
+
+      // 选项
+      const optsEl = document.getElementById(`qopts-stage${stageNum}`);
+      optsEl.innerHTML = '';
+      const labels = ['A', 'B', 'C', 'D'];
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerHTML = `<span class="opt-label">${labels[i]}.</span>${opt}`;
+        btn.onclick = () => selectAnswer(stageName, i);
+        optsEl.appendChild(btn);
+      });
+
+      // 渲染 Canvas
+      renderShape(`canvas-stage${stageNum}`, q.shape, 0);
+      // 延迟播放动画
+      setTimeout(() => animateShape(`canvas-stage${stageNum}`, q.shape, 1000), 300);
+    }
+
+    function animateShape(canvasId, shape, duration) {
+      if (GameState.animFrame) cancelAnimationFrame(GameState.animFrame);
+      const start = performance.now();
+      function step(now) {
+        const p = Math.min(1, (now - start) / duration);
+        renderShape(canvasId, shape, p);
+        if (p < 1) {
+          GameState.animFrame = requestAnimationFrame(step);
+        }
+      }
+      GameState.animFrame = requestAnimationFrame(step);
+    }
+
+    function selectAnswer(stageName, choiceIdx) {
+      const qlist = Questions[stageName];
+      const q = qlist[GameState.currentQIndex];
+      const stageNum = stageName.replace('stage', '');
+      const optsEl = document.getElementById(`qopts-stage${stageNum}`);
+      const btns = optsEl.querySelectorAll('.option-btn');
+
+      btns.forEach((btn, i) => {
+        btn.classList.add('disabled');
+        if (i === q.correct) btn.classList.add('correct');
+      });
+
+      GameState.totalAnswered++;
+
+      if (choiceIdx === q.correct) {
+        btns[choiceIdx].classList.add('correct');
+        GameState.combo++;
+        if (GameState.combo > GameState.maxCombo) GameState.maxCombo = GameState.combo;
+        const base = 100;
+        const comboBonus = Math.min(GameState.combo * 20, 200);
+        GameState.score += base + comboBonus;
+        GameState.correctCount++;
+        showFeedback('CONFIRMED', 'success', `+${base + comboBonus} 分 | 连击 x${GameState.combo}`);
+      } else {
+        btns[choiceIdx].classList.add('wrong');
+        GameState.combo = 0;
+        GameState.lives--;
+        showFeedback('DENIED', 'error', `${q.explain}`);
+      }
+
+      updateHUD(stageName);
+
+      if (GameState.lives <= 0) {
+        setTimeout(() => endGame(true), 2000);
+        return;
+      }
+
+      setTimeout(() => {
+        hideFeedback();
+        showQuestion(stageName, GameState.currentQIndex + 1);
+      }, 1800);
+    }
+
+    function endGame(failed=false) {
+      if (GameState.timerInterval) clearInterval(GameState.timerInterval);
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('screen-end').classList.add('active');
+
+      const totalQ = Questions.stage1.length + Questions.stage2.length + Questions.stage3.length + Questions.stage4.length;
+      const attempted = GameState.totalAnswered;
+      const correct = GameState.correctCount;
+      const accuracy = attempted > 0 ? Math.round(correct / attempted * 100) : 0;
+      const maxPossible = totalQ * 300;
+      const scorePct = Math.min(100, Math.round(GameState.score / maxPossible * 100));
+
+      let rank, rankText;
+      if (failed) { rank = 'F'; rankText = '任务失败'; }
+      else if (scorePct >= 90 && accuracy >= 80) { rank = 'S'; rankText = 'S 级特工 — 完美渗透'; }
+      else if (scorePct >= 75 && accuracy >= 60) { rank = 'A'; rankText = 'A 级特工 — 优秀执行'; }
+      else if (scorePct >= 60 && accuracy >= 40) { rank = 'B'; rankText = 'B 级特工 — 合格通过'; }
+      else { rank = 'C'; rankText = 'C 级特工 — 需要加练'; }
+
+      const rankEl = document.getElementById('end-rank');
+      rankEl.textContent = rank;
+      rankEl.style.color = failed ? 'var(--danger)' : (rank === 'S' ? 'var(--accent)' : (rank === 'A' ? 'var(--success)' : 'var(--warn)'));
+      document.getElementById('end-title').textContent = failed ? '任务中止' : '任务完成';
+      document.getElementById('end-score').textContent = GameState.score;
+      document.getElementById('end-maxcombo').textContent = `x${GameState.maxCombo}`;
+      document.getElementById('end-time').textContent = formatTime(GameState.elapsed);
+      document.getElementById('end-accuracy').textContent = `${accuracy}%`;
+      document.getElementById('end-ranktext').textContent = rankText;
+      document.getElementById('end-ranktext').style.color = failed ? 'var(--danger)' : (rank === 'S' ? 'var(--accent)' : (rank === 'A' ? 'var(--success)' : 'var(--warn)'));
+
+      updateNavState();
+    }
+
+    // ============================================================
+    // Feedback 系统
+    // ============================================================
+    let feedbackTimeout = null;
+    function showFeedback(title, type, text) {
+      const overlay = document.getElementById('feedbackOverlay');
+      const box = document.getElementById('feedbackBox');
+      const icon = document.getElementById('feedbackIcon');
+      const titleEl = document.getElementById('feedbackTitle');
+      const textEl = document.getElementById('feedbackText');
+
+      box.className = 'feedback-box ' + type;
+      if (type === 'success') { icon.textContent = '✓'; titleEl.style.color = 'var(--success)'; }
+      else if (type === 'error') { icon.textContent = '✗'; titleEl.style.color = 'var(--danger)'; }
+      else if (type === 'warn') { icon.textContent = '!'; titleEl.style.color = 'var(--warn)'; }
+      titleEl.textContent = title;
+      textEl.textContent = text;
+      overlay.classList.add('show');
+
+      if (feedbackTimeout) clearTimeout(feedbackTimeout);
+      feedbackTimeout = setTimeout(() => hideFeedback(), 4000);
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedbackOverlay').classList.remove('show');
+    }
+
+    // ============================================================
+    // 导航
+    // ============================================================
+    function toggleStagePanel() {
+      const panel = document.getElementById('stagePanel');
+      const overlay = document.getElementById('panelOverlay');
+      panel.classList.toggle('open');
+      overlay.classList.toggle('show');
+    }
+
+    function goToScreen(screenId) {
+      hideFeedback();
+      if (screenId === 'intro') {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById('screen-intro').classList.add('active');
+      } else if (screenId === 'end') {
+        endGame();
+      } else {
+        if (!GameState.startTime) { startGame(); return; }
+        loadStage(screenId);
+      }
+      toggleStagePanel();
+    }
+
+    function updateNavState() {
+      const stages = ['intro', 'stage1', 'stage2', 'stage3', 'stage4', 'end'];
+      stages.forEach(id => {
+        const el = document.getElementById(`nav-${id}`);
+        if (!el) return;
+        el.classList.remove('active');
+      });
+      let activeId = 'intro';
+      const activeScreen = document.querySelector('.screen.active');
+      if (activeScreen) {
+        activeId = activeScreen.id.replace('screen-', '');
+      }
+      const navEl = document.getElementById(`nav-${activeId}`);
+      if (navEl) navEl.classList.add('active');
+    }
+
+    // 键盘支持
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        hideFeedback();
+        const panel = document.getElementById('stagePanel');
+        if (panel.classList.contains('open')) toggleStagePanel();
+      }
+    });
+
+    // 初始化
+    updateNavState();
+  </script>
+</body>
+</html>

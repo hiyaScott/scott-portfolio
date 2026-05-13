@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>TERM | 代数基础科教案 — 第10章 整式的加减</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ===== HUD 背景 ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* 扫描线 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 四角装饰 */
+    .corner {
+      position: fixed;
+      width: 60px; height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    /* ===== 顶部 HUD 栏 ===== */
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .logo span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .hud-header .status {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-header .status .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ===== 章节跳转面板 ===== */
+    .nav-panel {
+      position: fixed;
+      top: 56px; left: 0;
+      width: 240px;
+      height: calc(100vh - 56px);
+      background: var(--panel);
+      border-right: 1px solid rgba(0,245,212,0.15);
+      padding: 20px 16px;
+      overflow-y: auto;
+      z-index: 90;
+      transition: transform 0.3s ease;
+    }
+    .nav-panel h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .nav-panel .nav-link {
+      display: block;
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+      border-left: 2px solid transparent;
+    }
+    .nav-panel .nav-link:hover,
+    .nav-panel .nav-link.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+    .nav-panel .nav-link .num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      opacity: 0.5;
+      margin-right: 6px;
+    }
+    .nav-panel .back-link {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      text-align: center;
+    }
+    .nav-panel .back-link a {
+      color: var(--warn);
+      font-size: 0.75rem;
+      text-decoration: none;
+    }
+
+    /* 移动端汉堡菜单 */
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 64px; left: 12px;
+      z-index: 101;
+      width: 40px; height: 40px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    /* ===== 主内容区 ===== */
+    .main-content {
+      margin-left: 240px;
+      margin-top: 56px;
+      padding: 32px 40px 60px;
+      max-width: 900px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ===== 模块卡片 ===== */
+    .module {
+      margin-bottom: 48px;
+      padding: 32px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .module::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .module-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .module-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 4px 10px;
+      border-radius: 2px;
+      margin-right: 12px;
+      letter-spacing: 1px;
+    }
+    .module-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+    .module-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    /* ===== 理论区 ===== */
+    .theory-box {
+      background: rgba(0,245,212,0.05);
+      border-left: 3px solid var(--accent);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      border-radius: 0 6px 6px 0;
+    }
+    .theory-box h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .theory-box p, .theory-box li {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .theory-box ul {
+      margin-left: 20px;
+      margin-top: 8px;
+    }
+    .theory-box .formula {
+      display: inline-block;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      color: var(--accent);
+      background: rgba(0,245,212,0.08);
+      padding: 6px 14px;
+      border-radius: 4px;
+      margin: 8px 0;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 例题区 ===== */
+    .example {
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.08);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .example:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .example-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .example-tag {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      background: rgba(0,245,212,0.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-right: 10px;
+    }
+    .example-title {
+      font-size: 0.85rem;
+      color: var(--text);
+      font-weight: bold;
+    }
+    .example-body {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .example-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.4s ease;
+      padding: 0 16px;
+      background: rgba(0,245,212,0.06);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      line-height: 1.7;
+      border-left: 2px solid var(--accent);
+    }
+    .example.expanded .example-answer {
+      max-height: 500px;
+      padding: 12px 16px;
+      margin-top: 8px;
+    }
+    .example-answer .label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      color: var(--warn);
+      margin-bottom: 4px;
+      display: block;
+    }
+    .example-toggle {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-align: right;
+      margin-top: 4px;
+      opacity: 0.6;
+    }
+
+    /* ===== 测验区 ===== */
+    .quiz {
+      margin-bottom: 16px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .quiz-question {
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .quiz-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .quiz-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid rgba(0,245,212,0.3);
+      color: var(--text);
+      border-radius: 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quiz-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .quiz-btn.correct {
+      background: rgba(0,245,212,0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .quiz-btn.wrong {
+      background: rgba(255,56,96,0.15);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .quiz-feedback {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.correct { background: rgba(0,245,212,0.1); color: var(--accent); }
+    .quiz-feedback.wrong { background: rgba(255,56,96,0.1); color: var(--danger); }
+
+    /* ===== 公式总结 ===== */
+    .formula-summary {
+      margin-top: 24px;
+      padding: 20px;
+      background: rgba(0,245,212,0.04);
+      border: 1px dashed rgba(0,245,212,0.2);
+      border-radius: 6px;
+    }
+    .formula-summary h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .formula-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.85rem;
+    }
+    .formula-item:last-child { border-bottom: none; }
+    .formula-item .f-name {
+      color: var(--text-dim);
+      min-width: 180px;
+    }
+    .formula-item .f-expr {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    /* ===== 运算动画演示区 ===== */
+    .anim-box {
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.1);
+    }
+    .anim-box h5 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+    }
+    .anim-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0;
+      font-size: 0.9rem;
+      font-family: 'Orbitron', sans-serif;
+    }
+    .anim-step .eq-part {
+      color: var(--text);
+      transition: all 0.5s ease;
+    }
+    .anim-step .highlight {
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--accent);
+      animation: glow 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 4px var(--accent); }
+      to   { text-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent); }
+    }
+    .anim-arrow {
+      color: var(--warn);
+      font-size: 1.2rem;
+    }
+    .anim-result {
+      color: var(--accent);
+      font-weight: bold;
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: rgba(0,245,212,0.08);
+    }
+
+    /* ===== Feedback 弹窗 ===== */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+    }
+    .feedback-box .icon { font-size: 3rem; margin-bottom: 12px; }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    .feedback-box .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 页脚 ===== */
+    .footer {
+      margin-top: 60px;
+      padding: 24px;
+      text-align: center;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .footer .code {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 1024px) {
+      .nav-panel { width: 200px; }
+      .main-content { margin-left: 200px; padding: 24px 28px 40px; }
+    }
+    @media (max-width: 768px) {
+      .nav-panel { transform: translateX(-100%); width: 260px; }
+      .nav-panel.open { transform: translateX(0); }
+      .main-content { margin-left: 0; padding: 20px 16px 40px; }
+      .menu-toggle { display: block; }
+      .module { padding: 20px; }
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo span { display: none; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 16px 12px 32px; }
+      .module { padding: 16px; }
+      .module-title { font-size: 1.1rem; }
+      .theory-box { padding: 14px 16px; }
+      .quiz-options { flex-direction: column; }
+      .quiz-btn { width: 100%; text-align: left; }
+      .formula-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+    }
+    @media (max-width: 360px) {
+      .hud-header .logo { font-size: 1rem; }
+      .module { padding: 12px; }
+      .example { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <header class="hud-header">
+    <div class="logo">TERM <span>代数基础科</span></div>
+    <div class="status"><span class="dot"></span>SYS ONLINE | CH10 整式的加减</div>
+  </header>
+
+  <button class="menu-toggle" onclick="toggleNav()">☰</button>
+
+  <nav class="nav-panel" id="navPanel">
+    <h3>模块导航</h3>
+    <a href="#module1" class="nav-link" onclick="navTo('module1')">
+      <span class="num">01</span>整式的概念
+    </a>
+    <a href="#module2" class="nav-link" onclick="navTo('module2')">
+      <span class="num">02</span>同类项
+    </a>
+    <a href="#module3" class="nav-link" onclick="navTo('module3')">
+      <span class="num">03</span>合并同类项
+    </a>
+    <a href="#module4" class="nav-link" onclick="navTo('module4')">
+      <span class="num">04</span>去括号
+    </a>
+    <a href="#module5" class="nav-link" onclick="navTo('module5')">
+      <span class="num">05</span>整式的加减
+    </a>
+    <div class="back-link">
+      <a href="index.html">➤ 进入训练场 (代号:TERM)</a>
+    </div>
+  </nav>
+
+  <div id="navOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:80;" onclick="toggleNav()"></div>
+
+  <main class="main-content">
+
+    <!-- ===== 模块1：整式的概念 ===== -->
+    <section class="module" id="module1">
+      <div class="module-header">
+        <span class="module-badge">MOD-01</span>
+        <h2 class="module-title">整式的概念 Polynomial Concepts</h2>
+        <span class="module-subtitle">代数基础科 · 基础级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>代数式：</strong>用运算符号把数或表示数的字母连接而成的式子。</p>
+        <p style="margin-top:8px;"><strong>单项式：</strong>由数与字母的积组成的代数式。单独的一个数或一个字母也是单项式。</p>
+        <ul>
+          <li><strong>系数：</strong>单项式中的数字因数（含符号）</li>
+          <li><strong>次数：</strong>单项式中所有字母的指数之和</li>
+        </ul>
+        <p style="margin-top:8px;"><strong>多项式：</strong>几个单项式的和。</p>
+        <ul>
+          <li><strong>项：</strong>组成多项式的每个单项式</li>
+          <li><strong>常数项：</strong>不含字母的项</li>
+          <li><strong>次数：</strong>多项式中次数最高的项的次数</li>
+        </ul>
+        <p style="margin-top:8px;"><strong>整式：</strong>单项式和多项式统称为整式。</p>
+        <span class="formula">单项式：3x²y | 系数=3 | 次数=3 | 多项式：2x²-5x+1 | 次数=2</span>
+      </div>
+
+      <!-- CSS 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 动态拆解演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">3x²y</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">3</span></span>
+          <span class="eq-part">× x² × y</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">系数=<span class="highlight">3</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">3x²y</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">3 × <span class="highlight">x²</span> × <span class="highlight">y¹</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">次数=2+1=<span class="highlight">3</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">2x² - 5x + 1</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">项：<span class="highlight">2x²</span>, <span class="highlight">-5x</span>, <span class="highlight">+1</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">次数=2（最高）</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-A</span>
+          <span class="example-title">识别单项式的系数与次数</span>
+        </div>
+        <div class="example-body">
+          判断下列单项式的系数和次数：<br>
+          (1) -5x³y²　　(2) ⅔a²b　　(3) -πr²
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          (1) -5x³y²：系数 = <strong>-5</strong>，次数 = 3+2 = <strong>5</strong><br>
+          (2) ⅔a²b：系数 = <strong>⅔</strong>，次数 = 2+1 = <strong>3</strong><br>
+          (3) -πr²：系数 = <strong>-π</strong>（π 是数字），次数 = <strong>2</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-B</span>
+          <span class="example-title">多项式的项、次数与常数项</span>
+        </div>
+        <div class="example-body">
+          分析多项式 4x³ - 2x²y + 7xy - 9 的各项、次数和常数项。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>项：</strong>4x³、-2x²y、+7xy、-9（共 4 项，是四次四项式）<br>
+          4x³ 次数=3；-2x²y 次数=2+1=3；7xy 次数=1+1=2；-9 次数=0<br>
+          <strong>最高次数：</strong>3 → 多项式次数为 <strong>3</strong><br>
+          <strong>常数项：</strong><strong>-9</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-C</span>
+          <span class="example-title">整式与分式的区分</span>
+        </div>
+        <div class="example-body">
+          下列代数式中，哪些是整式？<br>
+          ① 3x+2　② 1/x　③ -7　④ (x²+1)/(x-1)　⑤ ½a²b³
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          整式的分母中<strong>不含字母</strong>。<br>
+          ① 3x+2 ✓（多项式）<br>
+          ② 1/x ✗（分母含字母 x）<br>
+          ③ -7 ✓（单项式，常数项）<br>
+          ④ (x²+1)/(x-1) ✗（分母含字母）<br>
+          ⑤ ½a²b³ ✓（单项式）<br>
+          ∴ 整式有 <strong>①③⑤</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 单项式 -⅔ab² 的系数和次数分别是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q1')">A. -⅔, 3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">B. ⅔, 2</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">C. -2, 3</button>
+        </div>
+        <div class="quiz-feedback" id="q1"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 多项式 x⁴ - 3x² + 5x - 7 的次数和常数项分别是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">A. 2, -7</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q2')">B. 4, -7</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">C. 4, 7</button>
+        </div>
+        <div class="quiz-feedback" id="q2"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 下列哪个不是整式？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">A. -3a²b</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">B. x² + 2x + 1</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q3')">C. 2/(x+1)</button>
+        </div>
+        <div class="quiz-feedback" id="q3"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [整式概念]</h4>
+        <div class="formula-item">
+          <span class="f-name">单项式系数</span>
+          <span class="f-expr">数字因数（含符号）</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">单项式次数</span>
+          <span class="f-expr">所有字母指数之和</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">多项式次数</span>
+          <span class="f-expr">最高次项的次数</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">常数项</span>
+          <span class="f-expr">不含字母的项</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块2：同类项 ===== -->
+    <section class="module" id="module2">
+      <div class="module-header">
+        <span class="module-badge">MOD-02</span>
+        <h2 class="module-title">同类项 Like Terms</h2>
+        <span class="module-subtitle">代数基础科 · 基础级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>所含字母<strong>相同</strong>，并且相同字母的<strong>指数也相同</strong>的项叫做<strong>同类项</strong>。几个常数项也是同类项。</p>
+        <ul>
+          <li>同类项与<strong>系数</strong>无关</li>
+          <li>同类项与字母的<strong>排列顺序</strong>无关</li>
+          <li>判断关键：字母相同 + 对应指数相同</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>识别方法：</strong></p>
+        <ol>
+          <li>看字母：所含字母是否完全相同</li>
+          <li>看指数：每个相同字母的指数是否对应相等</li>
+          <li>常数项之间总是同类项</li>
+        </ol>
+        <span class="formula">3x²y 与 -5x²y ✓ | 3x²y 与 5xy² ✗ | 7 与 -3 ✓</span>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 同类项识别演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">3<span class="highlight">x²</span><span class="highlight">y</span></span>
+          <span class="eq-part">与</span>
+          <span class="eq-part">-5<span class="highlight">x²</span><span class="highlight">y</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">同类项 ✓</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">3<span class="highlight">x²</span>y</span>
+          <span class="eq-part">与</span>
+          <span class="eq-part">5x<span class="highlight">y²</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result" style="border-color:var(--danger);color:var(--danger);">非同类项 ✗</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">7</span></span>
+          <span class="eq-part">与</span>
+          <span class="eq-part"><span class="highlight">-3</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">同类项 ✓（常数项）</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-A</span>
+          <span class="example-title">判断同类项</span>
+        </div>
+        <div class="example-body">
+          判断下列各组是否为同类项：<br>
+          (1) 2a²b 与 -3a²b　　(2) 4xy² 与 4x²y　　(3) -5 与 ⅔
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          (1) 2a²b 与 -3a²b：字母都是 a、b，a 的指数都是 2，b 的指数都是 1 → <strong>是同类项</strong><br>
+          (2) 4xy² 与 4x²y：x 的指数 1≠2，y 的指数 2≠1 → <strong>不是同类项</strong><br>
+          (3) -5 与 ⅔：都是常数项 → <strong>是同类项</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-B</span>
+          <span class="example-title">含参数的同类项问题</span>
+        </div>
+        <div class="example-body">
+          若单项式 2x<sup>m+1</sup>y³ 与 -3x²y<sup>n-1</sup> 是同类项，求 m、n 的值。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          同类项要求对应字母指数相同：<br>
+          x 的指数：m + 1 = 2 → <strong>m = 1</strong><br>
+          y 的指数：3 = n - 1 → <strong>n = 4</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-C</span>
+          <span class="example-title">多项式中的同类项归类</span>
+        </div>
+        <div class="example-body">
+          在多项式 3x²y - 5xy² + 2x²y + 7xy² - 4x²y + 1 中，找出所有同类项组。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          按字母和指数分组：<br>
+          <strong>x²y 组：</strong>3x²y、+2x²y、-4x²y<br>
+          <strong>xy² 组：</strong>-5xy²、+7xy²<br>
+          <strong>常数项组：</strong>+1（单独一项）
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 下列与 3a²b 是同类项的是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">A. 3ab²</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q4')">B. -5a²b</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">C. 3a²b²</button>
+        </div>
+        <div class="quiz-feedback" id="q4"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 若 4x³y<sup>m</sup> 与 -2x<sup>n</sup>y² 是同类项，则 m+n = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">A. 3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q5')">B. 5</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">C. 6</button>
+        </div>
+        <div class="quiz-feedback" id="q5"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 下列说法正确的是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">A. 系数相同的项是同类项</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q6')">B. 常数项都是同类项</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">C. 字母相同的项是同类项</button>
+        </div>
+        <div class="quiz-feedback" id="q6"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [同类项]</h4>
+        <div class="formula-item">
+          <span class="f-name">同类项条件</span>
+          <span class="f-expr">字母相同 ∧ 指数相同</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">与系数关系</span>
+          <span class="f-expr">无关</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">与顺序关系</span>
+          <span class="f-expr">无关</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">常数项</span>
+          <span class="f-expr">总是同类项</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块3：合并同类项 ===== -->
+    <section class="module" id="module3">
+      <div class="module-header">
+        <span class="module-badge">MOD-03</span>
+        <h2 class="module-title">合并同类项 Combining Like Terms</h2>
+        <span class="module-subtitle">代数基础科 · 进阶级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>法则：</strong>把多项式中的同类项合并成一项，叫做<strong>合并同类项</strong>。</p>
+        <ul>
+          <li>合并方法：<strong>系数相加</strong>，字母和字母的指数<strong>不变</strong></li>
+          <li>不是同类项的项<strong>不能合并</strong></li>
+          <li>合并时带上项前面的<strong>符号</strong></li>
+        </ul>
+        <p style="margin-top:12px;"><strong>步骤：</strong></p>
+        <ol>
+          <li>找出同类项（可用下划线/标记分组）</li>
+          <li>提取公有的字母部分，系数相加</li>
+          <li>写出合并后的结果</li>
+        </ol>
+        <span class="formula">3x² + 5x² = (3+5)x² = 8x² | 4ab - 7ab = (4-7)ab = -3ab</span>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 合并过程演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">3<span class="highlight">x²</span></span>
+          <span class="eq-part">+</span>
+          <span class="eq-part">5<span class="highlight">x²</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="eq-part">(<span class="highlight">3+5</span>)<span class="highlight">x²</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">8x²</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">4<span class="highlight">ab</span></span>
+          <span class="eq-part">-</span>
+          <span class="eq-part">7<span class="highlight">ab</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="eq-part">(<span class="highlight">4-7</span>)<span class="highlight">ab</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">-3ab</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">2</span>x²y</span>
+          <span class="eq-part">+</span>
+          <span class="eq-part">3<span class="highlight">xy²</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result" style="border-color:var(--warn);color:var(--warn);">不能合并 ✗</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-A</span>
+          <span class="example-title">基础合并同类项</span>
+        </div>
+        <div class="example-body">
+          合并同类项：3a²b - 5ab² + 2a²b + 7ab² - 4a²b
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>a²b 组：</strong>3a²b + 2a²b - 4a²b = (3+2-4)a²b = <strong>a²b</strong><br>
+          <strong>ab² 组：</strong>-5ab² + 7ab² = (-5+7)ab² = <strong>2ab²</strong><br>
+          ∴ 原式 = <strong>a²b + 2ab²</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-B</span>
+          <span class="example-title">含多重字母的合并</span>
+        </div>
+        <div class="example-body">
+          化简：2x² - 3xy + 4y² - 5x² + 7xy - 2y² + x²
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>x² 组：</strong>2x² - 5x² + x² = (2-5+1)x² = <strong>-2x²</strong><br>
+          <strong>xy 组：</strong>-3xy + 7xy = (-3+7)xy = <strong>4xy</strong><br>
+          <strong>y² 组：</strong>4y² - 2y² = (4-2)y² = <strong>2y²</strong><br>
+          ∴ 原式 = <strong>-2x² + 4xy + 2y²</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-C</span>
+          <span class="example-title">先化简再求值</span>
+        </div>
+        <div class="example-body">
+          化简并求值：3x²y - 2xy² + 5x²y - xy² - 4x²y，其中 x = -1，y = 2
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>x²y 组：</strong>3x²y + 5x²y - 4x²y = <strong>4x²y</strong><br>
+          <strong>xy² 组：</strong>-2xy² - xy² = <strong>-3xy²</strong><br>
+          化简结果：<strong>4x²y - 3xy²</strong><br>
+          代入 x=-1, y=2：<br>
+          4×(-1)²×2 - 3×(-1)×2² = 4×1×2 - 3×(-1)×4 = 8 + 12 = <strong>20</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 合并同类项：7a - 3a + 2a = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">A. 12a²</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q7')">B. 6a</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">C. 6</button>
+        </div>
+        <div class="quiz-feedback" id="q7"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 化简 3x² + 2x - 5x² + 4x 的结果是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q8')">A. -2x² + 6x</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">B. -2x² + 2x</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">C. -2x⁴ + 6x²</button>
+        </div>
+        <div class="quiz-feedback" id="q8"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 下列合并正确的是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">A. 3a + 2b = 5ab</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q9')">B. 4x² - 7x² = -3x²</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">C. 2m + 3m = 6m</button>
+        </div>
+        <div class="quiz-feedback" id="q9"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [合并同类项]</h4>
+        <div class="formula-item">
+          <span class="f-name">合并法则</span>
+          <span class="f-expr">系数相加，字母不变</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">一般形式</span>
+          <span class="f-expr">ma + na = (m+n)a</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">注意</span>
+          <span class="f-expr">非同类项不能合并</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块4：去括号 ===== -->
+    <section class="module" id="module4">
+      <div class="module-header">
+        <span class="module-badge">MOD-04</span>
+        <h2 class="module-title">去括号 Removing Parentheses</h2>
+        <span class="module-subtitle">代数基础科 · 进阶级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>法则一（正括号前）：</strong>括号前面是 "+" 号，去掉括号和前面的 "+" 号，括号里各项<strong>不变号</strong>。</p>
+        <p style="margin-top:8px;"><strong>法则二（负括号前）：</strong>括号前面是 "-" 号，去掉括号和前面的 "-" 号，括号里各项<strong>都变号</strong>（+变-，-变+）。</p>
+        <ul>
+          <li>去括号依据：乘法分配律 a(b+c) = ab + ac</li>
+          <li>多层括号：先去小括号，再去中括号，最后去大括号</li>
+          <li>括号前有数字因数时，先用分配律乘进去</li>
+        </ul>
+        <span class="formula">+(a-b+c) = a-b+c | -(a-b+c) = -a+b-c | 2(3x-5) = 6x-10</span>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 去括号法则演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">+<span class="highlight">(</span>a - b + c<span class="highlight">)</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">+<span class="highlight">a</span> <span class="highlight">-b</span> <span class="highlight">+c</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">a - b + c</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">-<span class="highlight">(</span>a - b + c<span class="highlight">)</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">-<span class="highlight">a</span> <span class="highlight">+b</span> <span class="highlight">-c</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">-a + b - c</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">2<span class="highlight">(</span>3x - 5<span class="highlight">)</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part"><span class="highlight">2×3x</span> - <span class="highlight">2×5</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">6x - 10</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-A</span>
+          <span class="example-title">基础去括号</span>
+        </div>
+        <div class="example-body">
+          去括号并化简：<br>
+          (1) +(2x - 3y + 5)　　(2) -(3a - 2b - 4)
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          (1) 括号前是 "+"，各项不变号：<br>
+          +(2x - 3y + 5) = <strong>2x - 3y + 5</strong><br><br>
+          (2) 括号前是 "-"，各项都变号：<br>
+          -(3a - 2b - 4) = -3a + 2b + 4 = <strong>-3a + 2b + 4</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-B</span>
+          <span class="example-title">含数字因数的去括号</span>
+        </div>
+        <div class="example-body">
+          去括号：-3(2x² - 4x + 1)
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          用 -3 分别乘以括号内每一项：<br>
+          -3 × 2x² = <strong>-6x²</strong><br>
+          -3 × (-4x) = <strong>+12x</strong><br>
+          -3 × 1 = <strong>-3</strong><br>
+          ∴ 原式 = <strong>-6x² + 12x - 3</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-C</span>
+          <span class="example-title">多层括号化简</span>
+        </div>
+        <div class="example-body">
+          化简：2x - [3y - (4x - 5y) + 2x]
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          从内向外去括号：<br>
+          第一步（去小括号）：3y - (4x - 5y) + 2x = 3y - 4x + 5y + 2x = <strong>-2x + 8y</strong><br>
+          第二步（去中括号）：2x - [-2x + 8y] = 2x + 2x - 8y = <strong>4x - 8y</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. -(a - 2b + 3) 去括号后等于？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">A. -a - 2b + 3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">B. -a - 2b - 3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q10')">C. -a + 2b - 3</button>
+        </div>
+        <div class="quiz-feedback" id="q10"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 2(3x - 4) 去括号后等于？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q11')">A. 6x - 8</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">B. 6x + 8</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">C. 5x - 8</button>
+        </div>
+        <div class="quiz-feedback" id="q11"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 化简 x - (2x - 3) 的结果是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">A. -x - 3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q12')">B. -x + 3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">C. 3x - 3</button>
+        </div>
+        <div class="quiz-feedback" id="q12"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [去括号]</h4>
+        <div class="formula-item">
+          <span class="f-name">+(　) 法则</span>
+          <span class="f-expr">+(a+b) = a + b</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">-(　) 法则</span>
+          <span class="f-expr">-(a+b) = -a - b</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">分配律</span>
+          <span class="f-expr">k(a+b) = ka + kb</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">口诀</span>
+          <span class="f-expr">正不变，负全变</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块5：整式的加减 ===== -->
+    <section class="module" id="module5">
+      <div class="module-header">
+        <span class="module-badge">MOD-05</span>
+        <h2 class="module-title">整式的加减 Polynomial Arithmetic</h2>
+        <span class="module-subtitle">代数基础科 · 高级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>整式加减的本质：</strong>去括号 + 合并同类项。</p>
+        <ul>
+          <li>整式加减的结果仍是整式</li>
+          <li>运算时注意：括号前的符号、数字因数的分配</li>
+          <li>多个整式相加减时，可以看作括号连接的形式</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>运算步骤：</strong></p>
+        <ol>
+          <li>有括号先去括号（由内到外）</li>
+          <li>找出所有同类项</li>
+          <li>合并同类项（系数相加）</li>
+          <li>写出最简结果</li>
+        </ol>
+        <p style="margin-top:12px;"><strong>求值问题：</strong>先化简，再代入求值，比直接代入更简洁。</p>
+        <span class="formula">步骤：去括号 → 找同类项 → 合并 → 代入求值</span>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 整式加减完整流程演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">(2x² - 3x + 1)</span>
+          <span class="eq-part">-</span>
+          <span class="eq-part">(x² + 2x - 5)</span>
+          <span class="anim-arrow">→</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">= 2x² - 3x + 1 <span class="highlight">-x² -2x +5</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">= <span class="highlight">(2-1)</span>x² <span class="highlight">+(-3-2)</span>x <span class="highlight">+(1+5)</span></span>
+          <span class="anim-arrow">=</span>
+          <span class="anim-result">x² - 5x + 6</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-A</span>
+          <span class="example-title">两个多项式的加减</span>
+        </div>
+        <div class="example-body">
+          计算：(3x² - 5x + 2) - (2x² + 3x - 7)
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          第一步（去括号）：3x² - 5x + 2 - 2x² - 3x + 7<br>
+          第二步（找同类项）：<br>
+          x² 项：3x² - 2x²<br>
+          x 项：-5x - 3x<br>
+          常数项：2 + 7<br>
+          第三步（合并）：(3-2)x² + (-5-3)x + (2+7) = <strong>x² - 8x + 9</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-B</span>
+          <span class="example-title">含多层括号的整式加减</span>
+        </div>
+        <div class="example-body">
+          化简：3a - [2a - (5a - 4b) + 3b] - (a - b)
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          从内到外去括号：<br>
+          先算中括号内：2a - (5a - 4b) + 3b = 2a - 5a + 4b + 3b = -3a + 7b<br>
+          中括号：3a - [-3a + 7b] = 3a + 3a - 7b = 6a - 7b<br>
+          最后小括号：-(a - b) = -a + b<br>
+          总计：6a - 7b - a + b = <strong>5a - 6b</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-C</span>
+          <span class="example-title">化简求值综合</span>
+        </div>
+        <div class="example-body">
+          化简并求值：2(x² - 3xy) - 3(2x² - xy) + 4x²，其中 x = -2，y = 3
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          第一步（去括号）：<br>
+          2x² - 6xy - 6x² + 3xy + 4x²<br><br>
+          第二步（合并同类项）：<br>
+          x²：(2 - 6 + 4)x² = <strong>0x² = 0</strong><br>
+          xy：(-6 + 3)xy = <strong>-3xy</strong><br><br>
+          化简结果：<strong>-3xy</strong><br><br>
+          代入 x=-2, y=3：-3 × (-2) × 3 = <strong>18</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 计算 (5x - 3) - (2x + 4) = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">A. 3x + 1</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q13')">B. 3x - 7</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">C. 7x + 1</button>
+        </div>
+        <div class="quiz-feedback" id="q13"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 化简 2(a² + a) - 3(a² - 2a) = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q14')">A. -a² + 8a</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">B. -a² - 4a</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">C. 5a² + 8a</button>
+        </div>
+        <div class="quiz-feedback" id="q14"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 若 A = 3x² - 2x + 1，B = x² + 4x - 3，则 A - B = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">A. 2x² + 2x - 2</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q15')">B. 2x² - 6x + 4</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">C. 4x² + 2x - 2</button>
+        </div>
+        <div class="quiz-feedback" id="q15"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [整式加减]</h4>
+        <div class="formula-item">
+          <span class="f-name">运算核心</span>
+          <span class="f-expr">去括号 + 合并同类项</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">结果特征</span>
+          <span class="f-expr">仍是整式，无同类项可合并</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">求值策略</span>
+          <span class="f-expr">先化简，再代入</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">去括号口诀</span>
+          <span class="f-expr">正不变，负全变</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+      <p>TERM 代数基础科 | 第10章 整式的加减</p>
+      <p class="code">[CLASSIFIED] | CODENAME: TERM | CLEARANCE: STUDENT</p>
+      <p style="margin-top:8px;">
+        <a href="index.html" style="color:var(--accent);text-decoration:none;">➤ 进入训练场</a>
+      </p>
+    </footer>
+  </main>
+
+  <!-- Feedback 弹窗 -->
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Answer verified.</p>
+      <button class="btn" onclick="hideFeedback()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    // 导航
+    function toggleNav() {
+      const panel = document.getElementById('navPanel');
+      const overlay = document.getElementById('navOverlay');
+      panel.classList.toggle('open');
+      overlay.style.display = panel.classList.contains('open') ? 'block' : 'none';
+    }
+    function navTo(id) {
+      document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+      if (window.innerWidth <= 768) toggleNav();
+    }
+
+    // 当前章节高亮
+    function updateActiveNav() {
+      const modules = ['module1','module2','module3','module4','module5'];
+      const links = document.querySelectorAll('.nav-link');
+      let active = 0;
+      modules.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 100) active = i;
+      });
+      links.forEach((l, i) => l.classList.toggle('active', i === active));
+    }
+    window.addEventListener('scroll', updateActiveNav);
+    updateActiveNav();
+
+    // 例题展开/收起
+    function toggleExample(el) {
+      el.classList.toggle('expanded');
+      const toggle = el.querySelector('.example-toggle');
+      if (toggle) toggle.textContent = el.classList.contains('expanded') ? '▲ 点击收起解析' : '▼ 点击展开解析';
+    }
+
+    // 答题系统
+    const feedbackData = {
+      correct: { icon: '✓', title: 'CONFIRMED', text: 'Answer verified. Proceed to next sector.' },
+      wrong: { icon: '✗', title: 'DENIED', text: 'Incorrect. Review theory and retry.' }
+    };
+
+    function checkAnswer(btn, isCorrect, qid) {
+      const parent = btn.closest('.quiz');
+      const feedback = document.getElementById(qid);
+      const allBtns = parent.querySelectorAll('.quiz-btn');
+
+      allBtns.forEach(b => {
+        b.classList.remove('correct', 'wrong');
+        b.disabled = true;
+      });
+
+      if (isCorrect) {
+        btn.classList.add('correct');
+        feedback.textContent = '✓ 正确！';
+        feedback.className = 'quiz-feedback show correct';
+        showFeedback(true);
+      } else {
+        btn.classList.add('wrong');
+        allBtns.forEach(b => {
+          if (b.getAttribute('onclick').includes('true')) b.classList.add('correct');
+        });
+        feedback.textContent = '✗ 错误，请查看理论档案复习。';
+        feedback.className = 'quiz-feedback show wrong';
+        showFeedback(false);
+      }
+    }
+
+    function showFeedback(isCorrect) {
+      const data = isCorrect ? feedbackData.correct : feedbackData.wrong;
+      document.getElementById('feedbackIcon').textContent = data.icon;
+      document.getElementById('feedbackTitle').textContent = data.title;
+      document.getElementById('feedbackText').textContent = data.text;
+      document.getElementById('feedbackOverlay').classList.add('show');
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedbackOverlay').classList.remove('show');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideFeedback();
+    });
+  </script>
+</body>
+</html>

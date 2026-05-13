@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>GEOM-TRANS | 几何变换科教案 — 第14章 图形的运动</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ===== HUD 背景 ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* 扫描线 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 四角装饰 */
+    .corner {
+      position: fixed;
+      width: 60px;
+      height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    /* ===== 顶部 HUD 栏 ===== */
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .logo span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .hud-header .status {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-header .status .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ===== 章节跳转面板 ===== */
+    .nav-panel {
+      position: fixed;
+      top: 56px; left: 0;
+      width: 240px;
+      height: calc(100vh - 56px);
+      background: var(--panel);
+      border-right: 1px solid rgba(0,245,212,0.15);
+      padding: 20px 16px;
+      overflow-y: auto;
+      z-index: 90;
+      transition: transform 0.3s ease;
+    }
+    .nav-panel h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .nav-panel .nav-link {
+      display: block;
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+      border-left: 2px solid transparent;
+    }
+    .nav-panel .nav-link:hover,
+    .nav-panel .nav-link.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+    .nav-panel .nav-link .num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      opacity: 0.5;
+      margin-right: 6px;
+    }
+    .nav-panel .back-link {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      text-align: center;
+    }
+    .nav-panel .back-link a {
+      color: var(--warn);
+      font-size: 0.75rem;
+      text-decoration: none;
+    }
+
+    /* 移动端汉堡菜单 */
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 64px; left: 12px;
+      z-index: 101;
+      width: 40px; height: 40px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    /* ===== 主内容区 ===== */
+    .main-content {
+      margin-left: 240px;
+      margin-top: 56px;
+      padding: 32px 40px 60px;
+      max-width: 900px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ===== 模块卡片 ===== */
+    .module {
+      margin-bottom: 48px;
+      padding: 32px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .module::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .module-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .module-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 4px 10px;
+      border-radius: 2px;
+      margin-right: 12px;
+      letter-spacing: 1px;
+    }
+    .module-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+    .module-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    /* ===== 理论区 ===== */
+    .theory-box {
+      background: rgba(0,245,212,0.05);
+      border-left: 3px solid var(--accent);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      border-radius: 0 6px 6px 0;
+    }
+    .theory-box h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .theory-box p, .theory-box li {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .theory-box ul {
+      margin-left: 20px;
+      margin-top: 8px;
+    }
+    .theory-box .formula {
+      display: inline-block;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      color: var(--accent);
+      background: rgba(0,245,212,0.08);
+      padding: 6px 14px;
+      border-radius: 4px;
+      margin: 8px 0;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 例题区 ===== */
+    .example {
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.08);
+    }
+    .example-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .example-tag {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      background: rgba(0,245,212,0.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-right: 10px;
+    }
+    .example-title {
+      font-size: 0.85rem;
+      color: var(--text);
+      font-weight: bold;
+    }
+    .example-body {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .example-answer {
+      padding: 12px 16px;
+      background: rgba(0,245,212,0.06);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      line-height: 1.7;
+      border-left: 2px solid var(--accent);
+    }
+    .example-answer .label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      color: var(--warn);
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    /* ===== 测验区 ===== */
+    .quiz {
+      margin-bottom: 16px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .quiz-question {
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .quiz-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .quiz-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid rgba(0,245,212,0.3);
+      color: var(--text);
+      border-radius: 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quiz-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .quiz-btn.correct {
+      background: rgba(0,245,212,0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .quiz-btn.wrong {
+      background: rgba(255,56,96,0.15);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .quiz-feedback {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.correct { background: rgba(0,245,212,0.1); color: var(--accent); }
+    .quiz-feedback.wrong { background: rgba(255,56,96,0.1); color: var(--danger); }
+
+    /* ===== 公式总结 ===== */
+    .formula-summary {
+      margin-top: 24px;
+      padding: 20px;
+      background: rgba(0,245,212,0.04);
+      border: 1px dashed rgba(0,245,212,0.2);
+      border-radius: 6px;
+    }
+    .formula-summary h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .formula-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.85rem;
+    }
+    .formula-item:last-child { border-bottom: none; }
+    .formula-item .f-name {
+      color: var(--text-dim);
+      min-width: 140px;
+    }
+    .formula-item .f-expr {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    /* ===== Feedback 弹窗 ===== */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+    }
+    .feedback-box .icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    .feedback-box .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 页脚 ===== */
+    .footer {
+      margin-top: 60px;
+      padding: 24px;
+      text-align: center;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .footer .code {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 1024px) {
+      .nav-panel { width: 200px; }
+      .main-content { margin-left: 200px; padding: 24px 28px 40px; }
+    }
+    @media (max-width: 768px) {
+      .nav-panel {
+        transform: translateX(-100%);
+        width: 260px;
+      }
+      .nav-panel.open { transform: translateX(0); }
+      .main-content { margin-left: 0; padding: 20px 16px 40px; }
+      .menu-toggle { display: block; }
+      .module { padding: 20px; }
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo span { display: none; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 16px 12px 32px; }
+      .module { padding: 16px; }
+      .module-title { font-size: 1.1rem; }
+      .theory-box { padding: 14px 16px; }
+      .quiz-options { flex-direction: column; }
+      .quiz-btn { width: 100%; text-align: left; }
+    }
+    @media (max-width: 360px) {
+      .hud-header .logo { font-size: 1rem; }
+      .module { padding: 12px; }
+      .example { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 四角装饰 -->
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <!-- 顶部 HUD -->
+  <header class="hud-header">
+    <div class="logo">GEOM-TRANS <span>几何变换科</span></div>
+    <div class="status"><span class="dot"></span>SYS ONLINE | CH14 图形的运动</div>
+  </header>
+
+  <!-- 汉堡菜单 -->
+  <button class="menu-toggle" onclick="toggleNav()">☰</button>
+
+  <!-- 章节导航 -->
+  <nav class="nav-panel" id="navPanel">
+    <h3>模块导航</h3>
+    <a href="#module1" class="nav-link" onclick="navTo('module1')">
+      <span class="num">01</span>平移变换
+    </a>
+    <a href="#module2" class="nav-link" onclick="navTo('module2')">
+      <span class="num">02</span>旋转变换
+    </a>
+    <a href="#module3" class="nav-link" onclick="navTo('module3')">
+      <span class="num">03</span>翻折变换
+    </a>
+    <a href="#module4" class="nav-link" onclick="navTo('module4')">
+      <span class="num">04</span>综合变换
+    </a>
+    <a href="#module5" class="nav-link" onclick="navTo('module5')">
+      <span class="num">05</span>中心对称
+    </a>
+    <div class="back-link">
+      <a href="index.html">➤ 进入训练场 (代号:MOTION)</a>
+    </div>
+  </nav>
+
+  <!-- 遮罩层（移动端点击关闭菜单） -->
+  <div id="navOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:80;" onclick="toggleNav()"></div>
+
+  <!-- 主内容 -->
+  <main class="main-content">
+    <!-- ===== 模块1：平移变换 ===== -->
+    <section class="module" id="module1">
+      <div class="module-header">
+        <span class="module-badge">MOD-01</span>
+        <h2 class="module-title">平移变换 Translation</h2>
+        <span class="module-subtitle">几何变换科 · 基础级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>在平面内，将一个图形沿某个方向移动一定的距离，这样的图形运动称为<strong>平移</strong>。</p>
+        <ul>
+          <li>平移不改变图形的<strong>形状</strong>和<strong>大小</strong></li>
+          <li>平移后，对应线段平行（或共线）且相等</li>
+          <li>对应角相等，对应点连线平行且相等</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>平移公式：</strong>点 P(x, y) 沿向量 (a, b) 平移后 → P'(x+a, y+b)</p>
+        <span class="formula">P'(x, y) = P(x₀ + a, y₀ + b)</span>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 1-A</span>
+          <span class="example-title">坐标平移</span>
+        </div>
+        <div class="example-body">
+          点 A(2, 3) 向右平移 4 个单位，再向下平移 2 个单位，求 A' 的坐标。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          向右平移 4：x + 4 = 2 + 4 = 6；向下平移 2：y - 2 = 3 - 2 = 1。<br>
+          ∴ A' = <strong>(6, 1)</strong>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 1-B</span>
+          <span class="example-title">平移性质应用</span>
+        </div>
+        <div class="example-body">
+          △ABC 平移后得到 △DEF，已知 AB = 5cm，∠B = 40°，DE = ?，∠E = ?
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          平移保持形状大小不变，对应边相等、对应角相等。<br>
+          DE 对应 AB，∠E 对应 ∠B。<br>
+          ∴ DE = <strong>5cm</strong>，∠E = <strong>40°</strong>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 1-C</span>
+          <span class="example-title">平移距离计算</span>
+        </div>
+        <div class="example-body">
+          线段 MN 端点 M(1, 2)、N(4, 6)，平移后 M'(-1, 5)，求平移向量及 N' 坐标。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          平移向量 = M' - M = (-1-1, 5-2) = <strong>(-2, 3)</strong><br>
+          N' = N + 向量 = (4-2, 6+3) = <strong>(2, 9)</strong>
+        </div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 点 P(-3, 4) 向左平移 2，向上平移 5，新坐标是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">A. (-1, 9)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q1')">B. (-5, 9)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">C. (-5, -1)</button>
+        </div>
+        <div class="quiz-feedback" id="q1"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 下列哪个不是平移的性质？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">A. 对应边相等</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">B. 对应角相等</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q2')">C. 图形面积变大</button>
+        </div>
+        <div class="quiz-feedback" id="q2"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. △ABC 平移到 △A'B'C'，AA' = 3cm，则 BB' = ?</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q3')">A. 3cm</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">B. 6cm</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">C. 无法确定</button>
+        </div>
+        <div class="quiz-feedback" id="q3"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [平移]</h4>
+        <div class="formula-item">
+          <span class="f-name">平移向量</span>
+          <span class="f-expr">v→ = (a, b)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">坐标变换</span>
+          <span class="f-expr">(x, y) → (x+a, y+b)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">性质</span>
+          <span class="f-expr">∥ + = + ≅</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块2：旋转变换 ===== -->
+    <section class="module" id="module2">
+      <div class="module-header">
+        <span class="module-badge">MOD-02</span>
+        <h2 class="module-title">旋转变换 Rotation</h2>
+        <span class="module-subtitle">几何变换科 · 进阶级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>在平面内，将一个图形绕一个定点按某个方向转动一个角度，这样的图形运动称为<strong>旋转</strong>。</p>
+        <ul>
+          <li><strong>旋转中心：</strong>旋转时固定不动的点（记作 O）</li>
+          <li><strong>旋转角：</strong>转动的角度（记作 θ）</li>
+          <li><strong>旋转方向：</strong>顺时针 / 逆时针</li>
+          <li>旋转不改变图形的形状和大小</li>
+          <li>对应点到旋转中心的距离相等</li>
+          <li>对应点与旋转中心连线所成的角等于旋转角</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>特殊旋转：</strong></p>
+        <span class="formula">90° 旋转: (x,y)→(-y,x) | 180°: (x,y)→(-x,-y) | 270°: (x,y)→(y,-x)</span>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 2-A</span>
+          <span class="example-title">旋转中心判定</span>
+        </div>
+        <div class="example-body">
+          △ABC 旋转后得到 △A'B'C'，已知 A(1,1)→A'(1,1)，B(3,1)→B'(1,3)。求旋转中心和角度。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          A 不动 → A 是旋转中心 O(1,1)。<br>
+          B→B'：向量 OB = (2,0)，OB' = (0,2)。<br>
+          由 (2,0) 到 (0,2) 是逆时针旋转 <strong>90°</strong>。
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 2-B</span>
+          <span class="example-title">旋转坐标计算</span>
+        </div>
+        <div class="example-body">
+          点 P(3, 0) 绕原点逆时针旋转 90°，求 P'。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          逆时针 90° 公式：(x,y) → (-y, x)<br>
+          P(3, 0) → P' = (-0, 3) = <strong>(0, 3)</strong>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 2-C</span>
+          <span class="example-title">复合旋转</span>
+        </div>
+        <div class="example-body">
+          点 Q(2, 3) 绕原点顺时针旋转 180°，再绕新位置逆时针旋转 90°，求最终坐标。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          第一步 180°: (2,3) → (-2,-3)<br>
+          第二步 逆时针 90°: (-2,-3) → (3, -2) （用公式 (-y,x) 代入 y=-3, x=-2）<br>
+          ∴ 最终坐标 <strong>(3, -2)</strong>
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. 点 (4, 0) 绕原点逆时针旋转 90° 后是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q4')">A. (0, 4)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">B. (0, -4)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">C. (-4, 0)</button>
+        </div>
+        <div class="quiz-feedback" id="q4"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 旋转 180° 相当于？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">A. 平移</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q5')">B. 关于原点对称</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">C. 翻折</button>
+        </div>
+        <div class="quiz-feedback" id="q5"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 等边三角形绕中心旋转多少度可与自身重合？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q6')">A. 120°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">B. 90°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">C. 60°</button>
+        </div>
+        <div class="quiz-feedback" id="q6"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [旋转]</h4>
+        <div class="formula-item">
+          <span class="f-name">旋转90°(逆)</span>
+          <span class="f-expr">(x, y) → (-y, x)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">旋转180°</span>
+          <span class="f-expr">(x, y) → (-x, -y)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">旋转270°(逆)</span>
+          <span class="f-expr">(x, y) → (y, -x)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块3：翻折变换 ===== -->
+    <section class="module" id="module3">
+      <div class="module-header">
+        <span class="module-badge">MOD-03</span>
+        <h2 class="module-title">翻折变换 Reflection</h2>
+        <span class="module-subtitle">几何变换科 · 进阶级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>在平面内，将一个图形沿某条直线折叠，直线两旁的部分能够完全重合，这样的图形运动称为<strong>翻折</strong>（轴对称）。</p>
+        <ul>
+          <li><strong>对称轴：</strong>折叠时的直线（记作 l）</li>
+          <li>翻折后，对应点到对称轴的距离相等</li>
+          <li>对称轴是对应点连线的垂直平分线</li>
+          <li>翻折不改变图形的形状和大小</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>常见对称轴翻折：</strong></p>
+        <span class="formula">x轴: (x,y)→(x,-y) | y轴: (x,y)→(-x,y) | y=x: (x,y)→(y,x)</span>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 3-A</span>
+          <span class="example-title">轴对称坐标</span>
+        </div>
+        <div class="example-body">
+          点 A(3, -2) 关于 y 轴对称，求 A'；再关于 x 轴对称，求 A''。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          关于 y 轴：(x,y)→(-x,y) → A' = <strong>(-3, -2)</strong><br>
+          关于 x 轴：(x,y)→(x,-y) → A'' = <strong>(-3, 2)</strong>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 3-B</span>
+          <span class="example-title">对称轴方程</span>
+        </div>
+        <div class="example-body">
+          点 M(2, 5) 和 M'(-4, 5) 关于直线 l 对称，求 l 的方程。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          M 和 M' y 坐标相同，连线水平。<br>
+          对称轴是 MM' 的垂直平分线，过中点 ((-4+2)/2, 5) = (-1, 5)，且垂直于水平线 → 竖直线。<br>
+          ∴ l: <strong>x = -1</strong>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 3-C</span>
+          <span class="example-title">翻折最短路径</span>
+        </div>
+        <div class="example-body">
+          点 A(1, 2) 和 B(5, 4) 在 x 轴同侧，在 x 轴上找一点 P 使 PA + PB 最短。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          翻折 A 关于 x 轴得 A'(1, -2)。<br>
+          连接 A'B 交 x 轴于 P，此时 PA + PB = PA' + PB = A'B 最短。<br>
+          A'B 斜率 = (4+2)/(5-1) = 1.5，方程 y+2 = 1.5(x-1)。<br>
+          令 y=0: 2 = 1.5(x-1) → x = 1 + 4/3 = <strong>7/3</strong>。<br>
+          ∴ P = <strong>(7/3, 0)</strong>
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. 点 (-2, 3) 关于原点对称的点是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">A. (2, 3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q7')">B. (2, -3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">C. (-2, -3)</button>
+        </div>
+        <div class="quiz-feedback" id="q7"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 关于直线 y = x 对称，(3, 7) 变为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">A. (-3, -7)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q8')">B. (7, 3)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">C. (3, -7)</button>
+        </div>
+        <div class="quiz-feedback" id="q8"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 下列图形中对称轴最多的是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">A. 等腰三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">B. 矩形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q9')">C. 圆</button>
+        </div>
+        <div class="quiz-feedback" id="q9"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [翻折]</h4>
+        <div class="formula-item">
+          <span class="f-name">关于 x 轴</span>
+          <span class="f-expr">(x, y) → (x, -y)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">关于 y 轴</span>
+          <span class="f-expr">(x, y) → (-x, y)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">关于 y=x</span>
+          <span class="f-expr">(x, y) → (y, x)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">关于原点</span>
+          <span class="f-expr">(x, y) → (-x, -y)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块4：综合变换 ===== -->
+    <section class="module" id="module4">
+      <div class="module-header">
+        <span class="module-badge">MOD-04</span>
+        <h2 class="module-title">综合变换 Composite</h2>
+        <span class="module-subtitle">几何变换科 · 高级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>复合变换：</strong>多种基本变换的连续应用。变换顺序很重要，一般不满足交换律。</p>
+        <ul>
+          <li>先平移后旋转 ≠ 先旋转后平移（除非绕原点）</li>
+          <li>两次平移 = 一次平移（向量相加）</li>
+          <li>两次翻折：若对称轴平行 = 平移；若相交 = 旋转</li>
+          <li>识别复合变换中的"不变量"是解题关键</li>
+        </ul>
+        <span class="formula">T(v₁) ∘ T(v₂) = T(v₁+v₂) | R(θ₁) ∘ R(θ₂) = R(θ₁+θ₂)</span>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 4-A</span>
+          <span class="example-title">复合变换识别</span>
+        </div>
+        <div class="example-body">
+          △ABC 先向右平移 3，再向上平移 2，最后绕新位置的 A' 逆时针旋转 90°。已知 A(0,0)、B(2,0)、C(0,3)，求最终坐标。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          平移后：A'(3,2)、B'(5,2)、C'(3,5)<br>
+          绕 A'(3,2) 逆时针 90°：向量法，对每点减 A' 再旋转再加回。<br>
+          B'-A' = (2,0) → (0,2) → B'' = (3, 4)<br>
+          C'-A' = (0,3) → (-3,0) → C'' = (0, 2)<br>
+          ∴ 最终：A''<strong>(3, 2)</strong>、B''<strong>(3, 4)</strong>、C''<strong>(0, 2)</strong>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 4-B</span>
+          <span class="example-title">变换分解</span>
+        </div>
+        <div class="example-body">
+          △ABC 变换后到 △A'B'C'，已知 A(1,1)→A'(2,3)，B(3,1)→B'(4,5)。判断是哪种单一变换。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          向量 AA' = (1, 2)，BB' = (1, 4)。<br>
+          不是平移（向量不等）。检验旋转：AB = (2,0)，A'B' = (2,2)。长度 |AB|=2，|A'B'|=2√2，不等。<br>
+          可能是<strong>先平移再旋转</strong>的复合变换，或存在缩放。<br>
+          需更多信息确定，但可确定<strong>不是单一基本变换</strong>。
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 4-C</span>
+          <span class="example-title">最短路径复合</span>
+        </div>
+        <div class="example-body">
+          长方形场地 ABCD 中，A(0,0)、B(4,0)、C(4,3)、D(0,3)。从 A 出发到 BC 边再到 CD 边最后到 D，求最短路径长度。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          连续翻折法：将 ABCD 沿 BC 翻折得 A'BCD'，再沿 C'D'（原 CD 延长）翻折。<br>
+          A 经两次翻折后位置 A'' = (8, 6)。<br>
+          最短路径 = A 到 A'' 直线距离 = √(8²+6²) = <strong>10</strong>。<br>
+          （这是台球反射/光的反射原理）
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. 先旋转 90° 再平移，与先平移再旋转 90° 结果？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q10')">A. 一般不同</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">B. 总是相同</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">C. 无法确定</button>
+        </div>
+        <div class="quiz-feedback" id="q10"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 两次关于平行直线翻折，等价于？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q11')">A. 一次平移</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">B. 一次旋转</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">C. 一次翻折</button>
+        </div>
+        <div class="quiz-feedback" id="q11"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 正方形绕中心旋转 90° 后与自身重合，这是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">A. 平移不变性</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q12')">B. 旋转对称</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">C. 轴对称</button>
+        </div>
+        <div class="quiz-feedback" id="q12"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [综合]</h4>
+        <div class="formula-item">
+          <span class="f-name">平移复合</span>
+          <span class="f-expr">T(a,b) + T(c,d) = T(a+c, b+d)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">旋转复合</span>
+          <span class="f-expr">R(θ₁) + R(θ₂) = R(θ₁+θ₂)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">翻折+翻折</span>
+          <span class="f-expr">平行轴=平移 / 相交轴=旋转</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块5：中心对称 ===== -->
+    <section class="module" id="module5">
+      <div class="module-header">
+        <span class="module-badge">MOD-05</span>
+        <h2 class="module-title">中心对称 Central Symmetry</h2>
+        <span class="module-subtitle">几何变换科 · 高级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>把一个图形绕某一点旋转 180°，如果它能够与另一个图形重合，那么这两个图形关于这个点<strong>中心对称</strong>。</p>
+        <ul>
+          <li><strong>对称中心：</strong>旋转 180° 的固定点</li>
+          <li>中心对称的两个图形，对应点连线都经过对称中心，且被对称中心平分</li>
+          <li>中心对称图形：自身绕某点旋转 180° 后与自身重合</li>
+          <li>平行四边形、圆等都是中心对称图形</li>
+        </ul>
+        <span class="formula">中心对称 = 旋转 180° = (x,y)→(-x,-y)（关于原点）</span>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 5-A</span>
+          <span class="example-title">中心对称坐标</span>
+        </div>
+        <div class="example-body">
+          点 A(4, -3) 关于原点 O 中心对称的点 A' 是？若关于点 M(1, 2) 中心对称呢？
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          关于原点：A' = (-4, 3)。<br>
+          关于 M(1,2)：M 是 AA' 中点 → (4+x')/2=1, (-3+y')/2=2<br>
+          x' = 2-4 = -2, y' = 4+3 = 7。<br>
+          ∴ A' = <strong>(-2, 7)</strong>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 5-B</span>
+          <span class="example-title">中心对称图形判定</span>
+        </div>
+        <div class="example-body">
+          下列图形中哪些一定是中心对称图形？①等边三角形 ②矩形 ③菱形 ④梯形 ⑤圆
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          中心对称图形需旋转 180° 后与自身重合：<br>
+          ②矩形（对角线交点）✓ ③菱形 ✓ ⑤圆（圆心）✓<br>
+          ①等边三角形旋转 180° 不重合 ✗ ④一般梯形 ✗<br>
+          ∴ <strong>②③⑤</strong>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-header">
+          <span class="example-tag">例题 5-C</span>
+          <span class="example-title">对称中心求法</span>
+        </div>
+        <div class="example-body">
+          △ABC 与 △A'B'C' 关于某点中心对称，A(1,2)、A'(3,6)、B(2,1)。求对称中心和 B'。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          对称中心 O = AA' 中点 = ((1+3)/2, (2+6)/2) = <strong>(2, 4)</strong><br>
+          B'：O 是 BB' 中点 → B' = (2×2-2, 2×4-1) = <strong>(2, 7)</strong>
+        </div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q1. 下列哪个不是中心对称图形？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">A. 平行四边形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q13')">B. 等边三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">C. 圆</button>
+        </div>
+        <div class="quiz-feedback" id="q13"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 点 (5, -1) 关于 (2, 3) 中心对称的点是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">A. (-1, 7)</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q14')">B. (-1, 7) 误，应为 ( -1, 7 )</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">C. (-5, 1)</button>
+        </div>
+        <div class="quiz-feedback" id="q14"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 正六边形的旋转对称角（最小）是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">A. 90°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q15')">B. 60°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">C. 120°</button>
+        </div>
+        <div class="quiz-feedback" id="q15"></div>
+      </div>
+
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [中心对称]</h4>
+        <div class="formula-item">
+          <span class="f-name">关于原点</span>
+          <span class="f-expr">(x, y) → (-x, -y)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">关于点 (a,b)</span>
+          <span class="f-expr">(x, y) → (2a-x, 2b-y)</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">中心对称图形</span>
+          <span class="f-expr">R(180°) ≡ 自身</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+      <p>GEOM-TRANS 几何变换科 | 第14章 图形的运动</p>
+      <p class="code">[CLASSIFIED] | CODENAME: MOTION | CLEARANCE: STUDENT</p>
+      <p style="margin-top:8px;">
+        <a href="index.html" style="color:var(--accent);text-decoration:none;">➤ 进入训练场</a>
+      </p>
+    </footer>
+  </main>
+
+  <!-- Feedback 弹窗 -->
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Answer verified.</p>
+      <button class="btn" onclick="hideFeedback()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    // 导航
+    function toggleNav() {
+      const panel = document.getElementById('navPanel');
+      const overlay = document.getElementById('navOverlay');
+      panel.classList.toggle('open');
+      overlay.style.display = panel.classList.contains('open') ? 'block' : 'none';
+    }
+
+    function navTo(id) {
+      document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+      if (window.innerWidth <= 768) toggleNav();
+    }
+
+    // 当前章节高亮
+    function updateActiveNav() {
+      const modules = ['module1','module2','module3','module4','module5'];
+      const links = document.querySelectorAll('.nav-link');
+      let active = 0;
+      modules.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 100) active = i;
+      });
+      links.forEach((l, i) => l.classList.toggle('active', i === active));
+    }
+    window.addEventListener('scroll', updateActiveNav);
+    updateActiveNav();
+
+    // 答题系统
+    const feedbackData = {
+      correct: { icon: '✓', title: 'CONFIRMED', text: 'Answer verified. Proceed to next sector.' },
+      wrong: { icon: '✗', title: 'DENIED', text: 'Incorrect. Review theory and retry.' }
+    };
+
+    function checkAnswer(btn, isCorrect, qid) {
+      const parent = btn.closest('.quiz');
+      const feedback = document.getElementById(qid);
+      const allBtns = parent.querySelectorAll('.quiz-btn');
+
+      allBtns.forEach(b => {
+        b.classList.remove('correct', 'wrong');
+        b.disabled = true;
+      });
+
+      if (isCorrect) {
+        btn.classList.add('correct');
+        feedback.textContent = '✓ 正确！';
+        feedback.className = 'quiz-feedback show correct';
+        showFeedback(true);
+      } else {
+        btn.classList.add('wrong');
+        // 高亮正确答案
+        allBtns.forEach(b => {
+          if (b.getAttribute('onclick').includes('true')) b.classList.add('correct');
+        });
+        feedback.textContent = '✗ 错误，请查看理论档案复习。';
+        feedback.className = 'quiz-feedback show wrong';
+        showFeedback(false);
+      }
+    }
+
+    function showFeedback(isCorrect) {
+      const data = isCorrect ? feedbackData.correct : feedbackData.wrong;
+      document.getElementById('feedbackIcon').textContent = data.icon;
+      document.getElementById('feedbackTitle').textContent = data.title;
+      document.getElementById('feedbackText').textContent = data.text;
+      document.getElementById('feedbackOverlay').classList.add('show');
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedbackOverlay').classList.remove('show');
+    }
+
+    // 键盘 ESC 关闭弹窗
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideFeedback();
+    });
+  </script>
+</body>
+</html>
