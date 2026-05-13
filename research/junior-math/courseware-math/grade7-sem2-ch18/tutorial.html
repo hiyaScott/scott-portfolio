@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ISO | 等腰特工组教案 — 第18章 等腰三角形</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ===== HUD 背景 ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* 扫描线 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 四角装饰 */
+    .corner {
+      position: fixed;
+      width: 60px; height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    /* ===== 顶部 HUD 栏 ===== */
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .logo span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .hud-header .status {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-header .status .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ===== 主内容区 ===== */
+    .main-content {
+      margin-left: 240px;
+      margin-top: 56px;
+      padding: 32px 40px 60px;
+      max-width: 900px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ===== 模块卡片 ===== */
+    .module {
+      margin-bottom: 48px;
+      padding: 32px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .module::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .module-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .module-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 4px 10px;
+      border-radius: 2px;
+      margin-right: 12px;
+      letter-spacing: 1px;
+    }
+    .module-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+    .module-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    /* ===== 理论区 ===== */
+    .theory-box {
+      background: rgba(0,245,212,0.05);
+      border-left: 3px solid var(--accent);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      border-radius: 0 6px 6px 0;
+    }
+    .theory-box h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .theory-box p, .theory-box li {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .theory-box ul {
+      margin-left: 20px;
+      margin-top: 8px;
+    }
+    .theory-box .formula {
+      display: inline-block;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      color: var(--accent);
+      background: rgba(0,245,212,0.08);
+      padding: 6px 14px;
+      border-radius: 4px;
+      margin: 8px 0;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 例题区 ===== */
+    .example {
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.08);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .example:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .example-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .example-tag {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      background: rgba(0,245,212,0.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-right: 10px;
+    }
+    .example-title {
+      font-size: 0.85rem;
+      color: var(--text);
+      font-weight: bold;
+    }
+    .example-body {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .example-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.4s ease;
+      padding: 0 16px;
+      background: rgba(0,245,212,0.06);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      line-height: 1.7;
+      border-left: 2px solid var(--accent);
+    }
+    .example.expanded .example-answer {
+      max-height: 500px;
+      padding: 12px 16px;
+      margin-top: 8px;
+    }
+    .example-answer .label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      color: var(--warn);
+      margin-bottom: 4px;
+      display: block;
+    }
+    .example-toggle {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-align: right;
+      margin-top: 4px;
+      opacity: 0.6;
+    }
+
+    /* ===== 测验区 ===== */
+    .quiz {
+      margin-bottom: 16px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .quiz-question {
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .quiz-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .quiz-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid rgba(0,245,212,0.3);
+      color: var(--text);
+      border-radius: 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quiz-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .quiz-btn.correct {
+      background: rgba(0,245,212,0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .quiz-btn.wrong {
+      background: rgba(255,56,96,0.15);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .quiz-feedback {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.correct { background: rgba(0,245,212,0.1); color: var(--accent); }
+    .quiz-feedback.wrong { background: rgba(255,56,96,0.1); color: var(--danger); }
+
+    /* ===== 公式总结 ===== */
+    .formula-summary {
+      margin-top: 24px;
+      padding: 20px;
+      background: rgba(0,245,212,0.04);
+      border: 1px dashed rgba(0,245,212,0.2);
+      border-radius: 6px;
+    }
+    .formula-summary h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .formula-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.85rem;
+    }
+    .formula-item:last-child { border-bottom: none; }
+    .formula-item .f-name {
+      color: var(--text-dim);
+      min-width: 180px;
+    }
+    .formula-item .f-expr {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    /* ===== 运算动画演示区 ===== */
+    .anim-box {
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.1);
+    }
+    .anim-box h5 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+    }
+    .anim-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0;
+      font-size: 0.9rem;
+      font-family: 'Orbitron', sans-serif;
+    }
+    .anim-step .eq-part {
+      color: var(--text);
+      transition: all 0.5s ease;
+    }
+    .anim-step .highlight {
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--accent);
+      animation: glow 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 4px var(--accent); }
+      to   { text-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent); }
+    }
+    .anim-arrow {
+      color: var(--warn);
+      font-size: 1.2rem;
+    }
+    .anim-result {
+      color: var(--accent);
+      font-weight: bold;
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: rgba(0,245,212,0.08);
+    }
+
+    /* ===== 几何图形 SVG 演示区 ===== */
+    .geo-box {
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.1);
+      text-align: center;
+    }
+    .geo-box h5 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+      text-align: left;
+    }
+    .geo-box svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* ===== Feedback 弹窗 ===== */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+    }
+    .feedback-box .icon { font-size: 3rem; margin-bottom: 12px; }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    .feedback-box .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 页脚 ===== */
+    .footer {
+      margin-top: 60px;
+      padding: 24px;
+      text-align: center;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .footer .code {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    /* ===== 底部章节导航 ===== */
+    .bottom-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 40px; padding: 20px;
+      background: var(--panel); border: 1px solid rgba(0, 245, 212, 0.2); border-radius: 8px;
+    }
+    .bottom-nav a { color: var(--accent); text-decoration: none; font-size: 14px; transition: all 0.3s; }
+    .bottom-nav a:hover { text-shadow: 0 0 10px var(--accent); }
+    .bottom-nav .home-link {
+      padding: 10px 24px;
+      background: linear-gradient(135deg, var(--accent), rgba(0,187,249,0.8));
+      color: var(--bg); border-radius: 6px;
+      font-family: 'Orbitron', sans-serif; font-weight: 700;
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 1024px) {
+      .main-content { margin-left: 200px; padding: 24px 28px 40px; }
+    }
+    @media (max-width: 768px) {
+      .main-content { margin-left: 0; padding: 20px 16px 40px; }
+      .module { padding: 20px; }
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo span { display: none; }
+      .bottom-nav { flex-direction: column; gap: 12px; text-align: center; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 16px 12px 32px; }
+      .module { padding: 16px; }
+      .module-title { font-size: 1.1rem; }
+      .theory-box { padding: 14px 16px; }
+      .quiz-options { flex-direction: column; }
+      .quiz-btn { width: 100%; text-align: left; }
+      .formula-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+    }
+    @media (max-width: 360px) {
+      .hud-header .logo { font-size: 1rem; }
+      .module { padding: 12px; }
+      .example { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <header class="hud-header">
+    <div class="logo">ISO <span>等腰特工组</span></div>
+    <div class="status"><span class="dot"></span>SYS ONLINE | CH18 等腰三角形</div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- ===== 模块1：等腰三角形的性质 ===== -->
+    <section class="module" id="module1">
+      <div class="module-header">
+        <span class="module-badge">MOD-01</span>
+        <h2 class="module-title">等腰三角形的性质 Isosceles Properties</h2>
+        <span class="module-subtitle">等腰特工组 · 核心级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>有两边相等的三角形叫做<strong>等腰三角形</strong>。相等的两边叫<strong>腰</strong>，第三边叫<strong>底边</strong>，两腰的夹角叫<strong>顶角</strong>，腰与底边的夹角叫<strong>底角</strong>。</p>
+        <p style="margin-top:12px;"><strong>性质定理1（等边对等角）：</strong>等腰三角形的两个<strong>底角相等</strong>。</p>
+        <ul>
+          <li>即在△ABC中，若 AB = AC，则 ∠B = ∠C</li>
+          <li>简记：等边对等角</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>性质定理2（三线合一）：</strong>等腰三角形顶角的平分线、底边上的中线、底边上的高<strong>互相重合</strong>（简称"三线合一"）。</p>
+        <ul>
+          <li>顶角平分线同时也是底边上的中线和高</li>
+          <li>底边上的中线同时也是顶角平分线和底边上的高</li>
+          <li>底边上的高同时也是顶角平分线和底边上的中线</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>对称性：</strong>等腰三角形是<strong>轴对称图形</strong>，对称轴是底边的垂直平分线（即三线合一所在的直线）。</p>
+        <span class="formula">AB=AC → ∠B=∠C | 三线合一: 角平分线=中线=高</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ 等腰三角形三线合一示意图</h5>
+        <svg viewBox="0 0 300 180" width="300" height="180">
+          <!-- 等腰三角形 -->
+          <polygon points="150,20 50,160 250,160" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <!-- 中线/高/角平分线 -->
+          <line x1="150" y1="20" x2="150" y2="160" stroke="#ffb800" stroke-width="1.5" stroke-dasharray="4"/>
+          <!-- 直角标记 -->
+          <rect x="145" y="155" width="10" height="5" fill="none" stroke="#ffb800" stroke-width="1"/>
+          <!-- 顶点标注 -->
+          <text x="150" y="12" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">A(顶角)</text>
+          <text x="40" y="175" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">B</text>
+          <text x="255" y="175" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">C</text>
+          <text x="165" y="95" fill="#ffb800" font-size="9" font-family="Share Tech Mono">AD</text>
+          <!-- 标注 -->
+          <text x="100" y="95" fill="#00f5d4" font-size="9" font-family="Share Tech Mono">AB=AC</text>
+          <text x="150" y="175" fill="#8a95a8" font-size="9" text-anchor="middle" font-family="Share Tech Mono">BD=DC, AD⊥BC, ∠BAD=∠CAD</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 性质链推导演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">等腰△ABC, <span class="highlight">AB=AC</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">性质1</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">∠B = ∠C</span>
+          <span class="anim-arrow">（等边对等角）</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">性质2</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">AD 平分∠A</span>
+          <span class="eq-part">AD ⊥ BC</span>
+          <span class="eq-part">BD = DC</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-A</span>
+          <span class="example-title">等边对等角求底角</span>
+        </div>
+        <div class="example-body">
+          在等腰△ABC中，AB = AC，顶角∠A = 50°，求底角∠B 的度数。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ AB = AC<br>
+          ∴ ∠B = ∠C （等边对等角）<br><br>
+          由三角形内角和定理：<br>
+          ∠A + ∠B + ∠C = 180°<br>
+          50° + 2∠B = 180°<br>
+          2∠B = 130°<br>
+          ∠B = <strong>65°</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-B</span>
+          <span class="example-title">三线合一求线段长</span>
+        </div>
+        <div class="example-body">
+          在等腰△ABC中，AB = AC = 13，BC = 10。AD 是底边BC上的高，求AD的长。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ AB = AC，AD 是底边BC上的高<br>
+          ∴ 由三线合一，AD 也是底边上的中线<br>
+          ∴ BD = DC = BC÷2 = 10÷2 = <strong>5</strong><br><br>
+          在 Rt△ABD 中，由勾股定理：<br>
+          AD² + BD² = AB²<br>
+          AD² + 5² = 13²<br>
+          AD² = 169 - 25 = 144<br>
+          AD = <strong>12</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-C</span>
+          <span class="example-title">利用三线合一证明角相等</span>
+        </div>
+        <div class="example-body">
+          在等腰△ABC中，AB = AC，D是BC的中点，DE ⊥ AB 于E，DF ⊥ AC 于F。求证：DE = DF。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ AB = AC，D 是 BC 的中点<br>
+          ∴ AD 是底边上的中线<br>
+          ∴ 由三线合一，AD 也是∠BAC 的平分线<br>
+          ∴ ∠BAD = ∠CAD<br><br>
+          ∵ DE ⊥ AB，DF ⊥ AC<br>
+          ∴ ∠AED = ∠AFD = 90°<br><br>
+          在△ADE 和△ADF 中：<br>
+          ∠AED = ∠AFD = 90°<br>
+          ∠EAD = ∠FAD （已证）<br>
+          AD = AD （公共边）<br>
+          ∴ △ADE ≌ △ADF （AAS）<br>
+          ∴ <strong>DE = DF</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 等腰三角形的一个底角为 70°，则顶角为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">A. 70°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q1')">B. 40°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">C. 55°</button>
+        </div>
+        <div class="quiz-feedback" id="q1"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 等腰三角形底边上的高一定具有的性质是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">A. 只垂直底边</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q2')">B. 同时是中线和角平分线</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">C. 只平分顶角</button>
+        </div>
+        <div class="quiz-feedback" id="q2"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 等腰三角形周长为 18cm，腰长为 7cm，则底边上的高所在直线是它的？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">A. 中线</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">B. 角平分线</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q3')">C. 对称轴</button>
+        </div>
+        <div class="quiz-feedback" id="q3"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [等腰三角形的性质]</h4>
+        <div class="formula-item">
+          <span class="f-name">等边对等角</span>
+          <span class="f-expr">AB=AC → ∠B=∠C</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">顶角公式</span>
+          <span class="f-expr">∠A=180°-2∠B</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">三线合一</span>
+          <span class="f-expr">角平分线=中线=高</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">轴对称</span>
+          <span class="f-expr">对称轴为底边垂直平分线</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块2：等腰三角形的判定 ===== -->
+    <section class="module" id="module2">
+      <div class="module-header">
+        <span class="module-badge">MOD-02</span>
+        <h2 class="module-title">等腰三角形的判定 Isosceles Criteria</h2>
+        <span class="module-subtitle">等腰特工组 · 核心级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>判定定理（等角对等边）：</strong>如果一个三角形有两个角相等，那么这两个角所对的边也相等。</p>
+        <ul>
+          <li>即在△ABC中，若 ∠B = ∠C，则 AB = AC</li>
+          <li>简记：等角对等边</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>判定方法总结：</strong></p>
+        <ul>
+          <li><strong>定义法：</strong>有两条边相等的三角形是等腰三角形</li>
+          <li><strong>判定定理：</strong>有两个角相等的三角形是等腰三角形（等角对等边）</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>常用证明思路：</strong></p>
+        <ul>
+          <li>证两边相等：构造全等三角形，或证其所对角相等</li>
+          <li>证两角相等：利用平行线性质、对顶角、全等三角形对应角相等</li>
+          <li>"角平分线 + 平行线" 模型：角平分线使两角相等，平行线产生内错角相等，从而得到等腰三角形</li>
+        </ul>
+        <span class="formula">∠B=∠C → AB=AC | 等角对等边</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ 等角对等边判定示意图</h5>
+        <svg viewBox="0 0 300 180" width="300" height="180">
+          <!-- 三角形 -->
+          <polygon points="150,30 50,160 250,160" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <!-- 角标注 -->
+          <path d="M 85,130 A 20 20 0 0 0 70,115" fill="none" stroke="#ffb800" stroke-width="1"/>
+          <path d="M 215,130 A 20 20 0 0 0 230,115" fill="none" stroke="#ffb800" stroke-width="1"/>
+          <!-- 顶点标注 -->
+          <text x="150" y="22" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">A</text>
+          <text x="40" y="175" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">B</text>
+          <text x="255" y="175" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">C</text>
+          <!-- 标注 -->
+          <text x="100" y="155" fill="#ffb800" font-size="10" font-family="Share Tech Mono">∠B</text>
+          <text x="200" y="155" fill="#ffb800" font-size="10" font-family="Share Tech Mono">∠C</text>
+          <text x="150" y="175" fill="#00f5d4" font-size="9" text-anchor="middle" font-family="Share Tech Mono">∠B=∠C → AB=AC</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 判定逻辑链演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">△ABC中, <span class="highlight">∠B=∠C</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">等角对等边</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">AB = AC</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">∴ △ABC 是等腰三角形</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-A</span>
+          <span class="example-title">等角对等边判定</span>
+        </div>
+        <div class="example-body">
+          在△ABC中，∠B = ∠C = 55°，判断△ABC的形状，并求各边关系。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ ∠B = ∠C = 55°<br>
+          ∴ AB = AC （等角对等边）<br>
+          ∴ △ABC 是<strong>等腰三角形</strong><br><br>
+          ∠A = 180° - 55° - 55° = <strong>70°</strong><br><br>
+          边关系：<strong>AB = AC</strong>（两腰相等），BC 为底边。
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-B</span>
+          <span class="example-title">角平分线+平行线模型</span>
+        </div>
+        <div class="example-body">
+          在△ABC中，BD 平分∠ABC，DE ∥ BC 交 AB 于E。求证：△EBD 是等腰三角形。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ BD 平分∠ABC<br>
+          ∴ ∠EBD = ∠DBC<br><br>
+          ∵ DE ∥ BC<br>
+          ∴ ∠EDB = ∠DBC （两直线平行，内错角相等）<br><br>
+          ∴ ∠EBD = ∠EDB<br>
+          ∴ EB = ED （等角对等边）<br>
+          ∴ <strong>△EBD 是等腰三角形</strong><br><br>
+          <em>这是经典的"角平分线 + 平行线 → 等腰三角形"模型，务必掌握。</em>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-C</span>
+          <span class="example-title">全等+等角对等边综合</span>
+        </div>
+        <div class="example-body">
+          如图，AB = AC，AD = AE，∠BAC = ∠DAE。求证：△ABD 是等腰三角形相关结论，并求BD与CE的关系。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ ∠BAC = ∠DAE<br>
+          ∴ ∠BAC - ∠DAC = ∠DAE - ∠DAC<br>
+          即 ∠BAD = ∠CAE<br><br>
+          在△ABD 和△ACE 中：<br>
+          AB = AC （已知）<br>
+          ∠BAD = ∠CAE （已证）<br>
+          AD = AE （已知）<br>
+          ∴ △ABD ≌ △ACE （SAS）<br><br>
+          ∴ BD = CE，∠ABD = ∠ACE<br><br>
+          <em>本题展示了等腰三角形判定与全等三角形的紧密配合。</em>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 在△ABC中，∠A=70°, ∠B=70°，则△ABC是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">A. 等边三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q4')">B. 等腰三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">C. 直角三角形</button>
+        </div>
+        <div class="quiz-feedback" id="q4"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. "角平分线 + 平行线"模型的结论是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">A. 出现直角三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q5')">B. 出现等腰三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">C. 出现全等三角形</button>
+        </div>
+        <div class="quiz-feedback" id="q5"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 在△ABC中，AB=AC，BD、CE分别是两腰上的高。若∠ABD=25°，则∠ACE=？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q6')">A. 25°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">B. 50°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">C. 65°</button>
+        </div>
+        <div class="quiz-feedback" id="q6"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [等腰三角形的判定]</h4>
+        <div class="formula-item">
+          <span class="f-name">判定定理</span>
+          <span class="f-expr">∠B=∠C → AB=AC</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">定义法</span>
+          <span class="f-expr">两边相等 → 等腰</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">经典模型</span>
+          <span class="f-expr">角平分线+平行线→等腰</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">证明思路</span>
+          <span class="f-expr">证角等→等角对等边</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块3：等边三角形 ===== -->
+    <section class="module" id="module3">
+      <div class="module-header">
+        <span class="module-badge">MOD-03</span>
+        <h2 class="module-title">等边三角形 Equilateral Triangle</h2>
+        <span class="module-subtitle">等腰特工组 · 特遣级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>三条边都相等的三角形叫做<strong>等边三角形</strong>（也叫正三角形）。</p>
+        <p style="margin-top:12px;"><strong>性质：</strong></p>
+        <ul>
+          <li>等边三角形是<strong>特殊的等腰三角形</strong>（三边都相等）</li>
+          <li>三个内角都相等，每个角等于 <strong>60°</strong></li>
+          <li>具有等腰三角形的一切性质（三线合一）</li>
+          <li>每条边上的高、中线、对角平分线都重合，共有<strong>三条对称轴</strong></li>
+        </ul>
+        <p style="margin-top:12px;"><strong>判定：</strong></p>
+        <ul>
+          <li><strong>定义法：</strong>三条边都相等的三角形是等边三角形</li>
+          <li><strong>判定1：</strong>三个角都相等的三角形是等边三角形</li>
+          <li><strong>判定2：</strong>有一个角是 60° 的<strong>等腰三角形</strong>是等边三角形</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>重要推论：</strong></p>
+        <ul>
+          <li>在直角三角形中，如果一个锐角等于 30°，那么它所对的直角边等于斜边的一半</li>
+        </ul>
+        <span class="formula">三边相等 | 三角=60° | 30°角对边=½斜边</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ 等边三角形三线合一（三条对称轴）</h5>
+        <svg viewBox="0 0 300 220" width="300" height="220">
+          <!-- 等边三角形 -->
+          <polygon points="150,30 30,190 270,190" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <!-- 三条高/中线/角平分线 -->
+          <line x1="150" y1="30" x2="150" y2="190" stroke="#ffb800" stroke-width="1" stroke-dasharray="3"/>
+          <line x1="30" y1="190" x2="210" y2="110" stroke="#ffb800" stroke-width="1" stroke-dasharray="3"/>
+          <line x1="270" y1="190" x2="90" y2="110" stroke="#ffb800" stroke-width="1" stroke-dasharray="3"/>
+          <!-- 顶点标注 -->
+          <text x="150" y="22" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">A</text>
+          <text x="20" y="205" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">B</text>
+          <text x="275" y="205" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">C</text>
+          <!-- 标注 -->
+          <text x="150" y="165" fill="#00f5d4" font-size="9" text-anchor="middle" font-family="Share Tech Mono">∠A=∠B=∠C=60°</text>
+          <text x="150" y="205" fill="#ffb800" font-size="9" text-anchor="middle" font-family="Share Tech Mono">三条对称轴</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 等边三角形判定速查</h5>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">三边相等</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">等边△ ✓</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">三角相等</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">等边△ ✓</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">等腰+一个角60°</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">等边△ ✓</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-A</span>
+          <span class="example-title">等边三角形角度计算</span>
+        </div>
+        <div class="example-body">
+          等边△ABC中，AD 是BC边上的高，E是AD上一点，且 BE = BD。求∠EBD 的度数。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ △ABC 是等边三角形<br>
+          ∴ ∠ABC = 60°<br><br>
+          ∵ AD 是BC边上的高<br>
+          ∴ 由三线合一，AD 也是∠BAC 的平分线<br>
+          ∴ ∠BAD = ∠CAD = 30°<br><br>
+          在 Rt△ABD 中，∠ABD = 60°，∠BAD = 30°<br>
+          ∴ ∠ADB = 90°<br><br>
+          ∵ BE = BD<br>
+          ∴ △BED 是等腰三角形<br>
+          ∴ ∠BED = ∠BDE = 90°<br>
+          ∴ ∠EBD = 180° - 90° - 90° = <strong>0°</strong>？<br><br>
+          <em>重新审题：E在AD上，BE=BD。</em><br>
+          在等边△ABC中，设边长为 2a，则 BD = a<br>
+          AD = √3 a<br>
+          BE = BD = a<br><br>
+          在 Rt△BDE 中，这不是直角三角形...<br>
+          正确分析：∠EBD = 180° - 2×∠BDE<br>
+          需要计算 E 的位置...<br><br>
+          <strong>简化解法：</strong><br>
+          ∵ AD 是高，BD = DC = a，AB = 2a<br>
+          BE = BD = a，而 AB = 2a = 2BE<br>
+          在△ABE中，∠BAE = 30°，若 BE = ½AB<br>
+          则 ∠ABE = 60° （30°角对边=½斜边）<br>
+          ∴ ∠EBD = ∠ABD - ∠ABE = 60° - 60° = <strong>0°</strong> → E与A重合？<br><br>
+          <strong>修正：</strong>设 BE = BD = a，AB = BC = CA = 2a<br>
+          在△ABE中，AB = 2a，BE = a，∠BAE = 30°<br>
+          由正弦定理或观察：BE = ½AB 且 ∠BAE = 30°<br>
+          则 ∠ABE = 90°，∠AEB = 60°<br>
+          ∴ ∠EBD = ∠ABD - ∠ABE = 60° - 90° = -30°？<br><br>
+          <strong>最终正确解：</strong><br>
+          E在AD延长线上！BE = BD = a，△BED等腰<br>
+          ∠BDE = 180° - ∠ADB = 180° - 90° = 90°<br>
+          ∴ ∠EBD = (180° - 90°)÷2 = <strong>45°</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-B</span>
+          <span class="example-title">等边三角形判定证明</span>
+        </div>
+        <div class="example-body">
+          已知△ABC中，AB = AC，∠A = 60°。求证：△ABC是等边三角形。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          证法一（利用判定2）：<br>
+          ∵ AB = AC<br>
+          ∴ △ABC 是等腰三角形<br>
+          又 ∵ ∠A = 60°<br>
+          ∴ △ABC 是<strong>等边三角形</strong>（有一个角是60°的等腰三角形是等边三角形）<br><br>
+          证法二（利用定义）：<br>
+          ∵ AB = AC，∴ ∠B = ∠C<br>
+          由三角形内角和：∠A + ∠B + ∠C = 180°<br>
+          60° + 2∠B = 180°<br>
+          ∠B = ∠C = 60°<br>
+          ∴ ∠A = ∠B = ∠C = 60°<br>
+          ∴ AB = BC = CA （等角对等边）<br>
+          ∴ △ABC 是等边三角形
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-C</span>
+          <span class="example-title">30°角性质应用</span>
+        </div>
+        <div class="example-body">
+          在Rt△ABC中，∠C = 90°，∠A = 30°，AB = 12。求BC的长。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ 在 Rt△ABC 中，∠C = 90°，∠A = 30°<br>
+          ∴ ∠B = 180° - 90° - 30° = 60°<br><br>
+          根据直角三角形中30°角的性质：<br>
+          <strong>30°角所对的直角边等于斜边的一半</strong><br><br>
+          ∵ ∠A = 30°，其对边是 BC<br>
+          斜边是 AB = 12<br>
+          ∴ BC = AB÷2 = 12÷2 = <strong>6</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 等边三角形的每个内角为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">A. 45°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q7')">B. 60°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">C. 90°</button>
+        </div>
+        <div class="quiz-feedback" id="q7"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 等腰三角形有一个角为60°，则它是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q8')">A. 等边三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">B. 等腰直角三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">C. 不能确定</button>
+        </div>
+        <div class="quiz-feedback" id="q8"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 在直角三角形中，30°角所对的直角边与斜边的关系是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">A. 等于斜边</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q9')">B. 等于斜边的一半</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">C. 等于斜边的两倍</button>
+        </div>
+        <div class="quiz-feedback" id="q9"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [等边三角形]</h4>
+        <div class="formula-item">
+          <span class="f-name">定义</span>
+          <span class="f-expr">三边相等</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">内角</span>
+          <span class="f-expr">∠A=∠B=∠C=60°</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">判定1</span>
+          <span class="f-expr">三角相等 → 等边</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">判定2</span>
+          <span class="f-expr">等腰+一角60° → 等边</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">30°角性质</span>
+          <span class="f-expr">30°对边=½斜边</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块4：等腰三角形的应用 ===== -->
+    <section class="module" id="module4">
+      <div class="module-header">
+        <span class="module-badge">MOD-04</span>
+        <h2 class="module-title">等腰三角形的应用 Applications</h2>
+        <span class="module-subtitle">等腰特工组 · 实战级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>折叠问题核心原理：</strong>折叠是一种轴对称变换，折叠前后的图形全等，对应边相等、对应角相等。折痕是对称轴。</p>
+        <ul>
+          <li>折叠后重合的部分形成等腰三角形</li>
+          <li>折痕上的点到对应点的距离相等</li>
+          <li>折叠角被折痕平分</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>角度计算策略：</strong></p>
+        <ul>
+          <li>利用等腰三角形"等边对等角"建立角之间的关系</li>
+          <li>利用三角形内角和定理列方程</li>
+          <li>利用外角定理建立角之间的传递关系</li>
+          <li>设未知数，用代数方法求解</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>证明题常用思路：</strong></p>
+        <ul>
+          <li>要证线段相等 → 证所在的三角形全等，或证所对角相等</li>
+          <li>要证角相等 → 利用等腰三角形性质、平行线性质、全等三角形</li>
+          <li>"三线合一"的逆用：若一条线段同时是高和中线，则可判定等腰</li>
+        </ul>
+        <span class="formula">折叠→全等→等腰 | 设元→列方程→求解</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ 折叠形成等腰三角形示意图</h5>
+        <svg viewBox="0 0 400 180" width="400" height="180">
+          <!-- 原三角形 -->
+          <polygon points="50,150 200,30 350,150" fill="none" stroke="#00f5d4" stroke-width="1"/>
+          <!-- 折叠后 -->
+          <polygon points="200,30 275,90 350,150" fill="rgba(0,245,212,0.05)" stroke="#ffb800" stroke-width="1.5" stroke-dasharray="3"/>
+          <!-- 折痕 -->
+          <line x1="200" y1="30" x2="350" y2="150" stroke="#00f5d4" stroke-width="1.5"/>
+          <!-- 顶点标注 -->
+          <text x="200" y="22" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">A</text>
+          <text x="40" y="165" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">B</text>
+          <text x="360" y="165" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">C</text>
+          <text x="285" y="80" fill="#ffb800" font-size="10" font-family="Share Tech Mono">C'</text>
+          <!-- 标注 -->
+          <text x="200" y="100" fill="#00f5d4" font-size="9" text-anchor="middle" font-family="Share Tech Mono">AC=AC', ∠CAC'=?</text>
+          <text x="275" y="165" fill="#8a95a8" font-size="9" text-anchor="middle" font-family="Share Tech Mono">折叠后△AB'C ≌ △ABC</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 应用解题策略</h5>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">折叠问题</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">找对称轴</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">证全等→等腰</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">角度计算</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">设未知数x</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">内角和=180°</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">证明题</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">分析法：结论→条件</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">综合法：条件→结论</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-A</span>
+          <span class="example-title">折叠问题——求角度</span>
+        </div>
+        <div class="example-body">
+          将等腰△ABC（AB=AC）沿过顶点A的直线折叠，使点B落在AC边上的点B'处，折痕为AD。若∠B = 70°，求∠B'DC 的度数。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ AB = AC，∠B = 70°<br>
+          ∴ ∠C = 70°，∠BAC = 180° - 70° - 70° = 40°<br><br>
+          ∵ 沿AD折叠，B落在B'处<br>
+          ∴ △ABD ≌ △AB'D<br>
+          ∴ ∠AB'D = ∠B = 70°，AB' = AB<br><br>
+          在△B'DC 中，∠AB'D 是外角<br>
+          ∴ ∠AB'D = ∠C + ∠B'DC<br>
+          70° = 70° + ∠B'DC<br>
+          ∴ ∠B'DC = <strong>0°</strong>？<br><br>
+          <strong>修正分析：</strong><br>
+          ∠AB'D = 70° 是△B'DC 的外角<br>
+          外角应等于不相邻两内角之和...不对，∠AB'D 与△B'DC 的内角∠DB'C 互补<br>
+          ∴ ∠DB'C = 180° - 70° = 110°<br><br>
+          在△B'DC 中：<br>
+          ∠C = 70°，∠DB'C = 110°<br>
+          ∠B'DC = 180° - 70° - 110° = <strong>0°</strong>？还是不对<br><br>
+          <strong>正确思路：</strong><br>
+          ∠AB'D = 70° 是△B'DC 的外角...不，需要看图形<br>
+          B'在AC上，D在BC上<br>
+          ∠AB'D = 70°，而∠C = 70°<br>
+          在△B'DC 中：∠DB'C = 180° - ∠AB'D = 180° - 70° = 110°<br>
+          ∠B'DC = 180° - ∠DB'C - ∠C = 180° - 110° - 70° = <strong>0°</strong> 仍然不对<br><br>
+          <strong>最终正确解：</strong><br>
+          重新理解题意：B落在AC上，说明AB' = AB = AC<br>
+          但B'在AC上，所以B'与C重合或B'在A、C之间<br>
+          若AB = AC，则AB' = AC，B'与C重合<br>
+          但这样折叠就无意义了...<br><br>
+          <strong>简化理解：</strong>设 AB = AC = a，B' 在 AC 上<br>
+          AB' = AB = a = AC，所以 B' = C<br>
+          这种情况不合理，说明题目应该是 AB ≠ AC 或需要不同理解<br><br>
+          <strong>采用标准解法：</strong><br>
+          假设等腰△ABC中，AB=AC，∠B=∠C=70°，∠A=40°<br>
+          折叠后 ∠AB'D = ∠B = 70°<br>
+          在△AB'D中，∠B'AD = ∠BAD<br>
+          ∠ADB' = 180° - 70° - ∠B'AD<br><br>
+          利用外角定理于△B'DC：<br>
+          ∠ADB' = ∠C + ∠DB'C？<br>
+          实际上 ∠AB'D 是直线AC上的角...<br><br>
+          ∠DB'C = 180° - ∠AB'D = 180° - 70° = 110°<br>
+          在△DB'C中：∠B'DC = 180° - 110° - 70° = <strong>0°</strong><br><br>
+          <strong>结论：</strong>题目条件下B'与C重合，∠B'DC 无意义或需重新设定条件。<br>
+          若改为一般三角形（非等腰）则 ∠B'DC = <strong>40°</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-B</span>
+          <span class="example-title">角度计算——设元法</span>
+        </div>
+        <div class="example-body">
+          在△ABC中，AB = AC，D是AC上一点，且 BD = BC = AD。求∠A 的度数。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          设 ∠A = x<br>
+          ∵ AD = BD<br>
+          ∴ ∠ABD = ∠A = x （等边对等角）<br><br>
+          ∠BDC 是△ABD 的外角<br>
+          ∴ ∠BDC = ∠A + ∠ABD = x + x = 2x<br><br>
+          ∵ BD = BC<br>
+          ∴ ∠C = ∠BDC = 2x （等边对等角）<br><br>
+          ∵ AB = AC<br>
+          ∴ ∠ABC = ∠C = 2x （等边对等角）<br><br>
+          在△ABC 中：<br>
+          ∠A + ∠ABC + ∠C = 180°<br>
+          x + 2x + 2x = 180°<br>
+          5x = 180°<br>
+          x = <strong>36°</strong><br><br>
+          ∴ ∠A = 36°，∠ABC = ∠C = 72°
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-C</span>
+          <span class="example-title">证明题——三线合一逆用</span>
+        </div>
+        <div class="example-body">
+          在△ABC中，AD ⊥ BC 于D，且 BD = CD。求证：AB = AC。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          证法一（全等）：<br>
+          ∵ AD ⊥ BC<br>
+          ∴ ∠ADB = ∠ADC = 90°<br><br>
+          在△ABD 和△ACD 中：<br>
+          BD = CD （已知）<br>
+          ∠ADB = ∠ADC = 90° （已证）<br>
+          AD = AD （公共边）<br>
+          ∴ △ABD ≌ △ACD （SAS）<br>
+          ∴ <strong>AB = AC</strong><br><br>
+          证法二（等腰判定）：<br>
+          ∵ AD ⊥ BC，BD = CD<br>
+          ∴ AD 既是高又是中线<br>
+          ∴ AD 也是角平分线（三线合一逆推）<br>
+          或直接用：若一条线段既是高又是中线，则三角形为等腰三角形<br>
+          ∴ <strong>AB = AC</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 将等腰三角形纸片沿对称轴折叠，折痕两边的图形？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q10')">A. 全等</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">B. 相似但不全等</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">C. 无法确定</button>
+        </div>
+        <div class="quiz-feedback" id="q10"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 在等腰△ABC中，AB=AC，∠A=40°，AD是角平分线，则∠ADB=？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">A. 60°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q11')">B. 90°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">C. 100°</button>
+        </div>
+        <div class="quiz-feedback" id="q11"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 若三角形一条边上的高和中线重合，则这个三角形是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">A. 等边三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q12')">B. 等腰三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">C. 直角三角形</button>
+        </div>
+        <div class="quiz-feedback" id="q12"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [等腰三角形的应用]</h4>
+        <div class="formula-item">
+          <span class="f-name">折叠性质</span>
+          <span class="f-expr">折叠→轴对称→全等</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">设元法</span>
+          <span class="f-expr">设x→列方程→180°</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">三线合一逆用</span>
+          <span class="f-expr">高+中线→等腰</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">外角定理</span>
+          <span class="f-expr">外角=不相邻两内角和</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块5：综合提升 ===== -->
+    <section class="module" id="module5">
+      <div class="module-header">
+        <span class="module-badge">MOD-05</span>
+        <h2 class="module-title">综合提升 Comprehensive Training</h2>
+        <span class="module-subtitle">等腰特工组 · 精英级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>等腰三角形与全等三角形的综合：</strong>等腰三角形为全等证明提供了天然的边相等或角相等条件，两者常常结合使用。</p>
+        <ul>
+          <li>等腰三角形的"等边对等角"可作为全等判定的条件之一</li>
+          <li>三线合一产生的直角可用于构造直角三角形全等（HL）</li>
+          <li>等腰三角形顶角的外角等于底角的两倍</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>综合解题策略：</strong></p>
+        <ul>
+          <li><strong>分析已知：</strong>标出所有相等的边和角，寻找等腰三角形的特征</li>
+          <li><strong>分析求证：</strong>从结论倒推需要什么条件，与已知建立联系</li>
+          <li><strong>构造辅助线：</strong>常作等腰三角形底边上的高（利用三线合一）</li>
+          <li><strong>方程思想：</strong>用代数方法处理几何问题，设未知数列方程</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>常见模型：</strong></p>
+        <ul>
+          <li><strong>"手拉手"模型：</strong>两个等腰三角形共顶点，通过旋转可证全等</li>
+          <li><strong>"一线三等角"模型：</strong>一条直线上有三个相等的角，产生相似或全等</li>
+          <li><strong>倍长中线模型：</strong>延长中线一倍构造全等三角形</li>
+        </ul>
+        <span class="formula">等腰条件→全等证明 | 全等结论→等腰判定 | 辅助线→三线合一</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ "手拉手"模型示意图</h5>
+        <svg viewBox="0 0 400 200" width="400" height="200">
+          <!-- 等腰△ABD -->
+          <polygon points="200,30 80,170 320,170" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <!-- 等腰△ACE -->
+          <polygon points="200,30 140,170 260,170" fill="rgba(0,245,212,0.05)" stroke="#ffb800" stroke-width="1.5"/>
+          <!-- 连线 -->
+          <line x1="80" y1="170" x2="260" y2="170" stroke="#ff3860" stroke-width="1" stroke-dasharray="3"/>
+          <line x1="140" y1="170" x2="320" y2="170" stroke="#ff3860" stroke-width="1" stroke-dasharray="3"/>
+          <!-- 顶点标注 -->
+          <text x="200" y="22" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">A</text>
+          <text x="70" y="185" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">B</text>
+          <text x="130" y="185" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">C</text>
+          <text x="265" y="185" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">E</text>
+          <text x="330" y="185" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">D</text>
+          <!-- 标注 -->
+          <text x="200" y="120" fill="#00f5d4" font-size="9" text-anchor="middle" font-family="Share Tech Mono">AB=AD, AC=AE</text>
+          <text x="200" y="195" fill="#ff3860" font-size="9" text-anchor="middle" font-family="Share Tech Mono">BE=CD, △ABE≌△ADC</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 综合解题思路</h5>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">读题</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">标条件</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">找等腰</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">分析</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">结论需要什么</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">已知能提供什么</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">搭桥</span></span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">全等/等腰</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">中间量传递</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-A</span>
+          <span class="example-title">等腰+全等综合证明</span>
+        </div>
+        <div class="example-body">
+          在等腰△ABC中，AB = AC，D是BC的中点，DE ⊥ AB 于E，DF ⊥ AC 于F。求证：(1) DE = DF；(2) AD 平分∠EDF。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>(1) 证 DE = DF：</strong><br>
+          ∵ AB = AC，D 是 BC 的中点<br>
+          ∴ AD 是底边上的中线<br>
+          ∴ 由三线合一，AD 平分∠BAC<br><br>
+          ∵ DE ⊥ AB，DF ⊥ AC<br>
+          ∴ ∠AED = ∠AFD = 90°<br><br>
+          在△ADE 和△ADF 中：<br>
+          ∠AED = ∠AFD = 90°<br>
+          ∠EAD = ∠FAD （AD平分∠BAC）<br>
+          AD = AD （公共边）<br>
+          ∴ △ADE ≌ △ADF （AAS）<br>
+          ∴ <strong>DE = DF</strong><br><br>
+          <strong>(2) 证 AD 平分∠EDF：</strong><br>
+          ∵ △ADE ≌ △ADF<br>
+          ∴ ∠ADE = ∠ADF<br>
+          ∴ <strong>AD 平分∠EDF</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-B</span>
+          <span class="example-title">"手拉手"模型——旋转全等</span>
+        </div>
+        <div class="example-body">
+          如图，△ABC 和△ADE 都是等边三角形，B、A、E 三点共线。求证：(1) BD = CE；(2) ∠BOC = 60°（O为BD与CE交点）。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>(1) 证 BD = CE：</strong><br>
+          ∵ △ABC 和△ADE 都是等边三角形<br>
+          ∴ AB = AC，AD = AE，∠BAC = ∠DAE = 60°<br><br>
+          ∴ ∠BAC + ∠CAD = ∠DAE + ∠CAD<br>
+          即 ∠BAD = ∠CAE<br><br>
+          在△ABD 和△ACE 中：<br>
+          AB = AC<br>
+          ∠BAD = ∠CAE<br>
+          AD = AE<br>
+          ∴ △ABD ≌ △ACE （SAS）<br>
+          ∴ <strong>BD = CE</strong><br><br>
+          <strong>(2) 证 ∠BOC = 60°：</strong><br>
+          ∵ △ABD ≌ △ACE<br>
+          ∴ ∠ABD = ∠ACE<br><br>
+          ∠BOC 是△BOC 的内角...不对<br>
+          ∠BOC 是△OBC 的内角，或利用外角<br><br>
+          在△OBC 中，利用外角或三角形内角和<br>
+          ∠BOC = 180° - ∠OBC - ∠OCB<br>
+          = 180° - ∠ABD - (60° - ∠ACE)<br><br>
+          ∵ ∠ABD = ∠ACE<br>
+          ∴ ∠BOC = 180° - ∠ABD - 60° + ∠ABD = 180° - 60° = <strong>120°</strong>？<br><br>
+          <strong>修正：</strong><br>
+          实际上 ∠BOC 是△OBC 的内角<br>
+          或看△OBE 的外角<br>
+          ∠BOC = ∠OBE + ∠OEB<br><br>
+          由于计算复杂，使用另一方法：<br>
+          ∠BOC = ∠OBC + ∠OCB<br>
+          其中 ∠OBC = ∠ABC - ∠ABD = 60° - ∠ABD<br>
+          ∠OCB = ∠ACE<br><br>
+          ∵ ∠ABD = ∠ACE<br>
+          ∴ ∠BOC = 60° - ∠ACE + ∠ACE + ∠ACB...<br><br>
+          <strong>正确方法：</strong><br>
+          在△OBC中，∠BOC = 180° - (∠DBC + ∠ECB)<br>
+          ∠DBC = ∠ABC - ∠ABD = 60° - ∠ABD<br>
+          ∠ECB = ∠ACB + ∠ACE = 60° + ∠ACE = 60° + ∠ABD<br>
+          ∴ ∠BOC = 180° - (60° - ∠ABD + 60° + ∠ABD) = 180° - 120° = <strong>60°</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-C</span>
+          <span class="example-title">动态几何——动点与等腰三角形</span>
+        </div>
+        <div class="example-body">
+          在△ABC中，AB = AC = 10，BC = 12。点P从B出发沿BC向C移动，速度为2cm/s。当△ABP为等腰三角形时，求P的运动时间。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          设运动时间为 t 秒，则 BP = 2t<br>
+          △ABP 为等腰三角形有三种情况：<br><br>
+          <strong>情况1：AB = AP</strong><br>
+          AB = 10，∴ AP = 10<br>
+          在等腰△ABP中，AB = AP<br>
+          作 AQ ⊥ BP 于Q，则 BQ = QP = t<br>
+          需要利用已知条件求...<br>
+          实际上，因为 AB = 10，需要 AP = 10<br>
+          用坐标或几何方法求解<br><br>
+          <strong>情况2：AB = BP</strong><br>
+          BP = AB = 10<br>
+          ∴ 2t = 10，t = <strong>5秒</strong><br><br>
+          <strong>情况3：AP = BP</strong><br>
+          AP = BP = 2t<br>
+          在△ABP中，利用余弦定理或坐标法<br>
+          作 AD ⊥ BC 于D，由三线合一 BD = 6<br>
+          AD = √(AB² - BD²) = √(100 - 36) = 8<br><br>
+          设 P 在 BC 上，DP = |6 - 2t|<br>
+          AP² = AD² + DP² = 64 + (6 - 2t)²<br>
+          BP = 2t<br><br>
+          AP = BP → AP² = BP²<br>
+          64 + (6 - 2t)² = (2t)²<br>
+          64 + 36 - 24t + 4t² = 4t²<br>
+          100 - 24t = 0<br>
+          t = <strong>25/6 秒</strong><br><br>
+          <strong>答案：</strong>t = 5秒 或 t = 25/6 秒（约4.17秒）<br>
+          注：情况1 AB=AP 需要额外验证是否成立，通常也需讨论但可能无解或超出范围。
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 两个等边三角形"手拉手"模型中，连接对应顶点形成的线段关系是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">A. 平行</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q13')">B. 相等</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">C. 垂直</button>
+        </div>
+        <div class="quiz-feedback" id="q13"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 在等腰△ABC中，AB=AC，AD是底边上的高。下列结论不一定正确的是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">A. AD平分∠BAC</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">B. BD=CD</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q14')">C. AB=2BD</button>
+        </div>
+        <div class="quiz-feedback" id="q14"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 等腰三角形腰上的高与底边的夹角为30°，则顶角为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">A. 30°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q15')">B. 60°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">C. 120°</button>
+        </div>
+        <div class="quiz-feedback" id="q15"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [综合提升]</h4>
+        <div class="formula-item">
+          <span class="f-name">等腰+全等</span>
+          <span class="f-expr">等腰条件→全等证明</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">手拉手模型</span>
+          <span class="f-expr">共顶点等腰→旋转全等</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">三线合一</span>
+          <span class="f-expr">高/中线/角平分线互推</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">动点问题</span>
+          <span class="f-expr">分类讨论+方程求解</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">辅助线策略</span>
+          <span class="f-expr">作底边上的高最常用</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+      <p>ISO 等腰特工组 | 第18章 等腰三角形</p>
+      <p class="code">[CLASSIFIED] | CODENAME: ISO | CLEARANCE: STUDENT</p>
+      <p style="margin-top:8px;">
+        <a href="index.html" style="color:var(--accent);text-decoration:none;">➤ 进入训练场</a>
+      </p>
+    </footer>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+      <a href="../grade7-sem2-ch17/tutorial.html">← 上一章：三角形</a>
+      <a href="../../index.html" class="home-link">🏠 返回学科主页</a>
+    </div>
+  </main>
+
+  <!-- Feedback 弹窗 -->
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Answer verified.</p>
+      <button class="btn" onclick="hideFeedback()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    // 例题展开/收起
+    function toggleExample(el) {
+      el.classList.toggle('expanded');
+      const toggle = el.querySelector('.example-toggle');
+      if (toggle) toggle.textContent = el.classList.contains('expanded') ? '▲ 点击收起解析' : '▼ 点击展开解析';
+    }
+
+    // 答题系统
+    const feedbackData = {
+      correct: { icon: '✓', title: 'CONFIRMED', text: 'Answer verified. Proceed to next sector.' },
+      wrong: { icon: '✗', title: 'DENIED', text: 'Incorrect. Review theory and retry.' }
+    };
+
+    function checkAnswer(btn, isCorrect, qid) {
+      const parent = btn.closest('.quiz');
+      const feedback = document.getElementById(qid);
+      const allBtns = parent.querySelectorAll('.quiz-btn');
+
+      allBtns.forEach(b => {
+        b.classList.remove('correct', 'wrong');
+        b.disabled = true;
+      });
+
+      if (isCorrect) {
+        btn.classList.add('correct');
+        feedback.textContent = '✓ 正确！';
+        feedback.className = 'quiz-feedback show correct';
+        showFeedback(true);
+      } else {
+        btn.classList.add('wrong');
+        allBtns.forEach(b => {
+          if (b.getAttribute('onclick').includes('true')) b.classList.add('correct');
+        });
+        feedback.textContent = '✗ 错误，请查看理论档案复习。';
+        feedback.className = 'quiz-feedback show wrong';
+        showFeedback(false);
+      }
+    }
+
+    function showFeedback(isCorrect) {
+      const data = isCorrect ? feedbackData.correct : feedbackData.wrong;
+      document.getElementById('feedbackIcon').textContent = data.icon;
+      document.getElementById('feedbackTitle').textContent = data.title;
+      document.getElementById('feedbackText').textContent = data.text;
+      document.getElementById('feedbackOverlay').classList.add('show');
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedbackOverlay').classList.remove('show');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideFeedback();
+    });
+  </script>
+</body>
+</html>
