@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>TRI | 几何特勤组教案 — 第17章 三角形</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080f;
+      --accent: #00f5d4;
+      --accent-dim: rgba(0, 245, 212, 0.15);
+      --text: #e0e6f0;
+      --text-dim: #8a95a8;
+      --danger: #ff3860;
+      --warn: #ffb800;
+      --success: #00f5d4;
+      --grid: rgba(0, 245, 212, 0.06);
+      --panel: rgba(6, 8, 15, 0.92);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ===== HUD 背景 ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* 扫描线 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 四角装饰 */
+    .corner {
+      position: fixed;
+      width: 60px; height: 60px;
+      border: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.5;
+    }
+    .corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+    /* ===== 顶部 HUD 栏 ===== */
+    .hud-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(6,8,15,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0,245,212,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+    .hud-header .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .hud-header .logo span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-left: 8px;
+    }
+    .hud-header .status {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .hud-header .status .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ===== 主内容区 ===== */
+    .main-content {
+      margin-left: 240px;
+      margin-top: 56px;
+      padding: 32px 40px 60px;
+      max-width: 900px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ===== 模块卡片 ===== */
+    .module {
+      margin-bottom: 48px;
+      padding: 32px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid rgba(0,245,212,0.12);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .module::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .module-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .module-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--bg);
+      background: var(--accent);
+      padding: 4px 10px;
+      border-radius: 2px;
+      margin-right: 12px;
+      letter-spacing: 1px;
+    }
+    .module-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.3rem;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+    .module-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    /* ===== 理论区 ===== */
+    .theory-box {
+      background: rgba(0,245,212,0.05);
+      border-left: 3px solid var(--accent);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      border-radius: 0 6px 6px 0;
+    }
+    .theory-box h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .theory-box p, .theory-box li {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .theory-box ul {
+      margin-left: 20px;
+      margin-top: 8px;
+    }
+    .theory-box .formula {
+      display: inline-block;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      color: var(--accent);
+      background: rgba(0,245,212,0.08);
+      padding: 6px 14px;
+      border-radius: 4px;
+      margin: 8px 0;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 例题区 ===== */
+    .example {
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.08);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .example:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .example-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .example-tag {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      background: rgba(0,245,212,0.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-right: 10px;
+    }
+    .example-title {
+      font-size: 0.85rem;
+      color: var(--text);
+      font-weight: bold;
+    }
+    .example-body {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .example-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.4s ease;
+      padding: 0 16px;
+      background: rgba(0,245,212,0.06);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      line-height: 1.7;
+      border-left: 2px solid var(--accent);
+    }
+    .example.expanded .example-answer {
+      max-height: 500px;
+      padding: 12px 16px;
+      margin-top: 8px;
+    }
+    .example-answer .label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      color: var(--warn);
+      margin-bottom: 4px;
+      display: block;
+    }
+    .example-toggle {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-align: right;
+      margin-top: 4px;
+      opacity: 0.6;
+    }
+
+    /* ===== 测验区 ===== */
+    .quiz {
+      margin-bottom: 16px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .quiz-question {
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .quiz-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .quiz-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid rgba(0,245,212,0.3);
+      color: var(--text);
+      border-radius: 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quiz-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .quiz-btn.correct {
+      background: rgba(0,245,212,0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .quiz-btn.wrong {
+      background: rgba(255,56,96,0.15);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .quiz-feedback {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.correct { background: rgba(0,245,212,0.1); color: var(--accent); }
+    .quiz-feedback.wrong { background: rgba(255,56,96,0.1); color: var(--danger); }
+
+    /* ===== 公式总结 ===== */
+    .formula-summary {
+      margin-top: 24px;
+      padding: 20px;
+      background: rgba(0,245,212,0.04);
+      border: 1px dashed rgba(0,245,212,0.2);
+      border-radius: 6px;
+    }
+    .formula-summary h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .formula-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.85rem;
+    }
+    .formula-item:last-child { border-bottom: none; }
+    .formula-item .f-name {
+      color: var(--text-dim);
+      min-width: 180px;
+    }
+    .formula-item .f-expr {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    /* ===== 运算动画演示区 ===== */
+    .anim-box {
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.1);
+    }
+    .anim-box h5 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+    }
+    .anim-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0;
+      font-size: 0.9rem;
+      font-family: 'Orbitron', sans-serif;
+    }
+    .anim-step .eq-part {
+      color: var(--text);
+      transition: all 0.5s ease;
+    }
+    .anim-step .highlight {
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--accent);
+      animation: glow 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 4px var(--accent); }
+      to   { text-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent); }
+    }
+    .anim-arrow {
+      color: var(--warn);
+      font-size: 1.2rem;
+    }
+    .anim-result {
+      color: var(--accent);
+      font-weight: bold;
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: rgba(0,245,212,0.08);
+    }
+
+    /* ===== 几何图形 SVG 演示区 ===== */
+    .geo-box {
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      border: 1px solid rgba(0,245,212,0.1);
+      text-align: center;
+    }
+    .geo-box h5 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+      text-align: left;
+    }
+    .geo-box svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* ===== Feedback 弹窗 ===== */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .feedback-overlay.show { display: flex; }
+    .feedback-box {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+      box-shadow: 0 0 40px rgba(0,245,212,0.15);
+    }
+    .feedback-box .icon { font-size: 3rem; margin-bottom: 12px; }
+    .feedback-box h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .feedback-box p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    .feedback-box .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 页脚 ===== */
+    .footer {
+      margin-top: 60px;
+      padding: 24px;
+      text-align: center;
+      border-top: 1px solid rgba(0,245,212,0.1);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .footer .code {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    /* ===== 底部章节导航 ===== */
+    .bottom-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 40px; padding: 20px;
+      background: var(--panel); border: 1px solid rgba(0, 245, 212, 0.2); border-radius: 8px;
+    }
+    .bottom-nav a { color: var(--accent); text-decoration: none; font-size: 14px; transition: all 0.3s; }
+    .bottom-nav a:hover { text-shadow: 0 0 10px var(--accent); }
+    .bottom-nav .next-chapter {
+      padding: 10px 24px;
+      background: linear-gradient(135deg, var(--accent), rgba(0,187,249,0.8));
+      color: var(--bg); border-radius: 6px;
+      font-family: 'Orbitron', sans-serif; font-weight: 700;
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 1024px) {
+      .main-content { margin-left: 200px; padding: 24px 28px 40px; }
+    }
+    @media (max-width: 768px) {
+      .main-content { margin-left: 0; padding: 20px 16px 40px; }
+      .module { padding: 20px; }
+      .hud-header { padding: 0 12px; }
+      .hud-header .logo span { display: none; }
+      .bottom-nav { flex-direction: column; gap: 12px; text-align: center; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 16px 12px 32px; }
+      .module { padding: 16px; }
+      .module-title { font-size: 1.1rem; }
+      .theory-box { padding: 14px 16px; }
+      .quiz-options { flex-direction: column; }
+      .quiz-btn { width: 100%; text-align: left; }
+      .formula-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+    }
+    @media (max-width: 360px) {
+      .hud-header .logo { font-size: 1rem; }
+      .module { padding: 12px; }
+      .example { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <header class="hud-header">
+    <div class="logo">TRI <span>几何特勤组</span></div>
+    <div class="status"><span class="dot"></span>SYS ONLINE | CH17 三角形</div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- ===== 模块1：三角形的概念与分类 ===== -->
+    <section class="module" id="module1">
+      <div class="module-header">
+        <span class="module-badge">MOD-01</span>
+        <h2 class="module-title">三角形的概念与分类 Triangle Concepts</h2>
+        <span class="module-subtitle">几何特勤组 · 基础级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>由不在同一直线上的三条线段首尾顺次相接所组成的图形叫做<strong>三角形</strong>。</p>
+        <ul>
+          <li>组成要素：<strong>顶点</strong>（三个）、<strong>边</strong>（三条）、<strong>角</strong>（三个内角）</li>
+          <li>记法：△ABC，读作"三角形ABC"</li>
+          <li>对边关系：顶点A的对边是BC（记作a），顶点B的对边是AC（记作b），顶点C的对边是AB（记作c）</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>三边关系定理：</strong></p>
+        <ul>
+          <li>三角形任意两边之和<strong>大于</strong>第三边：a + b &gt; c，a + c &gt; b，b + c &gt; a</li>
+          <li>三角形任意两边之差<strong>小于</strong>第三边：|a - b| &lt; c，|a - c| &lt; b，|b - c| &lt; a</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>按角分类：</strong></p>
+        <ul>
+          <li><strong>锐角三角形</strong>：三个内角都是锐角（&lt; 90°）</li>
+          <li><strong>直角三角形</strong>：有一个内角是直角（= 90°），直角所对的边叫<strong>斜边</strong>，其余两边叫<strong>直角边</strong></li>
+          <li><strong>钝角三角形</strong>：有一个内角是钝角（&gt; 90°）</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>按边分类：</strong></p>
+        <ul>
+          <li><strong>不等边三角形</strong>：三条边都不相等</li>
+          <li><strong>等腰三角形</strong>：有两条边相等，相等的两边叫<strong>腰</strong>，第三边叫<strong>底边</strong></li>
+          <li><strong>等边三角形</strong>：三条边都相等（是特殊的等腰三角形）</li>
+        </ul>
+        <span class="formula">三边关系 | a+b&gt;c, a+c&gt;b, b+c&gt;a | |a-b|&lt;c</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ 三角形分类示意图</h5>
+        <svg viewBox="0 0 600 160" width="600" height="160">
+          <!-- 锐角三角形 -->
+          <polygon points="50,130 100,30 150,130" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <text x="100" y="150" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">锐角三角形</text>
+          <!-- 直角三角形 -->
+          <polygon points="220,130 220,30 320,130" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <rect x="220" y="120" width="10" height="10" fill="none" stroke="#00f5d4" stroke-width="1"/>
+          <text x="270" y="150" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">直角三角形</text>
+          <!-- 钝角三角形 -->
+          <polygon points="380,130 460,30 500,130" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <text x="440" y="150" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">钝角三角形</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 三边关系判定演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">a=3, b=4, c=5</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">3+4=<span class="highlight">7</span>&gt;5 ✓</span>
+          <span class="eq-part">3+5=<span class="highlight">8</span>&gt;4 ✓</span>
+          <span class="eq-part">4+5=<span class="highlight">9</span>&gt;3 ✓</span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">能构成三角形 ✓</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">a=1, b=2, c=3</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">1+2=<span class="highlight">3</span>≯3 ✗</span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result" style="border-color:var(--danger);color:var(--danger);">不能构成三角形 ✗</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-A</span>
+          <span class="example-title">三边关系判定</span>
+        </div>
+        <div class="example-body">
+          下列长度的三条线段能否组成三角形？<br>
+          (1) 3cm, 4cm, 5cm　　(2) 2cm, 5cm, 8cm　　(3) 6cm, 6cm, 6cm
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          只需验证两边之和是否大于第三边（通常验证较短两边之和是否大于最长边即可）：<br>
+          (1) 3 + 4 = 7 &gt; 5 ✓ → <strong>能组成三角形</strong>（直角三角形）<br>
+          (2) 2 + 5 = 7 &lt; 8 ✗ → <strong>不能组成三角形</strong><br>
+          (3) 6 + 6 = 12 &gt; 6 ✓ → <strong>能组成三角形</strong>（等边三角形）
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-B</span>
+          <span class="example-title">已知两边求第三边范围</span>
+        </div>
+        <div class="example-body">
+          已知三角形的两边长分别为 5 和 8，求第三边 x 的取值范围。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          根据三边关系：<br>
+          两边之和大于第三边：5 + 8 &gt; x → x &lt; 13<br>
+          两边之差小于第三边：|8 - 5| &lt; x → 3 &lt; x<br>
+          ∴ 第三边 x 的取值范围是 <strong>3 &lt; x &lt; 13</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 1-C</span>
+          <span class="example-title">三角形的分类识别</span>
+        </div>
+        <div class="example-body">
+          一个三角形的三个内角度数之比为 1:2:3，判断这个三角形按角分类属于哪种类型。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          设三个内角分别为 x, 2x, 3x<br>
+          由三角形内角和定理：x + 2x + 3x = 180°<br>
+          6x = 180° → x = 30°<br>
+          三个角分别为：30°, 60°, 90°<br>
+          因为有一个角等于 90°，所以这个三角形是<strong>直角三角形</strong>。
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 下列各组长度的线段中，能组成三角形的是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q1')">A. 3, 4, 5</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">B. 1, 2, 3</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q1')">C. 2, 3, 6</button>
+        </div>
+        <div class="quiz-feedback" id="q1"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 三角形两边长为 4 和 7，第三边长不可能是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">A. 5</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q2')">B. 8</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q2')">C. 12</button>
+        </div>
+        <div class="quiz-feedback" id="q2"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 一个三角形三个角分别为 40°, 60°, 80°，按角分类它是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q3')">A. 锐角三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">B. 直角三角形</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q3')">C. 钝角三角形</button>
+        </div>
+        <div class="quiz-feedback" id="q3"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [三角形概念与分类]</h4>
+        <div class="formula-item">
+          <span class="f-name">三边关系</span>
+          <span class="f-expr">a+b&gt;c, |a-b|&lt;c</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">按角分类</span>
+          <span class="f-expr">锐角 / 直角 / 钝角</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">按边分类</span>
+          <span class="f-expr">不等边 / 等腰 / 等边</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">等边三角形</span>
+          <span class="f-expr">特殊的等腰三角形</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块2：三角形的内角和 ===== -->
+    <section class="module" id="module2">
+      <div class="module-header">
+        <span class="module-badge">MOD-02</span>
+        <h2 class="module-title">三角形的内角和 Interior Angle Sum</h2>
+        <span class="module-subtitle">几何特勤组 · 基础级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>三角形内角和定理：</strong>三角形三个内角的和等于 <strong>180°</strong>。</p>
+        <ul>
+          <li>在△ABC中：∠A + ∠B + ∠C = 180°</li>
+          <li>推论1：直角三角形的两个锐角互余（和为 90°）</li>
+          <li>推论2：三角形中最多只有一个直角或钝角</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>三角形外角定理：</strong></p>
+        <ul>
+          <li><strong>定义：</strong>三角形的一边与另一边的延长线组成的角叫做三角形的外角</li>
+          <li><strong>外角性质1：</strong>三角形的一个外角等于与它<strong>不相邻</strong>的两个内角的和</li>
+          <li><strong>外角性质2：</strong>三角形的一个外角大于任何一个与它不相邻的内角</li>
+          <li><strong>外角和：</strong>三角形三个外角的和等于 360°</li>
+        </ul>
+        <span class="formula">∠A+∠B+∠C=180° | 外角=不相邻两内角之和 | 外角和=360°</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ 外角定理示意图</h5>
+        <svg viewBox="0 0 400 160" width="400" height="160">
+          <!-- 三角形 -->
+          <polygon points="100,130 200,30 300,130" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <!-- 顶点标注 -->
+          <text x="95" y="145" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">A</text>
+          <text x="200" y="22" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">B</text>
+          <text x="305" y="145" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">C</text>
+          <!-- 外角 -->
+          <line x1="300" y1="130" x2="360" y2="130" stroke="#ffb800" stroke-width="1.5" stroke-dasharray="4"/>
+          <path d="M 300,130 L 330,130 A 30 30 0 0 0 322,108" fill="none" stroke="#ffb800" stroke-width="1.5"/>
+          <text x="340" y="115" fill="#ffb800" font-size="10" font-family="Share Tech Mono">∠1(外角)</text>
+          <text x="200" y="155" fill="#8a95a8" font-size="10" text-anchor="middle" font-family="Share Tech Mono">∠1 = ∠A + ∠B</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 内角和推导演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">∠A + ∠B + ∠C</span>
+          <span class="anim-arrow">=</span>
+          <span class="eq-part"><span class="highlight">180°</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">外角∠1 = ∠A + ∠B</span>
+          <span class="anim-arrow">（不相邻两内角之和）</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">直角△中：∠A + ∠B = 90°</span>
+          <span class="anim-arrow">（两锐角互余）</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-A</span>
+          <span class="example-title">利用内角和求角</span>
+        </div>
+        <div class="example-body">
+          在△ABC中，∠A = 50°，∠B = 60°，求∠C 的度数。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          由三角形内角和定理：<br>
+          ∠A + ∠B + ∠C = 180°<br>
+          50° + 60° + ∠C = 180°<br>
+          ∠C = 180° - 50° - 60° = <strong>70°</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-B</span>
+          <span class="example-title">外角定理的应用</span>
+        </div>
+        <div class="example-body">
+          如图，△ABC的一个外角等于 120°，与它不相邻的一个内角为 40°，求另一个不相邻内角的度数。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          设外角为∠1，不相邻的两个内角为∠A 和∠B<br>
+          根据外角定理：∠1 = ∠A + ∠B<br>
+          120° = 40° + ∠B<br>
+          ∠B = 120° - 40° = <strong>80°</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 2-C</span>
+          <span class="example-title">折叠图形中的角度计算</span>
+        </div>
+        <div class="example-body">
+          将一张三角形纸片的一个角折向对边，折痕与对边平行。若被折叠的角为 70°，求折痕与对边之间形成的新三角形中，与原角相对的角的度数。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          折叠后，被折的角分成两个相等的角，每个为 70°÷2 = 35°<br>
+          折痕与对边平行 → 形成的新三角形中，一个内角为 35°<br>
+          另一个内角等于原三角形中与 70° 角相邻的内角<br>
+          新三角形中第三个角 = 180° - 35° - (原相邻角)<br>
+          由于折痕平行于对边，利用平行线性质：同位角/内错角相等<br>
+          最终求得与原角相对的角 = <strong>70°</strong>（折叠对称性）
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 三角形中，∠A=45°, ∠B=55°，则∠C=？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">A. 70°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q4')">B. 80°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q4')">C. 100°</button>
+        </div>
+        <div class="quiz-feedback" id="q4"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 直角三角形的一个锐角为 35°，另一个锐角为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">A. 45°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q5')">B. 55°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q5')">C. 65°</button>
+        </div>
+        <div class="quiz-feedback" id="q5"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 三角形的一个外角为 110°，与它不相邻的一个内角为 45°，另一个不相邻内角为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q6')">A. 65°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">B. 55°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q6')">C. 75°</button>
+        </div>
+        <div class="quiz-feedback" id="q6"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [三角形内角和]</h4>
+        <div class="formula-item">
+          <span class="f-name">内角和定理</span>
+          <span class="f-expr">∠A+∠B+∠C=180°</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">直角三角形</span>
+          <span class="f-expr">两锐角互余 = 90°</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">外角定理</span>
+          <span class="f-expr">外角=不相邻两内角之和</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">外角和</span>
+          <span class="f-expr">三个外角之和=360°</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块3：全等三角形 ===== -->
+    <section class="module" id="module3">
+      <div class="module-header">
+        <span class="module-badge">MOD-03</span>
+        <h2 class="module-title">全等三角形 Congruent Triangles</h2>
+        <span class="module-subtitle">几何特勤组 · 进阶级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>能够完全重合的两个三角形叫做<strong>全等三角形</strong>，记作 △ABC ≌ △DEF。</p>
+        <ul>
+          <li>对应顶点：重合的顶点</li>
+          <li>对应边：重合的边（长度相等）</li>
+          <li>对应角：重合的角（度数相等）</li>
+          <li>全等三角形的周长相等、面积相等</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>全等三角形的判定定理：</strong></p>
+        <ul>
+          <li><strong>SSS（边边边）：</strong>三边对应相等的两个三角形全等</li>
+          <li><strong>SAS（边角边）：</strong>两边和它们的夹角对应相等的两个三角形全等</li>
+          <li><strong>ASA（角边角）：</strong>两角和它们的夹边对应相等的两个三角形全等</li>
+          <li><strong>AAS（角角边）：</strong>两角和其中一角的对边对应相等的两个三角形全等</li>
+          <li><strong>HL（斜边直角边）：</strong>斜边和一条直角边对应相等的两个直角三角形全等</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>注意：</strong>SSA（两边及其中一边的对角）和 AAA（三角）<strong>不能</strong>作为判定依据。</p>
+        <span class="formula">SSS | SAS | ASA | AAS | HL (Rt△专用)</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ SAS 判定示意图</h5>
+        <svg viewBox="0 0 500 160" width="500" height="160">
+          <!-- 第一个三角形 -->
+          <polygon points="50,130 150,30 200,130" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <text x="35" y="140" fill="#8a95a8" font-size="10" font-family="Share Tech Mono">A</text>
+          <text x="150" y="22" fill="#8a95a8" font-size="10" text-anchor="middle" font-family="Share Tech Mono">B</text>
+          <text x="205" y="140" fill="#8a95a8" font-size="10" font-family="Share Tech Mono">C</text>
+          <!-- 标注 -->
+          <text x="100" y="90" fill="#00f5d4" font-size="9" text-anchor="middle" font-family="Share Tech Mono">AB=DE</text>
+          <text x="100" y="145" fill="#00f5d4" font-size="9" text-anchor="middle" font-family="Share Tech Mono">AC=DF</text>
+          <!-- 箭头 -->
+          <text x="250" y="85" fill="#ffb800" font-size="14" font-family="Orbitron">≌</text>
+          <!-- 第二个三角形 -->
+          <polygon points="300,130 400,30 450,130" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <text x="285" y="140" fill="#8a95a8" font-size="10" font-family="Share Tech Mono">D</text>
+          <text x="400" y="22" fill="#8a95a8" font-size="10" text-anchor="middle" font-family="Share Tech Mono">E</text>
+          <text x="455" y="140" fill="#8a95a8" font-size="10" font-family="Share Tech Mono">F</text>
+          <text x="375" y="90" fill="#00f5d4" font-size="9" text-anchor="middle" font-family="Share Tech Mono">∠A=∠D</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 判定定理速查</h5>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">SSS</span></span>
+          <span class="eq-part">三边对应相等</span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">全等 ✓</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">SAS</span></span>
+          <span class="eq-part">两边+夹角</span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">全等 ✓</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">ASA/AAS</span></span>
+          <span class="eq-part">两角+一边</span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result">全等 ✓</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">SSA</span></span>
+          <span class="eq-part">两边+非夹角</span>
+          <span class="anim-arrow">→</span>
+          <span class="anim-result" style="border-color:var(--danger);color:var(--danger);">不一定 ✗</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-A</span>
+          <span class="example-title">SSS 判定应用</span>
+        </div>
+        <div class="example-body">
+          如图，AB = DE，BC = EF，AC = DF，求证：△ABC ≌ △DEF。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          在△ABC 和△DEF 中：<br>
+          AB = DE （已知）<br>
+          BC = EF （已知）<br>
+          AC = DF （已知）<br>
+          ∴ △ABC ≌ △DEF （<strong>SSS</strong>）
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-B</span>
+          <span class="example-title">SAS 判定与平行线性质综合</span>
+        </div>
+        <div class="example-body">
+          已知：AB ∥ CD，AB = CD，点 E 在 AC 上。求证：△ABE ≌ △CDE。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ AB ∥ CD<br>
+          ∴ ∠BAE = ∠DCE （两直线平行，内错角相等）<br><br>
+          在△ABE 和△CDE 中：<br>
+          AB = CD （已知）<br>
+          ∠BAE = ∠DCE （已证）<br>
+          AE = CE （E 在 AC 上，若 E 是中点则成立；题目需补充条件或理解为公共线段）<br><br>
+          若 E 为 AC 与 BD 交点，则对顶角 ∠AEB = ∠CED<br>
+          此时用 <strong>AAS</strong> 判定：∠BAE=∠DCE，∠AEB=∠CED，AB=CD<br>
+          ∴ △ABE ≌ △CDE （<strong>AAS</strong>）
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 3-C</span>
+          <span class="example-title">HL 判定（直角三角形）</span>
+        </div>
+        <div class="example-body">
+          已知：Rt△ABC 和 Rt△DEF 中，∠C = ∠F = 90°，AB = DE，AC = DF。求证：Rt△ABC ≌ Rt△DEF。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          在 Rt△ABC 和 Rt△DEF 中：<br>
+          ∠C = ∠F = 90° （已知，均为直角三角形）<br>
+          AB = DE （已知，斜边相等）<br>
+          AC = DF （已知，一条直角边相等）<br>
+          ∴ Rt△ABC ≌ Rt△DEF （<strong>HL</strong>）<br><br>
+          <em>注：HL 仅适用于直角三角形，是 SSA 的特殊有效情形。</em>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 下列不能判定两个三角形全等的是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">A. SSS</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q7')">B. SAS</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q7')">C. SSA</button>
+        </div>
+        <div class="quiz-feedback" id="q7"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 已知△ABC ≌ △DEF，∠A=60°, ∠B=50°，则∠F=？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q8')">A. 70°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">B. 50°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q8')">C. 60°</button>
+        </div>
+        <div class="quiz-feedback" id="q8"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 直角三角形全等的专用判定定理是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">A. SSA</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q9')">B. HL</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q9')">C. AAA</button>
+        </div>
+        <div class="quiz-feedback" id="q9"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [全等三角形]</h4>
+        <div class="formula-item">
+          <span class="f-name">SSS 判定</span>
+          <span class="f-expr">三边对应相等 → 全等</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">SAS 判定</span>
+          <span class="f-expr">两边+夹角 → 全等</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">ASA/AAS 判定</span>
+          <span class="f-expr">两角+一边 → 全等</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">HL 判定</span>
+          <span class="f-expr">斜边+直角边(Rt△) → 全等</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">无效判定</span>
+          <span class="f-expr">SSA / AAA</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块4：等腰三角形的性质 ===== -->
+    <section class="module" id="module4">
+      <div class="module-header">
+        <span class="module-badge">MOD-04</span>
+        <h2 class="module-title">等腰三角形的性质 Isosceles Triangle</h2>
+        <span class="module-subtitle">几何特勤组 · 进阶级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>定义：</strong>有两边相等的三角形叫做<strong>等腰三角形</strong>。相等的两边叫<strong>腰</strong>，第三边叫<strong>底边</strong>，两腰的夹角叫<strong>顶角</strong>，腰与底边的夹角叫<strong>底角</strong>。</p>
+        <p style="margin-top:12px;"><strong>性质定理1（等边对等角）：</strong>等腰三角形的两个<strong>底角相等</strong>。</p>
+        <ul>
+          <li>即在△ABC中，若 AB = AC，则 ∠B = ∠C</li>
+          <li>推论：等边三角形的三个内角都相等，每个角等于 60°</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>性质定理2（三线合一）：</strong>等腰三角形顶角的平分线、底边上的中线、底边上的高<strong>互相重合</strong>。</p>
+        <ul>
+          <li>顶角平分线 ⊥ 底边，且平分底边</li>
+          <li>底边上的中线 ⊥ 底边，且平分顶角</li>
+          <li>底边上的高平分底边，且平分顶角</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>判定定理：</strong>如果一个三角形有两个角相等，那么这两个角所对的边也相等（<strong>等角对等边</strong>）。</p>
+        <span class="formula">AB=AC → ∠B=∠C | 三线合一: 角平分线=中线=高</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ 等腰三角形三线合一示意图</h5>
+        <svg viewBox="0 0 300 180" width="300" height="180">
+          <!-- 等腰三角形 -->
+          <polygon points="150,20 50,160 250,160" fill="none" stroke="#00f5d4" stroke-width="1.5"/>
+          <!-- 中线/高/角平分线 -->
+          <line x1="150" y1="20" x2="150" y2="160" stroke="#ffb800" stroke-width="1.5" stroke-dasharray="4"/>
+          <!-- 直角标记 -->
+          <rect x="145" y="155" width="10" height="5" fill="none" stroke="#ffb800" stroke-width="1"/>
+          <!-- 顶点标注 -->
+          <text x="150" y="12" fill="#8a95a8" font-size="11" text-anchor="middle" font-family="Share Tech Mono">A(顶角)</text>
+          <text x="40" y="175" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">B</text>
+          <text x="255" y="175" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">C</text>
+          <!-- 等号标注 -->
+          <text x="100" y="95" fill="#00f5d4" font-size="9" font-family="Share Tech Mono">AB=AC</text>
+          <text x="165" y="95" fill="#ffb800" font-size="9" font-family="Share Tech Mono">AD⊥BC</text>
+          <text x="150" y="175" fill="#8a95a8" font-size="9" text-anchor="middle" font-family="Share Tech Mono">BD=DC, ∠BAD=∠CAD</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 三线合一分解演示</h5>
+        <div class="anim-step">
+          <span class="eq-part">等腰△ABC, AB=<span class="highlight">AC</span></span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">顶角平分线 AD</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">AD ⊥ BC</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">BD = DC</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part">底边上的高 AD</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">AD 平分 ∠BAC</span>
+          <span class="anim-arrow">→</span>
+          <span class="eq-part">AD 平分 BC</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-A</span>
+          <span class="example-title">等边对等角求角</span>
+        </div>
+        <div class="example-body">
+          在等腰△ABC中，AB = AC，顶角∠A = 40°，求底角∠B 的度数。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ AB = AC<br>
+          ∴ ∠B = ∠C （等边对等角）<br><br>
+          由三角形内角和定理：<br>
+          ∠A + ∠B + ∠C = 180°<br>
+          40° + 2∠B = 180°<br>
+          2∠B = 140°<br>
+          ∠B = <strong>70°</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-B</span>
+          <span class="example-title">三线合一求线段长度</span>
+        </div>
+        <div class="example-body">
+          在等腰△ABC中，AB = AC = 10，BC = 12。AD 是底边上的高，求 AD 的长。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ AB = AC，AD 是底边上的高<br>
+          ∴ 由三线合一，AD 也是底边上的中线<br>
+          ∴ BD = DC = BC÷2 = 12÷2 = <strong>6</strong><br><br>
+          在 Rt△ABD 中，由勾股定理：<br>
+          AD² + BD² = AB²<br>
+          AD² + 6² = 10²<br>
+          AD² = 100 - 36 = 64<br>
+          AD = <strong>8</strong>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 4-C</span>
+          <span class="example-title">等角对等边判定</span>
+        </div>
+        <div class="example-body">
+          在△ABC中，∠B = ∠C = 65°，判断△ABC的形状，并求各边的关系。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          ∵ ∠B = ∠C = 65°<br>
+          ∴ AB = AC （等角对等边）<br>
+          ∴ △ABC 是<strong>等腰三角形</strong><br><br>
+          ∠A = 180° - 65° - 65° = <strong>50°</strong><br><br>
+          边关系：<strong>AB = AC</strong>（两腰相等），BC 为底边。
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 等腰三角形的一个底角为 50°，则顶角为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">A. 50°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q10')">B. 80°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q10')">C. 100°</button>
+        </div>
+        <div class="quiz-feedback" id="q10"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 等腰三角形底边上的高具有什么性质？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">A. 只垂直于底边</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q11')">B. 同时是中线和角平分线</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q11')">C. 只平分顶角</button>
+        </div>
+        <div class="quiz-feedback" id="q11"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 等边三角形的每个内角为？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">A. 45°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q12')">B. 90°</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q12')">C. 60°</button>
+        </div>
+        <div class="quiz-feedback" id="q12"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [等腰三角形]</h4>
+        <div class="formula-item">
+          <span class="f-name">等边对等角</span>
+          <span class="f-expr">AB=AC → ∠B=∠C</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">等角对等边</span>
+          <span class="f-expr">∠B=∠C → AB=AC</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">三线合一</span>
+          <span class="f-expr">顶角平分线=中线=高</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">等边三角形</span>
+          <span class="f-expr">三边相等,三角=60°</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 模块5：尺规作图 ===== -->
+    <section class="module" id="module5">
+      <div class="module-header">
+        <span class="module-badge">MOD-05</span>
+        <h2 class="module-title">尺规作图 Geometric Constructions</h2>
+        <span class="module-subtitle">几何特勤组 · 高级</span>
+      </div>
+
+      <div class="theory-box">
+        <h4>▌ 理论档案</h4>
+        <p><strong>尺规作图：</strong>只用没有刻度的直尺和圆规完成几何作图。这是几何学的基本功，也是培养逻辑推理能力的重要手段。</p>
+        <p style="margin-top:12px;"><strong>基本作图方法：</strong></p>
+        <ul>
+          <li><strong>作一条线段等于已知线段：</strong>用圆规量取已知线段长度，在新位置画弧定位</li>
+          <li><strong>作一个角等于已知角：</strong>利用三边对应相等（SSS）构造全等三角形</li>
+          <li><strong>作已知角的平分线：</strong>以顶点为圆心画弧交两边，再以交点为圆心画弧，两弧交点与顶点连线即为角平分线</li>
+          <li><strong>作线段的垂直平分线：</strong>分别以线段两端为圆心，大于线段一半为半径画弧，两弧交点连线即为垂直平分线</li>
+          <li><strong>过一点作已知直线的垂线：</strong>分点在直线上和点在直线外两种情况</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>作三角形的三种情形：</strong></p>
+        <ul>
+          <li><strong>已知三边（SSS）：</strong>依次作出三边，首尾相接</li>
+          <li><strong>已知两边及夹角（SAS）：</strong>先作一边及夹角，再确定第三顶点</li>
+          <li><strong>已知两角及夹边（ASA）：</strong>先作夹边，再在两端作角确定第三顶点</li>
+        </ul>
+        <span class="formula">圆规取等长 | 弧的交点定位置 | SSS/SAS/ASA 作图依据</span>
+      </div>
+
+      <!-- 几何图形演示 -->
+      <div class="geo-box">
+        <h5>▌ 角平分线尺规作图步骤</h5>
+        <svg viewBox="0 0 400 200" width="400" height="200">
+          <!-- 角的两边 -->
+          <line x1="50" y1="150" x2="350" y2="150" stroke="#00f5d4" stroke-width="1.5"/>
+          <line x1="50" y1="150" x2="200" y2="30" stroke="#00f5d4" stroke-width="1.5"/>
+          <!-- 顶点 -->
+          <text x="35" y="160" fill="#8a95a8" font-size="11" font-family="Share Tech Mono">O</text>
+          <!-- 步骤1：以O为圆心画弧 -->
+          <path d="M 100,150 A 50 50 0 0 0 85,108" fill="none" stroke="#ffb800" stroke-width="1" stroke-dasharray="3"/>
+          <text x="60" y="100" fill="#ffb800" font-size="9" font-family="Share Tech Mono">① 以O为圆心画弧</text>
+          <!-- 步骤2：以交点为圆心画弧 -->
+          <path d="M 85,108 A 40 40 0 0 0 130,125" fill="none" stroke="#00f5d4" stroke-width="1" stroke-dasharray="3"/>
+          <path d="M 100,150 A 40 40 0 0 0 130,125" fill="none" stroke="#00f5d4" stroke-width="1" stroke-dasharray="3"/>
+          <text x="140" y="80" fill="#00f5d4" font-size="9" font-family="Share Tech Mono">② 以M、N为圆心画弧</text>
+          <!-- 步骤3：连线 -->
+          <line x1="50" y1="150" x2="130" y2="125" stroke="#ff3860" stroke-width="1.5"/>
+          <text x="160" y="150" fill="#ff3860" font-size="9" font-family="Share Tech Mono">③ 连线OC为角平分线</text>
+          <!-- 标注 -->
+          <text x="95" y="145" fill="#8a95a8" font-size="9" font-family="Share Tech Mono">M</text>
+          <text x="80" y="105" fill="#8a95a8" font-size="9" font-family="Share Tech Mono">N</text>
+          <text x="135" y="120" fill="#8a95a8" font-size="9" font-family="Share Tech Mono">C</text>
+        </svg>
+      </div>
+
+      <!-- 动画演示 -->
+      <div class="anim-box">
+        <h5>▌ 尺规作图核心原理</h5>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">SSS</span></span>
+          <span class="eq-part">圆规定三边 → 交点定顶点</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">SAS</span></span>
+          <span class="eq-part">先作边+角 → 圆规定第三顶点</span>
+        </div>
+        <div class="anim-step">
+          <span class="eq-part"><span class="highlight">角平分线</span></span>
+          <span class="eq-part">弧交点等距 → 连线平分角</span>
+        </div>
+      </div>
+
+      <!-- 例题 -->
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-A</span>
+          <span class="example-title">已知三边作三角形（SSS）</span>
+        </div>
+        <div class="example-body">
+          已知线段 a = 5cm，b = 6cm，c = 7cm，用尺规作出△ABC，使 BC = a，AC = b，AB = c。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>作法：</strong><br>
+          1. 作射线 BX，在 BX 上截取 BC = a = 5cm<br>
+          2. 以 B 为圆心，c = 7cm 为半径画弧<br>
+          3. 以 C 为圆心，b = 6cm 为半径画弧<br>
+          4. 两弧交于点 A<br>
+          5. 连接 AB、AC<br><br>
+          △ABC 即为所求。<br>
+          <em>原理：三边对应相等（SSS），三角形唯一确定。</em>
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-B</span>
+          <span class="example-title">作已知角的平分线</span>
+        </div>
+        <div class="example-body">
+          已知∠AOB，用尺规作出它的角平分线。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>作法：</strong><br>
+          1. 以 O 为圆心，任意长为半径画弧，分别交 OA、OB 于 M、N<br>
+          2. 分别以 M、N 为圆心，大于½MN 的长为半径画弧，两弧交于点 C<br>
+          3. 作射线 OC<br><br>
+          射线 OC 即为∠AOB 的平分线。<br><br>
+          <strong>证明：</strong>连接 MC、NC<br>
+          ∵ OM = ON（同圆半径），MC = NC（等半径），OC = OC（公共边）<br>
+          ∴ △OMC ≌ △ONC（SSS）<br>
+          ∴ ∠MOC = ∠NOC，即 OC 平分∠AOB
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <div class="example" onclick="toggleExample(this)">
+        <div class="example-header">
+          <span class="example-tag">例题 5-C</span>
+          <span class="example-title">过直线外一点作垂线</span>
+        </div>
+        <div class="example-body">
+          已知直线 l 和线外一点 P，用尺规过 P 作 l 的垂线。
+        </div>
+        <div class="example-answer">
+          <span class="label">▶ 解析</span>
+          <strong>作法：</strong><br>
+          1. 以 P 为圆心，适当长为半径画弧，交直线 l 于 A、B 两点<br>
+          2. 分别以 A、B 为圆心，大于½AB 的长为半径画弧，两弧交于点 Q（Q 与 P 在 l 的异侧）<br>
+          3. 作直线 PQ<br><br>
+          直线 PQ 即为过点 P 且垂直于 l 的直线。<br><br>
+          <strong>原理：</strong>到线段两端距离相等的点在线段的垂直平分线上，所以 PQ 垂直平分 AB，即 PQ ⊥ l。
+        </div>
+        <div class="example-toggle">▼ 点击展开解析</div>
+      </div>
+
+      <!-- 测验 -->
+      <div class="quiz">
+        <div class="quiz-question">Q1. 尺规作图"作一个角等于已知角"的依据是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q13')">A. SSS</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">B. SAS</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q13')">C. ASA</button>
+        </div>
+        <div class="quiz-feedback" id="q13"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q2. 作角平分线时，两次画弧的半径要求是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">A. 必须相等</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q14')">B. 大于两交点距离的一半</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q14')">C. 小于两交点距离的一半</button>
+        </div>
+        <div class="quiz-feedback" id="q14"></div>
+      </div>
+
+      <div class="quiz">
+        <div class="quiz-question">Q3. 已知两边及夹角作三角形的依据是？</div>
+        <div class="quiz-options">
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">A. SSS</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, true, 'q15')">B. SAS</button>
+          <button class="quiz-btn" onclick="checkAnswer(this, false, 'q15')">C. HL</button>
+        </div>
+        <div class="quiz-feedback" id="q15"></div>
+      </div>
+
+      <!-- 公式总结 -->
+      <div class="formula-summary">
+        <h4>▌ 公式档案 [尺规作图]</h4>
+        <div class="formula-item">
+          <span class="f-name">作等线段</span>
+          <span class="f-expr">圆规量取 → 转移</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">作等角</span>
+          <span class="f-expr">SSS 构造全等△</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">作角平分线</span>
+          <span class="f-expr">弧交点 → 连线</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">作垂线</span>
+          <span class="f-expr">垂直平分线原理</span>
+        </div>
+        <div class="formula-item">
+          <span class="f-name">作三角形</span>
+          <span class="f-expr">SSS / SAS / ASA</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+      <p>TRI 几何特勤组 | 第17章 三角形</p>
+      <p class="code">[CLASSIFIED] | CODENAME: TRI | CLEARANCE: STUDENT</p>
+      <p style="margin-top:8px;">
+        <a href="index.html" style="color:var(--accent);text-decoration:none;">➤ 进入训练场</a>
+      </p>
+    </footer>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+      <span style="color:var(--text-dim);font-size:14px;">← 上一章：一元一次不等式</span>
+      <a href="../grade7-sem2-ch18/tutorial.html" class="next-chapter">下一章：等腰三角形进阶 →</a>
+    </div>
+  </main>
+
+  <!-- Feedback 弹窗 -->
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-box">
+      <div class="icon" id="feedbackIcon">✓</div>
+      <h3 id="feedbackTitle">CONFIRMED</h3>
+      <p id="feedbackText">Answer verified.</p>
+      <button class="btn" onclick="hideFeedback()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <script>
+    // 例题展开/收起
+    function toggleExample(el) {
+      el.classList.toggle('expanded');
+      const toggle = el.querySelector('.example-toggle');
+      if (toggle) toggle.textContent = el.classList.contains('expanded') ? '▲ 点击收起解析' : '▼ 点击展开解析';
+    }
+
+    // 答题系统
+    const feedbackData = {
+      correct: { icon: '✓', title: 'CONFIRMED', text: 'Answer verified. Proceed to next sector.' },
+      wrong: { icon: '✗', title: 'DENIED', text: 'Incorrect. Review theory and retry.' }
+    };
+
+    function checkAnswer(btn, isCorrect, qid) {
+      const parent = btn.closest('.quiz');
+      const feedback = document.getElementById(qid);
+      const allBtns = parent.querySelectorAll('.quiz-btn');
+
+      allBtns.forEach(b => {
+        b.classList.remove('correct', 'wrong');
+        b.disabled = true;
+      });
+
+      if (isCorrect) {
+        btn.classList.add('correct');
+        feedback.textContent = '✓ 正确！';
+        feedback.className = 'quiz-feedback show correct';
+        showFeedback(true);
+      } else {
+        btn.classList.add('wrong');
+        allBtns.forEach(b => {
+          if (b.getAttribute('onclick').includes('true')) b.classList.add('correct');
+        });
+        feedback.textContent = '✗ 错误，请查看理论档案复习。';
+        feedback.className = 'quiz-feedback show wrong';
+        showFeedback(false);
+      }
+    }
+
+    function showFeedback(isCorrect) {
+      const data = isCorrect ? feedbackData.correct : feedbackData.wrong;
+      document.getElementById('feedbackIcon').textContent = data.icon;
+      document.getElementById('feedbackTitle').textContent = data.title;
+      document.getElementById('feedbackText').textContent = data.text;
+      document.getElementById('feedbackOverlay').classList.add('show');
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedbackOverlay').classList.remove('show');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideFeedback();
+    });
+  </script>
+</body>
+</html>
