@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MECH · 机械工程实验室 — 简单机械、功和能</title>
+<style>
+:root{--purple:#9d00ff;--pink:#ff00ff;--dark:#1a0a2e;--panel:#2a1040;--panel2:#3a1860;--accent:#d040ff;--good:#00ff88;--warn:#ffcc00;--bad:#ff3366;--text:#f0e6ff;--text2:#b8a0d8;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Microsoft YaHei','PingFang SC',sans-serif;}
+body{background:var(--dark);color:var(--text);min-height:100vh;overflow-x:hidden;position:relative;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 20% 80%, rgba(157,0,255,0.08) 0%, transparent 40%),radial-gradient(circle at 80% 20%, rgba(255,0,255,0.06) 0%, transparent 40%);pointer-events:none;z-index:0;}
+
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.7;transform:scale(1.05);}}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}}
+@keyframes comboPop{0%{transform:scale(0.5);opacity:0;}60%{transform:scale(1.3);}100%{transform:scale(1);opacity:1;}}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+
+.container{max-width:900px;margin:0 auto;padding:16px;position:relative;z-index:1;}
+
+/* Header */
+.header{text-align:center;padding:16px 0 8px;border-bottom:2px solid var(--purple);margin-bottom:16px;position:relative;}
+.header::after,.header::before{content:'⚙';position:absolute;top:50%;font-size:24px;color:var(--purple);opacity:0.5;}
+.header::before{left:20px;}
+.header::after{right:20px;}
+.title{font-size:28px;font-weight:bold;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px;}
+.subtitle{font-size:12px;color:var(--text2);margin-top:4px;letter-spacing:4px;}
+.dept-badge{display:inline-block;background:var(--panel);border:1px solid var(--purple);border-radius:20px;padding:2px 14px;font-size:11px;color:var(--accent);margin-top:6px;}
+
+/* Stats bar */
+.stats-bar{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--purple);border-radius:12px;padding:10px 16px;margin-bottom:16px;box-shadow:0 4px 20px rgba(157,0,255,0.15);}
+.lives{display:flex;gap:4px;font-size:20px;}
+.score-section{text-align:right;}
+.score{font-size:22px;font-weight:bold;color:var(--accent);}
+.combo{display:inline-block;margin-left:10px;padding:2px 8px;border-radius:8px;font-size:13px;font-weight:bold;background:rgba(255,0,255,0.2);color:var(--pink);}
+.combo.active{animation:pulse 1s infinite;}
+.stage-info{font-size:13px;color:var(--text2);}
+
+/* Game area */
+.game-area{background:var(--panel);border:1px solid var(--purple);border-radius:16px;padding:20px;min-height:320px;position:relative;box-shadow:0 4px 30px rgba(157,0,255,0.1);}
+
+/* Stage selector */
+.stage-nav{display:flex;justify-content:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.stage-btn{background:var(--panel2);border:1px solid var(--purple);color:var(--text2);padding:8px 16px;border-radius:20px;font-size:13px;cursor:pointer;transition:all 0.3s;}
+.stage-btn:hover{border-color:var(--pink);color:var(--text);}
+.stage-btn.active{background:linear-gradient(135deg,var(--purple),var(--pink));color:#fff;border-color:transparent;box-shadow:0 0 15px rgba(157,0,255,0.4);}
+.stage-btn.locked{opacity:0.4;cursor:not-allowed;border-color:#5a3a80;color:#7a5a90;}
+.stage-btn.completed::after{content:'✓';margin-left:4px;color:var(--good);}
+
+/* Question */
+.question-box{margin-bottom:20px;animation:slideIn 0.4s ease;}
+.question-number{font-size:12px;color:var(--text2);margin-bottom:6px;letter-spacing:1px;}
+.question-text{font-size:17px;line-height:1.7;margin-bottom:16px;}
+.question-text code{background:rgba(157,0,255,0.2);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:15px;color:var(--accent);}
+
+/* Diagrams */
+.diagram{width:100%;max-width:400px;margin:12px auto;display:block;}
+.diagram svg{width:100%;height:auto;}
+
+/* Options */
+.options{display:grid;gap:10px;}
+.opt-btn{background:var(--panel2);border:1px solid rgba(157,0,255,0.3);color:var(--text);padding:14px 16px;border-radius:10px;text-align:left;font-size:15px;cursor:pointer;transition:all 0.25s;display:flex;align-items:center;gap:10px;}
+.opt-btn:hover{border-color:var(--accent);background:rgba(157,0,255,0.15);transform:translateX(4px);}
+.opt-btn .opt-label{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;}
+.opt-btn.correct{background:rgba(0,255,136,0.15);border-color:var(--good);}
+.opt-btn.wrong{background:rgba(255,51,102,0.15);border-color:var(--bad);animation:shake 0.4s ease;}
+.opt-btn:disabled{cursor:not-allowed;opacity:0.7;}
+
+/* Hint / error */
+.hint-box{margin-top:12px;padding:12px 14px;border-radius:8px;font-size:13px;line-height:1.6;display:none;animation:slideIn 0.3s ease;border-left:3px solid;}
+.hint-box.show{display:block;}
+.hint-box.error{background:rgba(255,51,102,0.1);border-color:var(--bad);color:#ff99aa;}
+.hint-box.info{background:rgba(0,255,136,0.1);border-color:var(--good);color:#88ffcc;}
+.hint-box.principle{background:rgba(255,204,0,0.1);border-color:var(--warn);color:#ffdd88;}
+
+/* Actions */
+.action-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+.btn{background:linear-gradient(135deg,var(--purple),var(--pink));color:#fff;border:none;padding:10px 20px;border-radius:20px;font-size:13px;cursor:pointer;transition:all 0.3s;font-weight:bold;letter-spacing:1px;}
+.btn:hover{box-shadow:0 0 20px rgba(157,0,255,0.4);transform:translateY(-2px);}
+.btn.secondary{background:var(--panel2);border:1px solid var(--purple);color:var(--accent);}
+.btn.secondary:hover{background:rgba(157,0,255,0.2);}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
+.modal-overlay.show{display:flex;}
+.modal-content{background:var(--panel);border:1px solid var(--purple);border-radius:16px;padding:24px;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(157,0,255,0.3);animation:slideIn 0.3s ease;}
+.modal-title{font-size:18px;font-weight:bold;margin-bottom:12px;color:var(--accent);}
+.modal-body{font-size:14px;line-height:1.7;color:var(--text2);}
+.modal-body code{background:rgba(157,0,255,0.2);padding:1px 5px;border-radius:3px;font-family:monospace;color:var(--accent);}
+.modal-close{text-align:right;margin-top:16px;}
+
+/* Results */
+.result-screen{text-align:center;padding:30px 20px;animation:slideIn 0.5s ease;}
+.result-title{font-size:26px;font-weight:bold;margin-bottom:8px;}
+.result-rank{font-size:48px;margin:10px 0;}
+.result-details{font-size:15px;color:var(--text2);line-height:2;margin:16px 0;}
+.badge-showcase{display:inline-block;background:linear-gradient(135deg,var(--purple),var(--pink));padding:12px 30px;border-radius:30px;font-size:16px;font-weight:bold;margin:16px 0;box-shadow:0 0 30px rgba(157,0,255,0.3);animation:float 3s ease infinite;}
+
+/* Timer */
+.timer-bar{height:6px;background:var(--panel2);border-radius:3px;margin-bottom:16px;overflow:hidden;}
+.timer-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--pink));border-radius:3px;transition:width 1s linear;}
+.timer-text{text-align:center;font-size:13px;color:var(--text2);margin-bottom:8px;}
+
+/* Bottom nav */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--purple);padding:8px 16px;display:flex;justify-content:space-around;align-items:center;z-index:50;}
+.bottom-nav a{color:var(--text2);text-decoration:none;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;transition:color 0.3s;}
+.bottom-nav a:hover,.bottom-nav a.active{color:var(--accent);}
+.bottom-nav .nav-icon{font-size:18px;}
+.main-content{padding-bottom:60px;}
+
+/* Gear decoration */
+.gear-deco{position:fixed;pointer-events:none;z-index:0;opacity:0.08;font-size:120px;color:var(--purple);animation:spin 20s linear infinite;}
+.gear-1{top:10%;left:-30px;}
+.gear-2{bottom:20%;right:-40px;animation-duration:25s;animation-direction:reverse;font-size:100px;}
+
+/* Progress ring */
+.progress-ring{width:60px;height:60px;position:relative;}
+.progress-ring svg{transform:rotate(-90deg);}
+.progress-ring circle{fill:none;stroke-width:4;}
+.progress-ring .bg{stroke:rgba(157,0,255,0.2);}
+.progress-ring .fg{stroke:var(--accent);stroke-dasharray:157;stroke-dashoffset:0;transition:stroke-dashoffset 0.5s;}
+.progress-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;}
+
+/* Responsive */
+@media(max-width:600px){.title{font-size:22px;}.stats-bar{padding:8px 12px;}.score{font-size:18px;}.game-area{padding:14px;}.opt-btn{padding:12px;}.stage-btn{padding:6px 12px;font-size:12px;}}
+</style>
+</head>
+<body>
+
+<div class="gear-deco gear-1">⚙</div>
+<div class="gear-deco gear-2">⚙</div>
+
+<div class="main-content">
+<div class="container">
+
+<!-- Header -->
+<div class="header">
+<div class="title">MECH · 机械工程实验室</div>
+<div class="subtitle">简单机械 功和能</div>
+<div class="dept-badge">第八章 代号:MECH</div>
+</div>
+
+<!-- Stats -->
+<div class="stats-bar">
+<div>
+<div class="stage-info" id="stageInfo">准备就绪</div>
+<div class="lives" id="livesBar">❤️❤️❤️</div>
+</div>
+<div class="score-section">
+<div class="score" id="scoreDisplay">0</div>
+<div class="combo" id="comboDisplay">连击: 0</div>
+</div>
+</div>
+
+<!-- Timer (Stage 5 only) -->
+<div id="timerArea" style="display:none;">
+<div class="timer-text" id="timerText">剩余 60 秒</div>
+<div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+</div>
+
+<!-- Stage Nav -->
+<div class="stage-nav" id="stageNav">
+<button class="stage-btn active" data-stage="1">杠杆平衡</button>
+<button class="stage-btn" data-stage="2">滑轮组</button>
+<button class="stage-btn" data-stage="3">功与功率</button>
+<button class="stage-btn" data-stage="4">机械能</button>
+<button class="stage-btn" data-stage="5">终极实验</button>
+</div>
+
+<!-- Game Area -->
+<div class="game-area" id="gameArea">
+<div id="startScreen" class="result-screen">
+<div class="result-title" style="font-size:32px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">机械工程实验室</div>
+<p style="margin-top:16px;color:var(--text2);font-size:15px;line-height:1.8;">
+欢迎来到 <code>MECH</code> 实验室。<br>
+你将通过5个实验关卡，掌握简单机械、功和能的核心知识。<br>
+完成挑战，获得 <b>「机械大师」</b> 徽章！
+</p>
+<div style="margin-top:24px;">
+<div class="btn" onclick="startGame()">开始实验</div>
+</div>
+</div>
+</div>
+
+<!-- Hint Box -->
+<div class="hint-box" id="hintBox"></div>
+
+</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+<div class="modal-content">
+<div class="modal-title" id="modalTitle">实验原理</div>
+<div class="modal-body" id="modalBody"></div>
+<div class="modal-close"><div class="btn secondary" onclick="closeModal()">关闭</div></div>
+</div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+<a href="#" class="active" onclick="goHome();return false;"><span class="nav-icon">🏠</span><span>首页</span></a>
+<a href="#" onclick="showStages();return false;"><span class="nav-icon">🔬</span><span>关卡</span></a>
+<a href="#" onclick="showAbout();return false;"><span class="nav-icon">📖</span><span>知识</span></a>
+<a href="#" onclick="showRank();return false;"><span class="nav-icon">🏆</span><span>成就</span></a>
+</nav>
+
+<script>
+/* ====== STATE ====== */
+const STATE={
+  lives:3,maxLives:3,score:0,combo:0,stage:0,question:0,
+  stageScores:[0,0,0,0,0],completed:[false,false,false,false,false],
+  unlocked:[true,false,false,false,false],
+  timer:null,timeLeft:60,totalTime:60,
+  answered:false,gameStarted:false
+};
+
+const STAGE_NAMES=['杠杆平衡','滑轮组','功与功率','机械能','终极实验'];
+const STAGE_IDS=['LEVER','PULLEY','WORK','ENERGY','FINAL'];
+
+/* ====== QUESTION BANK ====== */
+const QB={
+  // Stage 1: 杠杆平衡 F1L1=F2L2
+  1:[
+    {text:'如图所示杠杆，支点O左侧挂2个钩码(每个重力G)，力臂L₁=3格；右侧力臂L₂=2格。为使杠杆平衡，右侧应挂几个钩码？',opts:['2个','3个','4个','1个'],ans:1,explain:'根据杠杆平衡条件 <code>F₁L₁=F₂L₂</code>，2G×3 = F₂×2，得 F₂=3G，即3个钩码。',diagram:'lever1'},
+    {text:'用撬棍撬石头，动力臂60cm，阻力臂15cm，阻力300N。求至少需要多大的动力？',opts:['75N','100N','120N','150N'],ans:0,explain:'<code>F₁L₁=F₂L₂</code>，F₁×60 = 300×15，F₁ = 4500/60 = 75N。省力杠杆。'},
+    {text:'钓鱼竿属于什么类型的杠杆？',opts:['省力杠杆','费力杠杆','等臂杠杆','无法判断'],ans:1,explain:'钓鱼竿动力臂短、阻力臂长，是费力杠杆。优点是省距离，手移动一小段，鱼线移动一大段。'},
+    {text:'天平的工作原理是？',opts:['省力','费力','等臂平衡','滑轮原理'],ans:2,explain:'天平是等臂杠杆，动力臂=阻力臂，所以 <code>F₁=F₂</code>，用于测量质量。'},
+    {text:'如图所示杠杆，F₁作用在A点（距支点3格），F₂作用在B点（距支点2格），杠杆平衡时 F₁:F₂ = ?',opts:['2:3','3:2','1:1','4:1'],ans:0,explain:'由 F₁×3 = F₂×2 得 F₁/F₂ = 2/3，即 F₁:F₂ = 2:3。',diagram:'lever2'},
+    {text:'羊角锤拔钉子，手施加的力为50N，动力臂30cm，阻力臂5cm。求钉子受到的阻力。',opts:['200N','250N','300N','500N'],ans:2,explain:'50×30 = F₂×5，F₂ = 1500/5 = 300N。动力臂是阻力臂的6倍，省力6倍。'},
+    {text:'下列哪个属于费力杠杆？',opts:['钢丝钳','开瓶器','镊子','核桃夹'],ans:2,explain:'镊子是费力杠杆（动力臂<阻力臂），省距离，适合精细操作。钢丝钳、开瓶器、核桃夹都是省力杠杆。'},
+    {text:'杠杆在水平位置平衡，两侧各去掉一个等重钩码，杠杆会如何？',opts:['仍平衡','左端下沉','右端下沉','无法判断'],ans:1,explain:'假设原来左侧2个钩码力臂3格（6），右侧3个钩码力臂2格（6），平衡。各去掉1个后：左侧1×3=3，右侧2×2=4，右侧力矩大，所以左端下沉。'},
+    {text:'独轮车搬运泥土，车斗和泥总重600N，重心到轮轴（支点）0.3m，手在车把处施力，力臂1.2m。求手至少需要多大的力？',opts:['150N','180N','200N','250N'],ans:0,explain:'F₁×1.2 = 600×0.3，F₁ = 180/1.2 = 150N。动力臂是阻力臂的4倍，省力4倍。'},
+    {text:'如图所示，杠杆支点O在中间偏左位置。如果在A端挂重物，为了省力，应在哪端施加向上的力？',opts:['A端','B端','都可以','无法判断'],ans:1,explain:'B端力臂更长，在B端施力更省力。省力杠杆的特点是动力臂>阻力臂。',diagram:'lever3'}
+  ],
+  // Stage 2: 滑轮组
+  2:[
+    {text:'如图所示滑轮组，承担物重的绳子段数 n = ?',opts:['2','3','4','5'],ans:1,explain:'数与动滑轮相连的绳子段数（包括从动滑轮引出的自由端），n=3。省力倍数为3。',diagram:'pulley1'},
+    {text:'用n=3的滑轮组提升重物，若忽略摩擦和绳重，绳端拉力F与物重G的关系是？',opts:['F=G','F=G/2','F=G/3','F=3G'],ans:2,explain:'n段绳子分担物重，每段承担G/n。忽略摩擦和动滑轮重时，<code>F = G/n = G/3</code>。'},
+    {text:'用滑轮组提升物体，n=4，物体上升高度h=2m。绳端移动距离s=？',opts:['2m','4m','6m','8m'],ans:3,explain:'<code>s = n×h = 4×2 = 8m</code>。省几倍力就要费几倍距离。'},
+    {text:'如图所示滑轮组，动滑轮重20N，物重100N，n=2。若忽略摩擦，绳端拉力F=？',opts:['50N','60N','70N','80N'],ans:1,explain:'<code>F = (G物+G动)/n = (100+20)/2 = 60N</code>。注意要加上动滑轮自重。',diagram:'pulley2'},
+    {text:'定滑轮的实质是？',opts:['省力杠杆','费力杠杆','等臂杠杆','滑轮组'],ans:2,explain:'定滑轮相当于等臂杠杆，不省力但可以改变力的方向。例如向下拉绳使物体上升。'},
+    {text:'动滑轮的实质是？',opts:['省力杠杆','费力杠杆','等臂杠杆','轮轴'],ans:0,explain:'动滑轮相当于动力臂是阻力臂2倍的杠杆，可以省一半力（忽略自重），但不能改变力的方向。'},
+    {text:'用n=5的滑轮组提升200N的重物，动滑轮总重50N，忽略摩擦。绳端拉力F=？',opts:['40N','50N','60N','70N'],ans:1,explain:'<code>F = (200+50)/5 = 50N</code>。5段绳子分担总重，每段50N。'},
+    {text:'滑轮组中，若绳端移动距离s=12m，物体上升h=3m，则承担物重的绳子段数n=？',opts:['3','4','5','6'],ans:1,explain:'<code>n = s/h = 12/3 = 4</code>。4段绳子分担物重。'},
+    {text:'如图所示，使用滑轮组提升重物时，最省力的绕线方式是？',opts:['从定滑轮开始绕','从动滑轮开始绕','随便绕都一样','不使用动滑轮'],ans:1,explain:'从动滑轮开始绕线，可以使承担物重的绳子段数最多（奇动偶定原则），从而最省力。',diagram:'pulley3'},
+    {text:'关于滑轮组机械效率，下列说法正确的是？',opts:['n越大效率越高','提升重物越重效率越高','动滑轮越轻效率越低','与绕线方式无关'],ans:1,explain:'提升重物越重，有用功占比越大，额外功（动滑轮、摩擦）占比相对越小，机械效率越高。'}
+  ],
+  // Stage 3: 功与功率 W=Fs, P=W/t
+  3:[
+    {text:'用50N的水平力推动箱子前进10m，推力做的功W=？',opts:['250J','400J','500J','600J'],ans:2,explain:'<code>W = Fs = 50N × 10m = 500J</code>。力和位移方向相同，直接相乘。'},
+    {text:'某人提着10N的水桶水平行走20m，人对水桶做的功是？',opts:['200J','100J','0J','50J'],ans:2,explain:'提力竖直向上，位移水平，力与位移方向垂直，<b>不做功</b>。<code>W=Fs·cos90°=0</code>。'},
+    {text:'起重机将5000N的重物匀速提升6m，然后又水平移动4m。整个过程中起重机做的功是？',opts:['20000J','30000J','50000J','70000J'],ans:1,explain:'提升阶段做功：<code>W=Gh=5000×6=30000J</code>。水平移动时拉力竖直向上，位移水平，不做功。总共30000J。'},
+    {text:'一台机器5秒做了2500J的功，其功率P=？',opts:['400W','500W','600W','800W'],ans:1,explain:'<code>P = W/t = 2500J/5s = 500W</code>。功率表示做功的快慢。'},
+    {text:'小明上楼，自身重力500N，楼高9m，用时15s。他上楼的功率约为？',opts:['200W','250W','300W','450W'],ans:2,explain:'克服重力做功 <code>W=Gh=500×9=4500J</code>，功率 <code>P=W/t=4500/15=300W</code>。'},
+    {text:'下列哪种情况做了功？',opts:['用力推墙，墙不动','举着杠铃静止','踢出足球后在空中飞行','把水桶从地面提到桌上'],ans:3,explain:'做功的两个必要条件：1)有力作用；2)在力的方向上有位移。提水桶，提力向上，位移向上，满足两个条件。'},
+    {text:'重20N的物体在10N水平拉力作用下，沿水平面匀速移动5m，然后撤去拉力又滑了2m停下。整个过程中拉力做的功为？',opts:['50J','70J','100J','120J'],ans:0,explain:'只有拉力作用的5m内做功：<code>W=Fs=10×5=50J</code>。后2m没有拉力作用，拉力不做功。'},
+    {text:'一辆汽车以恒定功率行驶，上坡时为了获得更大的牵引力，应该？',opts:['加大油门','减小速度','增大速度','关闭发动机'],ans:1,explain:'<code>P = Fv</code>，功率P一定时，减小速度v可以获得更大的牵引力F。这就是为什么汽车上坡要换低速挡。'},
+    {text:'用动滑轮将100N的物体提升2m，实际拉力60N。有用功、总功分别为？',opts:['200J,200J','200J,240J','100J,200J','240J,200J'],ans:1,explain:'有用功 <code>W有=Gh=100×2=200J</code>。动滑轮省力但费距离，s=2h=4m，总功 <code>W总=Fs=60×4=240J</code>。'},
+    {text:'甲乙两同学体重相同，都从一楼走到三楼。甲用时30s，乙用时45s。比较两人做功和功率：',opts:['W甲>W乙, P甲>P乙','W甲=W乙, P甲>P乙','W甲<W乙, P甲<P乙','W甲=W乙, P甲=P乙'],ans:1,explain:'体重相同、升高相同，克服重力做功相同：<code>W=Gh</code>。甲用时短，<code>P=W/t</code> 更大。'}
+  ],
+  // Stage 4: 机械能 动能/势能
+  4:[
+    {text:'质量为2kg的物体，速度为5m/s，其动能Eₖ=？',opts:['20J','25J','30J','50J'],ans:1,explain:'<code>Eₖ = ½mv² = ½×2×5² = 25J</code>。动能与质量和速度平方成正比。'},
+    {text:'质量为0.5kg的苹果，从离地面3m高的树上落下（g=10N/kg）。它下落前的重力势能Eₚ=？',opts:['10J','12J','15J','20J'],ans:2,explain:'<code>Eₚ = mgh = 0.5×10×3 = 15J</code>。重力势能与质量、高度成正比。'},
+    {text:'如图所示单摆，小球从A点静止释放，下摆过程中（不计空气阻力），下列说法正确的是？',opts:['A点动能最大','B点（最低点）势能最大','A→B动能增大，势能减小','全程机械能不断变化'],ans:2,explain:'单摆从最高点A到最低点B：高度降低→势能减小；速度增大→动能增大。不计阻力时机械能守恒，A点势能最大、动能为零；B点动能最大、势能最小。',diagram:'pendulum'},
+    {text:'滚摆从最高点释放下落，上升过程中（不计摩擦），下列说法正确的是？',opts:['动能转化为势能','势能不变','速度越来越大','机械能不断减小'],ans:0,explain:'上升过程：高度增加→势能增大，速度减小→动能减小。动能转化为重力势能。不计摩擦时机械能守恒。'},
+    {text:'同一物体从同一高度沿不同光滑斜面滑下，到达底端时？',opts:['速度相同','动能不同','势能相同','机械能不同'],ans:0,explain:'光滑斜面无摩擦，机械能守恒。同一高度下滑，势能减少相同，转化为的动能相同，所以到达底端速度相同。'},
+    {text:'跳伞运动员在空中匀速下降时，他的机械能如何变化？',opts:['不变','增大','减小','先增后减'],ans:2,explain:'匀速下降：动能不变（速度不变），势能减小（高度降低）。机械能=动能+势能，所以减小。注意空气阻力做功，机械能不守恒。'},
+    {text:'骑自行车下坡时，不蹬踏板也能越来越快，这是因为？',opts:['惯性越来越大','势能转化为动能','动能转化为势能','重力消失'],ans:1,explain:'下坡时高度降低，重力势能减小，转化为动能，所以速度越来越快。惯性只与质量有关，不会增大。'},
+    {text:'小球从光滑斜面顶端滑下，下列能量转化正确的是？',opts:['动能→势能','势能→动能','动能→内能','势能→内能'],ans:1,explain:'光滑面无摩擦，没有能量损失。小球高度降低，势能减小；速度增大，动能增大。势能转化为动能。'},
+    {text:'人造卫星从近地点向远地点运动时，下列说法正确的是？',opts:['动能增大，势能减小','动能减小，势能增大','动能和势能都不变','机械能减小'],ans:1,explain:'太空中几乎无阻力，机械能守恒。远地点高度大、势能大；近地点速度大、动能大。从近到远：高度增加、速度减小，动能转化为势能。'},
+    {text:'如图所示，弹簧被压缩后释放小球，小球在光滑水平面上运动。弹簧的弹性势能转化为？',opts:['重力势能','小球的动能','内能','热能'],ans:1,explain:'弹簧恢复原状时，弹性势能释放，转化为小球的动能，使小球运动起来。水平面上重力势能不变。',diagram:'spring'}
+  ],
+  // Stage 5: 综合挑战 (mixed questions from above + new)
+  5:[
+    {text:'杠杆平衡时，动力20N，动力臂30cm，阻力60N。阻力臂=？cm',opts:['5','10','15','20'],ans:1,explain:'<code>F₁L₁=F₂L₂</code>，20×30=60×L₂，L₂=600/60=10cm。'},
+    {text:'n=4的滑轮组，提升200N物体上升5m，绳端移动距离=？m',opts:['10','15','20','25'],ans:2,explain:'<code>s=nh=4×5=20m</code>。'},
+    {text:'用100N的水平力推箱子在水平地面匀速移动8m，做功=？J',opts:['400','600','800','1000'],ans:2,explain:'<code>W=Fs=100×8=800J</code>。匀速说明推力等于摩擦力。'},
+    {text:'功率500W的机器工作10s，做功=？J',opts:['4000','5000','6000','8000'],ans:1,explain:'<code>W=Pt=500×10=5000J</code>。'},
+    {text:'质量为4kg的物体，速度3m/s，动能=？J',opts:['12','18','24','36'],ans:1,explain:'<code>Eₖ=½mv²=½×4×9=18J</code>。'},
+    {text:'苹果从树上落下（不计空气阻力），下落过程中？',opts:['动能不变','势能增大','机械能守恒','速度减小'],ans:2,explain:'自由下落，只有重力做功，机械能守恒。势能转化为动能，速度增大。'},
+    {text:'如图所示滑轮组，n=2，物重300N，动滑轮重60N，拉力F=？N',opts:['150','160','180','200'],ans:2,explain:'<code>F=(300+60)/2=180N</code>。'},
+    {text:'提着20N的水桶沿水平走廊走15m，人对桶做功=？J',opts:['100','200','300','0'],ans:3,explain:'提力竖直，位移水平，力与位移垂直，不做功。'},
+    {text:'单摆小球在最高点时，具有最大的？',opts:['动能','势能','速度','加速度'],ans:1,explain:'最高点速度为零，动能为零；高度最大，势能最大。'},
+    {text:'汽车以60kW的恒定功率上坡，速度从15m/s减到10m/s，牵引力变为原来的几倍？',opts:['1.2','1.5','2','3'],ans:1,explain:'<code>P=Fv</code>，P一定，F与v成反比。速度比15:10=3:2，牵引力比为2:3的反比即3:2=1.5倍。'},
+    {text:'用撬棍撬起石头，阻力400N，阻力臂10cm，动力臂40cm。动力=？N',opts:['50','100','150','200'],ans:1,explain:'<code>F₁×40=400×10</code>，F₁=4000/40=100N。动力臂是阻力臂4倍，省力4倍。'},
+    {text:'物体在5N拉力作用下沿斜面匀速上滑，斜面高2m长5m，物体重10N。有用功=？J',opts:['10','20','25','50'],ans:1,explain:'有用功是克服重力做功：<code>W有=Gh=10×2=20J</code>。总功=Fs=5×5=25J。'}
+  ]
+};
+
+/* ====== DIAGRAMS (SVG) ====== */
+const DIAGRAMS={
+  lever1:`<svg viewBox="0 0 400 140"><rect x="20" y="100" width="360" height="6" fill="#9d00ff" rx="3"/><polygon points="195,106 205,106 200,130" fill="#ff00ff"/><text x="200" y="128" text-anchor="middle" fill="#ff00ff" font-size="11">O</text><rect x="100" y="80" width="20" height="20" fill="#ffcc00" rx="2"/><rect x="120" y="80" width="20" height="20" fill="#ffcc00" rx="2"/><line x1="110" y1="80" x2="110" y2="40" stroke="#00ff88" stroke-width="2" stroke-dasharray="4,3"/><text x="110" y="35" text-anchor="middle" fill="#00ff88" font-size="11">L₁=3</text><rect x="260" y="80" width="20" height="20" fill="#ffcc00" rx="2"/><rect x="280" y="80" width="20" height="20" fill="#ffcc00" rx="2"/><rect x="300" y="80" width="20" height="20" fill="#ffcc00" rx="2"/><line x1="280" y1="80" x2="280" y2="40" stroke="#00ff88" stroke-width="2" stroke-dasharray="4,3"/><text x="280" y="35" text-anchor="middle" fill="#00ff88" font-size="11">L₂=2</text></svg>`,
+  lever2:`<svg viewBox="0 0 400 140"><rect x="50" y="100" width="300" height="6" fill="#9d00ff" rx="3"/><polygon points="195,106 205,106 200,130" fill="#ff00ff"/><text x="200" y="128" text-anchor="middle" fill="#ff00ff" font-size="11">O</text><circle cx="100" cy="90" r="12" fill="#ffcc00"/><line x1="100" y1="90" x2="100" y2="45" stroke="#00ff88" stroke-width="2" stroke-dasharray="4,3"/><text x="100" y="40" text-anchor="middle" fill="#00ff88" font-size="11">3格</text><text x="100" y="20" text-anchor="middle" fill="#f0e6ff" font-size="12">A</text><circle cx="300" cy="90" r="12" fill="#ffcc00"/><line x1="300" y1="90" x2="300" y2="45" stroke="#00ff88" stroke-width="2" stroke-dasharray="4,3"/><text x="300" y="40" text-anchor="middle" fill="#00ff88" font-size="11">2格</text><text x="300" y="20" text-anchor="middle" fill="#f0e6ff" font-size="12">B</text></svg>`,
+  lever3:`<svg viewBox="0 0 400 140"><rect x="50" y="100" width="300" height="6" fill="#9d00ff" rx="3"/><polygon points="145,106 155,106 150,130" fill="#ff00ff"/><text x="150" y="128" text-anchor="middle" fill="#ff00ff" font-size="11">O</text><circle cx="80" cy="90" r="14" fill="#ffcc00"/><text x="80" y="20" text-anchor="middle" fill="#f0e6ff" font-size="12">A (重物)</text><text x="300" y="20" text-anchor="middle" fill="#f0e6ff" font-size="12">B</text><line x1="300" y1="80" x2="300" y2="40" stroke="#00ff88" stroke-width="2"/><text x="300" y="35" text-anchor="middle" fill="#00ff88" font-size="11">↑ F</text></svg>`,
+  pulley1:`<svg viewBox="0 0 300 200"><rect x="10" y="5" width="280" height="6" fill="#666"/><circle cx="150" cy="40" r="20" fill="none" stroke="#9d00ff" stroke-width="3"/><circle cx="110" cy="100" r="20" fill="none" stroke="#ff00ff" stroke-width="3"/><line x1="150" y1="20" x2="150" y2="5" stroke="#9d00ff" stroke-width="3"/><path d="M150,60 L150,80 L110,80" stroke="#00ff88" stroke-width="3" fill="none"/><path d="M110,120 L110,140 L150,140 L150,160" stroke="#00ff88" stroke-width="3" fill="none"/><text x="150" y="175" text-anchor="middle" fill="#f0e6ff" font-size="12">重物</text><text x="40" y="140" text-anchor="middle" fill="#ffcc00" font-size="12">F</text><circle cx="30" cy="155" r="4" fill="#ffcc00"/></svg>`,
+  pulley2:`<svg viewBox="0 0 300 200"><rect x="10" y="5" width="280" height="6" fill="#666"/><circle cx="150" cy="40" r="20" fill="none" stroke="#9d00ff" stroke-width="3"/><circle cx="110" cy="100" r="20" fill="none" stroke="#ff00ff" stroke-width="3"/><circle cx="190" cy="100" r="20" fill="none" stroke="#ff00ff" stroke-width="3"/><line x1="150" y1="20" x2="150" y2="5" stroke="#9d00ff" stroke-width="3"/><path d="M150,60 L150,80 L110,80" stroke="#00ff88" stroke-width="3" fill="none"/><path d="M110,120 L110,140 L190,140 L190,120" stroke="#00ff88" stroke-width="3" fill="none"/><path d="M190,100 L190,160" stroke="#00ff88" stroke-width="3" fill="none"/><text x="190" y="175" text-anchor="middle" fill="#f0e6ff" font-size="12">重物</text></svg>`,
+  pulley3:`<svg viewBox="0 0 300 200"><rect x="10" y="5" width="280" height="6" fill="#666"/><circle cx="120" cy="40" r="20" fill="none" stroke="#9d00ff" stroke-width="3"/><circle cx="120" cy="110" r="20" fill="none" stroke="#ff00ff" stroke-width="3"/><circle cx="180" cy="110" r="20" fill="none" stroke="#ff00ff" stroke-width="3"/><path d="M120,20 L120,5" stroke="#9d00ff" stroke-width="3"/><path d="M120,60 L120,90" stroke="#00ff88" stroke-width="3" fill="none"/><path d="M120,130 L120,160 L180,160 L180,130" stroke="#00ff88" stroke-width="3" fill="none"/><path d="M180,110 L180,170" stroke="#00ff88" stroke-width="3" fill="none"/><text x="180" y="185" text-anchor="middle" fill="#f0e6ff" font-size="12">重物</text><text x="260" y="40" fill="#ffcc00" font-size="12">从动滑轮绕</text></svg>`,
+  pendulum:`<svg viewBox="0 0 300 200"><line x1="150" y1="0" x2="150" y2="10" stroke="#666" stroke-width="4"/><circle cx="150" cy="10" r="4" fill="#ff00ff"/><text x="150" y="8" text-anchor="middle" fill="#ff00ff" font-size="10">O</text><line x1="150" y1="10" x2="80" y2="150" stroke="#9d00ff" stroke-width="2"/><circle cx="80" cy="150" r="12" fill="#ffcc00"/><text x="80" y="175" text-anchor="middle" fill="#f0e6ff" font-size="12">A</text><line x1="150" y1="10" x2="150" y2="160" stroke="#9d00ff" stroke-width="2" opacity="0.4" stroke-dasharray="4,3"/><circle cx="150" cy="160" r="12" fill="#ffcc00" opacity="0.4"/><text x="150" y="185" text-anchor="middle" fill="#f0e6ff" font-size="12" opacity="0.6">B</text><path d="M80,150 Q115,105 150,160" stroke="#00ff88" stroke-width="1" fill="none" stroke-dasharray="4,3"/><text x="100" y="115" fill="#00ff88" font-size="10">↓</text></svg>`,
+  spring:`<svg viewBox="0 0 300 140"><rect x="10" y="5" width="280" height="6" fill="#666"/><rect x="130" y="11" width="40" height="30" fill="#9d00ff" opacity="0.3" rx="3"/><text x="150" y="30" text-anchor="middle" fill="#f0e6ff" font-size="11">挡板</text><path d="M150,40 L150,50 L140,55 L160,60 L140,65 L160,70 L150,75" stroke="#ff00ff" stroke-width="3" fill="none"/><rect x="130" y="75" width="40" height="15" fill="#ff00ff" opacity="0.3" rx="3"/><text x="150" y="86" text-anchor="middle" fill="#f0e6ff" font-size="11">小球</text><text x="190" y="60" fill="#00ff88" font-size="12">压缩</text><line x1="150" y1="100" x2="150" y2="130" stroke="#00ff88" stroke-width="2" stroke-dasharray="4,3"/><text x="150" y="138" text-anchor="middle" fill="#00ff88" font-size="11">光滑水平面</text></svg>`
+};
+
+/* ====== CORE FUNCTIONS ====== */
+function startGame(){
+  STATE.gameStarted=true;STATE.score=0;STATE.lives=3;STATE.combo=0;
+  STATE.stageScores=[0,0,0,0,0];STATE.completed=[false,false,false,false,false];
+  STATE.unlocked=[true,false,false,false,false];STATE.stage=1;STATE.question=0;
+  updateStats();loadStage(1);
+}
+
+function loadStage(n){
+  STATE.stage=n;STATE.question=0;STATE.answered=false;
+  updateNav();updateStats();
+  if(n===5){STATE.timeLeft=60;STATE.totalTime=60;startTimer();}
+  else{stopTimer();document.getElementById('timerArea').style.display='none';}
+  showQuestion();
+}
+
+function showQuestion(){
+  const qs=QB[STATE.stage];
+  if(STATE.question>=qs.length){
+    finishStage();return;
+  }
+  const q=qs[STATE.question];
+  let html='<div class="question-box">';
+  html+='<div class="question-number">'+STAGE_IDS[STATE.stage-1]+' · 第 '+(STATE.question+1)+'/'+qs.length+' 题</div>';
+  html+='<div class="question-text">'+q.text+'</div>';
+  if(q.diagram && DIAGRAMS[q.diagram]) html+='<div class="diagram">'+DIAGRAMS[q.diagram]+'</div>';
+  html+='<div class="options">';
+  q.opts.forEach((opt,i)=>{
+    html+='<button class="opt-btn" onclick="answer('+i+')" id="opt'+i+'"><span class="opt-label">'+'ABCD'[i]+'</span><span>'+opt+'</span></button>';
+  });
+  html+='</div>';
+  html+='<div class="action-row">';
+  html+='<div class="btn secondary" onclick="showPrinciple()">🔬 查看实验原理</div>';
+  html+='</div>';
+  html+='</div>';
+  document.getElementById('gameArea').innerHTML=html;
+  document.getElementById('hintBox').className='hint-box';
+  document.getElementById('hintBox').innerHTML='';
+}
+
+function answer(idx){
+  if(STATE.answered) return;
+  STATE.answered=true;
+  const q=QB[STATE.stage][STATE.question];
+  const opts=document.querySelectorAll('.opt-btn');
+  opts.forEach((btn,i)=>{btn.disabled=true;});
+  if(idx===q.ans){
+    opts[idx].classList.add('correct');
+    STATE.combo++;
+    let pts=10+Math.min(STATE.combo,5)*2;
+    if(STATE.stage===5) pts=pts*2; // final stage double
+    STATE.score+=pts;STATE.stageScores[STATE.stage-1]+=pts;
+    showHint('✅ 正确！'+q.explain,'info');
+    document.getElementById('comboDisplay').classList.add('active');
+    setTimeout(()=>document.getElementById('comboDisplay').classList.remove('active'),600);
+  }else{
+    opts[idx].classList.add('wrong');
+    opts[q.ans].classList.add('correct');
+    STATE.combo=0;STATE.lives--;
+    showHint('❌ 错误。'+q.explain+'<br><br>损失1点生命值！','error');
+    if(STATE.lives<=0){gameOver();return;}
+  }
+  updateStats();
+  setTimeout(()=>{
+    STATE.question++;
+    STATE.answered=false;
+    showQuestion();
+  },1800);
+}
+
+function showHint(html,cls){
+  const box=document.getElementById('hintBox');
+  box.className='hint-box '+cls+' show';
+  box.innerHTML=html;
+}
+
+function showPrinciple(){
+  const q=QB[STATE.stage][STATE.question];
+  openModal('实验原理',q.explain);
+}
+
+function finishStage(){
+  stopTimer();
+  STATE.completed[STATE.stage-1]=true;
+  if(STATE.stage<5) STATE.unlocked[STATE.stage]=true;
+  let html='<div class="result-screen">';
+  html+='<div class="result-title">关卡完成！</div>';
+  html+='<div class="result-rank">🏆</div>';
+  html+='<div class="result-details">';
+  html+='关卡：'+STAGE_NAMES[STATE.stage-1]+'<br>';
+  html+='得分：'+STATE.stageScores[STATE.stage-1]+'<br>';
+  html+='总得分：'+STATE.score+'<br>';
+  html+='剩余生命：'+'❤️'.repeat(STATE.lives)+'<br>';
+  html+='</div>';
+  if(STATE.stage===5){
+    const rank=STATE.score>=280?'S':STATE.score>=220?'A':STATE.score>=160?'B':'C';
+    html+='<div style="font-size:20px;margin:8px 0;">综合评级：<span style="color:var(--accent);font-size:28px;">'+rank+'</span></div>';
+    if(rank==='S'||rank==='A'){
+      html+='<div class="badge-showcase">🏅 「机械大师」徽章</div>';
+    }
+    html+='<div style="margin-top:16px;"><div class="btn" onclick="startGame()">再来一次</div></div>';
+  }else{
+    html+='<div style="margin-top:16px;"><div class="btn" onclick="nextStage()">下一关</div></div>';
+  }
+  html+='</div>';
+  document.getElementById('gameArea').innerHTML=html;
+  updateNav();updateStats();
+}
+
+function nextStage(){STATE.stage++;STATE.question=0;loadStage(STATE.stage);}
+
+function gameOver(){
+  stopTimer();
+  let html='<div class="result-screen">';
+  html+='<div class="result-title" style="color:var(--bad);">实验失败</div>';
+  html+='<div class="result-rank">💔</div>';
+  html+='<div class="result-details">生命值耗尽<br>最终得分：'+STATE.score+'<br>到达关卡：'+STAGE_NAMES[STATE.stage-1]+' 第'+STATE.question+'题</div>';
+  html+='<div style="margin-top:16px;"><div class="btn" onclick="startGame()">重新开始</div></div>';
+  html+='</div>';
+  document.getElementById('gameArea').innerHTML=html;
+}
+
+/* ====== TIMER ====== */
+function startTimer(){
+  stopTimer();
+  document.getElementById('timerArea').style.display='block';
+  STATE.timeLeft=STATE.totalTime;
+  updateTimerDisplay();
+  STATE.timer=setInterval(()=>{
+    STATE.timeLeft--;
+    updateTimerDisplay();
+    if(STATE.timeLeft<=0){stopTimer();timeUp();}
+  },1000);
+}
+function stopTimer(){if(STATE.timer){clearInterval(STATE.timer);STATE.timer=null;}}
+function updateTimerDisplay(){
+  const pct=(STATE.timeLeft/STATE.totalTime)*100;
+  document.getElementById('timerFill').style.width=pct+'%';
+  document.getElementById('timerText').textContent='剩余 '+STATE.timeLeft+' 秒';
+  if(pct<30) document.getElementById('timerFill').style.background='linear-gradient(90deg,#ff3366,#ff00ff)';
+  else document.getElementById('timerFill').style.background='linear-gradient(90deg,#9d00ff,#ff00ff)';
+}
+function timeUp(){
+  showHint('⏰ 时间到！终极实验结束。','error');
+  setTimeout(finishStage,1000);
+}
+
+/* ====== NAV & UI ====== */
+function updateNav(){
+  const btns=document.querySelectorAll('.stage-btn');
+  btns.forEach((btn,i)=>{
+    btn.className='stage-btn';
+    if(!STATE.unlocked[i]) btn.classList.add('locked');
+    if(STATE.completed[i]) btn.classList.add('completed');
+    if(STATE.stage===i+1) btn.classList.add('active');
+    if(STATE.unlocked[i]) btn.onclick=()=>loadStage(i+1);
+  });
+}
+
+function updateStats(){
+  document.getElementById('livesBar').textContent='❤️'.repeat(STATE.lives)+'🖤'.repeat(STATE.maxLives-STATE.lives);
+  document.getElementById('scoreDisplay').textContent=STATE.score;
+  document.getElementById('comboDisplay').textContent='连击: '+STATE.combo;
+  document.getElementById('stageInfo').textContent=STATE.gameStarted?STAGE_NAMES[STATE.stage-1]+' · 第'+(STATE.question+1)+'题':'准备就绪';
+}
+
+/* ====== MODAL ====== */
+function openModal(title,body){
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalBody').innerHTML=body;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show');}
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target.id==='modalOverlay') closeModal();});
+
+/* ====== BOTTOM NAV ====== */
+function goHome(){
+  let html='<div class="result-screen">';
+  html+='<div class="title" style="font-size:24px;">机械工程实验室</div>';
+  html+='<p style="margin-top:16px;color:var(--text2);font-size:14px;line-height:1.8;">';
+  html+='代号：MECH<br>部门：机械工程实验室<br>';
+  html+='进度：'+STATE.completed.filter(Boolean).length+'/5 关卡<br>';
+  html+='徽章：'+(STATE.completed[4]&&STATE.score>=220?'🏅 机械大师':'未获得')+'<br>';
+  html+='</p>';
+  if(STATE.gameStarted) html+='<div style="margin-top:16px;"><div class="btn" onclick="loadStage('+STATE.stage+')">继续实验</div></div>';
+  else html+='<div style="margin-top:16px;"><div class="btn" onclick="startGame()">开始实验</div></div>';
+  html+='</div>';
+  document.getElementById('gameArea').innerHTML=html;
+}
+
+function showStages(){
+  let html='<div style="padding:10px;">';
+  html+='<div style="font-size:18px;font-weight:bold;margin-bottom:16px;color:var(--accent);">实验关卡</div>';
+  STAGE_NAMES.forEach((name,i)=>{
+    const status=STATE.completed[i]?'✅ 已完成':STATE.unlocked[i]?'🔓 可进入':'🔒 锁定';
+    const score=STATE.stageScores[i]||0;
+    html+='<div style="background:var(--panel2);border:1px solid var(--purple);border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer;" onclick="'+(STATE.unlocked[i]?`loadStage(${i+1})`:'')+'">';
+    html+='<div style="font-weight:bold;">Stage '+(i+1)+': '+name+'</div>';
+    html+='<div style="font-size:12px;color:var(--text2);margin-top:4px;">'+status+' · 得分: '+score+'</div>';
+    html+='</div>';
+  });
+  html+='</div>';
+  document.getElementById('gameArea').innerHTML=html;
+}
+
+function showAbout(){
+  openModal('核心知识卡片',`
+    <p><b>1. 杠杆平衡条件</b></p>
+    <p><code>F₁L₁ = F₂L₂</code></p>
+    <p>省力杠杆：动力臂 > 阻力臂（省力费距离）</p>
+    <p>费力杠杆：动力臂 < 阻力臂（省距离费力）</p>
+    <p>等臂杠杆：动力臂 = 阻力臂（不省力不费力）</p>
+    <br>
+    <p><b>2. 滑轮组</b></p>
+    <p>省力倍数 = 承担物重的绳子段数 n</p>
+    <p><code>F = (G物 + G动)/n</code></p>
+    <p><code>s = n·h</code>（绳端移动距离）</p>
+    <br>
+    <p><b>3. 功与功率</b></p>
+    <p><code>W = Fs</code>（力 × 力的方向位移）</p>
+    <p><code>P = W/t</code>（功率 = 功/时间）</p>
+    <p><code>P = Fv</code>（功率 = 牵引力 × 速度）</p>
+    <p>做功条件：有力 + 在力方向有位移</p>
+    <br>
+    <p><b>4. 机械能</b></p>
+    <p><code>Eₖ = ½mv²</code>（动能）</p>
+    <p><code>Eₚ = mgh</code>（重力势能）</p>
+    <p>机械能守恒：只有重力/弹力做功时，Eₖ+Eₚ=常量</p>
+  `);
+}
+
+function showRank(){
+  const rank=STATE.score>=280?'S':STATE.score>=220?'A':STATE.score>=160?'B':STATE.score>=100?'C':'D';
+  let html='<div class="result-screen">';
+  html+='<div class="result-title">成就中心</div>';
+  html+='<div style="font-size:14px;color:var(--text2);margin:12px 0;">当前总分: <span style="color:var(--accent);font-size:20px;font-weight:bold;">'+STATE.score+'</span></div>';
+  html+='<div style="font-size:14px;color:var(--text2);margin-bottom:12px;">综合评级: <span style="color:var(--accent);font-size:24px;font-weight:bold;">'+rank+'</span></div>';
+  const badges=[];
+  if(STATE.completed[0]) badges.push('🔧 杠杆学者');
+  if(STATE.completed[1]) badges.push('🏗️ 滑轮技师');
+  if(STATE.completed[2]) badges.push('⚡ 功功率专家');
+  if(STATE.completed[3]) badges.push('🌊 能量守恒者');
+  if(STATE.completed[4]&&STATE.score>=220) badges.push('🏅 机械大师');
+  if(badges.length===0) badges.push('暂无徽章，完成关卡获得！');
+  html+='<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0;">';
+  badges.forEach(b=>html+='<div style="background:var(--panel2);border:1px solid var(--purple);border-radius:16px;padding:6px 14px;font-size:13px;">'+b+'</div>');
+  html+='</div>';
+  html+='<div style="margin-top:10px;font-size:12px;color:var(--text2);">评级标准: S≥280 A≥220 B≥160 C≥100</div>';
+  html+='</div>';
+  document.getElementById('gameArea').innerHTML=html;
+}
+
+/* ====== INIT ====== */
+updateNav();updateStats();
+</script>
+</body>
+</html>
