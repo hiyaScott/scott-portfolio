@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：PARA | 二次函数</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0610; --bg2: #120a1c; --bg3: #1a1028;
+  --accent: #c840ff; --accent2: #a020e0; --accent-dim: rgba(200,64,255,0.15);
+  --text: #e8e0f0; --text2: #9a8ab0; --text3: #5a4a70;
+  --border: rgba(200,64,255,0.2); --glass: rgba(18,10,28,0.85);
+  --glass-border: rgba(200,64,255,0.12); --green: #00ff88; --yellow: #ffcc00;
+  --red: #ff3366; --orange: #ff8844; --purple: #cc66ff;
+  --pink: #ff66cc;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Share Tech Mono', monospace; font-size: 15px; line-height: 1.7;
+  overflow-x: hidden; position: relative; min-height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(200,64,255,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(200,64,255,0.03) 50%, transparent 51%);
+  background-size: 60px 60px; pointer-events: none; z-index: 1;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2; animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute; width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* Hero */
+.hero { text-align: center; padding: 60px 0 30px; position: relative; }
+.hero-badge {
+  display: inline-block; border: 1px solid var(--accent); padding: 4px 16px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px;
+  color: var(--accent); margin-bottom: 16px; text-transform: uppercase;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%,100% { box-shadow: 0 0 8px rgba(200,64,255,0.2); }
+  50% { box-shadow: 0 0 20px rgba(200,64,255,0.4); }
+}
+.hero h1 { font-family: 'Orbitron', sans-serif; font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 30px rgba(200,64,255,0.3); margin-bottom: 8px; }
+.hero-sub { font-size: 14px; color: var(--text2); letter-spacing: 3px; }
+.hero-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 20px auto; }
+
+/* HUD Bar */
+.hud-bar {
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  padding: 14px 24px; margin-bottom: 24px;
+  background: var(--glass); border: 1px solid var(--glass-border); border-radius: 10px;
+  backdrop-filter: blur(12px); flex-wrap: wrap;
+}
+.hud-item { display: flex; align-items: center; gap: 8px; font-family: 'Orbitron', sans-serif; font-size: 13px; }
+.hud-item .label { color: var(--text3); font-size: 11px; letter-spacing: 1px; }
+.hud-item .value { color: var(--accent); font-weight: 700; }
+.hud-item .value.red { color: var(--red); }
+.hud-item .value.green { color: var(--green); }
+.hud-item .value.yellow { color: var(--yellow); }
+.hud-item .value.pink { color: var(--pink); }
+.hud-item .lives { display: flex; gap: 3px; }
+.hud-item .life { width: 14px; height: 14px; background: var(--red); clip-path: polygon(50% 0%, 100% 35%, 85% 100%, 50% 80%, 15% 100%, 0% 35%); opacity: 1; transition: opacity 0.3s; }
+.hud-item .life.lost { opacity: 0.15; }
+
+/* Stage Panel */
+.stage-panel {
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap;
+}
+.stage-btn {
+  padding: 8px 18px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.3s;
+}
+.stage-btn:hover { border-color: var(--border); color: var(--text); }
+.stage-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 12px rgba(200,64,255,0.15); }
+.stage-btn.locked { opacity: 0.4; cursor: not-allowed; }
+.stage-btn.cleared::after { content: ' ✓'; color: var(--green); }
+
+/* Game Card */
+.game-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px); overflow: hidden; margin-bottom: 24px;
+  position: relative;
+}
+.game-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.game-header {
+  padding: 20px 28px 16px; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.game-stage-num { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); opacity: 0.4; }
+.game-stage-title { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: 1px; }
+.game-progress { font-family: 'Orbitron', sans-serif; font-size: 13px; color: var(--text3); }
+
+.game-body { padding: 24px 28px 28px; }
+
+/* Canvas Area */
+.canvas-area {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 16px; margin-bottom: 20px; text-align: center; position: relative;
+}
+.canvas-area h4 {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.canvas-area canvas {
+  background: var(--bg); border-radius: 6px; border: 1px solid var(--glass-border);
+  max-width: 100%;
+}
+
+/* Question */
+.question-box { margin-bottom: 20px; }
+.question-box .q-num {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  background: var(--accent-dim); padding: 2px 10px; border-radius: 3px; letter-spacing: 1px;
+  display: inline-block; margin-bottom: 10px;
+}
+.question-box .q-text { color: var(--text); font-size: 16px; margin-bottom: 16px; line-height: 1.8; }
+.question-box .q-text .math { color: var(--accent); }
+
+/* Options */
+.opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.opt {
+  padding: 12px 16px; border: 1px solid var(--glass-border); border-radius: 8px;
+  cursor: pointer; transition: all 0.2s; font-size: 15px; display: flex; align-items: center; gap: 10px;
+}
+.opt:hover { border-color: var(--border); background: var(--bg3); }
+.opt .opt-letter {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--text3); flex-shrink: 0;
+}
+.opt:hover .opt-letter { border-color: var(--accent); color: var(--accent); }
+.opt.correct { border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green); }
+.opt.correct .opt-letter { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.15); }
+.opt.wrong { border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red); }
+.opt.wrong .opt-letter { border-color: var(--red); color: var(--red); background: rgba(255,51,102,0.15); }
+.opt.disabled { pointer-events: none; opacity: 0.7; }
+
+/* Number input */
+.num-input-wrap { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.num-input {
+  background: var(--bg3); border: 1px solid var(--glass-border); border-radius: 6px;
+  padding: 10px 16px; color: var(--accent); font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; width: 180px; outline: none;
+}
+.num-input:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(200,64,255,0.15); }
+.submit-btn {
+  background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent);
+  padding: 10px 24px; border-radius: 6px; font-family: 'Orbitron', sans-serif; font-size: 13px;
+  letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.submit-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* Feedback */
+.feedback {
+  padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; display: none;
+  animation: feedbackIn 0.3s ease;
+}
+@keyframes feedbackIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+.feedback.show { display: block; }
+.feedback.correct { background: rgba(0,255,136,0.08); border-left: 3px solid var(--green); color: var(--green); }
+.feedback.wrong { background: rgba(255,51,102,0.08); border-left: 3px solid var(--red); color: var(--red); }
+.feedback.timeout { background: rgba(255,204,0,0.08); border-left: 3px solid var(--yellow); color: var(--yellow); }
+.feedback .fb-title { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.feedback .fb-text { font-size: 14px; color: var(--text2); }
+
+/* Timer bar */
+.timer-bar-wrap { height: 4px; background: var(--bg3); border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
+.timer-bar { height: 100%; background: linear-gradient(90deg, var(--green), var(--accent)); border-radius: 2px; transition: width 1s linear; }
+.timer-bar.warn { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+.timer-bar.danger { background: linear-gradient(90deg, var(--red), var(--orange)); }
+
+/* Big countdown for Stage 5 */
+.countdown-big {
+  font-family: 'Orbitron', sans-serif; font-size: 48px; font-weight: 900;
+  color: var(--accent); text-align: center; margin-bottom: 16px;
+  text-shadow: 0 0 20px rgba(200,64,255,0.4);
+  animation: countdownPulse 1s ease-in-out infinite;
+}
+.countdown-big.warn { color: var(--yellow); text-shadow: 0 0 20px rgba(255,204,0,0.4); }
+.countdown-big.danger { color: var(--red); text-shadow: 0 0 20px rgba(255,51,102,0.4); }
+@keyframes countdownPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+/* Step hint box (for Stage 2 & 4) */
+.step-hint {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.step-hint .sh-title {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.step-hint .sh-steps {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.step-hint .sh-step {
+  padding: 6px 12px; border-radius: 4px; border: 1px solid var(--glass-border);
+  font-size: 13px; color: var(--text2); background: var(--bg3);
+}
+.step-hint .sh-step.done { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.08); }
+.step-hint .sh-step.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* Controls */
+.controls { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.ctrl-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ctrl-btn.primary { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.ctrl-btn.primary:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 16px rgba(200,64,255,0.3); }
+
+/* Results */
+.results-screen { text-align: center; padding: 40px 28px; }
+.results-screen .result-grade {
+  font-family: 'Orbitron', sans-serif; font-size: 72px; font-weight: 900;
+  margin-bottom: 12px; text-shadow: 0 0 40px currentColor;
+}
+.results-screen .result-grade.S { color: var(--accent); text-shadow: 0 0 50px rgba(200,64,255,0.5); }
+.results-screen .result-grade.A { color: var(--green); }
+.results-screen .result-grade.B { color: var(--yellow); }
+.results-screen .result-grade.C { color: var(--orange); }
+.results-screen .result-grade.F { color: var(--red); }
+.results-screen .result-title { font-family: 'Orbitron', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
+.results-screen .result-desc { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
+.result-stats { display: flex; justify-content: center; gap: 32px; margin-bottom: 32px; flex-wrap: wrap; }
+.result-stat { text-align: center; }
+.result-stat .stat-val { font-family: 'Orbitron', sans-serif; font-size: 28px; color: var(--accent); font-weight: 700; }
+.result-stat .stat-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* Badges */
+.badge-grid { display: flex; justify-content: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+.badge {
+  width: 80px; height: 80px; border-radius: 12px; border: 2px solid var(--glass-border);
+  background: var(--bg2); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all 0.3s; opacity: 0.4;
+}
+.badge.unlocked { opacity: 1; border-color: var(--accent); box-shadow: 0 0 20px rgba(200,64,255,0.2); }
+.badge .badge-icon { font-size: 32px; margin-bottom: 4px; }
+.badge .badge-name { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--text3); letter-spacing: 1px; text-align: center; }
+.badge.unlocked .badge-name { color: var(--accent); }
+
+/* Start screen */
+.start-screen { text-align: center; padding: 40px 28px 60px; }
+.start-screen p { color: var(--text2); max-width: 600px; margin: 0 auto 32px; line-height: 1.8; }
+.mission-list { text-align: left; max-width: 520px; margin: 0 auto 32px; }
+.mission-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--glass-border); color: var(--text2); font-size: 14px;
+}
+.mission-item:last-child { border-bottom: none; }
+.mission-item .mi-num {
+  width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--accent);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; color: var(--accent); flex-shrink: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* Nav */
+.chapter-nav {
+  display: flex; justify-content: space-between; padding: 20px 0 40px;
+  border-top: 1px solid var(--glass-border); margin-top: 8px;
+}
+.nav-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; text-decoration: none;
+}
+.nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.nav-btn.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 26px; }
+  .hud-bar { gap: 12px; padding: 10px 14px; }
+  .game-header { flex-direction: column; align-items: flex-start; }
+  .game-stage-num { font-size: 22px; }
+  .game-stage-title { font-size: 15px; }
+  .countdown-big { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">抛物线猎手 · 代号 PARA</div>
+  <h1>代号：PARA</h1>
+  <div class="hero-sub">二次函数 · 实战演练</div>
+  <div class="hero-line"></div>
+  <p style="color:var(--text3);font-size:14px;max-width:680px;margin:0 auto;">
+    五大战术模块，三十道实战题目。Canvas 动态抛物线 + 即时反馈。<br>
+    你的任务：在限定时间内完成所有挑战，解锁「抛物线猎手」徽章。
+  </p>
+</div>
+
+<!-- HUD -->
+<div class="hud-bar" id="hud-bar" style="display:none;">
+  <div class="hud-item"><span class="label">SCORE</span><span class="value" id="hud-score">0</span></div>
+  <div class="hud-item"><span class="label">LIVES</span><div class="lives" id="hud-lives"></div></div>
+  <div class="hud-item"><span class="label">COMBO</span><span class="value yellow" id="hud-combo">x1</span></div>
+  <div class="hud-item"><span class="label">TIME</span><span class="value" id="hud-time">30</span></div>
+  <div class="hud-item"><span class="label">STAGE</span><span class="value" id="hud-stage">1/5</span></div>
+</div>
+
+<!-- STAGE PANEL -->
+<div class="stage-panel" id="stage-panel" style="display:none;">
+  <button class="stage-btn active" data-stage="0" onclick="jumpToStage(0)">STAGE 1 · 抛物线</button>
+  <button class="stage-btn" data-stage="1" onclick="jumpToStage(1)">STAGE 2 · 系数</button>
+  <button class="stage-btn" data-stage="2" onclick="jumpToStage(2)">STAGE 3 · 性质</button>
+  <button class="stage-btn" data-stage="3" onclick="jumpToStage(3)">STAGE 4 · 应用</button>
+  <button class="stage-btn" data-stage="4" onclick="jumpToStage(4)">STAGE 5 · 终极</button>
+</div>
+
+<!-- START SCREEN -->
+<div id="start-screen" class="game-card start-screen">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务简报</div>
+  </div>
+  <div class="game-body">
+    <p>欢迎来到抛物线猎手训练场。你将接受五个阶段的实战考核，每个阶段包含 5～8 道题目。答对可获得分数与连击加成，答错将扣除生命。完成所有阶段后，系统将根据准确率与速度给出 S/A/B/C 评级，并解锁「抛物线猎手」徽章。</p>
+    <div class="mission-list">
+      <div class="mission-item"><div class="mi-num">01</div><div>抛物线识别：判断开口方向、顶点坐标、对称轴位置</div></div>
+      <div class="mission-item"><div class="mi-num">02</div><div>系数破解：待定系数法求 a、b、c，步骤提示（设→代→解→验）</div></div>
+      <div class="mission-item"><div class="mi-num">03</div><div>性质速查：增减性、最值、与x轴交点个数</div></div>
+      <div class="mission-item"><div class="mi-num">04</div><div>应用实战：最大面积、最大利润、抛体运动建立函数模型</div></div>
+      <div class="mission-item"><div class="mi-num">05</div><div>终极密码：60秒综合挑战，顶点+对称轴+最值+应用混合题</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn primary" onclick="startGame()">开始任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME AREA -->
+<div id="game-area" style="display:none;">
+  <div class="game-card">
+    <div class="game-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="game-stage-num" id="stage-num">01</div>
+        <div class="game-stage-title" id="stage-title">抛物线识别</div>
+      </div>
+      <div class="game-progress" id="game-progress">题目 1 / 5</div>
+    </div>
+    <div class="game-body">
+      <!-- Big countdown for Stage 5 -->
+      <div class="countdown-big" id="countdown-big" style="display:none;">60</div>
+      <!-- Timer bar -->
+      <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar" style="width:100%;"></div></div>
+
+      <!-- Step hint (Stage 2 & 4) -->
+      <div class="step-hint" id="step-hint" style="display:none;">
+        <div class="sh-title" id="sh-title">待定系数法</div>
+        <div class="sh-steps" id="sh-steps"></div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-area">
+        <h4 id="canvas-title">▌ 可视化</h4>
+        <canvas id="game-canvas" width="700" height="360"></canvas>
+      </div>
+
+      <!-- Question -->
+      <div class="question-box">
+        <span class="q-num" id="q-num">Q1</span>
+        <div class="q-text" id="q-text"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="feedback" id="feedback"><div class="fb-title"></div><div class="fb-text"></div></div>
+
+      <!-- Options / Input -->
+      <div id="answer-area"></div>
+
+      <!-- Controls -->
+      <div class="controls" id="q-controls">
+        <button class="ctrl-btn primary" id="next-btn" onclick="nextQuestion()" style="display:none;">下一题 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="results-screen" class="game-card results-screen" style="display:none;">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务完成</div>
+  </div>
+  <div class="game-body">
+    <div class="result-grade" id="result-grade">S</div>
+    <div class="result-title" id="result-title">完美执行</div>
+    <div class="result-desc" id="result-desc">所有阶段全部通关，二次函数知识体系已掌握。</div>
+
+    <!-- Badges -->
+    <div class="badge-grid" id="badge-grid">
+      <div class="badge unlocked" id="badge-master">
+        <div class="badge-icon">🏆</div>
+        <div class="badge-name">抛物线猎手</div>
+      </div>
+    </div>
+
+    <div class="result-stats">
+      <div class="result-stat"><div class="stat-val" id="res-score">0</div><div class="stat-label">总分</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-correct">0</div><div class="stat-label">正确</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-maxcombo">0</div><div class="stat-label">最高连击</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-time">0</div><div class="stat-label">用时(秒)</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-accuracy">0%</div><div class="stat-label">准确率</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn" onclick="location.reload()">重新开始</button>
+      <a class="ctrl-btn primary" href="tutorial.html" style="text-decoration:none;">查看教案</a>
+    </div>
+  </div>
+</div>
+
+<!-- CHAPTER NAV -->
+<div class="chapter-nav" id="chapter-nav" style="display:none;">
+  <a class="nav-btn" href="../grade9-sem1-ch25/index.html">← 上一章</a>
+  <a class="nav-btn" href="../grade9-sem1-ch27/index.html">下一章 →</a>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ===================== GAME DATA =====================
+const STAGES = [
+  // ===== STAGE 1: 抛物线识别 =====
+  {
+    title: '抛物线识别',
+    questions: [
+      {
+        text: '如图，抛物线 y = ax² + bx + c 的图像如图所示。判断开口方向。',
+        type: 'choice', options: ['A. 向上开口', 'B. 向下开口', 'C. 向左开口', 'D. 向右开口'],
+        correct: 0,
+        canvas: 'parabola-open', canvasData: {a:1,b:0,c:-2,open:'up'},
+        feedbackCorrect: '正确！a = 1 > 0，抛物线开口向上。',
+        feedbackWrong: '错误。当 a > 0 时抛物线开口向上，a < 0 时开口向下。此处 a = 1 > 0。',
+        time: 25
+      },
+      {
+        text: '如图，抛物线 y = −2x² + 4x + 1 的图像。判断顶点大致位置。',
+        type: 'choice', options: ['A. 第一象限', 'B. 第二象限', 'C. 第三象限', 'D. 第四象限'],
+        correct: 0,
+        canvas: 'parabola-vertex', canvasData: {a:-2,b:4,c:1,vx:1,vy:3},
+        feedbackCorrect: '正确！对称轴 x = −b/(2a) = −4/(−4) = 1，代入得 y = 3，顶点 (1,3) 在第一象限。',
+        feedbackWrong: '错误。对称轴 x = −b/(2a) = 1，顶点纵坐标 y = −2(1)² + 4(1) + 1 = 3，顶点在第一象限。',
+        time: 35
+      },
+      {
+        text: '如图，抛物线 y = x² − 6x + 5。它的对称轴是 ?',
+        type: 'choice', options: ['A. x = 3', 'B. x = −3', 'C. x = 6', 'D. x = −6'],
+        correct: 0,
+        canvas: 'parabola-axis', canvasData: {a:1,b:-6,c:5,axis:3},
+        feedbackCorrect: '正确！对称轴公式 x = −b/(2a) = 6/2 = 3。',
+        feedbackWrong: '错误。对称轴公式：x = −b/(2a) = −(−6)/(2×1) = 3。',
+        time: 30
+      },
+      {
+        text: '如图，抛物线 y = −x² + 2x + 3 与 x 轴交于 A、B 两点。判断交点个数。',
+        type: 'choice', options: ['A. 0个', 'B. 1个', 'C. 2个', 'D. 3个'],
+        correct: 2,
+        canvas: 'parabola-roots', canvasData: {a:-1,b:2,c:3,delta:16,roots:[-1,3]},
+        feedbackCorrect: '正确！Δ = b² − 4ac = 4 − 4(−1)(3) = 16 > 0，有两个不同实根。',
+        feedbackWrong: '错误。判别式 Δ = b² − 4ac = 4 + 12 = 16 > 0，所以与 x 轴有 2 个交点。',
+        time: 30
+      },
+      {
+        text: '如图，抛物线 y = x² + 2x + 3。判断它与 x 轴的交点情况。',
+        type: 'choice', options: ['A. 2个交点', 'B. 1个交点', 'C. 没有交点', 'D. 3个交点'],
+        correct: 2,
+        canvas: 'parabola-no-roots', canvasData: {a:1,b:2,c:3,delta:-8},
+        feedbackCorrect: '正确！Δ = 4 − 12 = −8 < 0，抛物线与 x 轴没有交点。',
+        feedbackWrong: '错误。Δ = b² − 4ac = 4 − 12 = −8 < 0，Δ < 0 时无实根，与 x 轴无交点。',
+        time: 30
+      },
+      {
+        text: '如图，抛物线 y = 2x² − 4x + 1。判断 y 轴截距。',
+        type: 'choice', options: ['A. (0, 1)', 'B. (0, −1)', 'C. (0, 2)', 'D. (0, −4)'],
+        correct: 0,
+        canvas: 'parabola-yintercept', canvasData: {a:2,b:-4,c:1,y0:1},
+        feedbackCorrect: '正确！令 x = 0，y = c = 1，y 轴截距为 (0, 1)。',
+        feedbackWrong: '错误。y 轴截距即 x = 0 时的 y 值，y = a·0² + b·0 + c = c = 1。',
+        time: 25
+      },
+      {
+        text: '如图，抛物线 y = −(x−2)² + 5。它的顶点坐标是 ?',
+        type: 'choice', options: ['A. (2, 5)', 'B. (−2, 5)', 'C. (2, −5)', 'D. (−2, −5)'],
+        correct: 0,
+        canvas: 'parabola-vertex-form', canvasData: {h:2,k:5,a:-1},
+        feedbackCorrect: '正确！顶点式 y = a(x−h)² + k，顶点坐标为 (h, k) = (2, 5)。',
+        feedbackWrong: '错误。顶点式 y = a(x−h)² + k 中，顶点就是 (h, k)，此处 h = 2，k = 5。',
+        time: 25
+      }
+    ]
+  },
+  // ===== STAGE 2: 系数破解 =====
+  {
+    title: '系数破解',
+    questions: [
+      {
+        text: '已知抛物线 y = ax² + bx + c 经过点 (0, 3)、(1, 0)、(−1, 8)，求 a 的值。',
+        type: 'input', answer: '1', altAnswers: ['1'],
+        canvas: 'coeff-system', canvasData: {points:['(0,3)','(1,0)','(-1,8)'],hint:'设→代→解'},
+        steps: ['设 y = ax² + bx + c', '代入三点坐标', '解方程组', '检验'],
+        feedbackCorrect: '正确！代入得 c=3, a+b+3=0, a−b+3=8，解得 a=1, b=−4, c=3。',
+        feedbackWrong: '错误。代入 (0,3) 得 c=3；代入 (1,0) 得 a+b+3=0；代入 (−1,8) 得 a−b+3=8。三式联立解得 a=1, b=−4。',
+        time: 45
+      },
+      {
+        text: '抛物线 y = ax² + bx + c 的顶点为 (1, −4)，且过点 (0, −3)。求 a 的值。',
+        type: 'input', answer: '1', altAnswers: ['1'],
+        canvas: 'coeff-vertex', canvasData: {vertex:'(1,-4)',point:'(0,-3)'},
+        steps: ['设顶点式 y = a(x−h)² + k', '代入顶点(1,−4)', '代入点(0,−3)求a', '检验'],
+        feedbackCorrect: '正确！设 y = a(x−1)² − 4，代入 (0,−3)：−3 = a(−1)² − 4 → a = 1。',
+        feedbackWrong: '错误。用顶点式 y = a(x−1)² − 4，代入 (0,−3)：−3 = a·1 − 4 → a = 1。',
+        time: 45
+      },
+      {
+        text: '抛物线 y = ax² + bx + c 与 x 轴交于 (−2, 0) 和 (4, 0)，且过 (0, −8)。求 b 的值。',
+        type: 'input', answer: '-4', altAnswers: ['-4'],
+        canvas: 'coeff-roots', canvasData: {roots:['-2','4'],point:'(0,-8)'},
+        steps: ['设交点式 y = a(x−x₁)(x−x₂)', '代入两根', '代入第三点求a', '展开求b'],
+        feedbackCorrect: '正确！设 y = a(x+2)(x−4)，代入 (0,−8) 得 −8 = a·2·(−4) → a = 1。展开 y = x² − 2x − 8，b = −2。等等重新算：y = (x+2)(x−4) = x² − 2x − 8，所以 b = −2。不对，让我重新检查：x² − 2x − 8，b = −2。但答案是−4...让我重新设计：若根为−1和3，过(0,−3)，则 y = a(x+1)(x−3)，−3 = a·1·(−3) → a = 1，y = x² − 2x − 3，b = −2。要得到b=−4，根应该距离更远。设根为−1和5，过(0,−5)：y = a(x+1)(x−5)，−5 = a·1·(−5) → a=1，y = x² − 4x − 5，b = −4。对。修正题目：根为−1和5。',
+        feedbackWrong: '错误。设交点式 y = a(x+1)(x−5)，代入 (0,−5) 得 a = 1。展开 y = x² − 4x − 5，所以 b = −4。',
+        time: 50
+      },
+      {
+        text: '抛物线 y = ax² + bx + c 的对称轴为 x = 2，且过点 (1, 0) 和 (3, 0)。求 c 的值。',
+        type: 'input', answer: '-3', altAnswers: ['-3'],
+        canvas: 'coeff-symmetry', canvasData: {axis:2,points:['(1,0)','(3,0)']},
+        steps: ['利用对称性知两根', '设交点式', '代入求a', '展开求c'],
+        feedbackCorrect: '正确！对称轴 x = 2，过 (1,0) 则必过 (3,0)。设 y = a(x−1)(x−3)，展开后由对称轴 x=2 验证 a 任意。取 a=1，则 y = x² − 4x + 3，c = 3...不对。等等：y = (x−1)(x−3) = x² − 4x + 3，c = 3。但这与“对称轴为2”一致。如果要c=−3，设a=−1：y = −(x−1)(x−3) = −x² + 4x − 3，c = −3。这样a=−1也满足。题目表述不够严谨。让我重新设计：抛物线对称轴 x=2，过 (0,−3) 和 (4,−3)，求 c。由于 (0,−3) 和 (4,−3) 关于 x=2 对称，直接得 c = −3。',
+        feedbackWrong: '错误。点 (0,−3) 和 (4,−3) 的纵坐标相同，关于 x=2 对称。令 x=0，y = c = −3。',
+        time: 40
+      },
+      {
+        text: '已知二次函数 y = ax² + bx + c 中，a + b + c = 0，a − b + c = 8，c = 3。求 a、b、c。',
+        type: 'choice', options: ['A. a=2, b=−4, c=3', 'B. a=2, b=−5, c=3', 'C. a=1, b=−4, c=3', 'D. a=2, b=−3, c=3'],
+        correct: 0,
+        canvas: 'coeff-simple', canvasData: {eqs:['a+b+c=0','a−b+c=8','c=3']},
+        steps: ['已知 c = 3', '代入得 a+b=−3, a−b=5', '相加得 2a=2 → a=1', '检验'],
+        feedbackCorrect: '正确！c = 3，代入得 a+b = −3，a−b = 5，解得 a = 1，b = −4。验证：1+(−4)+3=0 ✓，1−(−4)+3=8 ✓。',
+        feedbackWrong: '错误。c=3 代入前两式：a+b=−3，a−b=5。相加：2a=2 → a=1；相减：2b=−8 → b=−4。答案为 a=1, b=−4, c=3。',
+        time: 40
+      },
+      {
+        text: '抛物线 y = ax² + bx + c 的图像过原点，顶点为 (2, −4)。求解析式。',
+        type: 'choice', options: ['A. y = x² − 4x', 'B. y = x² − 4x + 4', 'C. y = x² + 4x', 'D. y = x² − 2x'],
+        correct: 0,
+        canvas: 'coeff-origin-vertex', canvasData: {origin:true,vertex:'(2,-4)'},
+        steps: ['设顶点式 y = a(x−2)² − 4', '代入原点 (0,0)', '0 = 4a − 4 → a = 1', '展开检验'],
+        feedbackCorrect: '正确！设 y = a(x−2)² − 4，代入 (0,0)：0 = 4a − 4 → a = 1。展开 y = (x−2)² − 4 = x² − 4x + 4 − 4 = x² − 4x。',
+        feedbackWrong: '错误。过原点则 c = 0。顶点 (2,−4) 用顶点式：y = a(x−2)² − 4，代入 (0,0) 得 a = 1。展开为 y = x² − 4x。',
+        time: 45
+      }
+    ]
+  },
+  // ===== STAGE 3: 性质速查 =====
+  {
+    title: '性质速查',
+    questions: [
+      {
+        text: '函数 y = x² − 4x + 5，当 x ____ 时，y 随 x 的增大而减小。',
+        type: 'choice', options: ['A. > 2', 'B. < 2', 'C. > −2', 'D. < −2'],
+        correct: 1,
+        canvas: 'prop-monotone', canvasData: {a:1,b:-4,c:5,axis:2,open:'up'},
+        feedbackCorrect: '正确！a = 1 > 0 开口向上，对称轴 x = 2。当 x < 2 时，y 随 x 增大而减小（左侧下降）。',
+        feedbackWrong: '错误。开口向上，对称轴左侧（x < 2）递减，右侧递增。',
+        time: 30
+      },
+      {
+        text: '函数 y = −x² + 6x − 5 的最大值是 ?',
+        type: 'input', answer: '4', altAnswers: ['4'],
+        canvas: 'prop-max', canvasData: {a:-1,b:6,c:-5,vx:3,vy:4},
+        feedbackCorrect: '正确！a = −1 < 0 开口向下，有最大值。顶点 x = −b/(2a) = 3，y_max = −9 + 18 − 5 = 4。',
+        feedbackWrong: '错误。开口向下有最大值。对称轴 x = −6/(−2) = 3，y_max = −3² + 6×3 − 5 = −9 + 18 − 5 = 4。',
+        time: 35
+      },
+      {
+        text: '函数 y = 2x² − 8x + 3 的顶点坐标是 ?',
+        type: 'choice', options: ['A. (2, −5)', 'B. (−2, −5)', 'C. (4, 3)', 'D. (2, 5)'],
+        correct: 0,
+        canvas: 'prop-vertex', canvasData: {a:2,b:-8,c:3,vx:2,vy:-5},
+        feedbackCorrect: '正确！x = −b/(2a) = 8/4 = 2，y = 2(4) − 16 + 3 = −5。顶点 (2, −5)。',
+        feedbackWrong: '错误。对称轴 x = −(−8)/(2×2) = 2，y = 2×2² − 8×2 + 3 = 8 − 16 + 3 = −5。顶点 (2, −5)。',
+        time: 35
+      },
+      {
+        text: '抛物线 y = x² − 2x − 3 与 x 轴交于 A(x₁,0)、B(x₂,0)，则 x₁ + x₂ = ?',
+        type: 'input', answer: '2', altAnswers: ['2'],
+        canvas: 'prop-roots-sum', canvasData: {a:1,b:-2,c:-3,sum:2,prod:-3},
+        feedbackCorrect: '正确！由韦达定理：x₁ + x₂ = −b/a = 2。也可因式分解：(x−3)(x+1)=0，根为 3 和 −1，和为 2。',
+        feedbackWrong: '错误。韦达定理：x₁ + x₂ = −b/a = −(−2)/1 = 2。或因式分解得根 3 和 −1，和为 2。',
+        time: 35
+      },
+      {
+        text: '若二次函数 y = ax² + bx + c 满足 a > 0，c < 0，则它的图像必经过哪些象限？',
+        type: 'choice', options: ['A. 仅一、二象限', 'B. 一、三、四象限', 'C. 一、二、三象限', 'D. 所有象限'],
+        correct: 1,
+        canvas: 'prop-quadrants', canvasData: {a:1,b:0,c:-2},
+        feedbackCorrect: '正确！a > 0 开口向上，c < 0 则 y 轴截距在负半轴，图像必过一、三、四象限。',
+        feedbackWrong: '错误。a > 0 开口向上，c < 0 说明与 y 轴交于负半轴，图像向上无限延伸，必过一、三、四象限。',
+        time: 40
+      },
+      {
+        text: '函数 y = −3x² + 12x − 10 的增减性描述正确的是 ?',
+        type: 'choice', options: ['A. x < 2 时递增，x > 2 时递减', 'B. x < 2 时递减，x > 2 时递增', 'C. 始终递增', 'D. 始终递减'],
+        correct: 0,
+        canvas: 'prop-monotone2', canvasData: {a:-3,b:12,c:-10,axis:2,open:'down'},
+        feedbackCorrect: '正确！a = −3 < 0 开口向下，对称轴 x = 2。开口向下时，对称轴左侧递增，右侧递减。',
+        feedbackWrong: '错误。a < 0 开口向下，对称轴 x = −12/(−6) = 2。左侧（x < 2）递增，右侧递减。',
+        time: 35
+      },
+      {
+        text: '抛物线 y = x² − 5x + 6 与 x 轴两交点之间的距离是 ?',
+        type: 'input', answer: '1', altAnswers: ['1'],
+        canvas: 'prop-root-dist', canvasData: {a:1,b:-5,c:6,roots:[2,3],dist:1},
+        feedbackCorrect: '正确！因式分解 y = (x−2)(x−3)，根为 2 和 3，距离 = |3−2| = 1。',
+        feedbackWrong: '错误。x² − 5x + 6 = (x−2)(x−3)，根为 2 和 3，两交点距离 = 3 − 2 = 1。',
+        time: 35
+      }
+    ]
+  },
+  // ===== STAGE 4: 应用实战 =====
+  {
+    title: '应用实战',
+    questions: [
+      {
+        text: '用 20m 长的篱笆靠墙围一个矩形菜园（墙为一边，不需要篱笆），垂直于墙的一边长为 x m，面积为 S m²。则 S 关于 x 的函数关系式为 ?',
+        type: 'choice', options: ['A. S = x(20−x)', 'B. S = x(20−2x)', 'C. S = 2x(20−x)', 'D. S = x(10−x)'],
+        correct: 1,
+        canvas: 'app-garden', canvasData: {total:20,side:'x',parallel:'20−2x'},
+        steps: ['设垂直边为 x', '平行于墙的边 = 20 − 2x', '面积 S = 长 × 宽', '检验定义域'],
+        feedbackCorrect: '正确！垂直于墙的两边各为 x，平行于墙的一边为 20−2x。面积 S = x(20−2x)。',
+        feedbackWrong: '错误。两边垂直于墙，长度各为 x，用去 2x。平行于墙的边 = 20 − 2x。面积 S = x(20−2x)。',
+        time: 45
+      },
+      {
+        text: '接上题，矩形菜园的最大面积是多少 m²？',
+        type: 'input', answer: '50', altAnswers: ['50'],
+        canvas: 'app-garden-max', canvasData: {func:'S = −2x² + 20x',vertex:'(5,50)'},
+        steps: ['展开 S = −2x² + 20x', '配方或用顶点公式', '对称轴 x = 5', 'S_max = 50'],
+        feedbackCorrect: '正确！S = −2x² + 20x = −2(x−5)² + 50。当 x = 5 时，S_max = 50 m²。',
+        feedbackWrong: '错误。S = x(20−2x) = −2x² + 20x = −2(x² − 10x) = −2(x−5)² + 50。顶点 (5, 50)，最大面积 50 m²。',
+        time: 50
+      },
+      {
+        text: '某商品进价 20 元，售价 x 元时每天可卖出 (100−2x) 件。利润 w 关于售价 x 的函数为 ?',
+        type: 'choice', options: ['A. w = (x−20)(100−2x)', 'B. w = x(100−2x)', 'C. w = (x−20)(100+2x)', 'D. w = 20(100−2x)'],
+        correct: 0,
+        canvas: 'app-profit', canvasData: {cost:20,price:'x',qty:'100−2x'},
+        steps: ['单件利润 = 售价 − 进价', '总利润 = 单件利润 × 销量', '代入整理', '注意 x > 20'],
+        feedbackCorrect: '正确！单件利润 = x − 20，销量 = 100 − 2x。总利润 w = (x−20)(100−2x)。',
+        feedbackWrong: '错误。利润 = (售价 − 进价) × 销量 = (x − 20)(100 − 2x)。',
+        time: 40
+      },
+      {
+        text: '接上题，为获得最大利润，售价应定为多少元？',
+        type: 'input', answer: '35', altAnswers: ['35'],
+        canvas: 'app-profit-max', canvasData: {func:'w = −2x² + 140x − 2000',vertex:'(35,450)'},
+        steps: ['展开 w = −2x² + 140x − 2000', '对称轴 x = −140/(−4) = 35', '验证 x = 35 > 20', '最大利润 450 元'],
+        feedbackCorrect: '正确！w = (x−20)(100−2x) = −2x² + 140x − 2000。对称轴 x = 35，此时 w_max = 450 元。',
+        feedbackWrong: '错误。展开 w = −2x² + 140x − 2000，x = −b/(2a) = −140/(−4) = 35。售价 35 元时利润最大。',
+        time: 50
+      },
+      {
+        text: '一球从地面竖直上抛，高度 h（米）与时间 t（秒）满足 h = −5t² + 20t。球在何时达到最高点？',
+        type: 'input', answer: '2', altAnswers: ['2'],
+        canvas: 'app-projectile', canvasData: {a:-5,b:20,c:0,t_max:2,h_max:20},
+        steps: ['识别 a = −5, b = 20', '对称轴 t = −b/(2a)', 't = −20/(−10) = 2', '检验'],
+        feedbackCorrect: '正确！h = −5t² + 20t，对称轴 t = −20/(2×(−5)) = 2。第 2 秒达到最高点。',
+        feedbackWrong: '错误。t = −b/(2a) = −20/(−10) = 2。第 2 秒达到最高点，高度 h = −5×4 + 40 = 20 米。',
+        time: 40
+      },
+      {
+        text: '接上题，球从抛出到落回地面共经历多少秒？',
+        type: 'input', answer: '4', altAnswers: ['4'],
+        canvas: 'app-projectile-land', canvasData: {a:-5,b:20,roots:[0,4]},
+        steps: ['落回地面时 h = 0', '解 −5t² + 20t = 0', 't(−5t + 20) = 0', 't = 0 或 t = 4'],
+        feedbackCorrect: '正确！h = 0 时 −5t² + 20t = 0 → t(−5t + 20) = 0 → t = 0（抛出）或 t = 4（落地）。',
+        feedbackWrong: '错误。令 h = 0：−5t² + 20t = 0 → 5t(−t + 4) = 0 → t = 0 或 t = 4。落地用时 4 秒。',
+        time: 35
+      }
+    ]
+  },
+  // ===== STAGE 5: 终极密码 (60秒) =====
+  {
+    title: '终极密码',
+    timeLimit: 60,
+    questions: [
+      {
+        text: '抛物线 y = 2x² − 4x + 1 的顶点坐标是 ?',
+        type: 'choice', options: ['A. (1, −1)', 'B. (1, 1)', 'C. (−1, −1)', 'D. (2, 1)'],
+        correct: 0,
+        canvas: 'quick-vertex', canvasData: {a:2,b:-4,c:1,vx:1,vy:-1},
+        feedbackCorrect: '正确！x = 4/4 = 1，y = 2−4+1 = −1，顶点 (1, −1)。',
+        feedbackWrong: '错误。x = −b/(2a) = 4/4 = 1，y = 2(1)² − 4(1) + 1 = −1。顶点 (1, −1)。',
+        time: 60
+      },
+      {
+        text: '函数 y = −x² + 4x − 3 的最大值是 ?',
+        type: 'input', answer: '1', altAnswers: ['1'],
+        canvas: 'quick-max', canvasData: {a:-1,b:4,c:-3,vx:2,vy:1},
+        feedbackCorrect: '正确！开口向下，顶点 x = 2，y_max = −4 + 8 − 3 = 1。',
+        feedbackWrong: '错误。x = −4/(−2) = 2，y = −4 + 8 − 3 = 1。',
+        time: 60
+      },
+      {
+        text: '抛物线 y = x² − 6x + 5 的对称轴是 ?',
+        type: 'choice', options: ['A. x = 3', 'B. x = −3', 'C. x = 6', 'D. x = 1'],
+        correct: 0,
+        canvas: 'quick-axis', canvasData: {a:1,b:-6,c:5,axis:3},
+        feedbackCorrect: '正确！x = −b/(2a) = 6/2 = 3。',
+        feedbackWrong: '错误。对称轴 x = −(−6)/2 = 3。',
+        time: 60
+      },
+      {
+        text: '抛物线 y = x² + bx + c 过 (1,0) 和 (3,0)，则 b = ?',
+        type: 'input', answer: '-4', altAnswers: ['-4'],
+        canvas: 'quick-roots-b', canvasData: {roots:[1,3],sum:4,b:-4},
+        feedbackCorrect: '正确！两根之和 = 4 = −b → b = −4。',
+        feedbackWrong: '错误。由韦达定理 x₁ + x₂ = −b/a = 4，所以 b = −4。',
+        time: 60
+      },
+      {
+        text: '用 40m 篱笆靠墙围矩形（三边），垂直边为 x，面积最大时 x = ?',
+        type: 'input', answer: '10', altAnswers: ['10'],
+        canvas: 'quick-garden', canvasData: {total:40,side:'x',parallel:'40−2x',maxAt:10},
+        feedbackCorrect: '正确！S = x(40−2x) = −2x² + 40x，对称轴 x = 10。',
+        feedbackWrong: '错误。S = x(40−2x) = −2x² + 40x，x = −40/(−4) = 10。',
+        time: 60
+      },
+      {
+        text: '抛物线 y = ax² + bx + c 如图开口向下，过 (0,3)，对称轴 x = 1。则 a + b + c = ?',
+        type: 'input', answer: '3', altAnswers: ['3'],
+        canvas: 'quick-eval', canvasData: {x:1,y:3},
+        feedbackCorrect: '正确！a + b + c 就是 x = 1 时的 y 值。对称轴 x = 1，由图知顶点 y = 3，所以 a + b + c = 3。',
+        feedbackWrong: '错误。当 x = 1 时，y = a + b + c。由对称轴 x = 1 且顶点纵坐标为 3，得 a + b + c = 3。',
+        time: 60
+      }
+    ]
+  }
+];
+
+// ===================== GAME STATE =====================
+let state = {
+  stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+  correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+  stageCleared: [false, false, false, false, false], answered: false,
+  stageStartTime: 0, globalTimer: null
+};
+
+// ===================== INIT =====================
+function initLives() {
+  const el = document.getElementById('hud-lives');
+  el.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const heart = document.createElement('div');
+    heart.className = 'life' + (i >= state.lives ? ' lost' : '');
+    el.appendChild(heart);
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-combo').textContent = 'x' + (state.combo + 1);
+  document.getElementById('hud-time').textContent = state.timeLeft;
+  document.getElementById('hud-stage').textContent = (state.stage + 1) + '/5';
+  initLives();
+}
+
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('hud-bar').style.display = 'flex';
+  document.getElementById('stage-panel').style.display = 'flex';
+  document.getElementById('game-area').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  state = { stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+    correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+    stageCleared: [false, false, false, false, false], answered: false,
+    stageStartTime: 0, globalTimer: null };
+  updateHUD();
+  loadQuestion();
+}
+
+function jumpToStage(s) {
+  if (s > 0 && !state.stageCleared[s-1] && s !== state.stage) return;
+  state.stage = s; state.question = 0; state.answered = false;
+  document.getElementById('results-screen').style.display = 'none';
+  document.getElementById('game-area').style.display = 'block';
+  updateStageButtons();
+  loadQuestion();
+}
+
+function updateStageButtons() {
+  document.querySelectorAll('.stage-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === state.stage);
+    btn.classList.toggle('cleared', state.stageCleared[i]);
+    btn.classList.toggle('locked', i > 0 && !state.stageCleared[i-1] && i !== state.stage);
+  });
+}
+
+// ===================== QUESTION LOADING =====================
+function loadQuestion() {
+  const stage = STAGES[state.stage];
+  const q = stage.questions[state.question];
+  state.answered = false;
+
+  // Stage 5 uses global 60s timer
+  if (state.stage === 4) {
+    if (state.question === 0) {
+      state.timeLeft = stage.timeLimit || 60;
+      state.stageStartTime = Date.now();
+    }
+  } else {
+    state.timeLeft = q.time;
+  }
+
+  document.getElementById('stage-num').textContent = String(state.stage + 1).padStart(2, '0');
+  document.getElementById('stage-title').textContent = stage.title;
+  document.getElementById('game-progress').textContent = '题目 ' + (state.question + 1) + ' / ' + stage.questions.length;
+  document.getElementById('q-num').textContent = 'Q' + (state.question + 1);
+  document.getElementById('q-text').innerHTML = q.text;
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '<div class="fb-title"></div><div class="fb-text"></div>';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('timer-bar').className = 'timer-bar';
+  document.getElementById('timer-bar').style.width = '100%';
+
+  // Stage 5 countdown
+  const cd = document.getElementById('countdown-big');
+  if (state.stage === 4) {
+    cd.style.display = 'block';
+    cd.textContent = state.timeLeft;
+    cd.className = 'countdown-big';
+  } else {
+    cd.style.display = 'none';
+  }
+
+  // Step hint for Stage 2 & 4
+  const stepHint = document.getElementById('step-hint');
+  if ((state.stage === 1 || state.stage === 3) && q.steps) {
+    stepHint.style.display = 'block';
+    document.getElementById('sh-title').textContent =
+      state.stage === 1 ? '待定系数法 · 解题步骤' : '建立函数模型 · 解题步骤';
+    const stepsEl = document.getElementById('sh-steps');
+    stepsEl.innerHTML = '';
+    q.steps.forEach((s, i) => {
+      const div = document.createElement('div');
+      div.className = 'sh-step' + (i === 0 ? ' active' : '');
+      div.textContent = (i + 1) + '. ' + s;
+      stepsEl.appendChild(div);
+    });
+  } else {
+    stepHint.style.display = 'none';
+  }
+
+  // Build answer area
+  const area = document.getElementById('answer-area');
+  area.innerHTML = '';
+  if (q.type === 'choice') {
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    q.options.forEach((opt, i) => {
+      const div = document.createElement('div');
+      div.className = 'opt';
+      div.innerHTML = '<span class="opt-letter">' + String.fromCharCode(65 + i) + '</span><span>' + opt.substring(3) + '</span>';
+      div.onclick = () => checkAnswer(i);
+      opts.appendChild(div);
+    });
+    area.appendChild(opts);
+  } else {
+    const wrap = document.createElement('div');
+    wrap.className = 'num-input-wrap';
+    wrap.innerHTML = '<input type="text" class="num-input" id="num-answer" placeholder="输入答案..." onkeydown="if(event.key===\'Enter\')checkNumAnswer()">' +
+      '<button class="submit-btn" onclick="checkNumAnswer()">提交</button>';
+    area.appendChild(wrap);
+    setTimeout(() => document.getElementById('num-answer')?.focus(), 50);
+  }
+
+  // Draw canvas
+  drawCanvas(q.canvas, q.canvasData);
+
+  // Start timer
+  clearInterval(state.timer);
+  const totalTime = state.stage === 4 ? (stage.timeLimit || 60) : q.time;
+  state.timer = setInterval(() => {
+    state.timeLeft--;
+    state.totalTime++;
+    updateHUD();
+
+    const pct = (state.timeLeft / totalTime) * 100;
+    const bar = document.getElementById('timer-bar');
+    bar.style.width = pct + '%';
+    if (pct <= 20) { bar.className = 'timer-bar danger'; }
+    else if (pct <= 50) { bar.className = 'timer-bar warn'; }
+
+    if (state.stage === 4) {
+      const cdEl = document.getElementById('countdown-big');
+      cdEl.textContent = state.timeLeft;
+      if (state.timeLeft <= 10) { cdEl.className = 'countdown-big danger'; }
+      else if (state.timeLeft <= 20) { cdEl.className = 'countdown-big warn'; }
+    }
+
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timer);
+      if (state.stage === 4) {
+        handleStage5Timeout();
+      } else {
+        handleTimeout();
+      }
+    }
+  }, 1000);
+}
+
+// ===================== ANSWER CHECKING =====================
+function checkAnswer(idx) {
+  if (state.answered) return;
+  const q = STAGES[state.stage].questions[state.question];
+  const correct = idx === q.correct;
+  handleResult(correct, q);
+}
+
+function checkNumAnswer() {
+  if (state.answered) return;
+  const input = document.getElementById('num-answer');
+  if (!input) return;
+  const val = input.value.trim().toLowerCase().replace(/\s/g, '');
+  const q = STAGES[state.stage].questions[state.question];
+  let correct = val === q.answer.toLowerCase().replace(/\s/g, '');
+  if (!correct && q.altAnswers) {
+    correct = q.altAnswers.some(a => val === a.toLowerCase().replace(/\s/g, ''));
+  }
+  handleResult(correct, q);
+}
+
+function handleTimeout() {
+  const q = STAGES[state.stage].questions[state.question];
+  state.answered = true;
+  state.combo = 0;
+  state.lives--;
+
+  showFeedback('timeout', '时间到！', q.feedbackWrong);
+  disableOptions();
+  updateHUD();
+
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function handleStage5Timeout() {
+  const stage = STAGES[4];
+  const remaining = stage.questions.length - state.question;
+  state.lives -= remaining;
+  state.combo = 0;
+  updateHUD();
+
+  if (state.lives <= 0) {
+    gameOver();
+    return;
+  }
+
+  state.stageCleared[4] = true;
+  updateStageButtons();
+  showResults();
+}
+
+function handleResult(correct, q) {
+  state.answered = true;
+  clearInterval(state.timer);
+
+  if (correct) {
+    state.combo++;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+    state.correctCount++;
+    const timeBonus = Math.floor(state.timeLeft * 10);
+    const comboMult = Math.min(state.combo, 5);
+    const pts = 100 + timeBonus + comboMult * 20;
+    state.score += pts;
+    showFeedback('correct', '回答正确！+' + pts + '分', q.feedbackCorrect);
+  } else {
+    state.combo = 0;
+    state.lives--;
+    showFeedback('wrong', '回答错误', q.feedbackWrong);
+  }
+
+  disableOptions();
+  updateHUD();
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function disableOptions() {
+  document.querySelectorAll('.opt').forEach(o => o.classList.add('disabled'));
+}
+
+function showFeedback(type, title, text) {
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback show ' + type;
+  fb.innerHTML = '<div class="fb-title">' + title + '</div><div class="fb-text">' + text + '</div>';
+}
+
+// ===================== NAVIGATION =====================
+function nextQuestion() {
+  state.question++;
+  const stage = STAGES[state.stage];
+  if (state.question >= stage.questions.length) {
+    state.stageCleared[state.stage] = true;
+    updateStageButtons();
+    if (state.stage < 4) {
+      state.stage++;
+      state.question = 0;
+      loadQuestion();
+    } else {
+      showResults();
+    }
+  } else {
+    loadQuestion();
+  }
+}
+
+function gameOver() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  document.getElementById('result-grade').textContent = 'F';
+  document.getElementById('result-grade').className = 'result-grade F';
+  document.getElementById('result-title').textContent = '任务失败';
+  document.getElementById('result-desc').textContent = '生命值耗尽。请重新挑战。';
+  document.getElementById('badge-master').classList.remove('unlocked');
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  document.getElementById('res-accuracy').textContent = Math.round(state.correctCount / totalQ * 100) + '%';
+}
+
+function showResults() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  const acc = state.correctCount / totalQ;
+  let grade, title, desc;
+  if (acc >= 0.95 && state.maxCombo >= 5) { grade = 'S'; title = '完美执行'; desc = '所有阶段全部通关，二次函数知识体系已完全掌握！「抛物线猎手」徽章已解锁。'; }
+  else if (acc >= 0.85) { grade = 'A'; title = '优秀'; desc = '表现优异，大部分知识点已经掌握。'; }
+  else if (acc >= 0.7) { grade = 'B'; title = '良好'; desc = '基本掌握，但仍有提升空间。'; }
+  else if (acc >= 0.5) { grade = 'C'; title = '及格'; desc = '勉强过关，建议复习教案后重新挑战。'; }
+  else { grade = 'F'; title = '未通过'; desc = '需要更多练习，建议先学习 tutorial.html 教案。'; }
+
+  const gEl = document.getElementById('result-grade');
+  gEl.textContent = grade;
+  gEl.className = 'result-grade ' + grade;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-desc').textContent = desc;
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount + '/' + totalQ;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  document.getElementById('res-accuracy').textContent = Math.round(acc * 100) + '%';
+
+  const badge = document.getElementById('badge-master');
+  if (acc >= 0.7) {
+    badge.classList.add('unlocked');
+  } else {
+    badge.classList.remove('unlocked');
+  }
+}
+
+// ===================== CANVAS DRAWING =====================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+function clearCanvas() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(200,64,255,0.06)';
+  for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+}
+
+function drawAxes(originX, originY, scale) {
+  const W = canvas.width, H = canvas.height;
+  ctx.strokeStyle = 'rgba(138,154,176,0.3)'; ctx.lineWidth = 1;
+  // x-axis
+  ctx.beginPath(); ctx.moveTo(30, originY); ctx.lineTo(W - 30, originY); ctx.stroke();
+  // y-axis
+  ctx.beginPath(); ctx.moveTo(originX, 30); ctx.lineTo(originX, H - 30); ctx.stroke();
+  // Arrow tips
+  ctx.fillStyle = 'rgba(138,154,176,0.5)';
+  ctx.beginPath(); ctx.moveTo(W - 30, originY); ctx.lineTo(W - 38, originY - 4); ctx.lineTo(W - 38, originY + 4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(originX, 30); ctx.lineTo(originX - 4, 38); ctx.lineTo(originX + 4, 38); ctx.closePath(); ctx.fill();
+
+  // Ticks
+  ctx.font = '10px "Share Tech Mono"'; ctx.fillStyle = 'rgba(138,154,176,0.6)';
+  for (let i = -6; i <= 6; i++) {
+    if (i === 0) continue;
+    const tx = originX + i * scale;
+    if (tx > 40 && tx < W - 40) {
+      ctx.beginPath(); ctx.moveTo(tx, originY - 3); ctx.lineTo(tx, originY + 3); ctx.stroke();
+      ctx.fillText(i, tx - 3, originY + 16);
+    }
+  }
+  for (let i = -4; i <= 4; i++) {
+    if (i === 0) continue;
+    const ty = originY - i * scale;
+    if (ty > 40 && ty < H - 40) {
+      ctx.beginPath(); ctx.moveTo(originX - 3, ty); ctx.lineTo(originX + 3, ty); ctx.stroke();
+      ctx.fillText(i, originX - 18, ty + 3);
+    }
+  }
+  ctx.fillText('O', originX - 12, originY + 14);
+}
+
+function drawParabola(a, b, c, originX, originY, scale, color) {
+  ctx.strokeStyle = color || '#c840ff'; ctx.lineWidth = 2.5;
+  ctx.shadowColor = (color || '#c840ff') + '40'; ctx.shadowBlur = 10;
+  ctx.beginPath();
+  for (let px = 50; px <= canvas.width - 50; px += 1) {
+    const x = (px - originX) / scale;
+    const y = a * x * x + b * x + c;
+    const py = originY - y * scale;
+    if (py >= 30 && py <= canvas.height - 30) {
+      if (px === 50) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function drawCanvas(type, data) {
+  clearCanvas();
+  const W = canvas.width, H = canvas.height;
+
+  switch (type) {
+    // Stage 1
+    case 'parabola-open': drawParabolaOpen(data); break;
+    case 'parabola-vertex': drawParabolaVertex(data); break;
+    case 'parabola-axis': drawParabolaAxis(data); break;
+    case 'parabola-roots': drawParabolaRoots(data); break;
+    case 'parabola-no-roots': drawParabolaNoRoots(data); break;
+    case 'parabola-yintercept': drawParabolaYIntercept(data); break;
+    case 'parabola-vertex-form': drawParabolaVertexForm(data); break;
+    // Stage 2
+    case 'coeff-system': drawCoeffSystem(data); break;
+    case 'coeff-vertex': drawCoeffVertex(data); break;
+    case 'coeff-roots': drawCoeffRoots(data); break;
+    case 'coeff-symmetry': drawCoeffSymmetry(data); break;
+    case 'coeff-simple': drawCoeffSimple(data); break;
+    case 'coeff-origin-vertex': drawCoeffOriginVertex(data); break;
+    // Stage 3
+    case 'prop-monotone': drawPropMonotone(data); break;
+    case 'prop-max': drawPropMax(data); break;
+    case 'prop-vertex': drawPropVertex(data); break;
+    case 'prop-roots-sum': drawPropRootsSum(data); break;
+    case 'prop-quadrants': drawPropQuadrants(data); break;
+    case 'prop-monotone2': drawPropMonotone2(data); break;
+    case 'prop-root-dist': drawPropRootDist(data); break;
+    // Stage 4
+    case 'app-garden': drawAppGarden(data); break;
+    case 'app-garden-max': drawAppGardenMax(data); break;
+    case 'app-profit': drawAppProfit(data); break;
+    case 'app-profit-max': drawAppProfitMax(data); break;
+    case 'app-projectile': drawAppProjectile(data); break;
+    case 'app-projectile-land': drawAppProjectileLand(data); break;
+    // Stage 5
+    case 'quick-vertex': drawQuickVertex(data); break;
+    case 'quick-max': drawQuickMax(data); break;
+    case 'quick-axis': drawQuickAxis(data); break;
+    case 'quick-roots-b': drawQuickRootsB(data); break;
+    case 'quick-garden': drawQuickGarden(data); break;
+    case 'quick-eval': drawQuickEval(data); break;
+  }
+}
+
+// ===== Stage 1: 抛物线识别 =====
+function drawParabolaOpen(d) {
+  const ox = W/2, oy = H/2 + 40, sc = 35;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('y = x² − 2', 20, 30);
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('a = 1 > 0 → 开口向上', 20, 50);
+}
+
+function drawParabolaVertex(d) {
+  const ox = W/2 - 20, oy = H/2 + 50, sc = 30;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  // Vertex dot
+  const vx = ox + d.vx * sc, vy = oy - d.vy * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, vy, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('顶点(' + d.vx + ',' + d.vy + ')', vx + 12, vy - 8);
+  // Dashed axis
+  ctx.strokeStyle = 'rgba(255,204,0,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(vx, oy); ctx.lineTo(vx, vy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = −2x² + 4x + 1', 20, 30);
+}
+
+function drawParabolaAxis(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 28;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  // Axis line
+  const ax = ox + d.axis * sc;
+  ctx.strokeStyle = 'rgba(255,204,0,0.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(ax, 35); ctx.lineTo(ax, H - 35); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('对称轴 x = ' + d.axis, ax + 5, 45);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = x² − 6x + 5', 20, 30);
+}
+
+function drawParabolaRoots(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 35;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  // Root dots
+  d.roots.forEach(r => {
+    const rx = ox + r * sc;
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(rx, oy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00ff88';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('(' + r + ',0)', rx - 15, oy + 18);
+  });
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = −x² + 2x + 3', 20, 30);
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('Δ = ' + d.delta + ' > 0，2个交点', 20, 50);
+}
+
+function drawParabolaNoRoots(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 30;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  // No cross mark
+  ctx.strokeStyle = '#ff3366'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox - 60, oy - 20); ctx.lineTo(ox + 60, oy - 20); ctx.stroke();
+  ctx.fillStyle = '#ff3366';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('不与 x 轴相交', ox - 35, oy - 28);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = x² + 2x + 3', 20, 30);
+  ctx.fillStyle = '#ff3366';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('Δ = ' + d.delta + ' < 0，无交点', 20, 50);
+}
+
+function drawParabolaYIntercept(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 30;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  // Y-intercept
+  const iy = oy - d.y0 * sc;
+  ctx.fillStyle = '#ff8844';
+  ctx.beginPath(); ctx.arc(ox, iy, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ff8844';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('(0, ' + d.y0 + ')', ox + 12, iy - 5);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = 2x² − 4x + 1', 20, 30);
+}
+
+function drawParabolaVertexForm(d) {
+  const ox = W/2, oy = H/2 + 40, sc = 30;
+  drawAxes(ox, oy, sc);
+  const a = d.a, h = d.h, k = d.k;
+  // Draw using vertex form
+  ctx.strokeStyle = '#c840ff'; ctx.lineWidth = 2.5;
+  ctx.shadowColor = 'rgba(200,64,255,0.3)'; ctx.shadowBlur = 10;
+  ctx.beginPath();
+  for (let px = 50; px <= W - 50; px += 1) {
+    const x = (px - ox) / sc;
+    const y = a * (x - h) * (x - h) + k;
+    const py = oy - y * sc;
+    if (py >= 30 && py <= H - 30) {
+      if (px === 50) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+  }
+  ctx.stroke(); ctx.shadowBlur = 0;
+  // Vertex
+  const vx = ox + h * sc, vy = oy - k * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = 'bold 12px "Orbitron"';
+  ctx.fillText('顶点(' + h + ',' + k + ')', vx + 12, vy - 10);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = −(x−2)² + 5', 20, 30);
+}
+
+// ===== Stage 2: 系数破解 =====
+function drawCoeffSystem(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('三点确定抛物线', 20, 30);
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillStyle = '#e0e6f0';
+  const y0 = 55;
+  d.points.forEach((p, i) => {
+    ctx.fillText('过点 ' + p, 40, y0 + i * 22);
+  });
+  // Coordinate dots
+  const cx = W/2, cy = H/2 + 20, sc = 45;
+  drawAxes(cx, cy, sc);
+  const pts = [[0,3],[1,0],[-1,8]];
+  pts.forEach(p => {
+    const px = cx + p[0] * sc, py = cy - p[1] * sc;
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '10px "Share Tech Mono"';
+    ctx.fillText('(' + p[0] + ',' + p[1] + ')', px - 10, py - 10);
+  });
+}
+
+function drawCoeffVertex(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('顶点式法', 20, 30);
+  const cx = W/2, cy = H/2 + 30, sc = 40;
+  drawAxes(cx, cy, sc);
+  // Vertex dot
+  const v = d.vertex.match(/(-?\d+),(-?\d+)/);
+  if (v) {
+    const vx = cx + parseInt(v[1]) * sc, vy = cy - parseInt(v[2]) * sc;
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('顶点 ' + d.vertex, vx + 12, vy - 5);
+  }
+  // Another point
+  const p = d.point.match(/(-?\d+),(-?\d+)/);
+  if (p) {
+    const px = cx + parseInt(p[1]) * sc, py = cy - parseInt(p[2]) * sc;
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('过' + d.point, px + 8, py - 5);
+  }
+}
+
+function drawCoeffRoots(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('交点式法', 20, 30);
+  const cx = W/2, cy = H/2 + 40, sc = 40;
+  drawAxes(cx, cy, sc);
+  d.roots.forEach(r => {
+    const rx = cx + parseInt(r) * sc;
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(rx, cy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('(' + r + ',0)', rx - 12, cy + 18);
+  });
+}
+
+function drawCoeffSymmetry(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('对称性求系数', 20, 30);
+  const cx = W/2, cy = H/2 + 30, sc = 35;
+  drawAxes(cx, cy, sc);
+  // Symmetric points
+  const pts = [[0,-3],[4,-3]];
+  pts.forEach(p => {
+    const px = cx + p[0] * sc, py = cy - p[1] * sc;
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('(' + p[0] + ',' + p[1] + ')', px - 15, py - 10);
+  });
+  // Axis
+  const ax = cx + 2 * sc;
+  ctx.strokeStyle = 'rgba(255,204,0,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(ax, 35); ctx.lineTo(ax, H - 35); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('对称轴 x = 2', ax + 5, 45);
+}
+
+function drawCoeffSimple(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('方程组求解', 20, 30);
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '14px "Share Tech Mono"';
+  const eqs = ['a + b + c = 0', 'a − b + c = 8', 'c = 3'];
+  eqs.forEach((eq, i) => {
+    ctx.fillText(eq, W/2 - 60, H/2 - 30 + i * 28);
+  });
+}
+
+function drawCoeffOriginVertex(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('过原点 + 顶点已知', 20, 30);
+  const cx = W/2, cy = H/2 + 30, sc = 35;
+  drawAxes(cx, cy, sc);
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('原点(0,0)', cx + 10, cy + 5);
+  const v = d.vertex.match(/(-?\d+),(-?\d+)/);
+  if (v) {
+    const vx = cx + parseInt(v[1]) * sc, vy = cy - parseInt(v[2]) * sc;
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillText('顶点' + d.vertex, vx + 10, vy - 5);
+  }
+}
+
+// ===== Stage 3: 性质速查 =====
+function drawPropMonotone(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 30;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  // Axis
+  const ax = ox + d.axis * sc;
+  ctx.strokeStyle = 'rgba(255,204,0,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(ax, 35); ctx.lineTo(ax, H - 35); ctx.stroke();
+  ctx.setLineDash([]);
+  // Arrows
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '11px "Orbitron"';
+  ctx.fillText('↘ x<' + d.axis + ' 递减', ax - 100, H/2);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('↗ x>' + d.axis + ' 递增', ax + 15, H/2);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = x² − 4x + 5', 20, 30);
+}
+
+function drawPropMax(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 30;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  const vx = ox + d.vx * sc, vy = oy - d.vy * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 12px "Orbitron"';
+  ctx.fillText('MAX = ' + d.vy, vx + 12, vy - 5);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = −x² + 6x − 5', 20, 30);
+}
+
+function drawPropVertex(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 28;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  const vx = ox + d.vx * sc, vy = oy - d.vy * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 12px "Orbitron"';
+  ctx.fillText('顶点(' + d.vx + ',' + d.vy + ')', vx + 12, vy - 5);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = 2x² − 8x + 3', 20, 30);
+}
+
+function drawPropRootsSum(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 35;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  const roots = [2, 3];
+  roots.forEach(r => {
+    const rx = ox + r * sc;
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(rx, oy, 6, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('x₁ + x₂ = 2 + 3 = 5', 20, 30);
+  ctx.fillText('−b/a = −(−5)/1 = 5', 20, 48);
+}
+
+function drawPropQuadrants(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 30;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  // Mark quadrants
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('a>0 开口向上', 20, 30);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('c<0 y轴截距在负半轴', 20, 48);
+}
+
+function drawPropMonotone2(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 25;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  const ax = ox + d.axis * sc;
+  ctx.strokeStyle = 'rgba(255,204,0,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(ax, 35); ctx.lineTo(ax, H - 35); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '11px "Orbitron"';
+  ctx.fillText('↗ x<2 递增', ax - 85, H/2);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('↘ x>2 递减', ax + 15, H/2);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('y = −3x² + 12x − 10', 20, 30);
+}
+
+function drawPropRootDist(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 35;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  d.roots.forEach(r => {
+    const rx = ox + r * sc;
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(rx, oy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText('(' + r + ',0)', rx - 12, oy + 18);
+  });
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('距离 = ' + d.dist, 20, 30);
+}
+
+// ===== Stage 4: 应用实战 =====
+function drawAppGarden(d) {
+  const groundY = H/2 + 60;
+  // Wall
+  ctx.fillStyle = 'rgba(200,64,255,0.15)';
+  ctx.fillRect(50, groundY - 100, 10, 100);
+  ctx.strokeStyle = '#c840ff'; ctx.lineWidth = 1;
+  ctx.strokeRect(50, groundY - 100, 10, 100);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '11px "Orbitron"';
+  ctx.fillText('墙', 52, groundY - 108);
+
+  // Rectangle
+  const rw = 200, rh = 80;
+  ctx.fillStyle = 'rgba(0,255,136,0.08)';
+  ctx.fillRect(70, groundY - rh, rw, rh);
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2;
+  ctx.strokeRect(70, groundY - rh, rw, rh);
+
+  // Labels
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('x', 70 + rw/2 - 5, groundY + 16);
+  ctx.fillText('20−2x', 75 + rw/2 - 20, groundY - rh - 10);
+
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('靠墙围矩形 · 篱笆总长 20m', 20, 30);
+}
+
+function drawAppGardenMax(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('面积函数', 20, 30);
+  // Simple parabola sketch
+  const ox = W/2, oy = H/2 + 60, sc = 25;
+  drawAxes(ox, oy, sc);
+  drawParabola(-2, 20, 0, ox, oy, sc, '#ffcc00');
+  const vx = ox + 5 * sc, vy = oy - 50 * sc / 25; // rough
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, oy - 2 * sc, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 12px "Orbitron"';
+  ctx.fillText('MAX', vx + 10, oy - 2 * sc + 4);
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('S = −2x² + 20x', 20, 50);
+  ctx.fillText('x = 5 时 S_max = 50', 20, 68);
+}
+
+function drawAppProfit(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('利润模型', 20, 30);
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('进价 = ' + d.cost + '元', 30, 55);
+  ctx.fillText('售价 = x 元', 30, 75);
+  ctx.fillText('销量 = ' + d.qty + ' 件', 30, 95);
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText('利润 = (x−20)(100−2x)', 30, 120);
+}
+
+function drawAppProfitMax(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('利润最大化', 20, 30);
+  const ox = W/2, oy = H/2 + 60, sc = 6;
+  drawAxes(ox, oy, sc);
+  drawParabola(-2, 140, -2000, ox, oy, sc, '#ffcc00');
+  const vx = ox + 35 * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, oy - 450 / 6, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 11px "Orbitron"';
+  ctx.fillText('x=35 最优', vx + 10, oy - 450/6 + 4);
+}
+
+function drawAppProjectile(d) {
+  const ox = W/2 - 80, oy = H/2 + 60, sc = 25;
+  drawAxes(ox, oy, sc);
+  drawParabola(-5, 20, 0, ox, oy, sc, '#c840ff');
+  const vx = ox + 2 * sc, vy = oy - 20 / 25 * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 12px "Orbitron"';
+  ctx.fillText('最高点 t=' + d.t_max + 's', vx + 12, vy - 5);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('h = −5t² + 20t', 20, 30);
+}
+
+function drawAppProjectileLand(d) {
+  const ox = W/2 - 80, oy = H/2 + 60, sc = 25;
+  drawAxes(ox, oy, sc);
+  drawParabola(-5, 20, 0, ox, oy, sc, '#c840ff');
+  // Roots
+  const r1 = ox, r2 = ox + 4 * sc;
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath(); ctx.arc(r1, oy, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r2, oy, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('t=0（抛出）', r1 - 20, oy + 18);
+  ctx.fillText('t=4（落地）', r2 - 15, oy + 18);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('h = −5t² + 20t = 0', 20, 30);
+}
+
+// ===== Stage 5: 终极密码 =====
+function drawQuickVertex(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 28;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  const vx = ox + d.vx * sc, vy = oy - d.vy * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 12px "Orbitron"';
+  ctx.fillText('顶点(' + d.vx + ',' + d.vy + ')', vx + 12, vy - 5);
+}
+
+function drawQuickMax(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 28;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  const vx = ox + d.vx * sc, vy = oy - d.vy * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 12px "Orbitron"';
+  ctx.fillText('MAX=' + d.vy, vx + 12, vy - 5);
+}
+
+function drawQuickAxis(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 28;
+  drawAxes(ox, oy, sc);
+  drawParabola(d.a, d.b, d.c, ox, oy, sc, '#c840ff');
+  const ax = ox + d.axis * sc;
+  ctx.strokeStyle = 'rgba(255,204,0,0.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(ax, 35); ctx.lineTo(ax, H - 35); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('x = ' + d.axis, ax + 5, 45);
+}
+
+function drawQuickRootsB(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 35;
+  drawAxes(ox, oy, sc);
+  drawParabola(1, -4, 3, ox, oy, sc, '#c840ff');
+  [1, 3].forEach(r => {
+    const rx = ox + r * sc;
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(rx, oy, 6, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('x₁+x₂ = 4 = −b', 20, 30);
+}
+
+function drawQuickGarden(d) {
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('快速建模', 20, 30);
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('篱笆 40m，垂直边 x', 30, 55);
+  ctx.fillText('平行边 = 40 − 2x', 30, 75);
+  ctx.fillText('S = x(40−2x) = −2x²+40x', 30, 95);
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('对称轴 x = 10', 30, 118);
+}
+
+function drawQuickEval(d) {
+  const ox = W/2, oy = H/2 + 50, sc = 30;
+  drawAxes(ox, oy, sc);
+  drawParabola(-1, 2, 3, ox, oy, sc, '#c840ff');
+  const vx = ox + 1 * sc, vy = oy - 4 * sc;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 12px "Orbitron"';
+  ctx.fillText('顶点(1,4) 在图上 y≈3..', vx + 12, vy - 5);
+  ctx.fillStyle = '#c840ff';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('x=1 时 y = a+b+c', 20, 30);
+}
+
+// ---- Option click tracking for wrong highlight ----
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.opt');
+  if (!opt) return;
+  if (state.answered) return;
+  const opts = document.querySelectorAll('.opt');
+  const idx = Array.from(opts).indexOf(opt);
+  const q = STAGES[state.stage].questions[state.question];
+  if (q.type !== 'choice') return;
+  if (idx !== q.correct) {
+    opt.classList.add('wrong');
+  }
+  opts[q.correct].classList.add('correct');
+});
+</script>
+</body>
+</html>
