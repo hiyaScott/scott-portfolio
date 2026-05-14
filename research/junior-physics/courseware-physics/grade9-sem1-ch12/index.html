@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OHM · 电路分析实验室 — 第十二章 欧姆定律</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple-main: #9d00ff;
+    --purple-bright: #ff00ff;
+    --purple-dark: #4a0080;
+    --purple-dim: #6a00b3;
+    --paper: #f8f5ff;
+    --paper-dark: #e8e0f5;
+    --ink: #1a0a2e;
+    --ink-light: #4a3060;
+    --error: #ff3366;
+    --success: #00ff88;
+    --warning: #ffcc00;
+    --grid: rgba(157,0,255,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Share Tech Mono', monospace;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Background grid pattern */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Decorative wires */
+  .deco-wire {
+    position: fixed;
+    width: 2px;
+    background: var(--purple-dim);
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .deco-wire.v1 { left: 8%; top: 0; height: 100%; }
+  .deco-wire.v2 { left: 92%; top: 0; height: 100%; }
+  .deco-wire.h1 { left: 0; top: 12%; width: 100%; height: 2px; }
+  .deco-wire.h2 { left: 0; top: 88%; width: 100%; height: 2px; }
+
+  /* Resistor decoration */
+  .deco-resistor {
+    position: fixed;
+    width: 30px; height: 10px;
+    background: var(--purple-dim);
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.25;
+  }
+  .deco-resistor::before, .deco-resistor::after {
+    content: '';
+    position: absolute;
+    width: 8px; height: 2px;
+    background: var(--purple-dim);
+  }
+  .deco-resistor::before { left: -8px; top: 4px; }
+  .deco-resistor::after { right: -8px; top: 4px; }
+  .deco-resistor.r1 { left: 6%; top: 15%; transform: rotate(45deg); }
+  .deco-resistor.r2 { left: 90%; top: 20%; transform: rotate(-30deg); }
+  .deco-resistor.r3 { left: 10%; top: 80%; transform: rotate(15deg); }
+  .deco-resistor.r4 { left: 88%; top: 75%; transform: rotate(60deg); }
+
+  /* Voltmeter/Ammeter decoration */
+  .deco-meter {
+    position: fixed;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--purple-dim);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--purple-dim);
+  }
+  .deco-meter.m1 { right: 30px; top: 15%; }
+  .deco-meter.m2 { left: 25px; bottom: 80px; }
+  .deco-meter.m1::after { content: 'V'; }
+  .deco-meter.m2::after { content: 'A'; }
+
+  /* Notebook binding decoration */
+  .binding {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 24px;
+    background: linear-gradient(90deg, var(--purple-dark) 0%, var(--purple-dim) 100%);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.15;
+  }
+  .binding::after {
+    content: '';
+    position: absolute;
+    left: 12px; top: 0; bottom: 0;
+    width: 2px;
+    background: repeating-linear-gradient(
+      transparent 0px, transparent 18px,
+      var(--purple-main) 18px, var(--purple-main) 20px,
+      transparent 20px, transparent 38px
+    );
+  }
+
+  /* Main content */
+  .container {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    max-width: 680px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 16px;
+    padding-bottom: 80px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 20px 0 12px;
+    border-bottom: 2px solid var(--purple-main);
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--purple-main);
+    text-shadow: 0 0 20px rgba(157,0,255,0.3);
+    letter-spacing: 2px;
+  }
+  .header .subtitle {
+    font-size: 0.8rem;
+    color: var(--ink-light);
+    margin-top: 4px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .header .badge {
+    display: inline-block;
+    background: var(--purple-main);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 2px 10px;
+    border-radius: 10px;
+    margin-top: 6px;
+    font-family: 'Orbitron', sans-serif;
+  }
+
+  /* Screens */
+  .screen { display: none; }
+  .screen.active { display: block; animation: fadeIn 0.4s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Stage cards */
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .stage-card {
+    background: #fff;
+    border: 2px solid var(--purple-dim);
+    border-radius: 12px;
+    padding: 16px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .stage-card:hover:not(.locked) {
+    border-color: var(--purple-main);
+    box-shadow: 0 0 20px rgba(157,0,255,0.2);
+    transform: translateY(-2px);
+  }
+  .stage-card.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+  }
+  .stage-card.completed {
+    border-color: var(--success);
+    background: rgba(0,255,136,0.05);
+  }
+  .stage-card.completed::after {
+    content: '✓';
+    position: absolute;
+    top: 4px; right: 8px;
+    color: var(--success);
+    font-size: 1rem;
+  }
+
+  .stage-num {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--purple-main);
+    line-height: 1;
+  }
+  .stage-name {
+    font-size: 0.75rem;
+    color: var(--ink);
+    margin-top: 6px;
+    font-weight: bold;
+  }
+  .stage-desc {
+    font-size: 0.65rem;
+    color: var(--ink-light);
+    margin-top: 3px;
+  }
+  .stage-lock {
+    font-size: 1.2rem;
+    margin-top: 4px;
+  }
+
+  /* Game HUD */
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid var(--purple-dim);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+  }
+  .hud-left { display: flex; align-items: center; gap: 8px; }
+  .hp-display { font-size: 1rem; }
+  .score-display { color: var(--purple-main); font-weight: bold; }
+  .timer-display { color: var(--error); }
+  .timer-display.warning { animation: blink 0.5s infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+
+  /* Question area */
+  .question-box {
+    background: #fff;
+    border: 2px solid var(--purple-main);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .progress-bar {
+    height: 4px;
+    background: var(--paper-dark);
+    border-radius: 2px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--purple-main);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  .stage-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    color: var(--purple-dim);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  .question-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--ink);
+    white-space: pre-wrap;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .question-text strong {
+    color: var(--purple-main);
+  }
+  .question-text sub, .question-text sup {
+    font-size: 0.7em;
+  }
+
+  /* Circuit diagram canvas container */
+  .circuit-canvas {
+    width: 100%;
+    max-width: 400px;
+    margin: 12px auto;
+    display: block;
+    background: #faf8ff;
+    border: 1px solid var(--purple-dim);
+    border-radius: 8px;
+  }
+
+  /* Options */
+  .options-grid {
+    display: grid;
+    gap: 8px;
+  }
+  .option-btn {
+    background: #fff;
+    border: 2px solid var(--purple-dim);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: left;
+    font-family: 'Share Tech Mono', monospace;
+    transition: all 0.15s ease;
+    color: var(--ink);
+  }
+  .option-btn:hover:not(.disabled) {
+    border-color: var(--purple-main);
+    background: rgba(157,0,255,0.05);
+  }
+  .option-btn.correct {
+    border-color: var(--success);
+    background: rgba(0,255,136,0.1);
+    color: var(--success);
+  }
+  .option-btn.wrong {
+    border-color: var(--error);
+    background: rgba(255,51,102,0.1);
+    color: var(--error);
+    animation: shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+  }
+  .option-btn.disabled { cursor: default; }
+
+  /* Feedback */
+  .feedback-area {
+    display: none;
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--paper);
+    border-radius: 8px;
+    border: 1px solid var(--purple-dim);
+  }
+  .feedback-area.show { display: block; animation: fadeIn 0.3s ease; }
+  .feedback-title { font-weight: bold; margin-bottom: 6px; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; }
+  .feedback-correct { color: var(--success); }
+  .feedback-wrong { color: var(--error); }
+  .feedback-text { font-size: 0.75rem; color: var(--ink-light); }
+  .principle-box {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(157,0,255,0.05);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: var(--ink-light);
+    line-height: 1.5;
+  }
+  .error-tip {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: rgba(255,51,102,0.08);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    color: var(--error);
+    display: none;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border: 2px solid var(--purple-main);
+    border-radius: 8px;
+    background: var(--purple-main);
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .btn:hover { background: var(--purple-bright); border-color: var(--purple-bright); }
+  .btn-outline {
+    background: transparent;
+    color: var(--purple-main);
+  }
+  .btn-outline:hover { background: rgba(157,0,255,0.1); color: var(--purple-main); }
+  .btn-group { display: flex; gap: 8px; margin-top: 12px; justify-content: center; }
+
+  /* Result screen */
+  .result-box {
+    text-align: center;
+    padding: 30px 20px;
+    background: #fff;
+    border: 2px solid var(--purple-main);
+    border-radius: 16px;
+  }
+  .grade-badge {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin: 0 auto 16px;
+    border: 4px solid;
+  }
+  .grade-s { border-color: var(--warning); color: var(--warning); background: rgba(255,204,0,0.1); }
+  .grade-a { border-color: var(--success); color: var(--success); background: rgba(0,255,136,0.1); }
+  .grade-b { border-color: var(--purple-main); color: var(--purple-main); background: rgba(157,0,255,0.1); }
+  .grade-c { border-color: var(--error); color: var(--error); background: rgba(255,51,102,0.1); }
+
+  .master-badge {
+    display: none;
+    background: var(--warning);
+    color: var(--ink);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin: 8px auto 16px;
+    font-weight: bold;
+  }
+  .master-badge.show { display: inline-block; animation: fadeIn 0.5s ease; }
+
+  .result-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin: 16px 0;
+    font-size: 0.75rem;
+  }
+  .result-stat {
+    background: var(--paper);
+    padding: 8px;
+    border-radius: 6px;
+  }
+  .result-stat .val { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; color: var(--purple-main); }
+  .result-stat .lbl { color: var(--ink-light); font-size: 0.65rem; margin-top: 2px; }
+
+  /* Combo popup */
+  .combo-popup {
+    position: fixed;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--warning);
+    text-shadow: 0 0 30px rgba(255,204,0,0.5);
+    pointer-events: none;
+    z-index: 100;
+    transition: transform 0.3s ease;
+  }
+  .combo-popup.show { transform: translate(-50%, -50%) scale(1); }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    border-top: 2px solid var(--purple-main);
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0;
+    z-index: 50;
+  }
+  .nav-btn {
+    background: none;
+    border: none;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    color: var(--ink-light);
+    cursor: pointer;
+    padding: 4px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transition: color 0.2s ease;
+  }
+  .nav-btn:hover, .nav-btn.active { color: var(--purple-main); }
+  .nav-btn .nav-icon { font-size: 1.2rem; }
+
+  /* Data log style */
+  .data-log {
+    background: #fff;
+    border: 1px solid var(--purple-dim);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 12px;
+    font-size: 0.7rem;
+    color: var(--ink-light);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .data-log .log-header {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    color: var(--purple-main);
+    margin-bottom: 6px;
+    border-bottom: 1px dashed var(--purple-dim);
+    padding-bottom: 4px;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .stage-grid { grid-template-columns: 1fr; }
+    .header h1 { font-size: 1.3rem; }
+    .container { padding: 12px; padding-bottom: 80px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Decorations -->
+<div class="deco-wire v1"></div>
+<div class="deco-wire v2"></div>
+<div class="deco-wire h1"></div>
+<div class="deco-wire h2"></div>
+<div class="deco-resistor r1"></div>
+<div class="deco-resistor r2"></div>
+<div class="deco-resistor r3"></div>
+<div class="deco-resistor r4"></div>
+<div class="deco-meter m1"></div>
+<div class="deco-meter m2"></div>
+<div class="binding"></div>
+
+<div class="container">
+
+  <!-- TITLE SCREEN -->
+  <div id="titleScreen" class="screen active">
+    <div class="header">
+      <h1>OHM</h1>
+      <div class="subtitle">电路分析实验室 · 第十二章</div>
+      <div class="badge">欧姆定律</div>
+    </div>
+
+    <div style="text-align:center; padding:20px 0;">
+      <div style="font-family:'Orbitron',sans-serif; font-size:3rem; color:var(--purple-main); text-shadow:0 0 30px rgba(157,0,255,0.3);">R = U / I</div>
+      <div style="font-size:0.75rem; color:var(--ink-light); margin-top:8px;">电阻 · 电压 · 电流 · 串并联 · 伏安法</div>
+    </div>
+
+    <div class="data-log">
+      <div class="log-header">📋 实验须知</div>
+      <div>• 5个Stage，共29道实验题</div>
+      <div>• 初始生命值 ❤️❤️❤️（3颗）</div>
+      <div>• 答错扣1颗心，答对得分+连击奖励</div>
+      <div>• S级通关解锁「欧姆大师」徽章</div>
+      <div>• Stage 5为60秒限时综合挑战</div>
+    </div>
+
+    <div class="btn-group" style="margin-top:24px;">
+      <button class="btn" onclick="showStageSelect()">开始实验</button>
+    </div>
+  </div>
+
+  <!-- STAGE SELECT -->
+  <div id="stageSelect" class="screen">
+    <div class="header">
+      <h1 style="font-size:1.2rem;">选择实验阶段</h1>
+      <div class="subtitle">电路分析实验室</div>
+    </div>
+
+    <div class="stage-grid" id="stageGrid"></div>
+
+    <div class="data-log" style="margin-top:16px;">
+      <div class="log-header">📊 实验记录</div>
+      <div>总得分: <span id="totalScore">0</span> | 最高连击: <span id="totalMaxCombo">0</span></div>
+      <div>已获得徽章: <span id="badgeList">无</span></div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="gameScreen" class="screen">
+    <div class="hud">
+      <div class="hud-left">
+        <span class="hp-display" id="hpDisplay">❤️❤️❤️</span>
+        <span class="score-display" id="scoreDisplay">0</span>
+      </div>
+      <div class="timer-display" id="timerDisplay">--</div>
+    </div>
+
+    <div class="question-box">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="stage-label" id="stageLabel">STAGE 1</div>
+      <div class="question-text" id="questionText"></div>
+      <canvas id="circuitCanvas" class="circuit-canvas" style="display:none;"></canvas>
+    </div>
+
+    <div class="options-grid" id="optionsGrid"></div>
+
+    <div class="feedback-area" id="feedbackArea">
+      <div class="feedback-title" id="feedbackTitle"></div>
+      <div class="feedback-text" id="feedbackText"></div>
+      <div class="principle-box" id="principleBox"></div>
+      <div class="error-tip" id="errorTipBox"></div>
+      <div class="btn-group">
+        <button class="btn" id="nextBtn" onclick="nextQuestion()">下一题</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT SCREEN -->
+  <div id="resultScreen" class="screen">
+    <div class="result-box">
+      <div class="grade-badge" id="gradeBadge">C</div>
+      <div class="master-badge" id="masterBadge">🏆 欧姆大师</div>
+
+      <div style="font-family:'Orbitron',sans-serif; font-size:1rem; color:var(--purple-main); margin-bottom:8px;" id="resultStageName"></div>
+
+      <div class="result-stats">
+        <div class="result-stat"><div class="val" id="resultScore">0</div><div class="lbl">得分</div></div>
+        <div class="result-stat"><div class="val" id="resultCorrect">0/0</div><div class="lbl">正确率</div></div>
+        <div class="result-stat"><div class="val" id="resultMaxCombo">0</div><div class="lbl">最高连击</div></div>
+        <div class="result-stat"><div class="val" id="resultTime">0s</div><div class="lbl">用时</div></div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="backToMenu()">返回菜单</button>
+        <button class="btn" onclick="retryStage()">重试</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Combo popup -->
+<div class="combo-popup" id="comboPopup"></div>
+
+<!-- Bottom nav -->
+<div class="bottom-nav">
+  <button class="nav-btn active" onclick="showTitle()">
+    <span class="nav-icon">⚡</span>
+    <span>主页</span>
+  </button>
+  <button class="nav-btn" onclick="showStageSelect()">
+    <span class="nav-icon">🔬</span>
+    <span>实验</span>
+  </button>
+  <button class="nav-btn" onclick="toggleSound()">
+    <span class="nav-icon" id="soundIcon">🔊</span>
+    <span>音效</span>
+  </button>
+</div>
+
+<script>
+// ===== GAME STATE =====
+let currentStage = 0;
+let currentQuestion = 0;
+let score = 0;
+let hp = 3;
+let combo = 0;
+let maxCombo = 0;
+let answered = false;
+let totalAnswered = 0;
+let correctCount = 0;
+let stageStartTime = 0;
+let stageTime = 0;
+let timerInterval = null;
+let timeLeft = 0;
+let isSoundOn = true;
+let stageResults = [false, false, false, false, false];
+let totalScoreAll = 0;
+let totalMaxComboAll = 0;
+let earnedBadges = [];
+
+const titleScreen = document.getElementById('titleScreen');
+const stageSelect = document.getElementById('stageSelect');
+const gameScreen = document.getElementById('gameScreen');
+const resultScreen = document.getElementById('resultScreen');
+const questionText = document.getElementById('questionText');
+const optionsGrid = document.getElementById('optionsGrid');
+const feedbackArea = document.getElementById('feedbackArea');
+const feedbackTitle = document.getElementById('feedbackTitle');
+const feedbackText = document.getElementById('feedbackText');
+const principleBox = document.getElementById('principleBox');
+const errorTipBox = document.getElementById('errorTipBox');
+const hpDisplay = document.getElementById('hpDisplay');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const timerDisplay = document.getElementById('timerDisplay');
+const progressFill = document.getElementById('progressFill');
+const stageLabel = document.getElementById('stageLabel');
+const comboPopup = document.getElementById('comboPopup');
+const circuitCanvas = document.getElementById('circuitCanvas');
+
+// ===== STAGE DATA =====
+const STAGES = [
+  {
+    id: 1,
+    name: '电阻基础',
+    desc: 'R=U/I计算，电阻决定因素',
+    questions: [
+      {
+        text: '一段导体两端的电压为6V，通过它的电流为2A，则这段导体的电阻为多少？',
+        options: ['3Ω', '12Ω', '0.33Ω', '8Ω'],
+        correct: 0,
+        principle: '电阻计算公式：R = U / I = 6V / 2A = 3Ω',
+        errorTip: '记住公式 R = U / I，不要写成乘法'
+      },
+      {
+        text: '某导体两端电压为12V，通过的电流为0.5A，则该导体的电阻为多少？',
+        options: ['24Ω', '6Ω', '12Ω', '0.042Ω'],
+        correct: 0,
+        principle: 'R = U / I = 12V / 0.5A = 24Ω',
+        errorTip: '12 ÷ 0.5 = 24，注意小数运算'
+      },
+      {
+        text: '下列关于导体电阻的说法，正确的是：',
+        options: ['导体电阻与电压成正比', '导体电阻与电流成反比', '导体电阻由导体本身性质决定，与U、I无关', '电压越大，电阻越大'],
+        correct: 2,
+        principle: '电阻是导体本身的属性，由材料、长度、横截面积和温度决定，与电压、电流无关',
+        errorTip: 'R=U/I是计算式，不是决定式！电阻不由U、I决定'
+      },
+      {
+        text: '一根铜导线被均匀拉长为原来的2倍，其电阻将变为原来的多少倍？',
+        options: ['2倍', '4倍', '1/2', '不变'],
+        correct: 1,
+        principle: '长度变为2倍，横截面积变为1/2，R = ρL/S，电阻变为原来的4倍',
+        errorTip: '拉长后长度变长、横截面积变小，两个因素都使电阻增大'
+      },
+      {
+        text: '关于决定电阻大小的因素，下列说法错误的是：',
+        options: ['同种材料，长度越长电阻越大', '同种材料，横截面积越大电阻越大', '不同材料电阻一般不同', '温度会影响电阻大小'],
+        correct: 1,
+        principle: '同种材料，横截面积越大，电阻越小（R = ρL/S，S在分母）',
+        errorTip: '横截面积S在分母位置，S越大R越小'
+      },
+      {
+        text: '把一根电阻为R的导线从中间对折后拧成一股，其电阻变为多少？',
+        options: ['R/2', 'R/4', '2R', '4R'],
+        correct: 1,
+        principle: '对折后长度减半，横截面积加倍，R\' = ρ(L/2)/(2S) = R/4',
+        errorTip: '对折：长度变为1/2，面积变为2倍，两个因素都使电阻减小'
+      }
+    ]
+  },
+  {
+    id: 2,
+    name: '欧姆定律应用',
+    desc: 'I=U/R、U=IR、R=U/I计算',
+    questions: [
+      {
+        text: '一个电阻为10Ω的导体，两端加5V电压，通过它的电流是多少？',
+        options: ['0.5A', '2A', '50A', '0.05A'],
+        correct: 0,
+        principle: 'I = U / R = 5V / 10Ω = 0.5A',
+        errorTip: 'I = U/R，电压除以电阻，不是乘'
+      },
+      {
+        text: '某电阻两端电压为8V，通过的电流为0.4A，该电阻的阻值是？',
+        options: ['20Ω', '3.2Ω', '0.05Ω', '32Ω'],
+        correct: 0,
+        principle: 'R = U / I = 8V / 0.4A = 20Ω',
+        errorTip: '8 ÷ 0.4 = 20，注意小数除法'
+      },
+      {
+        text: '一个定值电阻两端电压从4V增大到8V，通过它的电流将从0.2A变为多少？',
+        options: ['0.1A', '0.2A', '0.4A', '0.8A'],
+        correct: 2,
+        principle: '先求R = 4V/0.2A = 20Ω，再算I = 8V/20Ω = 0.4A；或电压翻倍电流也翻倍',
+        errorTip: '电阻不变时，电流与电压成正比'
+      },
+      {
+        text: '一段导体电阻为5Ω，要通过3A的电流，需要加多大的电压？',
+        options: ['15V', '0.6V', '8V', '1.67V'],
+        correct: 0,
+        principle: 'U = I × R = 3A × 5Ω = 15V',
+        errorTip: '求电压用 U = IR，是乘法不是除法'
+      },
+      {
+        text: '如图，电源电压6V，R₁=10Ω，R₂=20Ω串联，电路中的电流为多少？',
+        options: ['0.2A', '0.3A', '0.6A', '0.9A'],
+        correct: 0,
+        principle: '串联总电阻 R = 10+20 = 30Ω，I = U/R = 6/30 = 0.2A',
+        errorTip: '串联先算总电阻，再用I=U/R总',
+        circuit: 'series_r1_r2_6v'
+      },
+      {
+        text: '如图所示电路，电源电压12V，R=4Ω，闭合开关后电流表示数为多少？',
+        options: ['3A', '48A', '0.33A', '8A'],
+        correct: 0,
+        principle: 'I = U / R = 12V / 4Ω = 3A',
+        errorTip: '直接应用欧姆定律 I = U/R',
+        circuit: 'simple_12v_4ohm'
+      }
+    ]
+  },
+  {
+    id: 3,
+    name: '串并联电阻',
+    desc: '等效电阻计算，分压/分流',
+    questions: [
+      {
+        text: '两个电阻R₁=6Ω和R₂=12Ω串联，总电阻为多少？',
+        options: ['18Ω', '4Ω', '72Ω', '6Ω'],
+        correct: 0,
+        principle: '串联总电阻 R = R₁ + R₂ = 6 + 12 = 18Ω',
+        errorTip: '串联电阻直接相加'
+      },
+      {
+        text: '两个电阻R₁=6Ω和R₂=12Ω并联，总电阻为多少？',
+        options: ['18Ω', '4Ω', '72Ω', '3Ω'],
+        correct: 1,
+        principle: '并联：1/R = 1/R₁ + 1/R₂ = 1/6 + 1/12 = 3/12 = 1/4，所以 R = 4Ω',
+        errorTip: '并联用倒数公式，总电阻小于任一分电阻'
+      },
+      {
+        text: '三个电阻R₁=2Ω、R₂=3Ω、R₃=6Ω并联，等效电阻为多少？',
+        options: ['11Ω', '1Ω', '3Ω', '0.5Ω'],
+        correct: 1,
+        principle: '1/R = 1/2 + 1/3 + 1/6 = 3/6 + 2/6 + 1/6 = 6/6 = 1，R = 1Ω',
+        errorTip: '通分计算倒数之和'
+      },
+      {
+        text: '如图，R₁=4Ω、R₂=6Ω串联接在10V电源上，R₁两端电压为多少？',
+        options: ['4V', '6V', '10V', '2.5V'],
+        correct: 0,
+        principle: '分压：U₁/U₂ = R₁/R₂ = 4/6 = 2/3，U₁ = 10 × 4/(4+6) = 4V',
+        errorTip: '串联分压与电阻成正比，U₁ = U总 × R₁/R总',
+        circuit: 'series_vdiv_4_6_10v'
+      },
+      {
+        text: 'R₁=3Ω与R₂=6Ω并联在电源两端，通过R₁的电流与通过R₂的电流之比为？',
+        options: ['1:2', '2:1', '1:1', '3:1'],
+        correct: 1,
+        principle: '并联分流：I₁/I₂ = R₂/R₁ = 6/3 = 2/1，电流与电阻成反比',
+        errorTip: '并联分流与电阻成反比，不是正比！',
+        circuit: 'parallel_idiv_3_6'
+      },
+      {
+        text: '如图所示，R₁=5Ω与R₂=10Ω串联，测得R₂两端电压为8V，则电源电压为多少？',
+        options: ['8V', '12V', '16V', '4V'],
+        correct: 1,
+        principle: '串联电流相等，I = 8V/10Ω = 0.8A，U₁ = 0.8×5 = 4V，U总 = 4+8 = 12V',
+        errorTip: '先由R₂的电压求电流，再求R₁电压，两者相加',
+        circuit: 'series_find_u_5_10_8v'
+      }
+    ]
+  },
+  {
+    id: 4,
+    name: '伏安法实验',
+    desc: '电路图识别，电表读数',
+    questions: [
+      {
+        text: '在"伏安法测电阻"实验中，电流表应该与被测电阻怎样连接？',
+        options: ['串联', '并联', '既可串联也可并联', '不连接'],
+        correct: 0,
+        principle: '电流表内阻很小，必须串联在电路中测量电流',
+        errorTip: '电流表串联，电压表并联——别搞混'
+      },
+      {
+        text: '伏安法测电阻的电路图中，电压表应该接在何处？',
+        options: ['与被测电阻串联', '与被测电阻并联', '接在电源两端', '接在滑动变阻器两端'],
+        correct: 1,
+        principle: '电压表内阻很大，必须并联在被测电阻两端测量其电压',
+        errorTip: '电压表并联测电压，电流表串联测电流'
+      },
+      {
+        text: '如图伏安法电路，闭合开关前滑动变阻器滑片应置于哪端？',
+        options: ['阻值最小端', '阻值最大端', '中间位置', '任意位置'],
+        correct: 1,
+        principle: '闭合开关前滑片置于阻值最大端，起到保护电路的作用，防止电流过大',
+        errorTip: '保护电路：开关闭合前阻值调到最大',
+        circuit: 'voltamp_circuit'
+      },
+      {
+        text: '某同学用伏安法测电阻，电流表读数为0.3A，电压表读数为6V，则被测电阻约为多少？',
+        options: ['20Ω', '1.8Ω', '0.05Ω', '18Ω'],
+        correct: 0,
+        principle: 'R = U / I = 6V / 0.3A = 20Ω',
+        errorTip: '直接套用欧姆定律计算'
+      },
+      {
+        text: '伏安法测电阻实验中，多次测量的目的是什么？',
+        options: ['求平均值减小误差', '探究电阻与电压的关系', '验证欧姆定律', '观察电流变化规律'],
+        correct: 0,
+        principle: '多次测量取平均值是减小偶然误差的常用方法，电阻值不随电压电流变化',
+        errorTip: '测电阻是测量实验，多次测量目的是减小误差'
+      }
+    ]
+  },
+  {
+    id: 5,
+    name: '终极实验',
+    desc: '60秒综合挑战',
+    timed: true,
+    timeLimit: 60,
+    questions: [
+      {
+        text: '导体两端电压为3V，电流0.6A，电阻为？',
+        options: ['5Ω', '1.8Ω', '0.2Ω', '3.6Ω'],
+        correct: 0,
+        principle: 'R = U/I = 3/0.6 = 5Ω'
+      },
+      {
+        text: 'R₁=8Ω、R₂=8Ω并联，总电阻为？',
+        options: ['16Ω', '4Ω', '8Ω', '2Ω'],
+        correct: 1,
+        principle: '等值电阻并联：R总 = R/n = 8/2 = 4Ω'
+      },
+      {
+        text: '电阻10Ω，要获得2A电流，需要加多大电压？',
+        options: ['5V', '20V', '0.2V', '12V'],
+        correct: 1,
+        principle: 'U = IR = 2×10 = 20V'
+      },
+      {
+        text: '两电阻串联R₁:R₂=2:3，总电压10V，则R₁两端电压为？',
+        options: ['4V', '6V', '5V', '3V'],
+        correct: 0,
+        principle: '分压与电阻成正比，U₁ = 10 × 2/(2+3) = 4V'
+      },
+      {
+        text: '某导体电压从2V变为6V，电流变化了0.4A，该电阻为？',
+        options: ['10Ω', '15Ω', '5Ω', '20Ω'],
+        correct: 0,
+        principle: 'ΔU = 4V，ΔI = 0.4A，R = ΔU/ΔI = 4/0.4 = 10Ω（电阻不变）'
+      },
+      {
+        text: '三个电阻2Ω、3Ω、6Ω串联后接在22V电源上，电路电流为？',
+        options: ['2A', '1A', '11A', '0.5A'],
+        correct: 0,
+        principle: 'R总 = 2+3+6 = 11Ω，I = 22/11 = 2A'
+      }
+    ]
+  }
+];
+
+// ===== NAVIGATION =====
+function showScreen(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  screen.classList.add('active');
+}
+
+function showTitle() {
+  showScreen(titleScreen);
+}
+
+function showStageSelect() {
+  showScreen(stageSelect);
+  renderStageGrid();
+}
+
+function renderStageGrid() {
+  const grid = document.getElementById('stageGrid');
+  grid.innerHTML = '';
+  STAGES.forEach((stage, i) => {
+    const locked = i > 0 && !stageResults[i - 1];
+    const completed = stageResults[i];
+    const div = document.createElement('div');
+    div.className = 'stage-card' + (locked ? ' locked' : '') + (completed ? ' completed' : '');
+    if (!locked) {
+      div.onclick = () => startStage(i);
+    }
+    div.innerHTML = `
+      <div class="stage-num">${stage.id}</div>
+      <div class="stage-name">${stage.name}</div>
+      <div class="stage-desc">${stage.desc}</div>
+      ${locked ? '<div class="stage-lock">🔒</div>' : ''}
+      ${completed ? '<div style="font-size:0.65rem;color:var(--success);margin-top:4px;">已完成</div>' : ''}
+    `;
+    grid.appendChild(div);
+  });
+
+  document.getElementById('totalScore').textContent = totalScoreAll;
+  document.getElementById('totalMaxCombo').textContent = totalMaxComboAll;
+  document.getElementById('badgeList').textContent = earnedBadges.length ? earnedBadges.join(' ') : '无';
+}
+
+// ===== GAME LOGIC =====
+function startStage(stageIndex) {
+  currentStage = stageIndex;
+  currentQuestion = 0;
+  score = 0;
+  hp = 3;
+  combo = 0;
+  maxCombo = 0;
+  answered = false;
+  totalAnswered = 0;
+  correctCount = 0;
+  stageStartTime = Date.now();
+
+  const stage = STAGES[stageIndex];
+
+  if (stage.timed) {
+    timeLeft = stage.timeLimit;
+    startTimer();
+  } else {
+    timeLeft = 0;
+    timerDisplay.textContent = '--';
+    timerDisplay.classList.remove('warning');
+  }
+
+  updateHP();
+  updateStats();
+  showScreen(gameScreen);
+  loadQuestion();
+}
+
+function startTimer() {
+  stopTimer();
+  timerDisplay.textContent = timeLeft + 's';
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    timerDisplay.textContent = timeLeft + 's';
+    if (timeLeft <= 10) timerDisplay.classList.add('warning');
+    if (timeLeft <= 0) {
+      stopTimer();
+      finishStage();
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  timerDisplay.classList.remove('warning');
+}
+
+function loadQuestion() {
+  answered = false;
+  feedbackArea.classList.remove('show');
+  const stage = STAGES[currentStage];
+  const q = stage.questions[currentQuestion];
+
+  stageLabel.textContent = `STAGE ${stage.id} · ${stage.name} · ${currentQuestion + 1}/${stage.questions.length}`;
+  questionText.innerHTML = q.text;
+
+  // Circuit diagram
+  if (q.circuit) {
+    circuitCanvas.style.display = 'block';
+    drawCircuit(q.circuit);
+  } else {
+    circuitCanvas.style.display = 'none';
+  }
+
+  // Progress
+  const pct = ((currentQuestion) / stage.questions.length) * 100;
+  progressFill.style.width = pct + '%';
+
+  // Options
+  optionsGrid.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.textContent = String.fromCharCode(65 + i) + '. ' + opt;
+    btn.onclick = () => selectAnswer(i);
+    optionsGrid.appendChild(btn);
+  });
+}
+
+// ===== CIRCUIT DRAWING =====
+function drawCircuit(type) {
+  const ctx = circuitCanvas.getContext('2d');
+  const W = 360, H = 180;
+  circuitCanvas.width = W;
+  circuitCanvas.height = H;
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = 40;
+  const x1 = pad, y1 = H/2;
+  const x2 = W-pad, y2 = H/2;
+  const midX = W/2, midY = H/2;
+
+  ctx.strokeStyle = '#9d00ff';
+  ctx.lineWidth = 2;
+
+  if (type === 'simple_12v_4ohm') {
+    // Battery + resistor + ammeter simple loop
+    drawWire(ctx, x1, y1, x1, y1-40);
+    drawWire(ctx, x1, y1-40, x2, y1-40);
+    drawWire(ctx, x2, y1-40, x2, y1+40);
+    drawWire(ctx, x2, y1+40, x1, y1+40);
+    drawWire(ctx, x1, y1+40, x1, y1);
+    drawBattery(ctx, x1, y1, '12V');
+    drawResistor(ctx, midX, y1-40, 'R=4Ω');
+    drawAmmeter(ctx, x2, y1, 'A');
+    drawVoltmeter(ctx, midX, y1-60, 'V');
+    drawWire(ctx, midX, y1-40, midX, y1-46);
+    drawWire(ctx, midX, y1-74, midX, y1-60);
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 1;
+    drawWire(ctx, midX-20, y1-60, midX+20, y1-60);
+  }
+  else if (type === 'series_r1_r2_6v') {
+    drawWire(ctx, x1, midY, x2, midY);
+    drawBattery(ctx, x1+20, midY, '6V');
+    drawResistor(ctx, midX-40, midY, 'R₁=10Ω');
+    drawResistor(ctx, midX+40, midY, 'R₂=20Ω');
+    drawAmmeter(ctx, x2-30, midY, 'A');
+  }
+  else if (type === 'series_vdiv_4_6_10v') {
+    drawWire(ctx, x1, midY, x2, midY);
+    drawBattery(ctx, x1+20, midY, '10V');
+    drawResistor(ctx, midX-40, midY, 'R₁=4Ω');
+    drawResistor(ctx, midX+40, midY, 'R₂=6Ω');
+    drawVoltmeter(ctx, midX-40, midY-35, 'V₁');
+    drawWire(ctx, midX-40, midY, midX-40, midY-21);
+    drawWire(ctx, midX-40, midY-49, midX-40, midY-35);
+    ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1;
+    drawWire(ctx, midX-60, midY-35, midX-20, midY-35);
+  }
+  else if (type === 'parallel_idiv_3_6') {
+    // Parallel branches
+    drawWire(ctx, x1, midY-50, x2, midY-50);
+    drawWire(ctx, x1, midY+50, x2, midY+50);
+    drawWire(ctx, x1, midY-50, x1, midY+50);
+    drawWire(ctx, x2, midY-50, x2, midY+50);
+    drawResistor(ctx, midX, midY-50, 'R₁=3Ω');
+    drawResistor(ctx, midX, midY+50, 'R₂=6Ω');
+    drawAmmeter(ctx, midX-20, midY-50, 'A₁');
+    drawAmmeter(ctx, midX-20, midY+50, 'A₂');
+    drawVoltmeter(ctx, x2+15, midY, 'V');
+    ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1;
+    drawWire(ctx, x2+15, midY-50, x2+15, midY-14);
+    drawWire(ctx, x2+15, midY+14, x2+15, midY+50);
+  }
+  else if (type === 'series_find_u_5_10_8v') {
+    drawWire(ctx, x1, midY, x2, midY);
+    drawResistor(ctx, midX-50, midY, 'R₁=5Ω');
+    drawResistor(ctx, midX+50, midY, 'R₂=10Ω');
+    drawVoltmeter(ctx, midX+50, midY-35, 'V=8V');
+    drawWire(ctx, midX+50, midY, midX+50, midY-21);
+    drawWire(ctx, midX+50, midY-49, midX+50, midY-35);
+    ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1;
+    drawWire(ctx, midX+30, midY-35, midX+70, midY-35);
+  }
+  else if (type === 'voltamp_circuit') {
+    // Full volt-ampere method circuit
+    drawWire(ctx, x1, midY-50, x2, midY-50);
+    drawWire(ctx, x2, midY-50, x2, midY+50);
+    drawWire(ctx, x2, midY+50, x1, midY+50);
+    drawWire(ctx, x1, midY+50, x1, midY-50);
+    drawBattery(ctx, x1+20, midY-50, 'U');
+    drawSwitch(ctx, x1+60, midY-50);
+    drawResistor(ctx, midX-30, midY-50, 'Rₓ');
+    drawAmmeter(ctx, x2-40, midY-50, 'A');
+    drawVoltmeter(ctx, midX-30, midY-75, 'V');
+    drawWire(ctx, midX-30, midY-50, midX-30, midY-61);
+    drawWire(ctx, midX-30, midY-89, midX-30, midY-75);
+    ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1;
+    drawWire(ctx, midX-55, midY-75, midX-5, midY-75);
+    // Rheostat symbol at bottom
+    drawRheostat(ctx, midX, midY+50, 'R');
+  }
+}
+
+function drawWire(ctx, x1, y1, x2, y2) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = '#9d00ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function drawBattery(ctx, x, y, label) {
+  ctx.beginPath();
+  ctx.moveTo(x-8, y-12); ctx.lineTo(x-8, y+12);
+  ctx.moveTo(x+8, y-6); ctx.lineTo(x+8, y+6);
+  ctx.strokeStyle = '#9d00ff';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = '#9d00ff';
+  ctx.font = '10px Share Tech Mono';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x, y+26);
+  // + and -
+  ctx.font = 'bold 9px Orbitron';
+  ctx.fillText('+', x+14, y-2);
+  ctx.fillText('-', x-14, y-2);
+}
+
+function drawSwitch(ctx, x, y) {
+  ctx.beginPath();
+  ctx.moveTo(x-8, y); ctx.lineTo(x-2, y);
+  ctx.moveTo(x+2, y-6); ctx.lineTo(x+8, y);
+  ctx.moveTo(x+2, y); ctx.lineTo(x+8, y);
+  ctx.strokeStyle = '#9d00ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // dots
+  ctx.beginPath();
+  ctx.arc(x-2, y, 2, 0, Math.PI*2);
+  ctx.arc(x+8, y, 2, 0, Math.PI*2);
+  ctx.fillStyle = '#9d00ff';
+  ctx.fill();
+}
+
+function drawResistor(ctx, x, y, label) {
+  const w = 24, h = 10;
+  ctx.fillStyle = '#c084fc';
+  ctx.fillRect(x-w/2, y-h/2, w, h);
+  ctx.strokeStyle = '#9d00ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x-w/2, y-h/2, w, h);
+  // stripes
+  ctx.strokeStyle = '#9d00ff';
+  ctx.lineWidth = 1;
+  for (let i = -8; i <= 8; i += 5) {
+    ctx.beginPath();
+    ctx.moveTo(x+i, y-h/2);
+    ctx.lineTo(x+i, y+h/2);
+    ctx.stroke();
+  }
+  // leads
+  ctx.beginPath();
+  ctx.moveTo(x-w/2-10, y);
+  ctx.lineTo(x-w/2, y);
+  ctx.moveTo(x+w/2, y);
+  ctx.lineTo(x+w/2+10, y);
+  ctx.strokeStyle = '#9d00ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // label
+  ctx.fillStyle = '#9d00ff';
+  ctx.font = 'bold 10px Share Tech Mono';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(label, x, y+h/2+4);
+}
+
+function drawRheostat(ctx, x, y, label) {
+  // Arrow through resistor
+  drawResistor(ctx, x, y, label);
+  ctx.beginPath();
+  ctx.moveTo(x, y-h/2-8);
+  ctx.lineTo(x, y-h/2);
+  ctx.strokeStyle = '#ff00ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // arrow head
+  ctx.beginPath();
+  ctx.moveTo(x-3, y-h/2-3);
+  ctx.lineTo(x, y-h/2);
+  ctx.lineTo(x+3, y-h/2-3);
+  ctx.strokeStyle = '#ff00ff';
+  ctx.stroke();
+}
+
+function drawAmmeter(ctx, x, y, label) {
+  ctx.beginPath();
+  ctx.arc(x, y, 14, 0, Math.PI*2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.strokeStyle = '#9d00ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = '#9d00ff';
+  ctx.font = 'bold 11px Orbitron';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('A', x, y);
+  ctx.font = '10px Share Tech Mono';
+  ctx.fillText(label, x, y+22);
+}
+
+function drawVoltmeter(ctx, x, y, label) {
+  ctx.beginPath();
+  ctx.arc(x, y, 14, 0, Math.PI*2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.strokeStyle = '#00ff88';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = '#00ff88';
+  ctx.font = 'bold 11px Orbitron';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('V', x, y);
+  ctx.font = '10px Share Tech Mono';
+  ctx.fillText(label, x, y+22);
+}
+
+// ===== ANSWER HANDLING =====
+function selectAnswer(index) {
+  if (answered) return;
+  answered = true;
+
+  const stage = STAGES[currentStage];
+  const q = stage.questions[currentQuestion];
+  const isCorrect = index === q.correct;
+
+  totalAnswered++;
+
+  const buttons = optionsGrid.querySelectorAll('.option-btn');
+  buttons.forEach((btn, i) => {
+    btn.classList.add('disabled');
+    if (i === q.correct) btn.classList.add('correct');
+    else if (i === index && !isCorrect) btn.classList.add('wrong');
+  });
+
+  if (isCorrect) {
+    correctCount++;
+    combo++;
+    if (combo > maxCombo) maxCombo = combo;
+    const pts = 10 + combo * 2;
+    score += pts;
+
+    feedbackTitle.innerHTML = '<span class="feedback-correct">✓ 正确!</span>';
+    feedbackText.textContent = `+${pts}分 · 连击 x${combo}`;
+
+    if (combo >= 3) {
+      comboPopup.textContent = `${combo} 连击!`;
+      comboPopup.classList.add('show');
+      setTimeout(() => comboPopup.classList.remove('show'), 800);
+    }
+  } else {
+    combo = 0;
+    hp--;
+    updateHP();
+
+    feedbackTitle.innerHTML = '<span class="feedback-wrong">✗ 错误</span>';
+    feedbackText.textContent = '连击中断 · 生命值 -1';
+
+    if (hp <= 0) {
+      stopTimer();
+      setTimeout(() => gameOver(), 500);
+      return;
+    }
+  }
+
+  principleBox.innerHTML = `<strong>实验原理：</strong>${q.principle}`;
+
+  if (!isCorrect && q.errorTip) {
+    errorTipBox.textContent = q.errorTip;
+    errorTipBox.style.display = 'block';
+  } else {
+    errorTipBox.style.display = 'none';
+  }
+
+  feedbackArea.classList.add('show');
+  updateStats();
+
+  // Update progress
+  const pct = ((currentQuestion + 1) / stage.questions.length) * 100;
+  progressFill.style.width = pct + '%';
+}
+
+function nextQuestion() {
+  currentQuestion++;
+  const stage = STAGES[currentStage];
+  if (currentQuestion >= stage.questions.length) {
+    finishStage();
+  } else {
+    loadQuestion();
+  }
+}
+
+function finishStage() {
+  stopTimer();
+  stageTime = Math.floor((Date.now() - stageStartTime) / 1000);
+
+  const stage = STAGES[currentStage];
+  const totalQ = stage.questions.length;
+  const accuracy = correctCount / totalQ;
+
+  let grade = 'C';
+  let gradeClass = 'grade-c';
+  if (accuracy >= 1 && combo >= 3) { grade = 'S'; gradeClass = 'grade-s'; }
+  else if (accuracy >= 0.9) { grade = 'A'; gradeClass = 'grade-a'; }
+  else if (accuracy >= 0.7) { grade = 'B'; gradeClass = 'grade-b'; }
+
+  stageResults[currentStage] = true;
+
+  // Update global stats
+  totalScoreAll += score;
+  if (maxCombo > totalMaxComboAll) totalMaxComboAll = maxCombo;
+
+  // Badge
+  if (grade === 'S' && !earnedBadges.includes('🏆欧姆大师')) {
+    earnedBadges.push('🏆欧姆大师');
+  }
+
+  showScreen(resultScreen);
+
+  const gradeBadge = document.getElementById('gradeBadge');
+  gradeBadge.textContent = grade;
+  gradeBadge.className = 'grade-badge ' + gradeClass;
+
+  const masterBadge = document.getElementById('masterBadge');
+  if (grade === 'S') masterBadge.classList.add('show');
+  else masterBadge.classList.remove('show');
+
+  document.getElementById('resultStageName').textContent = `STAGE ${stage.id} · ${stage.name}`;
+  document.getElementById('resultScore').textContent = score;
+  document.getElementById('resultCorrect').textContent = `${correctCount}/${totalQ}`;
+  document.getElementById('resultMaxCombo').textContent = maxCombo;
+  document.getElementById('resultTime').textContent = stageTime + 's';
+
+  updateStats();
+}
+
+function gameOver() {
+  stopTimer();
+  showScreen(resultScreen);
+
+  const gradeBadge = document.getElementById('gradeBadge');
+  gradeBadge.textContent = 'F';
+  gradeBadge.className = 'grade-badge grade-c';
+
+  document.getElementById('masterBadge').classList.remove('show');
+  document.getElementById('resultStageName').textContent = `STAGE ${STAGES[currentStage].id} · ${STAGES[currentStage].name}`;
+  document.getElementById('resultScore').textContent = score;
+  document.getElementById('resultCorrect').textContent = `${correctCount}/${STAGES[currentStage].questions.length}`;
+  document.getElementById('resultMaxCombo').textContent = maxCombo;
+  document.getElementById('resultTime').textContent = Math.floor((Date.now() - stageStartTime) / 1000) + 's';
+}
+
+function backToMenu() {
+  stopTimer();
+  showStageSelect();
+}
+
+function retryStage() {
+  startStage(currentStage);
+}
+
+function updateHP() {
+  let s = '';
+  for (let i = 0; i < hp; i++) s += '❤️';
+  for (let i = hp; i < 3; i++) s += '🖤';
+  hpDisplay.textContent = s;
+}
+
+function updateStats() {
+  scoreDisplay.textContent = score;
+}
+
+function toggleSound() {
+  isSoundOn = !isSoundOn;
+  document.getElementById('soundIcon').textContent = isSoundOn ? '🔊' : '🔇';
+}
+
+// ===== INIT =====
+function init() {
+  renderStageGrid();
+}
+
+init();
+</script>
+</body>
+</html>
