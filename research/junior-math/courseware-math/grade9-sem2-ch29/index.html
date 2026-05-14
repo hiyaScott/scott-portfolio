@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>向量作战部 · 训练系统</title>
+  <style>
+    :root {
+      --math-green: #00f5d4;
+      --math-green-dim: rgba(0, 245, 212, 0.15);
+      --math-green-glow: rgba(0, 245, 212, 0.4);
+      --bg-dark: #0a0f14;
+      --bg-card: #111820;
+      --bg-hover: #1a2430;
+      --text-main: #e0e6ed;
+      --text-dim: #8899aa;
+      --border: #1e2d3d;
+      --accent-red: #ff4757;
+      --accent-yellow: #ffa502;
+      --accent-blue: #3742fa;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-dark); color: var(--text-main);
+      min-height: 100vh; overflow-x: hidden;
+    }
+
+    /* ==== TITLE SCREEN ==== */
+    #titleScreen {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: var(--bg-dark);
+      transition: opacity 0.6s;
+    }
+    #titleScreen h1 {
+      font-size: 48px; font-weight: 800; color: var(--math-green);
+      text-shadow: 0 0 30px var(--math-green-glow); letter-spacing: 4px;
+      margin-bottom: 12px;
+    }
+    #titleScreen .subtitle {
+      font-size: 16px; color: var(--text-dim); margin-bottom: 40px;
+      letter-spacing: 2px;
+    }
+    #titleScreen .badge-row {
+      display: flex; gap: 16px; margin-bottom: 40px;
+    }
+    .badge {
+      padding: 6px 16px; border-radius: 6px; font-size: 12px;
+      border: 1px solid var(--math-green); background: var(--math-green-dim);
+      color: var(--math-green); letter-spacing: 1px;
+    }
+    #titleScreen .start-btn {
+      padding: 16px 48px; font-size: 18px; font-weight: 700;
+      background: var(--math-green); color: var(--bg-dark);
+      border: none; border-radius: 12px; cursor: pointer;
+      letter-spacing: 2px; box-shadow: 0 0 20px var(--math-green-glow);
+      transition: all 0.3s;
+    }
+    #titleScreen .start-btn:hover {
+      transform: scale(1.05); box-shadow: 0 0 40px var(--math-green-glow);
+    }
+    #titleScreen .hint {
+      margin-top: 24px; font-size: 13px; color: var(--text-dim);
+    }
+
+    /* ==== MAIN LAYOUT ==== */
+    #gameScreen { display: none; min-height: 100vh; }
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; height: 52px; border-bottom: 1px solid var(--border);
+      background: rgba(10,15,20,0.95);
+    }
+    .top-bar .title {
+      font-size: 15px; font-weight: 700; color: var(--math-green);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .top-bar .stats {
+      display: flex; gap: 20px; font-size: 13px; color: var(--text-dim);
+    }
+    .top-bar .stats span { display: flex; align-items: center; gap: 4px; }
+    .top-bar .stats .val { color: var(--math-green); font-weight: 700; }
+
+    /* Sidebar */
+    .main-layout { display: flex; min-height: calc(100vh - 52px); }
+    .sidebar {
+      width: 220px; border-right: 1px solid var(--border);
+      padding: 16px 12px; background: var(--bg-card);
+      flex-shrink: 0;
+    }
+    .sidebar .stage-btn {
+      width: 100%; text-align: left; padding: 12px 14px;
+      margin-bottom: 8px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-dim); font-size: 13px; cursor: pointer;
+      transition: all 0.2s; display: flex; align-items: center; gap: 10px;
+    }
+    .sidebar .stage-btn:hover { border-color: var(--math-green); color: var(--text-main); }
+    .sidebar .stage-btn.active {
+      border-color: var(--math-green); background: var(--math-green-dim);
+      color: var(--math-green);
+    }
+    .sidebar .stage-btn .num {
+      width: 24px; height: 24px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; background: var(--bg-hover);
+      flex-shrink: 0;
+    }
+    .sidebar .stage-btn.active .num { background: var(--math-green); color: var(--bg-dark); }
+    .sidebar .stage-btn .stars {
+      margin-left: auto; font-size: 11px; color: var(--accent-yellow);
+    }
+
+    /* Stage Area */
+    .stage-area { flex: 1; padding: 24px; overflow-y: auto; }
+    .stage-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+      padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .stage-header h2 { font-size: 20px; }
+    .stage-header .desc { color: var(--text-dim); font-size: 13px; margin-left: auto; }
+
+    /* Question Card */
+    .q-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px; margin-bottom: 16px;
+    }
+    .q-card .q-num {
+      display: inline-block; padding: 2px 10px; border-radius: 4px;
+      background: var(--math-green-dim); color: var(--math-green);
+      font-size: 12px; font-weight: 700; margin-bottom: 12px;
+    }
+    .q-card .q-text { font-size: 15px; margin-bottom: 16px; line-height: 1.7; }
+    .q-card .q-text .hl { color: var(--math-green); }
+
+    /* Options */
+    .options { display: flex; flex-direction: column; gap: 10px; }
+    .opt-btn {
+      padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg-hover); color: var(--text-dim); font-size: 14px;
+      cursor: pointer; text-align: left; transition: all 0.2s;
+    }
+    .opt-btn:hover { border-color: var(--math-green); color: var(--text-main); }
+    .opt-btn.correct { border-color: var(--math-green); background: rgba(0,245,212,0.1); color: var(--math-green); }
+    .opt-btn.wrong { border-color: var(--accent-red); background: rgba(255,71,87,0.1); color: var(--accent-red); }
+    .opt-btn.disabled { pointer-events: none; opacity: 0.7; }
+
+    /* Canvas interactive */
+    .canvas-game {
+      background: var(--bg-hover); border-radius: 12px;
+      padding: 16px; text-align: center; border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .canvas-game canvas {
+      background: #0d141c; border-radius: 8px; border: 1px solid var(--border);
+      max-width: 100%; cursor: crosshair;
+    }
+    .canvas-game .inst {
+      font-size: 13px; color: var(--text-dim); margin: 10px 0;
+    }
+    .canvas-game .feedback {
+      font-size: 14px; font-weight: 600; margin-top: 8px; min-height: 20px;
+    }
+    .canvas-game .feedback.ok { color: var(--math-green); }
+    .canvas-game .feedback.err { color: var(--accent-red); }
+
+    /* Input style */
+    .input-row {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px;
+    }
+    .input-row input {
+      background: var(--bg-hover); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 12px; color: var(--text-main);
+      font-size: 14px; width: 120px;
+    }
+    .input-row input:focus { outline: none; border-color: var(--math-green); }
+    .input-row button {
+      padding: 8px 20px; border-radius: 6px; border: 1px solid var(--math-green);
+      background: var(--math-green-dim); color: var(--math-green);
+      font-size: 14px; cursor: pointer; font-weight: 600;
+    }
+    .input-row button:hover { background: var(--math-green); color: var(--bg-dark); }
+
+    /* Timer bar */
+    .timer-bar-wrap {
+      width: 100%; height: 6px; background: var(--bg-hover);
+      border-radius: 3px; margin-bottom: 16px; overflow: hidden;
+    }
+    .timer-bar {
+      height: 100%; background: var(--math-green); border-radius: 3px;
+      transition: width 1s linear;
+    }
+    .timer-bar.warn { background: var(--accent-yellow); }
+    .timer-bar.danger { background: var(--accent-red); }
+
+    /* Boss Stage */
+    .boss-header {
+      text-align: center; padding: 16px; margin-bottom: 16px;
+    }
+    .boss-header .timer {
+      font-size: 36px; font-weight: 800; color: var(--math-green);
+      font-variant-numeric: tabular-nums;
+    }
+    .boss-header .timer.danger { color: var(--accent-red); }
+    .boss-header .score-display {
+      font-size: 14px; color: var(--text-dim); margin-top: 4px;
+    }
+    .boss-header .score-display .s { color: var(--math-green); font-weight: 700; }
+
+    /* Result overlay */
+    .result-overlay {
+      position: fixed; inset: 0; z-index: 90;
+      background: rgba(10,15,20,0.92); backdrop-filter: blur(8px);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .result-overlay.active { display: flex; }
+    .result-overlay h2 { font-size: 28px; color: var(--math-green); margin-bottom: 16px; }
+    .result-overlay .score-big {
+      font-size: 64px; font-weight: 800; color: var(--math-green);
+      text-shadow: 0 0 20px var(--math-green-glow);
+    }
+    .result-overlay .stars { font-size: 32px; margin: 16px 0; }
+    .result-overlay .back-btn {
+      margin-top: 24px; padding: 12px 36px;
+      background: var(--math-green); color: var(--bg-dark);
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; letter-spacing: 1px;
+    }
+
+    @media (max-width: 700px) {
+      .sidebar { width: 180px; }
+      .sidebar .stage-btn { font-size: 12px; padding: 10px; }
+    }
+    @media (max-width: 560px) {
+      .main-layout { flex-direction: column; }
+      .sidebar { width: 100%; display: flex; overflow-x: auto; padding: 8px; border-right: none; border-bottom: 1px solid var(--border); }
+      .sidebar .stage-btn { white-space: nowrap; margin-bottom: 0; margin-right: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==== TITLE SCREEN ==== -->
+  <div id="titleScreen">
+    <h1>向量作战部</h1>
+    <div class="subtitle">VECTOR COMBAT TRAINING SYSTEM</div>
+    <div class="badge-row">
+      <span class="badge">第29章</span>
+      <span class="badge">平面向量</span>
+      <span class="badge">5个作战Stage</span>
+    </div>
+    <button class="start-btn" onclick="enterGame()">▶ 开始训练</button>
+    <div class="hint">完成全部5个Stage，解锁终极密码挑战</div>
+  </div>
+
+  <!-- ==== GAME SCREEN ==== -->
+  <div id="gameScreen">
+    <div class="top-bar">
+      <div class="title">➡ VECTOR <span style="font-weight:400;font-size:13px;color:var(--text-dim)">向量作战部</span></div>
+      <div class="stats">
+        <span>总分: <span class="val" id="totalScore">0</span></span>
+        <span>完成: <span class="val" id="completedCount">0</span>/5</span>
+      </div>
+    </div>
+    <div class="main-layout">
+      <div class="sidebar" id="sidebar">
+        <button class="stage-btn active" onclick="loadStage(1)" data-stage="1">
+          <span class="num">1</span>
+          <span>向量识别</span>
+          <span class="stars" id="stars1"></span>
+        </button>
+        <button class="stage-btn" onclick="loadStage(2)" data-stage="2">
+          <span class="num">2</span>
+          <span>向量运算</span>
+          <span class="stars" id="stars2"></span>
+        </button>
+        <button class="stage-btn" onclick="loadStage(3)" data-stage="3">
+          <span class="num">3</span>
+          <span>坐标计算</span>
+          <span class="stars" id="stars3"></span>
+        </button>
+        <button class="stage-btn" onclick="loadStage(4)" data-stage="4">
+          <span class="num">4</span>
+          <span>几何应用</span>
+          <span class="stars" id="stars4"></span>
+        </button>
+        <button class="stage-btn" onclick="loadStage(5)" data-stage="5" id="bossBtn">
+          <span class="num">5</span>
+          <span>终极密码</span>
+          <span class="stars" id="stars5"></span>
+        </button>
+      </div>
+      <div class="stage-area" id="stageArea"></div>
+    </div>
+  </div>
+
+  <!-- Result Overlay -->
+  <div class="result-overlay" id="resultOverlay">
+    <h2 id="resultTitle">Stage 完成</h2>
+    <div class="score-big" id="resultScore">0</div>
+    <div class="stars" id="resultStars"></div>
+    <button class="back-btn" onclick="closeResult()">返回作战部</button>
+  </div>
+
+  <script>
+    // ====== GAME STATE ======
+    let currentStage = 1;
+    let totalScore = 0;
+    let stageScores = { 1:0, 2:0, 3:0, 4:0, 5:0 };
+    let stageCompleted = { 1:false, 2:false, 3:false, 4:false, 5:false };
+    let completedCount = 0;
+
+    function enterGame() {
+      document.getElementById('titleScreen').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('titleScreen').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'block';
+        loadStage(1);
+      }, 600);
+    }
+
+    function updateStats() {
+      document.getElementById('totalScore').textContent = totalScore;
+      let c = 0;
+      for (let k in stageCompleted) if (stageCompleted[k]) c++;
+      completedCount = c;
+      document.getElementById('completedCount').textContent = c;
+      for (let i = 1; i <= 5; i++) {
+        const s = stageScores[i];
+        let stars = '';
+        if (s >= 80) stars = '★★★';
+        else if (s >= 50) stars = '★★☆';
+        else if (s > 0) stars = '★☆☆';
+        document.getElementById('stars'+i).textContent = stars;
+      }
+    }
+
+    function loadStage(n) {
+      currentStage = n;
+      document.querySelectorAll('.stage-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.stage-btn[data-stage="'+n+'"]').classList.add('active');
+      const area = document.getElementById('stageArea');
+      area.innerHTML = '';
+      if (n === 1) buildStage1(area);
+      else if (n === 2) buildStage2(area);
+      else if (n === 3) buildStage3(area);
+      else if (n === 4) buildStage4(area);
+      else if (n === 5) buildStage5(area);
+    }
+
+    function showResult(title, score) {
+      stageScores[currentStage] = Math.max(stageScores[currentStage], score);
+      if (score > 0) stageCompleted[currentStage] = true;
+      totalScore = Object.values(stageScores).reduce((a,b) => a+b, 0);
+      updateStats();
+      document.getElementById('resultTitle').textContent = title;
+      document.getElementById('resultScore').textContent = score;
+      let stars = '';
+      if (score >= 80) stars = '★★★';
+      else if (score >= 50) stars = '★★☆';
+      else if (score > 0) stars = '★☆☆';
+      else stars = '☆☆☆';
+      document.getElementById('resultStars').textContent = stars;
+      document.getElementById('resultOverlay').classList.add('active');
+    }
+    function closeResult() {
+      document.getElementById('resultOverlay').classList.remove('active');
+    }
+
+    // ====== STAGE 1: 向量识别 ======
+    function buildStage1(container) {
+      const header = document.createElement('div');
+      header.className = 'stage-header';
+      header.innerHTML = '<h2>Stage 1 · 向量识别</h2><div class="desc">判断向量相等、模相等、方向相同</div>';
+      container.appendChild(header);
+
+      const questions = [
+        {
+          q: '下列说法正确的是（  ）',
+          opts: ['若 |a⃗|=|b⃗|，则 a⃗=b⃗', '零向量方向任意', '单位向量都相等', '相反向量方向相同'],
+          ans: 1, // 零向量方向任意
+          explain: '零向量模为0，方向规定为任意，所以与任何向量平行。'
+        },
+        {
+          q: '已知 a⃗=(3,4)，b⃗=(6,8)，则（  ）',
+          opts: ['a⃗ = b⃗', 'a⃗ ∥ b⃗', '|a⃗| = |b⃗|', 'a⃗ 与 b⃗ 方向相反'],
+          ans: 1, // a⃗ ∥ b⃗ (b⃗ = 2a⃗)
+          explain: 'b⃗ = (6,8) = 2×(3,4) = 2a⃗，所以 a⃗ ∥ b⃗。'
+        },
+        {
+          q: '若 AB→ = CD→，则一定有（  ）',
+          opts: ['A=C 且 B=D', 'AB ∥ CD', '四边形ABCD是平行四边形', 'AB 与 CD 方向相同且长度相等'],
+          ans: 3,
+          explain: '相等向量要求方向相同、模相等，与起点位置无关。'
+        },
+        {
+          q: '下列向量中，与 a⃗=(2,-3) 平行的向量是（  ）',
+          opts: ['(4,6)', '(-2,3)', '(4,-6)', '(3,2)'],
+          ans: 2, // (4,-6) = 2*(2,-3)
+          explain: '平行判定：x₁y₂ = x₂y₁。2×(-6) = 4×(-3) = -12，满足平行条件。'
+        },
+        {
+          q: '已知 |a⃗|=5，则 |-2a⃗| =（  ）',
+          opts: ['-10', '10', '5', '25'],
+          ans: 1, // |-2a⃗| = |-2|×|a⃗| = 2×5 = 10
+          explain: '|-2a⃗| = |-2|·|a⃗| = 2×5 = 10。数乘向量的模等于实数绝对值乘以原向量模。'
+        }
+      ];
+
+      let score = 0, answered = 0;
+      questions.forEach((q, i) => {
+        const card = document.createElement('div');
+        card.className = 'q-card';
+        card.innerHTML = '<div class="q-num">Q'+(i+1)+'</div><div class="q-text">'+q.q+'</div><div class="options" id="opts'+i+'"></div><div class="feedback" id="fb'+i+'"></div>';
+        container.appendChild(card);
+        const optsDiv = document.getElementById('opts'+i);
+        q.opts.forEach((opt, j) => {
+          const btn = document.createElement('button');
+          btn.className = 'opt-btn';
+          btn.textContent = String.fromCharCode(65+j) + '. ' + opt;
+          btn.onclick = () => {
+            if (optsDiv.classList.contains('disabled')) return;
+            optsDiv.classList.add('disabled');
+            answered++;
+            const allBtns = optsDiv.querySelectorAll('.opt-btn');
+            allBtns.forEach((b, k) => {
+              if (k === q.ans) b.classList.add('correct');
+              else if (k === j && j !== q.ans) b.classList.add('wrong');
+            });
+            const fb = document.getElementById('fb'+i);
+            if (j === q.ans) {
+              score += 20;
+              fb.className = 'feedback ok';
+              fb.textContent = '✓ 正确！' + q.explain;
+            } else {
+              fb.className = 'feedback err';
+              fb.textContent = '✗ 错误。' + q.explain;
+            }
+            if (answered === questions.length) {
+              setTimeout(() => showResult('Stage 1 · 向量识别 完成', score), 800);
+            }
+          };
+          optsDiv.appendChild(btn);
+        });
+      });
+    }
+
+    // ====== STAGE 2: 向量运算 (Canvas交互) ======
+    function buildStage2(container) {
+      const header = document.createElement('div');
+      header.className = 'stage-header';
+      header.innerHTML = '<h2>Stage 2 · 向量运算</h2><div class="desc">三角形法则与平行四边形法则作图</div>';
+      container.appendChild(header);
+
+      let currentQ = 0;
+      let score = 0;
+
+      const questions = [
+        {
+          type: 'triangle',
+          title: '三角形法则',
+          text: '已知 AB→ = a⃗，BC→ = b⃗。请在 C 点位置点击，完成 a⃗ + b⃗ = AC→ 的作图。',
+          ax: 120, ay: 150, bx: 280, by: 80,
+          targetX: 340, targetY: 150, tolerance: 25
+        },
+        {
+          type: 'parallelogram',
+          title: '平行四边形法则',
+          text: '已知 OA→ = a⃗，OB→ = b⃗。以 O、A、B 为顶点作平行四边形，点击对角顶点 C 的位置。',
+          ax: 320, ay: 80, bx: 80, by: 80, ox: 200, oy: 180,
+          targetX: 200, targetY: -20, tolerance: 30
+        }
+      ];
+
+      function buildQ(idx) {
+        container.innerHTML = '';
+        container.appendChild(header);
+        const q = questions[idx];
+        const card = document.createElement('div');
+        card.className = 'canvas-game';
+        card.innerHTML = '<div class="q-num">Q'+(idx+1)+'/'+questions.length+' · '+q.title+'</div>'+
+          '<div class="inst">'+q.text+'</div>'+
+          '<canvas id="vecCanvas" width="480" height="280"></canvas>'+
+          '<div class="feedback" id="vecFeedback"></div>';
+        container.appendChild(card);
+
+        const c = document.getElementById('vecCanvas');
+        const ctx = c.getContext('2d');
+        let clicked = false;
+
+        function drawBase() {
+          ctx.clearRect(0, 0, c.width, c.height);
+          // Grid
+          ctx.save(); ctx.strokeStyle = '#1e2d3d'; ctx.lineWidth = 1;
+          for (let i = 0; i < c.width; i += 40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,c.height); ctx.stroke(); }
+          for (let i = 0; i < c.height; i += 40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(c.width,i); ctx.stroke(); }
+          ctx.restore();
+
+          if (q.type === 'triangle') {
+            // A at (80, 200), B at (q.ax, q.ay)
+            drawPoint(ctx, 80, 200, 'A', '#00f5d4');
+            drawArrow(ctx, 80, 200, q.ax, q.ay, '#00f5d4', 'a⃗', 2.5);
+            drawPoint(ctx, q.ax, q.ay, 'B', '#3742fa');
+            // b vector starts at B, direction shown as dashed
+            ctx.save(); ctx.strokeStyle = 'rgba(55,66,250,0.3)'; ctx.setLineDash([6,4]); ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(q.ax, q.ay); ctx.lineTo(q.bx, q.by); ctx.stroke();
+            ctx.restore();
+            drawArrow(ctx, q.ax, q.ay, q.bx, q.by, '#3742fa', 'b⃗', 2.5);
+            // Target dashed (hidden, but we show hint)
+            ctx.save(); ctx.strokeStyle = 'rgba(255,165,2,0.2)'; ctx.setLineDash([8,4]); ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(80, 200); ctx.lineTo(q.targetX, q.targetY); ctx.stroke();
+            ctx.restore();
+          } else {
+            drawPoint(ctx, q.ox, q.oy, 'O', '#00f5d4');
+            drawArrow(ctx, q.ox, q.oy, q.ax, q.ay, '#00f5d4', 'a⃗', 2.5);
+            drawPoint(ctx, q.ax, q.ay, 'A', '#00f5d4');
+            drawArrow(ctx, q.ox, q.oy, q.bx, q.by, '#3742fa', 'b⃗', 2.5);
+            drawPoint(ctx, q.bx, q.by, 'B', '#3742fa');
+            // Dashed parallelogram hint
+            ctx.save(); ctx.strokeStyle = 'rgba(255,165,2,0.2)'; ctx.setLineDash([8,4]); ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(q.ax, q.ay); ctx.lineTo(q.targetX, q.targetY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(q.bx, q.by); ctx.lineTo(q.targetX, q.targetY); ctx.stroke();
+            ctx.restore();
+          }
+        }
+        drawBase();
+
+        c.onclick = (e) => {
+          if (clicked) return;
+          const rect = c.getBoundingClientRect();
+          const scaleX = c.width / rect.width;
+          const scaleY = c.height / rect.height;
+          const x = (e.clientX - rect.left) * scaleX;
+          const y = (e.clientY - rect.top) * scaleY;
+          const dist = Math.sqrt((x - q.targetX)**2 + (y - q.targetY)**2);
+          clicked = true;
+          const fb = document.getElementById('vecFeedback');
+          if (dist <= q.tolerance) {
+            score += 50;
+            fb.className = 'feedback ok';
+            fb.textContent = '✓ 正确！点击精准，向量运算理解到位。';
+            // Draw the result
+            if (q.type === 'triangle') {
+              drawArrow(ctx, 80, 200, q.targetX, q.targetY, '#ffa502', 'a⃗+b⃗', 3);
+            } else {
+              drawArrow(ctx, q.ox, q.oy, q.targetX, q.targetY, '#ffa502', 'a⃗+b⃗', 3);
+              drawPoint(ctx, q.targetX, q.targetY, 'C', '#ffa502');
+            }
+          } else {
+            fb.className = 'feedback err';
+            fb.textContent = '✗ 偏差较大。再想想向量合成的终点应该在哪里？';
+            // Show correct answer
+            if (q.type === 'triangle') {
+              drawArrow(ctx, 80, 200, q.targetX, q.targetY, 'rgba(255,165,2,0.5)', '正确答案', 2);
+            } else {
+              drawArrow(ctx, q.ox, q.oy, q.targetX, q.targetY, 'rgba(255,165,2,0.5)', '正确答案', 2);
+            }
+          }
+          if (idx + 1 < questions.length) {
+            setTimeout(() => buildQ(idx + 1), 1500);
+          } else {
+            setTimeout(() => showResult('Stage 2 · 向量运算 完成', score), 1500);
+          }
+        };
+      }
+      buildQ(0);
+    }
+
+    // ====== STAGE 3: 坐标计算 ======
+    function buildStage3(container) {
+      const header = document.createElement('div');
+      header.className = 'stage-header';
+      header.innerHTML = '<h2>Stage 3 · 坐标计算</h2><div class="desc">已知坐标求和差、数乘结果</div>';
+      container.appendChild(header);
+
+      let score = 0, answered = 0;
+      const questions = [
+        { q: 'a⃗ = (3, 4)，b⃗ = (1, -2)，求 a⃗ + b⃗', ans: '(4,2)', check: v => v.includes('4') && v.includes('2') },
+        { q: 'a⃗ = (5, -1)，b⃗ = (2, 3)，求 a⃗ - b⃗', ans: '(3,-4)', check: v => v.includes('3') && (v.includes('-4') || v.includes('4')) },
+        { q: 'a⃗ = (2, -3)，求 3a⃗', ans: '(6,-9)', check: v => v.includes('6') && v.includes('-9') },
+        { q: 'A(1, 2)，B(4, 6)，求 AB→', ans: '(3,4)', check: v => v.includes('3') && v.includes('4') },
+        { q: 'a⃗ = (1, 2)，b⃗ = (3, -1)，求 2a⃗ - b⃗', ans: '(-1,5)', check: v => (v.includes('-1') || v.includes('1')) && v.includes('5') },
+      ];
+
+      questions.forEach((q, i) => {
+        const card = document.createElement('div');
+        card.className = 'q-card';
+        card.innerHTML = '<div class="q-num">Q'+(i+1)+'</div>'+
+          '<div class="q-text">'+q.q+'</div>'+
+          '<div class="input-row"><input type="text" id="ans'+i+'" placeholder="如 (3,4)"><button onclick="checkAns('+i+')">提交</button></div>'+
+          '<div class="feedback" id="fb'+i+'"></div>';
+        container.appendChild(card);
+      });
+
+      window.checkAns = function(i) {
+        const input = document.getElementById('ans'+i);
+        const fb = document.getElementById('fb'+i);
+        if (input.disabled) return;
+        input.disabled = true;
+        input.nextElementSibling.disabled = true;
+        answered++;
+        const v = input.value.trim();
+        if (questions[i].check(v)) {
+          score += 20;
+          fb.className = 'feedback ok';
+          fb.textContent = '✓ 正确！答案是 '+questions[i].ans;
+        } else {
+          fb.className = 'feedback err';
+          fb.textContent = '✗ 错误。正确答案是 '+questions[i].ans;
+        }
+        if (answered === questions.length) {
+          setTimeout(() => showResult('Stage 3 · 坐标计算 完成', score), 600);
+        }
+      };
+    }
+
+    // ====== STAGE 4: 几何应用 ======
+    function buildStage4(container) {
+      const header = document.createElement('div');
+      header.className = 'stage-header';
+      header.innerHTML = '<h2>Stage 4 · 几何应用</h2><div class="desc">平行四边形判定、中点公式、重心公式</div>';
+      container.appendChild(header);
+
+      const questions = [
+        {
+          q: '四边形 ABCD 中，AB→ = (2,3)，DC→ = (2,3)。则四边形 ABCD 是（  ）',
+          opts: ['矩形', '菱形', '平行四边形', '梯形'],
+          ans: 2,
+          explain: 'AB→ = DC→ 说明 AB 与 DC 平行且相等，一组对边平行且相等的四边形是平行四边形。'
+        },
+        {
+          q: '已知 A(1,2)，B(5,6)，则 AB 的中点坐标是（  ）',
+          opts: ['(3,4)', '(2,2)', '(6,8)', '(4,4)'],
+          ans: 0,
+          explain: '中点公式：((1+5)/2, (2+6)/2) = (3,4)'
+        },
+        {
+          q: '三角形 ABC 的顶点为 A(0,0)，B(6,0)，C(0,6)。其重心坐标是（  ）',
+          opts: ['(2,2)', '(3,3)', '(6,6)', '(0,0)'],
+          ans: 0,
+          explain: '重心公式：((0+6+0)/3, (0+0+6)/3) = (2,2)'
+        },
+        {
+          q: '若 a⃗ = (2, k) 与 b⃗ = (4, 6) 平行，则 k =（  ）',
+          opts: ['2', '3', '4', '6'],
+          ans: 1,
+          explain: '平行条件：2×6 = 4×k，解得 k = 3'
+        },
+        {
+          q: '在平行四边形 ABCD 中，AB→ = a⃗，AD→ = b⃗，则 AC→ + BD→ =（  ）',
+          opts: ['2a⃗', '2b⃗', 'a⃗+b⃗', '2(a⃗+b⃗)'],
+          ans: 1,
+          explain: 'AC→ = a⃗+b⃗，BD→ = b⃗-a⃗，所以 AC→+BD→ = (a⃗+b⃗)+(b⃗-a⃗) = 2b⃗'
+        }
+      ];
+
+      let score = 0, answered = 0;
+      questions.forEach((q, i) => {
+        const card = document.createElement('div');
+        card.className = 'q-card';
+        card.innerHTML = '<div class="q-num">Q'+(i+1)+'</div><div class="q-text">'+q.q+'</div><div class="options" id="opts4_'+i+'"></div><div class="feedback" id="fb4_'+i+'"></div>';
+        container.appendChild(card);
+        const optsDiv = document.getElementById('opts4_'+i);
+        q.opts.forEach((opt, j) => {
+          const btn = document.createElement('button');
+          btn.className = 'opt-btn';
+          btn.textContent = String.fromCharCode(65+j) + '. ' + opt;
+          btn.onclick = () => {
+            if (optsDiv.classList.contains('disabled')) return;
+            optsDiv.classList.add('disabled');
+            answered++;
+            const allBtns = optsDiv.querySelectorAll('.opt-btn');
+            allBtns.forEach((b, k) => {
+              if (k === q.ans) b.classList.add('correct');
+              else if (k === j && j !== q.ans) b.classList.add('wrong');
+            });
+            const fb = document.getElementById('fb4_'+i);
+            if (j === q.ans) {
+              score += 20;
+              fb.className = 'feedback ok';
+              fb.textContent = '✓ 正确！' + q.explain;
+            } else {
+              fb.className = 'feedback err';
+              fb.textContent = '✗ 错误。' + q.explain;
+            }
+            if (answered === questions.length) {
+              setTimeout(() => showResult('Stage 4 · 几何应用 完成', score), 800);
+            }
+          };
+          optsDiv.appendChild(btn);
+        });
+      });
+    }
+
+    // ====== STAGE 5: 终极密码 (60秒挑战) ======
+    function buildStage5(container) {
+      const header = document.createElement('div');
+      header.className = 'stage-header';
+      header.innerHTML = '<h2>Stage 5 · 终极密码</h2><div class="desc">60秒综合挑战 · 答对越多得分越高</div>';
+      container.appendChild(header);
+
+      const bossHeader = document.createElement('div');
+      bossHeader.className = 'boss-header';
+      bossHeader.innerHTML = '<div class="timer" id="bossTimer">60</div>'+
+        '<div class="score-display">当前得分: <span class="s" id="bossScore">0</span> | 已答: <span id="bossCount">0</span></div>'+
+        '<div class="timer-bar-wrap"><div class="timer-bar" id="timerBar" style="width:100%"></div></div>';
+      container.appendChild(bossHeader);
+
+      const qArea = document.createElement('div');
+      qArea.id = 'bossQArea';
+      container.appendChild(qArea);
+
+      // Question bank
+      const bank = [
+        { q: '零向量的模等于', opts: ['0', '1', '不确定', '∞'], ans: 0 },
+        { q: '与 a⃗=(3,4) 方向相同的单位向量是', opts: ['(3/5,4/5)', '(3,4)', '(4/5,3/5)', '(1,1)'], ans: 0 },
+        { q: 'a⃗+b⃗ = b⃗+a⃗ 体现的是', opts: ['交换律', '结合律', '分配律', '数乘律'], ans: 0 },
+        { q: '|2a⃗| = 2|a⃗| 对吗？', opts: ['对', '错', '仅当a≠0', '仅当a=0'], ans: 0 },
+        { q: 'A(1,1), B(4,5)，AB→ =', opts: ['(3,4)', '(5,6)', '(4,5)', '(-3,-4)'], ans: 0 },
+        { q: 'a⃗=(2,3), b⃗=(1,-1)，a⃗+b⃗=', opts: ['(3,2)', '(1,4)', '(2,2)', '(3,4)'], ans: 0 },
+        { q: '若 a⃗ ∥ b⃗，则存在 λ 使 a⃗=λb⃗，前提是', opts: ['b⃗≠0⃗', 'a⃗≠0⃗', '任意', 'λ≠0'], ans: 0 },
+        { q: '平行四边形对角线互相', opts: ['平分', '垂直', '相等', '平行'], ans: 0 },
+        { q: '三角形重心将中线分成比例', opts: ['2:1', '1:1', '1:2', '3:1'], ans: 0 },
+        { q: 'a⃗=(1,2), 2a⃗=', opts: ['(2,4)', '(1,4)', '(2,2)', '(3,4)'], ans: 0 },
+        { q: '相反向量的和等于', opts: ['0⃗', '2a⃗', 'a⃗', '1'], ans: 0 },
+        { q: 'A(0,0), B(2,0), C(0,2)，重心坐标', opts: ['(2/3,2/3)', '(1,1)', '(2,2)', '(0,0)'], ans: 0 },
+        { q: 'a⃗=(x,y)，则 -a⃗=', opts: ['(-x,-y)', '(x,-y)', '(-x,y)', '(y,x)'], ans: 0 },
+        { q: '单位向量的模等于', opts: ['1', '0', '任意', '2'], ans: 0 },
+        { q: 'a⃗=(2,4) 与 b⃗=(1,2) 的关系', opts: ['平行', '相等', '垂直', '相反'], ans: 0 },
+        { q: 'a⃗+b⃗ 的几何意义（三角形法则）', opts: ['首尾相接', '共起点对角线', '相减', '垂直'], ans: 0 },
+        { q: 'a⃗+b⃗ 的几何意义（平行四边形法则）', opts: ['共起点对角线', '首尾相接', '相减', '垂直'], ans: 0 },
+        { q: '数乘 λa⃗ 的方向', opts: ['λ>0同向, λ<0反向', '总是同向', '总是反向', '与λ无关'], ans: 0 },
+        { q: 'a⃗=(3,0), b⃗=(0,4)，|a⃗+b⃗|=', opts: ['5', '7', '12', '25'], ans: 0 },
+        { q: '中点公式中，M 的坐标是', opts: ['((x1+x2)/2, (y1+y2)/2)', '(x1+x2, y1+y2)', '((x1-x2)/2, (y1-y2)/2)', '(x1x2, y1y2)'], ans: 0 },
+      ];
+
+      let timeLeft = 60;
+      let bossScore = 0;
+      let bossCount = 0;
+      let currentQ = null;
+      let timerId = null;
+      let used = [];
+
+      function pickQ() {
+        let idx;
+        do { idx = Math.floor(Math.random() * bank.length); }
+        while (used.includes(idx) && used.length < bank.length);
+        if (used.length >= bank.length) used = [];
+        used.push(idx);
+        return bank[idx];
+      }
+
+      function showBossQ() {
+        currentQ = pickQ();
+        qArea.innerHTML = '';
+        const card = document.createElement('div');
+        card.className = 'q-card';
+        card.innerHTML = '<div class="q-text" style="font-size:16px;">'+currentQ.q+'</div><div class="options" id="bossOpts"></div>';
+        qArea.appendChild(card);
+        const optsDiv = document.getElementById('bossOpts');
+        currentQ.opts.forEach((opt, j) => {
+          const btn = document.createElement('button');
+          btn.className = 'opt-btn';
+          btn.textContent = String.fromCharCode(65+j) + '. ' + opt;
+          btn.onclick = () => {
+            if (j === currentQ.ans) {
+              bossScore += 5;
+              bossCount++;
+            } else {
+              bossCount++;
+            }
+            document.getElementById('bossScore').textContent = bossScore;
+            document.getElementById('bossCount').textContent = bossCount;
+            showBossQ();
+          };
+          optsDiv.appendChild(btn);
+        });
+      }
+
+      function tick() {
+        timeLeft--;
+        const timer = document.getElementById('bossTimer');
+        const bar = document.getElementById('timerBar');
+        timer.textContent = timeLeft;
+        bar.style.width = (timeLeft/60*100) + '%';
+        if (timeLeft <= 15) { timer.classList.add('danger'); bar.className = 'timer-bar danger'; }
+        else if (timeLeft <= 30) { bar.className = 'timer-bar warn'; }
+        if (timeLeft <= 0) {
+          clearInterval(timerId);
+          timerId = null;
+          showResult('Stage 5 · 终极密码 完成', bossScore);
+        }
+      }
+
+      showBossQ();
+      timerId = setInterval(tick, 1000);
+    }
+
+    // ====== Utils ======
+    function drawArrow(ctx, fromX, fromY, toX, toY, color, label, width=2) {
+      const dx = toX - fromX, dy = toY - fromY;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const nx = dx/len, ny = dy/len;
+      const headLen = 10;
+      ctx.save();
+      ctx.strokeStyle = color; ctx.lineWidth = width;
+      ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - headLen*nx + headLen*ny*0.4, toY - headLen*ny - headLen*nx*0.4);
+      ctx.lineTo(toX - headLen*nx - headLen*ny*0.4, toY - headLen*ny + headLen*nx*0.4);
+      ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+      if (label) {
+        ctx.fillStyle = color; ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(label, toX + nx*12 + 2, toY + ny*12 + 2);
+      }
+      ctx.restore();
+    }
+    function drawPoint(ctx, x, y, label, color) {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fill();
+      if (label) {
+        ctx.fillStyle = color; ctx.font = '12px sans-serif';
+        ctx.fillText(label, x + 8, y - 8);
+      }
+      ctx.restore();
+    }
+  </script>
+</body>
+</html>
