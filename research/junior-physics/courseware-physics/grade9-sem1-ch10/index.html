@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第十章 · 内能 THERMAL | 热力学实验室</title>
+  <style>
+    :root {
+      --purple: #9d00ff;
+      --magenta: #ff00ff;
+      --dark: #1a0a2e;
+      --panel: #2a0a40;
+      --panel2: #3a0a50;
+      --accent: #e0a0ff;
+      --gold: #ffd700;
+      --green: #00ff88;
+      --red: #ff4444;
+      --paper: #f5f0ff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+      background: var(--dark);
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== 实验室背景装饰 ===== */
+    .bg-deco {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .bg-deco::before {
+      content: '';
+      position: absolute;
+      top: -50px; right: -50px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, var(--purple) 0%, transparent 70%);
+      opacity: 0.15;
+      border-radius: 50%;
+    }
+    .bg-deco::after {
+      content: '';
+      position: absolute;
+      bottom: -30px; left: -30px;
+      width: 150px; height: 150px;
+      background: radial-gradient(circle, var(--magenta) 0%, transparent 70%);
+      opacity: 0.12;
+      border-radius: 50%;
+    }
+    .molecule {
+      position: absolute;
+      font-size: 16px;
+      opacity: 0.08;
+      animation: floatMol 6s ease-in-out infinite;
+    }
+    @keyframes floatMol {
+      0%, 100% { transform: translate(0,0) rotate(0deg); }
+      25% { transform: translate(10px,-15px) rotate(90deg); }
+      50% { transform: translate(-5px,-25px) rotate(180deg); }
+      75% { transform: translate(15px,-10px) rotate(270deg); }
+    }
+    .flame {
+      position: absolute;
+      font-size: 20px;
+      opacity: 0.1;
+      animation: flicker 3s ease-in-out infinite;
+    }
+    @keyframes flicker {
+      0%, 100% { opacity: 0.1; transform: scale(1); }
+      50% { opacity: 0.2; transform: scale(1.1); }
+    }
+
+    /* ===== 主容器 ===== */
+    #app {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== 顶部标题区 ===== */
+    header {
+      padding: 16px 20px 8px;
+      border-bottom: 1px solid rgba(157,0,255,0.3);
+      background: rgba(26,10,46,0.9);
+    }
+    .lab-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .lab-badge::before {
+      content: '🔬';
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--purple), var(--magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+    .chapter-info {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      margin-top: 2px;
+    }
+
+    /* ===== HUD状态栏 ===== */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: rgba(42,10,64,0.8);
+      border-bottom: 1px solid rgba(157,0,255,0.2);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .hud-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .hp-bar {
+      display: flex;
+      gap: 3px;
+      font-size: 18px;
+    }
+    .hp-heart { transition: all 0.3s; }
+    .hp-heart.lost { opacity: 0.2; filter: grayscale(1); }
+    .combo {
+      font-size: 14px;
+      color: var(--gold);
+      font-weight: bold;
+    }
+    .combo.active { animation: comboPulse 0.5s ease; }
+    @keyframes comboPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+    .score {
+      font-size: 14px;
+      color: var(--green);
+      font-family: monospace;
+    }
+    .timer {
+      font-size: 16px;
+      color: var(--red);
+      font-family: monospace;
+      font-weight: bold;
+    }
+    .timer.warning { animation: timerBlink 0.5s ease infinite; }
+    @keyframes timerBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ===== 主内容区 ===== */
+    main {
+      flex: 1;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ===== 关卡选择 ===== */
+    .stage-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .stage-card {
+      background: var(--panel);
+      border: 1px solid rgba(157,0,255,0.3);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .stage-card:hover {
+      border-color: var(--purple);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(157,0,255,0.2);
+    }
+    .stage-card.locked {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .stage-card.completed {
+      border-color: var(--green);
+    }
+    .stage-card.completed::after {
+      content: '✓';
+      position: absolute;
+      top: 8px; right: 12px;
+      color: var(--green);
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .stage-num {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--purple);
+      line-height: 1;
+    }
+    .stage-name {
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 6px;
+      color: #fff;
+    }
+    .stage-desc {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      margin-top: 4px;
+    }
+    .stage-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    /* ===== 游戏面板（数据记录本风格） ===== */
+    .game-panel {
+      background: var(--paper);
+      color: var(--dark);
+      border-radius: 8px;
+      padding: 20px;
+      position: relative;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    .game-panel::before {
+      content: '';
+      position: absolute;
+      left: 30px;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: rgba(157,0,255,0.15);
+      border-left: 1px dashed rgba(157,0,255,0.1);
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-left: 20px;
+    }
+    .panel-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--dark);
+    }
+    .panel-title::before {
+      content: '▸ ';
+      color: var(--purple);
+    }
+    .q-counter {
+      font-size: 12px;
+      color: rgba(26,10,46,0.5);
+      font-family: monospace;
+      background: rgba(157,0,255,0.1);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* ===== 题目区域 ===== */
+    .question-area {
+      padding-left: 20px;
+      margin-bottom: 16px;
+    }
+    .question-text {
+      font-size: 15px;
+      line-height: 1.8;
+      font-weight: 500;
+      color: var(--dark);
+      margin-bottom: 12px;
+    }
+    .question-canvas {
+      display: block;
+      margin: 0 auto 16px;
+      max-width: 100%;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* ===== 选项 ===== */
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-left: 20px;
+    }
+    .option-btn {
+      background: #fff;
+      border: 2px solid rgba(157,0,255,0.2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--dark);
+      font-family: inherit;
+    }
+    .option-btn:hover {
+      border-color: var(--purple);
+      background: rgba(157,0,255,0.05);
+    }
+    .option-btn.correct {
+      border-color: var(--green);
+      background: rgba(0,255,136,0.1);
+    }
+    .option-btn.wrong {
+      border-color: var(--red);
+      background: rgba(255,68,68,0.1);
+    }
+    .option-btn:disabled { cursor: default; }
+
+    /* ===== 计算输入 ===== */
+    .calc-area {
+      padding-left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .calc-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .calc-input input {
+      border: 2px solid rgba(157,0,255,0.3);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      width: 120px;
+      font-family: monospace;
+      color: var(--dark);
+    }
+    .calc-input input:focus {
+      outline: none;
+      border-color: var(--purple);
+    }
+    .calc-input .unit {
+      font-size: 13px;
+      color: rgba(26,10,46,0.6);
+    }
+    .calc-hint {
+      font-size: 12px;
+      color: rgba(26,10,46,0.5);
+      background: rgba(157,0,255,0.08);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border-left: 3px solid var(--purple);
+    }
+
+    /* ===== 反馈区 ===== */
+    .feedback {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+      padding-left: 36px;
+    }
+    .feedback.show { display: block; }
+    .feedback.correct {
+      background: rgba(0,255,136,0.1);
+      border: 1px solid var(--green);
+      color: #006633;
+    }
+    .feedback.wrong {
+      background: rgba(255,68,68,0.1);
+      border: 1px solid var(--red);
+      color: #cc0000;
+    }
+    .feedback .fb-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .feedback .fb-detail {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* ===== 实验原理按钮 ===== */
+    .principle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(157,0,255,0.1);
+      border: 1px solid rgba(157,0,255,0.3);
+      color: var(--purple);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 8px;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .principle-btn:hover {
+      background: rgba(157,0,255,0.2);
+    }
+    .principle-box {
+      display: none;
+      margin-top: 10px;
+      padding: 12px;
+      background: rgba(157,0,255,0.05);
+      border-radius: 6px;
+      border-left: 3px solid var(--purple);
+      font-size: 12px;
+      line-height: 1.8;
+      color: rgba(26,10,46,0.8);
+    }
+    .principle-box.show { display: block; }
+
+    /* ===== 误差提示框 ===== */
+    .error-tip {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #856404;
+    }
+    .error-tip.show { display: block; }
+
+    /* ===== 导航按钮 ===== */
+    .nav-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 16px;
+      padding-left: 20px;
+    }
+    .btn {
+      padding: 10px 24px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--purple), var(--magenta));
+      color: #fff;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(157,0,255,0.3);
+    }
+    .btn-secondary {
+      background: var(--panel2);
+      color: #fff;
+      border: 1px solid rgba(157,0,255,0.3);
+    }
+    .btn-secondary:hover {
+      background: var(--panel);
+    }
+
+    /* ===== 实例卡片（Stage 2用） ===== */
+    .instance-card {
+      background: #fff;
+      border: 2px solid rgba(157,0,255,0.2);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+    .instance-card:hover {
+      border-color: var(--purple);
+    }
+    .instance-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+    .instance-body {
+      flex: 1;
+    }
+    .instance-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--dark);
+    }
+    .instance-desc {
+      font-size: 12px;
+      color: rgba(26,10,46,0.5);
+      margin-top: 2px;
+    }
+
+    /* ===== 阶段结果 ===== */
+    .stage-result {
+      text-align: center;
+      padding: 30px 20px;
+    }
+    .grade-display {
+      font-size: 72px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .grade-S { color: var(--gold); text-shadow: 0 0 20px rgba(255,215,0,0.3); }
+    .grade-A { color: var(--green); }
+    .grade-B { color: #66ccff; }
+    .grade-C { color: #ffaa66; }
+    .result-stats {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .result-stat {
+      text-align: center;
+    }
+    .result-stat .val {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--purple);
+    }
+    .result-stat .lab {
+      font-size: 11px;
+      color: rgba(26,10,46,0.5);
+    }
+
+    /* ===== 徽章 ===== */
+    .badge-box {
+      display: none;
+      margin-top: 20px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,0,255,0.1));
+      border: 2px solid var(--gold);
+      border-radius: 12px;
+      animation: badgeGlow 2s ease infinite;
+    }
+    .badge-box.show { display: block; }
+    @keyframes badgeGlow {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,215,0,0.2); }
+      50% { box-shadow: 0 0 25px rgba(255,215,0,0.4); }
+    }
+    .badge-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .badge-desc {
+      font-size: 13px;
+      color: rgba(26,10,46,0.6);
+      margin-top: 4px;
+    }
+
+    /* ===== 底部导航 ===== */
+    footer {
+      padding: 12px 20px;
+      background: rgba(26,10,46,0.95);
+      border-top: 1px solid rgba(157,0,255,0.2);
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .footer-link {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-link:hover { color: var(--accent); }
+
+    /* ===== 总结果面板 ===== */
+    .final-result {
+      text-align: center;
+      padding: 24px;
+    }
+    .final-grade {
+      font-size: 96px;
+      font-weight: 900;
+    }
+    .badge-collection {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .mini-badge {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      background: var(--panel2);
+      border: 2px solid rgba(157,0,255,0.3);
+    }
+    .mini-badge.earned {
+      border-color: var(--gold);
+      background: rgba(255,215,0,0.1);
+    }
+
+    /* ===== 隐藏类 ===== */
+    .hidden { display: none !important; }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 600px) {
+      h1 { font-size: 18px; }
+      .stage-selector { grid-template-columns: repeat(2, 1fr); }
+      .game-panel { padding: 14px; }
+      .game-panel::before { left: 20px; }
+      .question-area, .options, .calc-area, .nav-btns { padding-left: 14px; }
+      .panel-header { padding-left: 14px; }
+    }
+
+    /* ===== 启动画面 ===== */
+    .splash {
+      position: fixed;
+      inset: 0;
+      background: var(--dark);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      transition: opacity 0.8s, visibility 0.8s;
+    }
+    .splash.done { opacity: 0; visibility: hidden; pointer-events: none; }
+    .splash-icon { font-size: 64px; }
+    .splash h2 {
+      font-size: 28px;
+      background: linear-gradient(90deg, var(--purple), var(--magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .splash p {
+      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+    }
+    .splash-start {
+      margin-top: 20px;
+      padding: 14px 40px;
+      font-size: 16px;
+      border: none;
+      border-radius: 30px;
+      background: linear-gradient(135deg, var(--purple), var(--magenta));
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .splash-start:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(157,0,255,0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-deco" id="bgDeco"></div>
+
+  <!-- 启动画面 -->
+  <div class="splash" id="splash">
+    <div class="splash-icon">🔥</div>
+    <h2>热力学实验室</h2>
+    <p>第十章 · 内能 THERMAL</p>
+    <p style="font-size:12px">代号 THERMAL · 部门：热力学实验室</p>
+    <button class="splash-start" onclick="enterGame()">进入实验室</button>
+  </div>
+
+  <div id="app">
+    <header>
+      <div class="lab-badge">THERMAL LAB · THERMAL</div>
+      <h1>第十章 · 内能</h1>
+      <div class="chapter-info">初中物理 · 九年级全一册 · 热力学实验室</div>
+    </header>
+
+    <div class="hud" id="hud">
+      <div class="hud-group">
+        <div class="hp-bar" id="hpBar">
+          <span class="hp-heart" id="hp1">❤️</span>
+          <span class="hp-heart" id="hp2">❤️</span>
+          <span class="hp-heart" id="hp3">❤️</span>
+        </div>
+        <span class="combo" id="comboDisplay"></span>
+      </div>
+      <div class="hud-group">
+        <span class="score" id="scoreDisplay">得分: 0</span>
+        <span class="timer hidden" id="timerDisplay">⏱ 60</span>
+      </div>
+    </div>
+
+    <main id="mainContent">
+      <!-- 动态内容 -->
+    </main>
+
+    <footer>
+      <a class="footer-link" href="#" onclick="showMenu()">📋 实验目录</a>
+      <a class="footer-link" href="#" onclick="showHelp()">📖 实验手册</a>
+      <a class="footer-link" href="#" onclick="resetGame()">🔄 重置实验</a>
+    </footer>
+  </div>
+
+<script>
+// ==================== 游戏状态 ====================
+const STATE = {
+  hp: 3,
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  currentStage: 0,
+  currentQ: 0,
+  stagesCompleted: [false, false, false, false, false],
+  stageGrades: ['', '', '', '', ''],
+  badges: [],
+  timer: null,
+  timeLeft: 60,
+};
+
+// ==================== 题目数据 ====================
+const QUESTIONS = {
+  // Stage 1: 扩散与分子运动 (6题)
+  1: [
+    { type:'diffusion', text:'下列现象中，属于扩散现象的是？',
+      opts:['红墨水滴入清水中，水逐渐变红','扫地时灰尘飞扬','风吹过，树叶飘落','雪花从空中飘落'],
+      ans:0, canvas:'diffusion',
+      explain:'扩散现象是分子无规则运动的结果，红墨水分子自发进入水分子间隙。灰尘、树叶、雪花是宏观物体的机械运动，不是分子级别的扩散。' },
+    { type:'force', text:'如图所示，将两块铅柱的底面削平、削干净，然后紧紧压在一起，两块铅柱就会结合起来，甚至下面吊一个重物都不能把它们拉开。这说明分子之间存在什么力？',
+      opts:['引力','斥力','引力和斥力同时存在','不存在分子力'],
+      ans:0, canvas:'molecule-attract',
+      explain:'铅柱底面削平压紧后，分子间距离小到引力作用范围内，产生显著的分子引力。这是分子间存在引力的经典实验。' },
+    { type:'force', text:'固体和液体很难被压缩，这说明分子之间存在什么力？',
+      opts:['斥力','引力','没有分子力','分子力可以忽略'],
+      ans:0, canvas:'molecule-repel',
+      explain:'当分子间距离小于平衡位置时，斥力急剧增大，阻碍进一步靠近。固体液体难压缩正是分子斥力的宏观表现。' },
+    { type:'diffusion', text:'"墙内开花墙外香"，能闻到花香是因为？',
+      opts:['花香分子在做无规则运动','花香被风吹到墙外','花香分子有重力','花香有磁性'],
+      ans:0, canvas:'none',
+      explain:'扩散现象说明一切物质的分子都在不停地做无规则运动。花香分子自发运动到空气中，被人闻到。' },
+    { type:'diffusion', text:'将一滴红墨水滴入一杯冷水中和一杯热水中，观察发现热水变红更快。这说明？',
+      opts:['温度越高，分子运动越剧烈','温度越高，分子体积越大','热水溶解能力更强','冷水分子静止不动'],
+      ans:0, canvas:'diffusion-compare',
+      explain:'温度越高，分子无规则运动越剧烈，扩散速度越快。这是分子热运动的基本规律：温度是分子平均动能的标志。' },
+    { type:'force', text:'关于分子间的作用力，下列说法正确的是？',
+      opts:['分子间引力和斥力同时存在','分子间只有引力没有斥力','分子间只有斥力没有引力','分子间距离增大时引力增大、斥力减小'],
+      ans:0, canvas:'none',
+      explain:'分子间同时存在引力和斥力，二者随距离变化规律不同。引力和斥力都随距离增大而减小，但斥力减小更快。' },
+  ],
+  // Stage 2: 内能变化 (6题)
+  2: [
+    { type:'instance', text:'下列实例中，通过"做功"改变物体内能的是？',
+      instance:{icon:'🔨',title:'用锤子反复敲打铁块',desc:'铁块温度升高'},
+      opts:['用锤子反复敲打铁块，铁块温度升高','冬天用热水袋暖手','夏天太阳底下晒石头','把冰块放入温水中'],
+      ans:0,
+      explain:'敲打铁块是外力对铁块做功，机械能转化为内能，属于做功改变内能。热水袋、晒太阳、冰块放入温水都是热传递（能量从高温物体传到低温物体）。' },
+    { type:'instance', text:'下列实例中，通过"热传递"改变物体内能的是？',
+      instance:{icon:'☀️',title:'晒太阳取暖',desc:'人体吸收热量'},
+      opts:['钻木取火','搓手取暖','晒太阳取暖','压缩气体点火'],
+      ans:2,
+      explain:'晒太阳是太阳辐射热量传递给人体，属于热传递中的辐射方式。钻木取火、搓手取暖、压缩气体都是做功改变内能。' },
+    { type:'instance', text:'如图所示，在厚壁玻璃筒中放入浸过乙醚的棉花，迅速压下活塞，棉花会燃烧起来。这是因为？',
+      instance:{icon:'🔥',title:'压缩气体点火实验',desc:'活塞下压，棉花燃烧'},
+      opts:['活塞对气体做功，气体内能增加','气体对活塞做功，气体内能减少','热传递使棉花温度升高','乙醚自燃'],
+      ans:0, canvas:'compress',
+      explain:'迅速压缩气体，活塞对气体做功，机械能转化为内能，气体温度急剧升高达到乙醚着火点。这是做功改变内能的典型演示。' },
+    { type:'instance', text:'冬天双手互相摩擦取暖，这是通过什么方式改变内能？',
+      instance:{icon:'🤲',title:'双手摩擦取暖',desc:'克服摩擦力做功'},
+      opts:['做功——克服摩擦力做功，机械能转化为内能','热传递——手的热量传给另一只手','热传递——空气热量传给手','做功——手对空气做功'],
+      ans:0,
+      explain:'双手摩擦时克服摩擦力做功，机械能转化为内能，使手温度升高。这是做功改变内能的实例。' },
+    { type:'instance', text:'给自行车轮胎打气时，打气筒壁会发热，主要原因是？',
+      instance:{icon:'🚲',title:'给轮胎打气',desc:'打气筒壁发热'},
+      opts:['活塞压缩气体做功，气体内能增加','气体从外界吸热','打气筒材料导热性好','手的热量传给打气筒'],
+      ans:0,
+      explain:'打气时活塞压缩筒内气体做功，气体内能增加、温度升高；同时活塞与筒壁摩擦也做功生热。主要是做功改变内能。' },
+    { type:'instance', text:'关于做功和热传递改变内能，下列说法正确的是？',
+      instance:{icon:'⚖️',title:'做功与热传递',desc:'两种方式的本质区别'},
+      opts:['做功是能量的转化，热传递是能量的转移','做功和热传递都是能量的转化','只有做功能改变物体内能','热传递时物体内能不变'],
+      ans:0,
+      explain:'做功改变内能是能量的转化（如机械能→内能）；热传递改变内能是能量的转移（从高温物体传到低温物体）。二者在改变内能上是等效的。' },
+  ],
+  // Stage 3: 比热容计算 (5题)
+  3: [
+    { type:'calc', text:'把2kg水从20℃加热到60℃，需要吸收多少热量？（c水=4.2×10³ J/(kg·℃)）',
+      formula:'Q吸 = cm(t - t₀) = 4.2×10³ × 2 × (60 - 20)', answer:336000, unit:'J', tolerance:1000,
+      explain:'Q吸 = cm(t-t₀)。质量m=2kg，比热容c=4.2×10³ J/(kg·℃)，温度变化ΔT=40℃。Q=4.2×10³×2×40=3.36×10⁵J。' },
+    { type:'calc', text:'质量为5kg的水，温度从80℃降低到40℃，放出多少热量？（c水=4.2×10³ J/(kg·℃)）',
+      formula:'Q放 = cm(t₀ - t) = 4.2×10³ × 5 × (80 - 40)', answer:840000, unit:'J', tolerance:1000,
+      explain:'Q放 = cm(t₀-t)。质量m=5kg，比热容c=4.2×10³ J/(kg·℃)，温度变化ΔT=40℃。Q=4.2×10³×5×40=8.4×10⁵J。' },
+    { type:'calc', text:'质量相同的铝块和铜块，吸收相同的热量后升高的温度之比是多少？（c铝=0.88×10³ J/(kg·℃)，c铜=0.39×10³ J/(kg·℃)）',
+      formula:'Q相同 → c₁mΔT₁ = c₂mΔT₂ → ΔT₁/ΔT₂ = c₂/c₁ = 0.39/0.88', answer:0.443, unit:'', tolerance:0.02,
+      explain:'由Q=cmΔT，Q和m相同时，ΔT与c成反比。ΔT铝:ΔT铜 = c铜:c铝 = 0.39:0.88 ≈ 0.443。比热容越小，升温越快。' },
+    { type:'calc', text:'某暖气片中装有50kg水，水温从20℃升到70℃，水吸收多少热量？（c水=4.2×10³ J/(kg·℃)）',
+      formula:'Q吸 = cm(t - t₀) = 4.2×10³ × 50 × (70 - 20)', answer:10500000, unit:'J', tolerance:10000,
+      explain:'Q吸 = cm(t-t₀)。质量m=50kg，比热容c=4.2×10³ J/(kg·℃)，温度变化ΔT=50℃。Q=4.2×10³×50×50=1.05×10⁷J。水比热容大，适合用作供暖介质。' },
+    { type:'calc', text:'用相同加热器分别给质量相同的水和煤油加热，5分钟后，水温升高10℃。若c煤油=2.1×10³ J/(kg·℃)，求煤油温度升高多少？',
+      formula:'Q相同 → c水mΔT水 = c煤油mΔT煤油 → ΔT煤油 = (c水/c煤油)×ΔT水 = (4.2/2.1)×10', answer:20, unit:'℃', tolerance:0.5,
+      explain:'相同加热器相同时间放出相同热量，被液体吸收。Q相同则cΔT相同。ΔT煤油 = (c水/c煤油)×ΔT水 = (4.2/2.1)×10 = 20℃。煤油比热容小，升温快。' },
+  ],
+  // Stage 4: 热机循环 (5题)
+  4: [
+    { type:'engine', text:'四冲程汽油机工作循环中，哪个冲程使汽车获得动力？',
+      opts:['做功冲程','吸气冲程','压缩冲程','排气冲程'],
+      ans:0, canvas:'engine',
+      explain:'做功冲程中，火花塞点火，燃气膨胀推动活塞向下运动，内能转化为机械能，是唯一对外做功的冲程，为汽车提供动力。' },
+    { type:'engine', text:'四冲程汽油机的压缩冲程中，能量如何转化？',
+      opts:['机械能转化为内能','内能转化为机械能','化学能转化为内能','内能转化为化学能'],
+      ans:0, canvas:'engine-compress',
+      explain:'压缩冲程中，活塞向上运动压缩燃气，对燃气做功，机械能转化为内能，燃气温度和压强升高。' },
+    { type:'engine', text:'四冲程汽油机一个完整工作循环中，活塞往复运动几次？',
+      opts:['2次','1次','3次','4次'],
+      ans:0, canvas:'none',
+      explain:'四冲程汽油机一个工作循环包括吸气、压缩、做功、排气四个冲程，曲轴转2圈，活塞上下往复运动2次，对外做功1次。' },
+    { type:'engine', text:'如图是汽油机工作循环的某一冲程示意图（进气门开，排气门关，活塞向下运动），这是什么冲程？',
+      opts:['吸气冲程','压缩冲程','做功冲程','排气冲程'],
+      ans:0, canvas:'engine-intake',
+      explain:'进气门开、排气门关、活塞向下运动→吸气冲程：汽油和空气的混合物被吸入气缸。' },
+    { type:'engine', text:'如图是汽油机工作循环的某一冲程示意图（两气门都关闭，活塞向上运动），这是什么冲程？可能发生了什么能量转化？',
+      opts:['压缩冲程，机械能→内能','做功冲程，内能→机械能','排气冲程，无能量转化','吸气冲程，无能量转化'],
+      ans:0, canvas:'engine-compress2',
+      explain:'两气门都关闭且活塞向上运动→压缩冲程：活塞压缩混合气体，机械能转化为内能。如果是两气门关闭活塞向下运动，则是做功冲程。' },
+  ],
+  // Stage 5: 终极实验 60秒挑战 (6题综合)
+  5: [
+    { type:'rapid', text:'把0℃的冰块放入0℃的水中（周围气温也是0℃），过一段时间后？',
+      opts:['冰不会熔化，水也不会凝固','部分冰熔化成水','部分水凝固成冰','冰全部熔化'],
+      ans:0,
+      explain:'冰和水温度相同且与外界无温差，不存在热传递。冰熔化需要吸热，水凝固需要放热，没有热量交换则状态不变。' },
+    { type:'rapid', text:'沿海地区昼夜温差比内陆小，主要原因是？',
+      opts:['水的比热容大，温度变化慢','水的沸点高','水的密度大','水有流动性'],
+      ans:0,
+      explain:'水的比热容大，白天吸收相同热量升温少，夜晚放出相同热量降温也少，因此沿海地区温差小。这是比热容的重要应用。' },
+    { type:'rapid', text:'四冲程汽油机工作时，将内能转化为机械能的冲程是？',
+      opts:['做功冲程','压缩冲程','吸气冲程','排气冲程'],
+      ans:0,
+      explain:'做功冲程中燃气膨胀推动活塞，内能转化为机械能。压缩冲程相反，是机械能转化为内能。' },
+    { type:'rapid', text:'关于物体的内能，下列说法正确的是？',
+      opts:['同一物体温度越高内能越大','0℃的物体内能为零','静止的物体内能为零','内能只与温度有关'],
+      ans:0,
+      explain:'内能是物体内所有分子动能和势能的总和。同一物体温度越高分子动能越大，内能越大。一切物体都有内能，内能与温度、质量、物态都有关。' },
+    { type:'rapid', text:'将质量和温度都相同的铜块和铝块（c铜 < c铝），投入初温相同的两杯水中，哪杯水最终温度更高？',
+      opts:['铜块所在的水','铝块所在的水','两杯水温度相同','无法判断'],
+      ans:0,
+      explain:'铜的比热容小于铝，降低相同温度时放出的热量更少（Q=cmΔT）。因此铜块所在的水吸收热量少，最终温度较低。铝块所在的水吸收热量多，最终温度更高。' },
+    { type:'rapid', text:'汽油机飞轮转速为2400r/min，则每秒对外做功多少次？',
+      opts:['20次','40次','10次','60次'],
+      ans:0,
+      explain:'2400r/min = 40r/s。四冲程汽油机每2转对外做功1次，所以每秒做功40÷2=20次。' },
+  ],
+};
+
+const STAGE_NAMES = [
+  '扩散与分子运动', '内能变化', '比热容计算', '热机循环', '终极实验'
+];
+const STAGE_ICONS = ['⚛️', '🔧', '🧮', '🔩', '⚡'];
+const STAGE_DESCS = [
+  '判断扩散现象与分子间作用力',
+  '区分做功与热传递改变内能',
+  'Q=cmΔT 比热容计算与应用',
+  '四冲程汽油机工作循环判断',
+  '60秒综合挑战'
+];
+
+// ==================== 初始化 ====================
+function initBg() {
+  const bg = document.getElementById('bgDeco');
+  const mols = ['⚛️','🔬','🧪','🔥','🌡️','💧'];
+  for (let i = 0; i < 8; i++) {
+    const el = document.createElement('div');
+    el.className = 'molecule';
+    el.textContent = mols[Math.floor(Math.random()*mols.length)];
+    el.style.left = Math.random()*100 + '%';
+    el.style.top = Math.random()*100 + '%';
+    el.style.animationDelay = Math.random()*6 + 's';
+    el.style.animationDuration = (5+Math.random()*4) + 's';
+    el.style.fontSize = (12+Math.random()*14) + 'px';
+    bg.appendChild(el);
+  }
+  const flames = [{t:'🔥',x:'85%',y:'15%'}, {t:'🌡️',x:'10%',y:'80%'}, {t:'🔥',x:'5%',y:'20%'}];
+  flames.forEach(f => {
+    const el = document.createElement('div');
+    el.className = 'flame';
+    el.textContent = f.t;
+    el.style.left = f.x;
+    el.style.top = f.y;
+    bg.appendChild(el);
+  });
+}
+
+function enterGame() {
+  document.getElementById('splash').classList.add('done');
+  showMenu();
+}
+
+// ==================== 菜单 ====================
+function showMenu() {
+  clearTimer();
+  STATE.currentStage = 0;
+  const timerEl = document.getElementById('timerDisplay');
+  timerEl.classList.add('hidden');
+
+  let html = '<div style="padding-left:20px;margin-bottom:12px;font-size:13px;color:rgba(255,255,255,0.6)">选择实验项目：</div>';
+  html += '<div class="stage-selector">';
+  for (let i = 0; i < 5; i++) {
+    const locked = i > 0 && !STATE.stagesCompleted[i-1];
+    const cls = locked ? 'locked' : (STATE.stagesCompleted[i] ? 'completed' : '');
+    const grade = STATE.stageGrades[i] ? `<span style="color:${gradeColor(STATE.stageGrades[i])};font-size:11px;margin-left:4px">${STATE.stageGrades[i]}</span>` : '';
+    html += `
+      <div class="stage-card ${cls}" onclick="${locked ? '' : `startStage(${i+1})`}">
+        <div class="stage-icon">${STAGE_ICONS[i]}</div>
+        <div class="stage-num">${i+1}</div>
+        <div class="stage-name">${STAGE_NAMES[i]}${grade}</div>
+        <div class="stage-desc">${STAGE_DESCS[i]}</div>
+      </div>
+    `;
+  }
+  html += '</div>';
+
+  // 总评区域
+  const allDone = STATE.stagesCompleted.every(x=>x);
+  if (allDone || STATE.score > 0) {
+    html += '<div style="margin-top:24px;text-align:center;">';
+    html += `<div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:8px">当前总得分</div>`;
+    html += `<div style="font-size:36px;font-weight:800;color:var(--green)">${STATE.score}</div>`;
+    if (allDone) {
+      const overall = overallGrade();
+      html += `<div style="margin-top:12px;font-size:18px;color:var(--accent)">综合评价: <span style="font-weight:800;font-size:28px;color:${gradeColor(overall)}">${overall}</span></div>`;
+      if (overall === 'S' && !STATE.badges.includes('热力学大师')) {
+        STATE.badges.push('热力学大师');
+      }
+      if (STATE.badges.includes('热力学大师')) {
+        html += `<div style="margin-top:16px;padding:12px;border:2px solid var(--gold);border-radius:12px;display:inline-block;">`;
+        html += `<div style="font-size:24px">🏅 热力学大师</div>`;
+        html += `<div style="font-size:12px;color:rgba(255,255,255,0.5)">已获得全部阶段S评价</div></div>`;
+      }
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('mainContent').innerHTML = html;
+}
+
+function gradeColor(g) {
+  const map = {S:'var(--gold)',A:'var(--green)',B:'#66ccff',C:'#ffaa66'};
+  return map[g] || '#fff';
+}
+
+function overallGrade() {
+  const counts = {S:0,A:0,B:0,C:0};
+  STATE.stageGrades.forEach(g => { if(counts[g]!==undefined) counts[g]++; });
+  if (counts.S >= 4) return 'S';
+  if (counts.S + counts.A >= 4) return 'A';
+  if (counts.S + counts.A + counts.B >= 4) return 'B';
+  return 'C';
+}
+
+// ==================== 关卡开始 ====================
+function startStage(n) {
+  STATE.currentStage = n;
+  STATE.currentQ = 0;
+  STATE.combo = 0;
+  updateHUD();
+  showQuestion();
+}
+
+function showQuestion() {
+  const stage = STATE.currentStage;
+  const qIdx = STATE.currentQ;
+  const questions = QUESTIONS[stage];
+
+  if (qIdx >= questions.length) {
+    showStageResult();
+    return;
+  }
+
+  const q = questions[qIdx];
+  let html = '';
+
+  // 面板头部
+  html += `<div class="game-panel">`;
+  html += `<div class="panel-header">`;
+  html += `<div class="panel-title">Stage ${stage} · ${STAGE_NAMES[stage-1]}</div>`;
+  html += `<div class="q-counter">${qIdx+1} / ${questions.length}</div>`;
+  html += `</div>`;
+
+  // 题目内容
+  html += `<div class="question-area">`;
+  html += `<div class="question-text">${q.text}</div>`;
+  html += `</div>`;
+
+  // Stage特定Canvas或实例卡片
+  if (stage === 1 && q.canvas && q.canvas !== 'none') {
+    html += `<canvas id="stageCanvas" class="question-canvas" width="400" height="220"></canvas>`;
+  } else if (stage === 2 && q.instance) {
+    html += `<div class="instance-card" style="margin-left:20px;margin-bottom:12px;max-width:360px">`;
+    html += `<div class="instance-icon">${q.instance.icon}</div>`;
+    html += `<div class="instance-body">`;
+    html += `<div class="instance-title">${q.instance.title}</div>`;
+    html += `<div class="instance-desc">${q.instance.desc}</div>`;
+    html += `</div></div>`;
+    if (q.canvas && q.canvas !== 'none') {
+      html += `<canvas id="stageCanvas" class="question-canvas" width="400" height="180"></canvas>`;
+    }
+  } else if (stage === 4 && q.canvas && q.canvas !== 'none') {
+    html += `<canvas id="stageCanvas" class="question-canvas" width="400" height="240"></canvas>`;
+  }
+
+  // 选项或输入
+  if (stage === 3) {
+    html += `<div class="calc-area">`;
+    html += `<div class="calc-hint">${q.formula}</div>`;
+    html += `<div class="calc-input">`;
+    html += `<input type="text" id="calcAnswer" placeholder="输入数值" onkeydown="if(event.key==='Enter')submitCalc()">`;
+    html += `<span class="unit">${q.unit}</span>`;
+    html += `<button class="btn btn-primary" onclick="submitCalc()">提交</button>`;
+    html += `</div></div>`;
+  } else {
+    html += `<div class="options">`;
+    q.opts.forEach((opt, i) => {
+      html += `<button class="option-btn" id="opt${i}" onclick="selectOption(${i})">${String.fromCharCode(65+i)}. ${opt}</button>`;
+    });
+    html += `</div>`;
+  }
+
+  // 反馈区
+  html += `<div class="feedback" id="feedback"><div class="fb-title"></div><div class="fb-detail"></div></div>`;
+
+  // 误差提示
+  html += `<div class="error-tip" id="errorTip"></div>`;
+
+  // 实验原理
+  html += `<button class="principle-btn" id="prinBtn" style="display:none;margin-left:20px" onclick="togglePrinciple()">📖 查看实验原理</button>`;
+  html += `<div class="principle-box" id="principleBox"><b>实验原理：</b>${q.explain}</div>`;
+
+  // 导航
+  html += `<div class="nav-btns" id="navBtns" style="display:none">`;
+  html += `<button class="btn btn-primary" onclick="nextQuestion()">下一题 →</button>`;
+  if (stage === 1 && qIdx < questions.length-1) {
+    html += `<button class="btn btn-secondary" onclick="showMenu()">返回目录</button>`;
+  }
+  html += `</div>`;
+
+  html += `</div>`;
+
+  document.getElementById('mainContent').innerHTML = html;
+
+  // 绘制Canvas
+  if (stage === 1) {
+    if (q.canvas === 'diffusion') drawDiffusion();
+    else if (q.canvas === 'diffusion-compare') drawDiffusionCompare();
+    else if (q.canvas === 'molecule-attract') drawMoleculeAttract();
+    else if (q.canvas === 'molecule-repel') drawMoleculeRepel();
+  } else if (stage === 2) {
+    if (q.canvas === 'compress') drawCompressPiston();
+  } else if (stage === 4) {
+    if (q.canvas === 'engine') drawEngineCycle(2); // 做功冲程
+    else if (q.canvas === 'engine-compress') drawEngineCycle(1); // 压缩冲程
+    else if (q.canvas === 'engine-intake') drawEngineCycle(0); // 吸气冲程
+    else if (q.canvas === 'engine-compress2') drawEngineCycle(1); // 压缩冲程
+  }
+
+  // Stage 5启动计时器
+  if (stage === 5 && qIdx === 0) {
+    STATE.timeLeft = 60;
+    const timerEl = document.getElementById('timerDisplay');
+    timerEl.classList.remove('hidden');
+    startTimer();
+  }
+}
+
+// ==================== Canvas: 扩散动画 ====================
+function drawDiffusion() {
+  const canvas = document.getElementById('stageCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#faf8ff';
+  ctx.fillRect(0,0,w,h);
+
+  // 烧杯
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(80, 40);
+  ctx.lineTo(80, 160);
+  ctx.lineTo(320, 160);
+  ctx.lineTo(320, 40);
+  ctx.stroke();
+
+  // 水面
+  ctx.strokeStyle = '#66ccff';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(80, 50);
+  ctx.quadraticCurveTo(200, 55, 320, 50);
+  ctx.stroke();
+
+  // 扩散的墨水粒子
+  const particles = [];
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: 90 + Math.random() * 220,
+      y: 60 + Math.random() * 95,
+      r: 2 + Math.random() * 3,
+      alpha: 0.3 + Math.random() * 0.5
+    });
+  }
+  // 浓度梯度：左侧浓右侧淡
+  particles.forEach(p => {
+    const intensity = Math.max(0, 1 - (p.x - 90) / 200);
+    ctx.fillStyle = `rgba(157,0,255,${p.alpha * intensity})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // 标签
+  ctx.fillStyle = '#1a0a2e';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('墨水在水中扩散', w/2, 185);
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#666';
+  ctx.fillText('分子自发运动，从高浓度区域向低浓度区域扩散', w/2, 205);
+}
+
+function drawDiffusionCompare() {
+  const canvas = document.getElementById('stageCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#faf8ff';
+  ctx.fillRect(0,0,w,h);
+
+  // 左杯：冷水
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(40, 40); ctx.lineTo(40, 140);
+  ctx.lineTo(170, 140); ctx.lineTo(170, 40);
+  ctx.stroke();
+
+  // 右杯：热水
+  ctx.beginPath();
+  ctx.moveTo(230, 40); ctx.lineTo(230, 140);
+  ctx.lineTo(360, 140); ctx.lineTo(360, 40);
+  ctx.stroke();
+
+  // 冷水中的墨水（扩散慢，较集中）
+  for (let i = 0; i < 25; i++) {
+    ctx.fillStyle = `rgba(157,0,255,${0.2 + Math.random()*0.4})`;
+    ctx.beginPath();
+    ctx.arc(50 + Math.random()*60, 55 + Math.random()*80, 2+Math.random()*3, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // 热水中的墨水（扩散快，较均匀）
+  for (let i = 0; i < 40; i++) {
+    ctx.fillStyle = `rgba(255,0,255,${0.15 + Math.random()*0.35})`;
+    ctx.beginPath();
+    ctx.arc(240 + Math.random()*110, 55 + Math.random()*80, 2+Math.random()*3, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // 标签
+  ctx.fillStyle = '#1a0a2e';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('❄️ 冷水', 105, 160);
+  ctx.fillText('🔥 热水', 295, 160);
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#666';
+  ctx.fillText('温度越高，分子运动越剧烈，扩散越快', w/2, 195);
+}
+
+function drawMoleculeAttract() {
+  const canvas = document.getElementById('stageCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#faf8ff';
+  ctx.fillRect(0,0,w,h);
+
+  // 两个铅块
+  ctx.fillStyle = '#888';
+  ctx.fillRect(80, 80, 100, 60);
+  ctx.fillRect(220, 80, 100, 60);
+
+  // 接触面高亮
+  ctx.fillStyle = 'var(--purple)';
+  ctx.globalAlpha = 0.3;
+  ctx.fillRect(175, 80, 50, 60);
+  ctx.globalAlpha = 1;
+
+  // 引力箭头
+  ctx.strokeStyle = 'var(--purple)';
+  ctx.lineWidth = 2;
+  // 左→右箭头
+  ctx.beginPath();
+  ctx.moveTo(140, 110); ctx.lineTo(200, 110);
+  ctx.lineTo(195, 105); ctx.moveTo(200, 110); ctx.lineTo(195, 115);
+  ctx.stroke();
+  // 右→左箭头
+  ctx.beginPath();
+  ctx.moveTo(260, 110); ctx.lineTo(200, 110);
+  ctx.lineTo(205, 105); ctx.moveTo(200, 110); ctx.lineTo(205, 115);
+  ctx.stroke();
+
+  // 悬挂重物示意
+  ctx.strokeStyle = '#333';
+  ctx.beginPath();
+  ctx.moveTo(200, 80); ctx.lineTo(200, 30);
+  ctx.stroke();
+  ctx.fillStyle = '#d4a017';
+  ctx.fillRect(185, 10, 30, 20);
+  ctx.fillText('重物', 200, 5);
+
+  // 标签
+  ctx.fillStyle = '#1a0a2e';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('铅柱压紧后分子引力使它们结合', w/2, 170);
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#666';
+  ctx.fillText('分子距离足够近时，引力作用显著', w/2, 190);
+}
+
+function drawMoleculeRepel() {
+  const canvas = document.getElementById('stageCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#faf8ff';
+  ctx.fillRect(0,0,w,h);
+
+  // 容器壁
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(50, 50); ctx.lineTo(50, 170);
+  ctx.lineTo(350, 170); ctx.lineTo(350, 50);
+  ctx.stroke();
+
+  // 分子
+  const positions = [
+    {x:100,y:100},{x:140,y:90},{x:120,y:130},
+    {x:180,y:110},{x:220,y:100},{x:200,y:140},
+    {x:260,y:90},{x:280,y:130},{x:300,y:110}
+  ];
+  positions.forEach(p => {
+    ctx.fillStyle = 'var(--purple)';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 8, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // 斥力示意圈
+  positions.forEach(p => {
+    ctx.strokeStyle = 'rgba(157,0,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 18, 0, Math.PI*2);
+    ctx.stroke();
+  });
+
+  // 外部压力箭头
+  ctx.strokeStyle = 'var(--red)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(20, 80); ctx.lineTo(45, 80);
+  ctx.lineTo(40, 75); ctx.moveTo(45, 80); ctx.lineTo(40, 85);
+  ctx.moveTo(20, 140); ctx.lineTo(45, 140);
+  ctx.lineTo(40, 135); ctx.moveTo(45, 140); ctx.lineTo(40, 145);
+  ctx.stroke();
+
+  // 标签
+  ctx.fillStyle = '#1a0a2e';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('分子间存在斥力，阻碍压缩', w/2, 190);
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#666';
+  ctx.fillText('距离小于平衡位置时，斥力急剧增大', w/2, 210);
+}
+
+// ==================== Canvas: 压缩气体活塞 ====================
+function drawCompressPiston() {
+  const canvas = document.getElementById('stageCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#faf8ff';
+  ctx.fillRect(0,0,w,h);
+
+  // 玻璃筒
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(140, 30); ctx.lineTo(140, 120);
+  ctx.lineTo(260, 120); ctx.lineTo(260, 30);
+  ctx.stroke();
+
+  // 活塞
+  ctx.fillStyle = '#666';
+  ctx.fillRect(135, 35, 130, 12);
+  ctx.fillRect(190, 10, 20, 25);
+
+  // 向下压力箭头
+  ctx.strokeStyle = 'var(--red)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(200, 5); ctx.lineTo(200, 30);
+  ctx.lineTo(195, 25); ctx.moveTo(200, 30); ctx.lineTo(205, 25);
+  ctx.stroke();
+
+  // 棉花（底部）
+  ctx.fillStyle = '#f0e6d3';
+  ctx.fillRect(145, 108, 110, 8);
+  ctx.fillStyle = '#e8d5b5';
+  for (let i = 0; i < 8; i++) {
+    ctx.beginPath();
+    ctx.arc(150 + i*13, 112, 4, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // 火焰
+  ctx.fillStyle = '#ff6600';
+  ctx.beginPath();
+  ctx.moveTo(185, 108); ctx.lineTo(195, 90); ctx.lineTo(205, 108);
+  ctx.fill();
+
+  // 标签
+  ctx.fillStyle = '#1a0a2e';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('压缩气体点火实验', w/2, 145);
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#666';
+  ctx.fillText('活塞压缩气体做功 → 内能增加 → 温度升高 → 点燃乙醚', w/2, 165);
+}
+
+// ==================== Canvas: 四冲程汽油机 ====================
+function drawEngineCycle(strokeIndex) {
+  const canvas = document.getElementById('stageCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#faf8ff';
+  ctx.fillRect(0,0,w,h);
+
+  const cx = w/2, cy = h/2 + 10;
+  const cw = 140, ch = 100; // cylinder
+
+  const strokeNames = ['吸气冲程', '压缩冲程', '做功冲程', '排气冲程'];
+  const valveStates = [
+    {intake:true, exhaust:false},  // 吸气：进气开，排气关
+    {intake:false, exhaust:false}, // 压缩：都关
+    {intake:false, exhaust:false}, // 做功：都关
+    {intake:false, exhaust:true}   // 排气：进气关，排气开
+  ];
+  const pistonY = [cy + ch/2 - 10, cy - 5, cy + ch/2 - 10, cy - 5]; // 活塞位置
+  const arrowDir = ['down', 'up', 'down', 'up']; // 运动方向
+
+  const vs = valveStates[strokeIndex];
+  const py = pistonY[strokeIndex];
+
+  // 气缸
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - cw/2, cy - ch/2);
+  ctx.lineTo(cx - cw/2, cy + ch/2);
+  ctx.lineTo(cx + cw/2, cy + ch/2);
+  ctx.lineTo(cx + cw/2, cy - ch/2);
+  ctx.stroke();
+
+  // 进气门
+  const intakeX = cx - cw/4;
+  ctx.strokeStyle = vs.intake ? 'var(--green)' : '#999';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(intakeX - 12, cy - ch/2 - 10);
+  if (vs.intake) {
+    ctx.lineTo(intakeX, cy - ch/2 - 2);
+  } else {
+    ctx.lineTo(intakeX, cy - ch/2 + 4);
+  }
+  ctx.lineTo(intakeX + 12, cy - ch/2 - 10);
+  ctx.stroke();
+  ctx.fillStyle = vs.intake ? 'var(--green)' : '#999';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(vs.intake ? '进气门·开' : '进气门·关', intakeX, cy - ch/2 - 18);
+
+  // 排气门
+  const exhaustX = cx + cw/4;
+  ctx.strokeStyle = vs.exhaust ? 'var(--green)' : '#999';
+  ctx.beginPath();
+  ctx.moveTo(exhaustX - 12, cy - ch/2 - 10);
+  if (vs.exhaust) {
+    ctx.lineTo(exhaustX, cy - ch/2 - 2);
+  } else {
+    ctx.lineTo(exhaustX, cy - ch/2 + 4);
+  }
+  ctx.lineTo(exhaustX + 12, cy - ch/2 - 10);
+  ctx.stroke();
+  ctx.fillStyle = vs.exhaust ? 'var(--green)' : '#999';
+  ctx.fillText(vs.exhaust ? '排气门·开' : '排气门·关', exhaustX, cy - ch/2 - 18);
+
+  // 活塞
+  ctx.fillStyle = '#666';
+  ctx.fillRect(cx - cw/2 + 4, py - 6, cw - 8, 12);
+
+  // 连杆
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx, py);
+  ctx.lineTo(cx + 30, cy + ch/2 + 20);
+  ctx.stroke();
+
+  // 曲轴
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(cx + 30, cy + ch/2 + 20, 8, 0, Math.PI*2);
+  ctx.fill();
+
+  // 运动方向箭头
+  ctx.strokeStyle = 'var(--purple)';
+  ctx.lineWidth = 2;
+  const dir = arrowDir[strokeIndex];
+  const arrowY = py + (dir === 'down' ? 25 : -25);
+  ctx.beginPath();
+  ctx.moveTo(cx + cw/2 + 15, py);
+  ctx.lineTo(cx + cw/2 + 15, arrowY);
+  if (dir === 'down') {
+    ctx.lineTo(cx + cw/2 + 10, arrowY - 5);
+    ctx.moveTo(cx + cw/2 + 15, arrowY); ctx.lineTo(cx + cw/2 + 20, arrowY - 5);
+  } else {
+    ctx.lineTo(cx + cw/2 + 10, arrowY + 5);
+    ctx.moveTo(cx + cw/2 + 15, arrowY); ctx.lineTo(cx + cw/2 + 20, arrowY + 5);
+  }
+  ctx.stroke();
+  ctx.fillStyle = 'var(--purple)';
+  ctx.font = '10px sans-serif';
+  ctx.fillText(dir === 'down' ? '活塞↓' : '活塞↑', cx + cw/2 + 35, arrowY + 4);
+
+  // 标题
+  ctx.fillStyle = '#1a0a2e';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(strokeNames[strokeIndex], w/2, 22);
+
+  // 能量转化标注
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#666';
+  if (strokeIndex === 1) {
+    ctx.fillText('能量转化：机械能 → 内能', w/2, h - 15);
+  } else if (strokeIndex === 2) {
+    ctx.fillText('能量转化：内能 → 机械能', w/2, h - 15);
+  } else {
+    ctx.fillText('无明显能量转化', w/2, h - 15);
+  }
+}
+
+// ==================== 答题逻辑 ====================
+function selectOption(idx) {
+  const stage = STATE.currentStage;
+  const qIdx = STATE.currentQ;
+  const q = QUESTIONS[stage][qIdx];
+  const btns = document.querySelectorAll('.option-btn');
+
+  btns.forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === q.ans) btn.classList.add('correct');
+    else if (i === idx && i !== q.ans) btn.classList.add('wrong');
+  });
+
+  const fb = document.getElementById('feedback');
+  const isCorrect = idx === q.ans;
+
+  if (isCorrect) {
+    STATE.combo++;
+    if (STATE.combo > STATE.maxCombo) STATE.maxCombo = STATE.combo;
+    const pts = stage === 5 ? 30 : (20 + STATE.combo * 2);
+    STATE.score += pts;
+    fb.className = 'feedback show correct';
+    fb.querySelector('.fb-title').textContent = '✓ 正确！';
+    fb.querySelector('.fb-detail').textContent = `+${pts}分 · 连击x${STATE.combo}`;
+  } else {
+    STATE.combo = 0;
+    STATE.hp--;
+    fb.className = 'feedback show wrong';
+    fb.querySelector('.fb-title').textContent = '✗ 错误';
+    fb.querySelector('.fb-detail').textContent = `正确答案是：${String.fromCharCode(65+q.ans)}. ${q.opts[q.ans]}`;
+
+    // 误差提示
+    if (stage === 1) {
+      showErrorTip('误差提示：扩散是分子级别的自发运动，肉眼可见的灰尘、雪花等机械运动不是扩散。分子间同时存在引力和斥力。');
+    } else if (stage === 2) {
+      showErrorTip('误差提示：做功是能量转化（如机械能→内能），热传递是能量转移（高温→低温）。摩擦、压缩都是做功；加热、冷却、晒太阳都是热传递。');
+    } else if (stage === 4) {
+      showErrorTip('误差提示：四冲程口诀——吸气（进开排关活塞下）、压缩（都关活塞上）、做功（都关活塞下）、排气（进关排开活塞上）。压缩：机械能→内能；做功：内能→机械能。');
+    }
+  }
+
+  updateHUD();
+  document.getElementById('prinBtn').style.display = 'inline-flex';
+  document.getElementById('navBtns').style.display = 'flex';
+
+  if (STATE.hp <= 0) {
+    setTimeout(() => gameOver(), 800);
+  }
+}
+
+function submitCalc() {
+  const stage = STATE.currentStage;
+  const qIdx = STATE.currentQ;
+  const q = QUESTIONS[stage][qIdx];
+  const input = document.getElementById('calcAnswer');
+  const val = parseFloat(input.value);
+
+  if (isNaN(val)) {
+    input.style.borderColor = 'var(--red)';
+    return;
+  }
+
+  const isCorrect = Math.abs(val - q.answer) <= q.tolerance;
+  const fb = document.getElementById('feedback');
+
+  if (isCorrect) {
+    STATE.combo++;
+    if (STATE.combo > STATE.maxCombo) STATE.maxCombo = STATE.combo;
+    const pts = 25 + STATE.combo * 2;
+    STATE.score += pts;
+    fb.className = 'feedback show correct';
+    fb.querySelector('.fb-title').textContent = '✓ 计算正确！';
+    fb.querySelector('.fb-detail').textContent = `+${pts}分 · 连击x${STATE.combo}`;
+    input.style.borderColor = 'var(--green)';
+    input.style.background = 'rgba(0,255,136,0.1)';
+  } else {
+    STATE.combo = 0;
+    STATE.hp--;
+    fb.className = 'feedback show wrong';
+    fb.querySelector('.fb-title').textContent = '✗ 计算错误';
+    fb.querySelector('.fb-detail').textContent = `正确答案是 ${q.answer}${q.unit}。${q.explain}`;
+    input.style.borderColor = 'var(--red)';
+    showErrorTip('误差提示：Q吸=cm(t-t₀)，Q放=cm(t₀-t)。注意ΔT是温度变化量，不是最终温度。单位统一为kg和℃。');
+  }
+
+  input.disabled = true;
+  updateHUD();
+  document.getElementById('prinBtn').style.display = 'inline-flex';
+  document.getElementById('navBtns').style.display = 'flex';
+
+  if (STATE.hp <= 0) {
+    setTimeout(() => gameOver(), 800);
+  }
+}
+
+function showErrorTip(msg) {
+  const tip = document.getElementById('errorTip');
+  tip.textContent = msg;
+  tip.classList.add('show');
+}
+
+function togglePrinciple() {
+  document.getElementById('principleBox').classList.toggle('show');
+}
+
+function nextQuestion() {
+  STATE.currentQ++;
+  showQuestion();
+}
+
+// ==================== 计时器 ====================
+function startTimer() {
+  clearTimer();
+  const timerEl = document.getElementById('timerDisplay');
+  timerEl.classList.remove('hidden');
+  timerEl.classList.remove('warning');
+
+  STATE.timer = setInterval(() => {
+    STATE.timeLeft--;
+    timerEl.textContent = `⏱ ${STATE.timeLeft}`;
+    if (STATE.timeLeft <= 10) timerEl.classList.add('warning');
+    if (STATE.timeLeft <= 0) {
+      clearTimer();
+      timerEl.textContent = '⏱ 0';
+      showStageResult();
+    }
+  }, 1000);
+}
+
+function clearTimer() {
+  if (STATE.timer) { clearInterval(STATE.timer); STATE.timer = null; }
+}
+
+// ==================== 关卡结果 ====================
+function showStageResult() {
+  clearTimer();
+  const stage = STATE.currentStage;
+  const questions = QUESTIONS[stage];
+  const totalQ = questions.length;
+  const attempted = STATE.currentQ >= totalQ ? totalQ : STATE.currentQ;
+
+  // 估算正确数 (简化)
+  let correct = attempted;
+  const lostHP = 3 - STATE.hp;
+  correct = Math.max(0, attempted - lostHP);
+  if (stage === 5 && STATE.timeLeft <= 0) {
+    correct = Math.max(0, STATE.currentQ - lostHP);
+  }
+
+  const ratio = correct / totalQ;
+  let grade = 'C';
+  if (ratio >= 0.95 && lostHP === 0) grade = 'S';
+  else if (ratio >= 0.8) grade = 'A';
+  else if (ratio >= 0.6) grade = 'B';
+
+  STATE.stagesCompleted[stage-1] = true;
+  STATE.stageGrades[stage-1] = grade;
+
+  let html = `<div class="game-panel"><div class="stage-result">`;
+  html += `<div style="font-size:14px;color:rgba(26,10,46,0.5);margin-bottom:8px">Stage ${stage} 完成</div>`;
+  html += `<div class="grade-display grade-${grade}">${grade}</div>`;
+  html += `<div style="font-size:13px;color:rgba(26,10,46,0.6)">${gradeText(grade)}</div>`;
+
+  html += `<div class="result-stats">`;
+  html += `<div class="result-stat"><div class="val">${correct}</div><div class="lab">正确</div></div>`;
+  html += `<div class="result-stat"><div class="val">${totalQ}</div><div class="lab">总题</div></div>`;
+  html += `<div class="result-stat"><div class="val">${STATE.maxCombo}</div><div class="lab">最高连击</div></div>`;
+  html += `<div class="result-stat"><div class="val">${STATE.score}</div><div class="lab">总分</div></div>`;
+  html += `</div>`;
+
+  if (grade === 'S') {
+    html += `<div class="badge-box show">`;
+    html += `<div class="badge-title">🏅 ${STAGE_NAMES[stage-1]} 专家</div>`;
+    html += `<div class="badge-desc">在${STAGE_NAMES[stage-1]}中获得S评价</div>`;
+    html += `</div>`;
+  }
+
+  html += `<div class="nav-btns" style="display:flex">`;
+  if (stage < 5) {
+    html += `<button class="btn btn-primary" onclick="startStage(${stage+1})">进入 Stage ${stage+1} →</button>`;
+  }
+  html += `<button class="btn btn-secondary" onclick="showMenu()">返回目录</button>`;
+  html += `</div>`;
+
+  html += `</div></div>`;
+  document.getElementById('mainContent').innerHTML = html;
+
+  const timerEl = document.getElementById('timerDisplay');
+  timerEl.classList.add('hidden');
+  timerEl.classList.remove('warning');
+}
+
+function gradeText(g) {
+  const map = {S:'完美实验！数据精准无误',A:'优秀！实验操作规范',B:'良好，注意细节',C:'继续练习，掌握原理'};
+  return map[g] || '';
+}
+
+// ==================== 游戏结束 ====================
+function gameOver() {
+  clearTimer();
+  let html = `<div class="game-panel"><div class="stage-result">`;
+  html += `<div style="font-size:48px;margin-bottom:12px">💔</div>`;
+  html += `<div style="font-size:20px;font-weight:700;color:var(--red);margin-bottom:8px">实验中断</div>`;
+  html += `<div style="font-size:13px;color:rgba(26,10,46,0.6)">生命值耗尽，实验数据丢失</div>`;
+  html += `<div style="margin-top:16px;font-size:14px">最终得分: <b style="color:var(--purple)">${STATE.score}</b></div>`;
+  html += `<div class="nav-btns" style="display:flex;margin-top:20px">`;
+  html += `<button class="btn btn-primary" onclick="resetGame()">重新开始</button>`;
+  html += `<button class="btn btn-secondary" onclick="showMenu()">返回目录</button>`;
+  html += `</div></div></div>`;
+  document.getElementById('mainContent').innerHTML = html;
+  document.getElementById('timerDisplay').classList.add('hidden');
+}
+
+// ==================== 重置 ====================
+function resetGame() {
+  clearTimer();
+  STATE.hp = 3;
+  STATE.score = 0;
+  STATE.combo = 0;
+  STATE.maxCombo = 0;
+  STATE.currentStage = 0;
+  STATE.currentQ = 0;
+  STATE.stagesCompleted = [false,false,false,false,false];
+  STATE.stageGrades = ['','','','',''];
+  STATE.badges = [];
+  STATE.timeLeft = 60;
+  updateHUD();
+  showMenu();
+}
+
+function updateHUD() {
+  for (let i=1; i<=3; i++) {
+    const el = document.getElementById('hp'+i);
+    if (el) el.classList.toggle('lost', i > STATE.hp);
+  }
+  const comboEl = document.getElementById('comboDisplay');
+  if (STATE.combo > 1) {
+    comboEl.textContent = `🔥 x${STATE.combo}`;
+    comboEl.classList.add('active');
+    setTimeout(() => comboEl.classList.remove('active'), 500);
+  } else {
+    comboEl.textContent = '';
+  }
+  document.getElementById('scoreDisplay').textContent = `得分: ${STATE.score}`;
+}
+
+// ==================== 帮助 ====================
+function showHelp() {
+  let html = `<div class="game-panel">`;
+  html += `<div class="panel-header"><div class="panel-title">实验手册</div></div>`;
+  html += `<div style="padding-left:20px;font-size:13px;line-height:2;color:rgba(26,10,46,0.8)">`;
+  html += `<b>📋 实验规则</b><br>`;
+  html += `▸ 每个Stage包含多道实验题<br>`;
+  html += `▸ 答错扣除1点生命值（共3点）<br>`;
+  html += `▸ 连续答对可触发连击加分<br>`;
+  html += `▸ Stage 5为60秒限时挑战<br>`;
+  html += `<br><b>🏅 评级标准</b><br>`;
+  html += `▸ S：全部正确且无生命值损失<br>`;
+  html += `▸ A：正确率≥80%<br>`;
+  html += `▸ B：正确率≥60%<br>`;
+  html += `▸ C：需要加强练习<br>`;
+  html += `<br><b>🔬 核心知识点</b><br>`;
+  html += `▸ 扩散现象：一切物质的分子都在不停地做无规则运动<br>`;
+  html += `▸ 分子间同时存在引力和斥力<br>`;
+  html += `▸ 做功改变内能：能量的转化（机械能↔内能）<br>`;
+  html += `▸ 热传递改变内能：能量的转移（高温→低温）<br>`;
+  html += `▸ 比热容：Q = cmΔT，水的比热容大，适合做冷却剂和供暖介质<br>`;
+  html += `▸ 四冲程汽油机：吸气→压缩→做功→排气<br>`;
+  html += `▸ 压缩冲程：机械能→内能；做功冲程：内能→机械能<br>`;
+  html += `</div>`;
+  html += `<div class="nav-btns" style="display:flex"><button class="btn btn-secondary" onclick="showMenu()">返回</button></div>`;
+  html += `</div>`;
+  document.getElementById('mainContent').innerHTML = html;
+}
+
+// ==================== 启动 ====================
+initBg();
+</script>
+</body>
+</html>
