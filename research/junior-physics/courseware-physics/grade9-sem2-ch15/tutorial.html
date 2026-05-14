@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十五章 · WAVE — 电磁波及其应用 | 通信实验室</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   ROOT & RESET
+   ═══════════════════════════════════════════════════ */
+:root {
+  --neon-purple: #9d00ff;
+  --neon-purple-dim: rgba(157, 0, 255, 0.15);
+  --neon-purple-glow: rgba(157, 0, 255, 0.4);
+  --bg-dark: #0a0a12;
+  --bg-card: #12121f;
+  --bg-elevated: #1a1a2e;
+  --text-primary: #e8e0f0;
+  --text-secondary: #a090b8;
+  --text-muted: #6a5a80;
+  --border-glow: rgba(157, 0, 255, 0.3);
+  --accent-cyan: #00e5ff;
+  --accent-magenta: #ff00a0;
+  --accent-amber: #ffb300;
+  --font-display: 'Orbitron', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-body: 'Noto Sans SC', sans-serif;
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  line-height: 1.7;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: var(--neon-purple); border-radius: 3px; }
+
+/* ═══════════════════════════════════════════════════
+   HERO / HEADER
+   ═══════════════════════════════════════════════════ */
+.hero {
+  position: relative;
+  padding: 4rem 2rem 3rem;
+  text-align: center;
+  background: 
+    radial-gradient(ellipse at 20% 50%, rgba(157,0,255,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 50%, rgba(0,229,255,0.06) 0%, transparent 50%),
+    var(--bg-dark);
+  border-bottom: 1px solid var(--border-glow);
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(90deg, var(--border-glow) 1px, transparent 1px),
+    linear-gradient(0deg, var(--border-glow) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--neon-purple);
+  border: 1px solid var(--border-glow);
+  padding: 0.3rem 0.9rem;
+  border-radius: 2px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  background: var(--neon-purple-dim);
+}
+
+.hero-badge .antenna-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--neon-purple), var(--accent-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 0 20px rgba(157,0,255,0.3));
+}
+
+.hero-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+}
+
+.hero-dept {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.hero-dept .satellite-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--neon-purple);
+}
+
+/* Wave animation strip */
+.wave-strip {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-purple), var(--accent-cyan), var(--neon-purple), transparent);
+  position: relative;
+  overflow: hidden;
+}
+.wave-strip::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: waveScan 3s linear infinite;
+}
+@keyframes waveScan {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* ═══════════════════════════════════════════════════
+   NAV
+   ═══════════════════════════════════════════════════ */
+.nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10,10,18,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-glow);
+  padding: 0.6rem 1rem;
+  overflow-x: auto;
+}
+
+.nav-list {
+  display: flex;
+  gap: 0.3rem;
+  list-style: none;
+  min-width: max-content;
+}
+
+.nav-list a {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 0.4rem 0.7rem;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.nav-list a:hover, .nav-list a.active {
+  color: var(--neon-purple);
+  border-color: var(--border-glow);
+  background: var(--neon-purple-dim);
+}
+
+/* ═══════════════════════════════════════════════════
+   SECTIONS
+   ═══════════════════════════════════════════════════ */
+.section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.section + .section {
+  border-top: 1px solid rgba(157,0,255,0.1);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.section-number {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--neon-purple);
+  opacity: 0.3;
+  line-height: 1;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+
+.section-title small {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 0.2rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════════════════
+   CARDS
+   ═══════════════════════════════════════════════════ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid rgba(157,0,255,0.15);
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.card:hover {
+  border-color: var(--border-glow);
+  box-shadow: 0 0 20px rgba(157,0,255,0.08);
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--neon-purple);
+  margin-bottom: 0.8rem;
+  letter-spacing: 1px;
+}
+
+/* ═══════════════════════════════════════════════════
+   TABLES
+   ═══════════════════════════════════════════════════ */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  margin: 1rem 0;
+}
+
+.data-table th {
+  background: var(--neon-purple-dim);
+  color: var(--neon-purple);
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+  font-weight: 500;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border-glow);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
+.data-table td {
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(157,0,255,0.08);
+  color: var(--text-secondary);
+}
+
+.data-table tr:hover td {
+  background: rgba(157,0,255,0.04);
+  color: var(--text-primary);
+}
+
+.data-table .highlight {
+  color: var(--accent-cyan);
+  font-weight: 500;
+}
+
+.data-table .formula-cell {
+  font-family: var(--font-mono);
+  color: var(--accent-amber);
+}
+
+/* ═══════════════════════════════════════════════════
+   FORMULA BOX
+   ═══════════════════════════════════════════════════ */
+.formula-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  padding: 1.5rem;
+  text-align: center;
+  margin: 1.5rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.formula-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-purple), transparent);
+}
+
+.formula-box .formula {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  color: var(--accent-cyan);
+  letter-spacing: 3px;
+}
+
+.formula-box .formula-desc {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   SPECTRUM VISUALIZATION
+   ═══════════════════════════════════════════════════ */
+.spectrum-container {
+  margin: 2rem 0;
+  padding: 1rem;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  border: 1px solid rgba(157,0,255,0.15);
+}
+
+.spectrum-bar {
+  display: flex;
+  height: 40px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.spectrum-segment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.7);
+  text-shadow: 0 0 4px rgba(0,0,0,0.5);
+  letter-spacing: 0.5px;
+  cursor: default;
+}
+
+.spectrum-segment:hover {
+  filter: brightness(1.3);
+}
+
+.spectrum-segment.radio { background: #1a237e; flex: 4; }
+.spectrum-segment.micro { background: #4527a0; flex: 3; }
+.spectrum-segment.infrared { background: #6a1b9a; flex: 2; }
+.spectrum-segment.visible { background: #8e24aa; flex: 1; }
+.spectrum-segment.uv { background: #ad1457; flex: 1; }
+.spectrum-segment.xray { background: #c62828; flex: 1; }
+.spectrum-segment.gamma { background: #e65100; flex: 0.5; }
+
+.spectrum-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+.spectrum-arrows {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+}
+
+.spectrum-arrows span {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.spectrum-note {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 0.8rem;
+  border-top: 1px dashed rgba(157,0,255,0.2);
+  padding-top: 0.5rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   CIRCUIT DIAGRAM (CSS-based)
+   ═══════════════════════════════════════════════════ */
+.circuit-diag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 2rem;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  border: 1px solid rgba(157,0,255,0.15);
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+
+.circuit-box {
+  position: relative;
+  width: 200px;
+  height: 160px;
+  border: 2px solid var(--neon-purple);
+  border-radius: 4px;
+  background: rgba(157,0,255,0.03);
+}
+
+.circuit-label {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--neon-purple);
+}
+
+.circuit-label.l { top: 8px; left: 50%; transform: translateX(-50%); }
+.circuit-label.c { bottom: 8px; left: 50%; transform: translateX(-50%); }
+
+/* Inductor coil symbol */
+.coil {
+  position: absolute;
+  top: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 30px;
+}
+.coil::before {
+  content: '⌇⌇⌇';
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  color: var(--accent-cyan);
+  letter-spacing: -2px;
+}
+
+/* Capacitor symbol */
+.capacitor {
+  position: absolute;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 20px;
+}
+.capacitor::before {
+  content: '━┃┃━';
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--accent-magenta);
+  letter-spacing: -1px;
+}
+
+/* Wire connections */
+.wire-v {
+  position: absolute;
+  left: 50%;
+  top: 55px;
+  bottom: 45px;
+  width: 2px;
+  background: var(--neon-purple);
+  transform: translateX(-50%);
+}
+
+.emission-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wave-emission {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  color: var(--neon-purple);
+  animation: pulseWave 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseWave {
+  0%, 100% { opacity: 0.4; transform: scaleX(1); }
+  50% { opacity: 1; transform: scaleX(1.2); }
+}
+
+.emission-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.circuit-equation {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--accent-amber);
+  text-align: center;
+  margin-top: 1rem;
+  padding: 0.5rem;
+  border: 1px dashed var(--border-glow);
+  border-radius: 3px;
+}
+
+/* ═══════════════════════════════════════════════════
+   FIBER OPTIC DIAGRAM
+   ═══════════════════════════════════════════════════ */
+.fiber-diag {
+  padding: 2rem;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  border: 1px solid rgba(157,0,255,0.15);
+  margin: 1.5rem 0;
+}
+
+.fiber-core {
+  position: relative;
+  height: 80px;
+  margin: 1rem 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fiber-core-inner {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 20%;
+  bottom: 20%;
+  background: linear-gradient(90deg, var(--neon-purple), var(--accent-cyan), var(--neon-purple));
+  border-radius: 2px;
+  opacity: 0.6;
+}
+
+.fiber-cladding {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 0;
+  bottom: 0;
+  border: 2px solid var(--text-muted);
+  border-radius: 4px;
+  opacity: 0.3;
+}
+
+.fiber-ray {
+  position: absolute;
+  left: 8%;
+  top: 50%;
+  width: 84%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-amber), var(--accent-cyan));
+  transform-origin: left center;
+  animation: bounceRay 2s ease-in-out infinite;
+}
+
+@keyframes bounceRay {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+
+.fiber-labels {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* ═══════════════════════════════════════════════════
+   SIGNAL COMPARISON
+   ═══════════════════════════════════════════════════ */
+.signal-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.signal-box {
+  background: var(--bg-elevated);
+  border: 1px solid rgba(157,0,255,0.15);
+  border-radius: 6px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.signal-box h4 {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--neon-purple);
+  margin-bottom: 1rem;
+}
+
+.signal-wave {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.signal-wave.analog {
+  color: var(--accent-cyan);
+}
+
+.signal-wave.digital {
+  color: var(--accent-magenta);
+}
+
+/* ═══════════════════════════════════════════════════
+   QUIZ SECTION
+   ═══════════════════════════════════════════════════ */
+.quiz-item {
+  background: var(--bg-card);
+  border: 1px solid rgba(157,0,255,0.15);
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.quiz-number {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--neon-purple);
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+}
+
+.quiz-question {
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.quiz-options {
+  list-style: none;
+}
+
+.quiz-options li {
+  padding: 0.5rem 0;
+  padding-left: 1.5rem;
+  position: relative;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.quiz-options li::before {
+  content: attr(data-label);
+  position: absolute;
+  left: 0;
+  font-family: var(--font-mono);
+  color: var(--neon-purple);
+  font-size: 0.8rem;
+}
+
+.quiz-answer {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  background: var(--neon-purple-dim);
+  border-left: 3px solid var(--neon-purple);
+  border-radius: 0 3px 3px 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.quiz-answer strong {
+  color: var(--neon-purple);
+}
+
+/* ═══════════════════════════════════════════════════
+   BRIEFING (Module 1)
+   ═══════════════════════════════════════════════════ */
+.briefing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.briefing-item {
+  background: var(--bg-elevated);
+  border: 1px solid rgba(157,0,255,0.12);
+  border-radius: 4px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.briefing-item .label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.3rem;
+}
+
+.briefing-item .value {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--neon-purple);
+}
+
+/* ═══════════════════════════════════════════════════
+   MODERN LIFE ICONS GRID
+   ═══════════════════════════════════════════════════ */
+.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.tech-item {
+  background: var(--bg-elevated);
+  border: 1px solid rgba(157,0,255,0.12);
+  border-radius: 6px;
+  padding: 1.2rem;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.tech-item:hover {
+  border-color: var(--border-glow);
+  transform: translateY(-2px);
+}
+
+.tech-icon {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  color: var(--neon-purple);
+  margin-bottom: 0.5rem;
+}
+
+.tech-name {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  letter-spacing: 1px;
+}
+
+.tech-freq {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   LIST STYLES
+   ═══════════════════════════════════════════════════ */
+.content-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.content-list li {
+  padding: 0.4rem 0;
+  padding-left: 1.2rem;
+  position: relative;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.content-list li::before {
+  content: '›';
+  position: absolute;
+  left: 0;
+  color: var(--neon-purple);
+  font-family: var(--font-mono);
+}
+
+/* ═══════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════ */
+.page-footer {
+  text-align: center;
+  padding: 3rem 2rem;
+  border-top: 1px solid var(--border-glow);
+  background: var(--bg-card);
+}
+
+.page-footer .dept-line {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+}
+
+.page-footer .wave-end {
+  font-size: 1.5rem;
+  color: var(--neon-purple);
+  margin-top: 1rem;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════
+   PRINT
+   ═══════════════════════════════════════════════════ */
+@media print {
+  body { background: #fff; color: #000; }
+  .nav-bar, .hero { display: none; }
+  .card { border: 1px solid #ccc; break-inside: avoid; }
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .signal-compare { grid-template-columns: 1fr; }
+  .circuit-diag { flex-direction: column; }
+  .section-header { flex-direction: column; align-items: flex-start; }
+  .tech-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════ HERO ═══════════════════════════════════════════════════ -->
+<header class="hero">
+  <div class="hero-badge">
+    <svg class="antenna-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 2v20M8 6a8 8 0 0 1 8 0M5 10a11 11 0 0 1 14 0M2 14a14 14 0 0 1 20 0"/>
+    </svg>
+    通信实验室 · 代号 WAVE
+  </div>
+  <h1>电磁波及其应用</h1>
+  <p class="hero-subtitle">CHAPTER 15 · ELECTROMAGNETIC WAVES & APPLICATIONS</p>
+  <div class="hero-dept">
+    <svg class="satellite-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v4m0 12v4M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+    </svg>
+    九年级物理 · 下学期 · 人教版
+  </div>
+</header>
+<div class="wave-strip"></div>
+
+<!-- ═══════════════════════════════════════════════════ NAV ═══════════════════════════════════════════════════ -->
+<nav class="nav-bar">
+  <ul class="nav-list">
+    <li><a href="#briefing" class="active">实验简报</a></li>
+    <li><a href="#generation">产生</a></li>
+    <li><a href="#propagation">传播</a></li>
+    <li><a href="#applications">应用</a></li>
+    <li><a href="#transmission">信息传递</a></li>
+    <li><a href="#modern">现代生活</a></li>
+    <li><a href="#quiz">综合实验</a></li>
+  </ul>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 1: 实验简报 ═══════════════════════════════════════════════════ -->
+<section class="section" id="briefing">
+  <div class="section-header">
+    <span class="section-number">01</span>
+    <h2 class="section-title">实验简报 <small>Briefing · 课前概览</small></h2>
+  </div>
+
+  <div class="briefing-grid">
+    <div class="briefing-item">
+      <div class="label">章节代号</div>
+      <div class="value">WAVE</div>
+    </div>
+    <div class="briefing-item">
+      <div class="label">所属单元</div>
+      <div class="value">通信实验室</div>
+    </div>
+    <div class="briefing-item">
+      <div class="label">课时安排</div>
+      <div class="value">4课时</div>
+    </div>
+    <div class="briefing-item">
+      <div class="label">核心素养</div>
+      <div class="value">物理观念</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">学习目标</h3>
+    <ul class="content-list">
+      <li>理解电磁波的产生机理：变化的电场产生磁场，变化的磁场产生电场</li>
+      <li>掌握电磁波谱的组成，认识不同波段电磁波的特点与应用</li>
+      <li>运用波速公式 c = λf 进行定量计算与单位换算</li>
+      <li>了解电磁波在真空中的传播特性及在不同介质中的变化规律</li>
+      <li>分析无线电广播、电视、移动通信、卫星通信等工作原理</li>
+      <li>区分模拟信号与数字信号，理解光纤通信的全反射原理</li>
+      <li>认识5G、WiFi、蓝牙、GPS等现代通信技术背后的电磁波原理</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">前置知识</h3>
+    <ul class="content-list">
+      <li>八年级：光的反射、折射与色散（可见光属于电磁波谱的一部分）</li>
+      <li>九年级上：电流的磁效应、磁场对电流的作用、电磁感应</li>
+      <li>九年级上：电路基础（串联、并联、欧姆定律）</li>
+      <li>数学：科学计数法、频率单位换算（Hz / kHz / MHz / GHz）</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">本章关键词</h3>
+    <p style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary); line-height: 2;">
+      <span style="color: var(--neon-purple);">振荡电路</span> · 
+      <span style="color: var(--accent-cyan);">LC回路</span> · 
+      <span style="color: var(--accent-magenta);">电磁波谱</span> · 
+      <span style="color: var(--neon-purple);">c = λf</span> · 
+      <span style="color: var(--accent-cyan);">光速</span> · 
+      <span style="color: var(--accent-amber);">调制</span> · 
+      <span style="color: var(--neon-purple);">全反射</span> · 
+      <span style="color: var(--accent-magenta);">数字信号</span> · 
+      <span style="color: var(--accent-cyan);">5G</span> · 
+      <span style="color: var(--neon-purple);">卫星通信</span>
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 2: 电磁波的产生 ═══════════════════════════════════════════════════ -->
+<section class="section" id="generation">
+  <div class="section-header">
+    <span class="section-number">02</span>
+    <h2 class="section-title">电磁波的产生 <small>Generation · 从振荡到辐射</small></h2>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">麦克斯韦的预言</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      1865年，麦克斯韦建立电磁场理论，预言了电磁波的存在：
+    </p>
+    <ul class="content-list">
+      <li>变化的电场产生磁场</li>
+      <li>变化的磁场产生电场</li>
+      <li>周期性变化的电磁场在空间传播，形成电磁波</li>
+    </ul>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem; font-style: italic;">
+      1888年，赫兹通过实验首次证实电磁波的存在，为人类无线通信开辟了道路。
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">LC振荡电路</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      由电感线圈 L 和电容器 C 组成的回路，可以产生高频电磁振荡，向外辐射电磁波。
+    </p>
+
+    <div class="circuit-diag">
+      <div class="circuit-box">
+        <span class="circuit-label l">L — 电感线圈</span>
+        <div class="coil"></div>
+        <div class="wire-v"></div>
+        <div class="capacitor"></div>
+        <span class="circuit-label c">C — 电容器</span>
+      </div>
+      <div class="emission-side">
+        <div class="wave-emission">∿∿∿∿∿</div>
+        <span class="emission-label">电磁波辐射<br>频率 f = 1 / (2π√LC)</span>
+      </div>
+    </div>
+
+    <div class="circuit-equation">
+      振荡周期 T = 2π√(LC) &nbsp;&nbsp;|&nbsp;&nbsp; 频率 f = 1/T = 1 / (2π√LC)
+    </div>
+
+    <ul class="content-list" style="margin-top: 1rem;">
+      <li>电感 L 越大 → 振荡频率越低</li>
+      <li>电容 C 越大 → 振荡频率越低</li>
+      <li>实际应用中通过调节 L 或 C 来改变发射频率（调谐）</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">波速公式 c = λf</h3>
+    <div class="formula-box">
+      <div class="formula">c = λ · f</div>
+      <div class="formula-desc">
+        c = 波速（真空中约 3×10⁸ m/s）&nbsp;&nbsp;λ = 波长（m）&nbsp;&nbsp;f = 频率（Hz）
+      </div>
+    </div>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      在真空中，所有电磁波的传播速度都等于光速 c。波长与频率成反比关系。
+    </p>
+
+    <h4 style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--neon-purple); margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">
+      计算验证表
+    </h4>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>电磁波类型</th>
+          <th>频率 f</th>
+          <th>波长 λ = c/f</th>
+          <th>验证</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>无线电波 (FM)</td>
+          <td class="highlight">100 MHz</td>
+          <td class="formula-cell">3.0 m</td>
+          <td>3×10⁸ / (100×10⁶) = 3</td>
+        </tr>
+        <tr>
+          <td>微波 (WiFi)</td>
+          <td class="highlight">2.4 GHz</td>
+          <td class="formula-cell">0.125 m</td>
+          <td>3×10⁸ / (2.4×10⁹) ≈ 0.125</td>
+        </tr>
+        <tr>
+          <td>可见光 (绿)</td>
+          <td class="highlight">5.5×10¹⁴ Hz</td>
+          <td class="formula-cell">545 nm</td>
+          <td>3×10⁸ / (5.5×10¹⁴) ≈ 545×10⁻⁹</td>
+        </tr>
+        <tr>
+          <td>X射线</td>
+          <td class="highlight">3×10¹⁸ Hz</td>
+          <td class="formula-cell">0.1 nm</td>
+          <td>3×10⁸ / (3×10¹⁸) = 10⁻¹⁰</td>
+        </tr>
+        <tr>
+          <td>γ射线</td>
+          <td class="highlight">3×10²² Hz</td>
+          <td class="formula-cell">10 fm</td>
+          <td>3×10⁸ / (3×10²²) = 10⁻¹⁴</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">电磁波谱</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      电磁波按频率（或波长）排列形成电磁波谱，从低频无线电波到高频γ射线，覆盖超过20个数量级。
+    </p>
+
+    <div class="spectrum-container">
+      <div class="spectrum-bar">
+        <div class="spectrum-segment radio" title="无线电波">无线电</div>
+        <div class="spectrum-segment micro" title="微波">微波</div>
+        <div class="spectrum-segment infrared" title="红外线">红外</div>
+        <div class="spectrum-segment visible" title="可见光">可见光</div>
+        <div class="spectrum-segment uv" title="紫外线">紫外</div>
+        <div class="spectrum-segment xray" title="X射线">X射线</div>
+        <div class="spectrum-segment gamma" title="γ射线">γ</div>
+      </div>
+      <div class="spectrum-arrows">
+        <span>← 频率增加 · 能量增加 · 穿透力增加 →</span>
+      </div>
+      <div class="spectrum-labels">
+        <span>10⁴ Hz</span>
+        <span>10⁸ Hz</span>
+        <span>10¹² Hz</span>
+        <span>10¹⁴ Hz</span>
+        <span>10¹⁶ Hz</span>
+        <span>10¹⁸ Hz</span>
+        <span>10²² Hz</span>
+      </div>
+      <div class="spectrum-note">
+        频率 f ↑ = 波长 λ ↓ | 真空中所有电磁波速度 c = 3×10⁸ m/s
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>波段</th>
+          <th>频率范围</th>
+          <th>波长范围</th>
+          <th>主要来源</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>无线电波</td><td>&lt; 3×10¹¹ Hz</td><td>&gt; 1 mm</td><td>LC振荡电路、天线</td></tr>
+        <tr><td>微波</td><td>3×10⁸ ~ 3×10¹¹ Hz</td><td>1 mm ~ 1 m</td><td>磁控管、速调管</td></tr>
+        <tr><td>红外线</td><td>3×10¹¹ ~ 4×10¹⁴ Hz</td><td>700 nm ~ 1 mm</td><td>热辐射</td></tr>
+        <tr><td>可见光</td><td>4×10¹⁴ ~ 8×10¹⁴ Hz</td><td>380 ~ 700 nm</td><td>原子外层电子跃迁</td></tr>
+        <tr><td>紫外线</td><td>8×10¹⁴ ~ 3×10¹⁷ Hz</td><td>1 ~ 380 nm</td><td>电弧、太阳</td></tr>
+        <tr><td>X射线</td><td>3×10¹⁷ ~ 3×10¹⁹ Hz</td><td>0.01 ~ 10 nm</td><td>电子减速、内层电子跃迁</td></tr>
+        <tr><td>γ射线</td><td>&gt; 3×10¹⁹ Hz</td><td>&lt; 0.01 nm</td><td>核反应、放射性衰变</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 3: 电磁波的传播 ═══════════════════════════════════════════════════ -->
+<section class="section" id="propagation">
+  <div class="section-header">
+    <span class="section-number">03</span>
+    <h2 class="section-title">电磁波的传播 <small>Propagation · 穿越空间</small></h2>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">不需要介质</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      电磁波是电磁场本身的传播，不需要任何介质。这是它与机械波（声波、水波）最根本的区别。
+    </p>
+    <ul class="content-list">
+      <li>声波传播需要空气、水、固体等物质介质</li>
+      <li>电磁波在真空中可以自由传播（如太阳光穿越太空到达地球）</li>
+      <li>电磁波也可以在介质中传播，但速度会降低</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">真空中的光速</h3>
+    <div class="formula-box">
+      <div class="formula">c = 299,792,458 m/s ≈ 3×10⁸ m/s</div>
+      <div class="formula-desc">真空中的光速是宇宙中的基本物理常数，也是电磁波传播的速度上限</div>
+    </div>
+    <ul class="content-list">
+      <li>太阳光到达地球约需 8 分 20 秒（距离约 1.5×10¹¹ m）</li>
+      <li>月球反射的光到达地球约需 1.28 秒</li>
+      <li>电磁波绕地球赤道一周约需 0.13 秒</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">不同介质中的传播速度</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      电磁波进入介质后，传播速度降低，折射率 n = c/v。
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>介质</th>
+          <th>折射率 n</th>
+          <th>波速 v = c/n</th>
+          <th>变化</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>真空</td><td class="highlight">1.000</td><td class="formula-cell">3.00×10⁸ m/s</td><td>基准</td></tr>
+        <tr><td>空气</td><td class="highlight">1.0003</td><td class="formula-cell">≈ 2.999×10⁸ m/s</td><td>几乎不变</td></tr>
+        <tr><td>水</td><td class="highlight">1.33</td><td class="formula-cell">2.26×10⁸ m/s</td><td>降低 25%</td></tr>
+        <tr><td>玻璃</td><td class="highlight">1.5 ~ 1.9</td><td class="formula-cell">1.58 ~ 2.00×10⁸ m/s</td><td>降低 33~47%</td></tr>
+        <tr><td>钻石</td><td class="highlight">2.42</td><td class="formula-cell">1.24×10⁸ m/s</td><td>降低 59%</td></tr>
+      </tbody>
+    </table>
+    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.8rem;">
+      注意：电磁波在介质中的速度降低，但频率保持不变，因此波长也会相应缩短（λ' = λ/n）。
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 4: 电磁波的应用 ═══════════════════════════════════════════════════ -->
+<section class="section" id="applications">
+  <div class="section-header">
+    <span class="section-number">04</span>
+    <h2 class="section-title">电磁波的应用 <small>Applications · 从广播到医疗</small></h2>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">不同电磁波应用场景对照</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>电磁波</th>
+          <th>频率/波长</th>
+          <th>典型应用</th>
+          <th>工作原理简述</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>长波无线电</td>
+          <td>30~300 kHz</td>
+          <td>潜艇通信、导航</td>
+          <td>绕射能力强，可穿透海水</td>
+        </tr>
+        <tr>
+          <td>中短波广播</td>
+          <td>300 kHz~30 MHz</td>
+          <td>AM/FM 广播电台</td>
+          <td>调幅/调频调制载波传输音频</td>
+        </tr>
+        <tr>
+          <td>微波</td>
+          <td>300 MHz~300 GHz</td>
+          <td>雷达、微波炉、卫星通信</td>
+          <td>雷达：反射测距；微波炉：水分子共振发热</td>
+        </tr>
+        <tr>
+          <td>红外线</td>
+          <td>300 GHz~400 THz</td>
+          <td>遥控器、热成像、理疗</td>
+          <td>热效应显著，用于感知温度</td>
+        </tr>
+        <tr>
+          <td>可见光</td>
+          <td>400~790 THz</td>
+          <td>照明、光纤通信、摄影</td>
+          <td>人眼可感知的电磁波段</td>
+        </tr>
+        <tr>
+          <td>紫外线</td>
+          <td>750 THz~30 PHz</td>
+          <td>消毒杀菌、验钞、促进VD合成</td>
+          <td>光子能量足以破坏微生物DNA</td>
+        </tr>
+        <tr>
+          <td>X射线</td>
+          <td>30 PHz~30 EHz</td>
+          <td>医学影像、安检、工业探伤</td>
+          <td>穿透软组织，被骨骼吸收成像</td>
+        </tr>
+        <tr>
+          <td>γ射线</td>
+          <td>&gt; 30 EHz</td>
+          <td>肿瘤放疗、食品灭菌、天文观测</td>
+          <td>高能光子，可破坏细胞DNA</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">重点应用详解</h3>
+
+    <h4 style="font-family: var(--font-display); font-size: 0.85rem; color: var(--accent-cyan); margin: 1.2rem 0 0.5rem; letter-spacing: 1px;">
+      ▍无线电广播
+    </h4>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.8rem;">
+      广播电台通过调制将音频信号加载到高频载波上。AM（调幅）改变载波的振幅，FM（调幅）改变载波的频率。收音机通过调谐电路选择特定频率，经解调还原出声音信号。
+    </p>
+
+    <h4 style="font-family: var(--font-display); font-size: 0.85rem; color: var(--accent-cyan); margin: 1.2rem 0 0.5rem; letter-spacing: 1px;">
+      ▍电视信号传输
+    </h4>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.8rem;">
+      电视信号包含图像信号和伴音信号。图像信号通过调幅方式调制到甚高频（VHF）或超高频（UHF）载波上，伴音信号通过调频方式调制。数字电视采用MPEG编码压缩后传输。
+    </p>
+
+    <h4 style="font-family: var(--font-display); font-size: 0.85rem; color: var(--accent-cyan); margin: 1.2rem 0 0.5rem; letter-spacing: 1px;">
+      ▍移动通信（手机）
+    </h4>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.8rem;">
+      手机同时是发射机和接收机。通话时，手机将声音信号数字化后调制到微波频段，通过基站天线发射；接收时逆向执行该过程。蜂窝网络通过频率复用实现广域覆盖。
+    </p>
+
+    <h4 style="font-family: var(--font-display); font-size: 0.85rem; color: var(--accent-cyan); margin: 1.2rem 0 0.5rem; letter-spacing: 1px;">
+      ▍雷达（RADAR）
+    </h4>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.8rem;">
+      RAdio Detection And Ranging。发射微波脉冲，接收目标反射的回波，通过时间差计算距离（s = c·t/2），通过多普勒频移计算速度。广泛应用于航空管制、气象预报、自动驾驶。
+    </p>
+
+    <h4 style="font-family: var(--font-display); font-size: 0.85rem; color: var(--accent-cyan); margin: 1.2rem 0 0.5rem; letter-spacing: 1px;">
+      ▍微波炉
+    </h4>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.8rem;">
+      磁控管产生频率约2.45 GHz的微波。食物中的水分子是极性分子，在交变电场作用下高速旋转摩擦生热。微波穿透深度约几厘米，大块食物需热传导加热内部。
+    </p>
+
+    <h4 style="font-family: var(--font-display); font-size: 0.85rem; color: var(--accent-cyan); margin: 1.2rem 0 0.5rem; letter-spacing: 1px;">
+      ▍X射线成像
+    </h4>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.8rem;">
+      X射线穿透人体软组织时衰减较小，遇到骨骼等高Z材料时显著吸收。在胶片或数字探测器上形成明暗对比影像。CT扫描通过多角度投影重建三维图像。
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 5: 信息的传递 ═══════════════════════════════════════════════════ -->
+<section class="section" id="transmission">
+  <div class="section-header">
+    <span class="section-number">05</span>
+    <h2 class="section-title">信息的传递 <small>Transmission · 信号与信道</small></h2>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">模拟信号 vs 数字信号</h3>
+    <div class="signal-compare">
+      <div class="signal-box">
+        <h4>模拟信号 Analog</h4>
+        <div class="signal-wave analog">
+          <svg width="180" height="50" viewBox="0 0 180 50">
+            <path d="M0,25 Q15,5 30,25 T60,25 T90,25 T120,25 T150,25 T180,25" 
+                  fill="none" stroke="#00e5ff" stroke-width="2"/>
+            <text x="90" y="45" text-anchor="middle" fill="#00e5ff" font-size="10" font-family="Share Tech Mono">连续波形</text>
+          </svg>
+        </div>
+        <ul class="content-list" style="text-align: left;">
+          <li>信号连续变化，取值无限</li>
+          <li>易受噪声干扰，失真累积</li>
+          <li>传统电话、广播使用</li>
+          <li>带宽利用率相对较低</li>
+        </ul>
+      </div>
+      <div class="signal-box">
+        <h4>数字信号 Digital</h4>
+        <div class="signal-wave digital">
+          <svg width="180" height="50" viewBox="0 0 180 50">
+            <path d="M0,40 L20,40 L20,10 L40,10 L40,40 L60,40 L60,10 L80,10 L80,40 L100,40 L100,10 L120,10 L120,40 L140,40 L140,10 L160,10 L160,40 L180,40" 
+                  fill="none" stroke="#ff00a0" stroke-width="2"/>
+            <text x="90" y="45" text-anchor="middle" fill="#ff00a0" font-size="10" font-family="Share Tech Mono">0/1 离散</text>
+          </svg>
+        </div>
+        <ul class="content-list" style="text-align: left;">
+          <li>仅取 0 或 1 两种状态</li>
+          <li>抗干扰强，可纠错编码</li>
+          <li>现代通信、计算机使用</li>
+          <li>便于加密、压缩、存储</li>
+        </ul>
+      </div>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem; text-align: center;">
+      现代通信系统普遍采用数字信号。模拟信号在发送端通过ADC转换为数字信号，接收端通过DAC还原。
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">光纤通信</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      光纤利用全反射原理将光信号（激光）约束在玻璃纤维中传播，实现高速、大容量、低损耗的信息传输。
+    </p>
+
+    <div class="fiber-diag">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <span style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-amber);">激光输入 →</span>
+      </div>
+      <div class="fiber-core">
+        <div class="fiber-cladding"></div>
+        <div class="fiber-core-inner"></div>
+        <div class="fiber-ray"></div>
+      </div>
+      <div class="fiber-labels">
+        <span>包层（折射率低）</span>
+        <span>纤芯（折射率高）</span>
+        <span>包层（折射率低）</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; justify-content: flex-end;">
+        <span style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-cyan);">→ 光信号输出</span>
+      </div>
+      <p style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
+        全反射条件：光从光密介质射向光疏介质，入射角 ≥ 临界角 θc = arcsin(n₂/n₁)
+      </p>
+    </div>
+
+    <ul class="content-list">
+      <li>传输速率：单纤可达 Tbps 级（每秒万亿比特）</li>
+      <li>传输损耗：现代光纤每公里仅衰减约 0.2 dB</li>
+      <li>不受电磁干扰：光纤传输的是光，不受雷电、电磁脉冲影响</li>
+      <li>保密性好：光信号不向外辐射，难以窃听</li>
+      <li>海底光缆：连接各大洲的互联网骨干网络</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">卫星通信</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      利用人造地球卫星作为中继站转发无线电波，实现地球站之间的远距离通信。
+    </p>
+    <ul class="content-list">
+      <li><strong style="color: var(--neon-purple);">同步轨道卫星（GEO）：</strong>高度约 35,786 km，相对地面静止，3颗即可覆盖全球（除两极）</li>
+      <li><strong style="color: var(--neon-purple);">中轨道卫星（MEO）：</strong>高度 2,000~20,000 km，如GPS卫星（约20,200 km）</li>
+      <li><strong style="color: var(--neon-purple);">低轨道卫星（LEO）：</strong>高度 160~2,000 km，延迟低，需大量卫星组网（如Starlink）</li>
+      <li>上行链路（地面→卫星）与下行链路（卫星→地面）使用不同频段避免干扰</li>
+      <li>卫星通信覆盖广，不受地形限制，是偏远地区通信的重要手段</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 6: 电磁波与现代生活 ═══════════════════════════════════════════════════ -->
+<section class="section" id="modern">
+  <div class="section-header">
+    <span class="section-number">06</span>
+    <h2 class="section-title">电磁波与现代生活 <small>Modern Life · 无线互联时代</small></h2>
+  </div>
+
+  <div class="tech-grid">
+    <div class="tech-item">
+      <div class="tech-icon">📶</div>
+      <div class="tech-name">5G</div>
+      <div class="tech-freq">Sub-6GHz / mmWave<br>峰值速率 20 Gbps</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-icon">📡</div>
+      <div class="tech-name">WiFi 6/7</div>
+      <div class="tech-freq">2.4 / 5 / 6 GHz<br>IEEE 802.11ax/be</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-icon">🔷</div>
+      <div class="tech-name">蓝牙</div>
+      <div class="tech-freq">2.4 GHz ISM<br>低功耗 / 短距离</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-icon">🛰️</div>
+      <div class="tech-name">GPS / 北斗</div>
+      <div class="tech-freq">L1: 1575.42 MHz<br>导航定位系统</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-icon">📱</div>
+      <div class="tech-name">NFC</div>
+      <div class="tech-freq">13.56 MHz<br>近场通信</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-icon">📻</div>
+      <div class="tech-name">RFID</div>
+      <div class="tech-freq">LF/HF/UHF<br>射频识别</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">5G 通信技术</h3>
+    <ul class="content-list">
+      <li><strong style="color: var(--neon-purple);">增强移动宽带（eMBB）：</strong>峰值下载速率可达 20 Gbps，支持 4K/8K 视频、VR/AR 应用</li>
+      <li><strong style="color: var(--neon-purple);">超可靠低延迟（uRLLC）：</strong>延迟降至 1 ms 级别，支撑远程手术、自动驾驶</li>
+      <li><strong style="color: var(--neon-purple);">海量机器通信（mMTC）：</strong>每平方公里可连接百万级设备，物联网基础</li>
+      <li>使用 Massive MIMO（大规模天线阵列）和波束赋形技术提升频谱效率</li>
+      <li>毫米波（mmWave，24 GHz以上）提供超大带宽，但传播距离短、穿透力弱</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">WiFi 与蓝牙</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      两种最常见的短距离无线通信技术，工作于 2.4 GHz ISM 免授权频段。
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>特性</th>
+          <th>WiFi (802.11)</th>
+          <th>蓝牙 (Bluetooth)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>典型频段</td><td>2.4 / 5 / 6 GHz</td><td>2.4 GHz</td></tr>
+        <tr><td>传输距离</td><td>30~100 m</td><td>10~100 m（Class 1/2/3）</td></tr>
+        <tr><td>数据速率</td><td>最高 9.6 Gbps (WiFi 7)</td><td>最高 2 Mbps (BLE 5.0)</td></tr>
+        <tr><td>功耗</td><td>较高（数百 mW）</td><td>极低（mW 级，BLE 可续航数年）</td></tr>
+        <tr><td>典型应用</td><td>无线上网、局域网</td><td>耳机、键盘、健康监测</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">GPS / 北斗卫星导航</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+      全球导航卫星系统（GNSS）通过接收多颗卫星发射的无线电信号，利用三角定位原理计算接收器的精确位置。
+    </p>
+    <ul class="content-list">
+      <li><strong style="color: var(--neon-purple);">GPS（美国）：</strong>24颗中轨道卫星，民用信号 L1: 1575.42 MHz，定位精度约 3~5 m</li>
+      <li><strong style="color: var(--neon-purple);">北斗（中国）：</strong>混合轨道星座（GEO + IGSO + MEO），亚太地区精度优于 1 m</li>
+      <li><strong style="color: var(--neon-purple);">伽利略（欧盟）、GLONASS（俄罗斯）：</strong>多系统联合定位可进一步提升精度</li>
+      <li>定位原理：接收器测量来自至少4颗卫星的信号传播时间，解算三维坐标（x, y, z）和时间</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 7: 综合实验 ═══════════════════════════════════════════════════ -->
+<section class="section" id="quiz">
+  <div class="section-header">
+    <span class="section-number">07</span>
+    <h2 class="section-title">综合实验 <small>Comprehensive Lab · 3道综合测试题</small></h2>
+  </div>
+
+  <div class="quiz-item">
+    <div class="quiz-number">TEST 01 / 概念辨析</div>
+    <div class="quiz-question">
+      关于电磁波，下列说法正确的是（　　）
+    </div>
+    <ul class="quiz-options">
+      <li data-label="A">电磁波不能在真空中传播</li>
+      <li data-label="B">电磁波的传播速度与介质无关，恒等于光速</li>
+      <li data-label="C">振荡电路中的电容器放电完毕时，电路中的电流达到最大值</li>
+      <li data-label="D">调幅广播（AM）比调频广播（FM）抗干扰能力更强</li>
+    </ul>
+    <div class="quiz-answer">
+      <strong>答案：C</strong><br>
+      解析：A 错——电磁波可以在真空中传播；B 错——电磁波在介质中速度降低（v = c/n）；C 对——电容器放电完毕时电场能全部转化为磁场能，电流最大；D 错——FM 抗干扰能力远强于 AM。
+    </div>
+  </div>
+
+  <div class="quiz-item">
+    <div class="quiz-number">TEST 02 / 计算应用</div>
+    <div class="quiz-question">
+      某广播电台发射的电磁波波长为 600 m，求：<br>
+      （1）该电磁波的频率是多少？<br>
+      （2）若某收音机的 LC 调谐电路中电感 L = 0.5 mH，要接收到该电台信号，电容器的电容 C 应调至多大？<br>
+      （已知真空中光速 c = 3×10⁸ m/s）
+    </div>
+    <div class="quiz-answer">
+      <strong>答案：</strong><br>
+      （1）由 c = λf 得：<span style="color: var(--accent-cyan);">f = c/λ = 3×10⁸ / 600 = 5×10⁵ Hz = 500 kHz</span><br><br>
+      （2）由 LC 振荡频率公式 f = 1 / (2π√LC) 变形得：<br>
+      C = 1 / (4π²f²L) = 1 / (4π² × (5×10⁵)² × 0.5×10⁻³)<br>
+      = 1 / (4 × 3.14² × 25×10¹⁰ × 0.5×10⁻³)<br>
+      ≈ <span style="color: var(--accent-cyan);">2.03×10⁻¹⁰ F = 203 pF</span><br><br>
+      结论：该电台频率为 500 kHz，收音机需将电容调至约 203 pF。
+    </div>
+  </div>
+
+  <div class="quiz-item">
+    <div class="quiz-number">TEST 03 / 综合探究</div>
+    <div class="quiz-question">
+      阅读材料，回答问题：<br><br>
+      <em style="color: var(--text-muted);">
+        "2024年，中国北斗三号全球卫星导航系统全面建成开通，向全球用户提供定位导航授时服务。北斗系统由 30 颗卫星组成，包括 3 颗地球静止轨道卫星、3 颗倾斜地球同步轨道卫星和 24 颗中圆地球轨道卫星。卫星向地面发射频率为 1561.098 MHz（B1频段）和 1207.140 MHz（B2频段）的无线电信号。"
+      </em><br><br>
+      （1）北斗卫星向地面传输信号利用的是什么波？这种波的传播需要介质吗？<br>
+      （2）计算 B1 频段信号的波长（保留整数）。<br>
+      （3）为什么卫星导航系统至少需要 4 颗卫星才能确定接收器的位置？<br>
+      （4）北斗采用三种轨道混合组网，相比单一 GPS 中轨道方案有什么优势？
+    </div>
+    <div class="quiz-answer">
+      <strong>答案：</strong><br>
+      （1）<span style="color: var(--accent-cyan);">电磁波（微波/无线电波）</span>；不需要介质，可在真空中传播。<br><br>
+      （2）λ = c/f = 3×10⁸ / (1561.098×10⁶) ≈ <span style="color: var(--accent-cyan);">0.192 m ≈ 19 cm</span>（约分米波）。<br><br>
+      （3）需要解算 4 个未知数：接收器的三维坐标（x, y, z）和接收机钟差。每颗卫星提供一个距离方程，4 颗卫星建立 4 个方程，才能解出 4 个未知数。<br><br>
+      （4）混合轨道优势：<span style="color: var(--accent-cyan);">GEO 卫星对亚太高仰角覆盖，抗遮挡能力强；IGSO 卫星增强区域覆盖；MEO 卫星实现全球覆盖。亚太地区可见卫星数多于 GPS，定位精度更高、可靠性更强。</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ FOOTER ═══════════════════════════════════════════════════ -->
+<footer class="page-footer">
+  <div class="dept-line">
+    通信实验室 · 代号 WAVE · 第十五章 电磁波及其应用 · 九年级物理（下）
+  </div>
+  <div class="wave-end">∿ ∿ ∿</div>
+</footer>
+
+<script>
+// Smooth scroll + active nav highlighting
+const navLinks = document.querySelectorAll('.nav-list a');
+const sections = document.querySelectorAll('.section');
+
+navLinks.forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(section => {
+    const rect = section.getBoundingClientRect();
+    if (rect.top <= 120) current = section.id;
+  });
+  navLinks.forEach(link => {
+    link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+  });
+});
+</script>
+
+</body>
+</html>

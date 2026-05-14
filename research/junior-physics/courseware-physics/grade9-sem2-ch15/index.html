@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十五章 电磁波及其应用 · 通信实验室</title>
+<style>
+/* ================= 基础重置 ================= */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:'Courier New',Courier,monospace;overflow:hidden}
+body{background:#0f0018;color:#e8d5ff;user-select:none;-webkit-user-select:none}
+
+/* ================= 纸张纹理背景 ================= */
+.paper-bg{position:fixed;inset:0;z-index:0;background:#0f0018;pointer-events:none}
+.paper-bg::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(transparent 0,transparent 23px,rgba(157,0,255,.08) 24px);pointer-events:none;z-index:1}
+.paper-bg::after{content:'';position:fixed;left:48px;top:0;bottom:0;width:2px;background:rgba(255,0,255,.15);pointer-events:none;z-index:1}
+
+/* ================= 网格装饰 ================= */
+.grid-deco{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.06;background-image:linear-gradient(rgba(157,0,255,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(157,0,255,.3) 1px,transparent 1px);background-size:40px 40px}
+
+/* ================= 天线/电波装饰 ================= */
+.antenna{position:fixed;right:20px;bottom:72px;z-index:2;pointer-events:none;opacity:.4}
+.antenna .pole{width:4px;height:120px;background:linear-gradient(to top,#ff00ff,#9d00ff);margin:0 auto;border-radius:2px}
+.antenna .top{width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:20px solid #ff00ff;margin:0 auto;opacity:.7}
+.wave-ring{position:fixed;right:36px;bottom:192px;z-index:2;pointer-events:none}
+.wave-ring span{position:absolute;width:8px;height:8px;border:2px solid rgba(255,0,255,.6);border-radius:50%;animation:wavePulse 2s ease-out infinite}
+.wave-ring span:nth-child(1){animation-delay:0s}
+.wave-ring span:nth-child(2){animation-delay:.5s}
+.wave-ring span:nth-child(3){animation-delay:1s}
+@keyframes wavePulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(4);opacity:0}}
+
+/* 卫星装饰 */
+.satellite{position:fixed;left:20px;top:80px;z-index:2;pointer-events:none;opacity:.35;animation:satFloat 6s ease-in-out infinite}
+.sat-body{width:36px;height:20px;background:linear-gradient(135deg,#9d00ff,#ff00ff);border-radius:4px;position:relative}
+.sat-wing-l,.sat-wing-r{position:absolute;top:2px;width:28px;height:14px;background:rgba(157,0,255,.4);border:1px solid rgba(255,0,255,.3)}
+.sat-wing-l{right:34px;transform:skewY(12deg)}
+.sat-wing-r{left:34px;transform:skewY(-12deg)}
+@keyframes satFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-8px) rotate(2deg)}}
+
+/* ================= 容器 ================= */
+#app{position:relative;z-index:10;height:100vh;display:flex;flex-direction:column}
+
+/* ================= 顶部标题栏 ================= */
+.header{flex-shrink:0;padding:10px 16px;background:rgba(15,0,24,.85);border-bottom:1px solid rgba(157,0,255,.3);display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(8px)}
+.header-left{display:flex;align-items:center;gap:8px}
+.dept-badge{font-size:10px;background:rgba(157,0,255,.2);color:#ff00ff;border:1px solid rgba(255,0,255,.4);padding:1px 6px;border-radius:3px;letter-spacing:1px}
+.chapter-title{font-size:15px;font-weight:bold;color:#ff00ff;text-shadow:0 0 8px rgba(255,0,255,.4)}
+.header-right{display:flex;align-items:center;gap:12px;font-size:12px}
+.hp-row{display:flex;gap:3px;align-items:center}
+.hp-heart{color:#ff00ff;font-size:14px;text-shadow:0 0 6px rgba(255,0,255,.5)}
+.hp-heart.lost{color:#3a0044;text-shadow:none}
+.combo-badge{background:rgba(255,0,255,.15);color:#ff00ff;padding:2px 8px;border-radius:12px;border:1px solid rgba(255,0,255,.3);font-size:11px;min-width:48px;text-align:center}
+.score-badge{background:rgba(157,0,255,.15);color:#c080ff;padding:2px 8px;border-radius:12px;border:1px solid rgba(157,0,255,.3);font-size:11px;min-width:56px;text-align:center}
+
+/* ================= 主内容区 ================= */
+.main{flex:1;overflow-y:auto;padding:16px;padding-bottom:80px;position:relative}
+.main::-webkit-scrollbar{width:4px}
+.main::-webkit-scrollbar-thumb{background:rgba(157,0,255,.4);border-radius:2px}
+
+/* ================= 舞台 ================= */
+.stage-screen{display:none;flex-direction:column;gap:14px;animation:fadeIn .4s ease}
+.stage-screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* 舞台标题 */
+.stage-header{display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px dashed rgba(157,0,255,.35)}
+.stage-num{font-size:24px;font-weight:bold;color:#ff00ff;text-shadow:0 0 10px rgba(255,0,255,.4);font-family:Georgia,serif}
+.stage-name{font-size:15px;color:#c080ff}
+.stage-desc{font-size:11px;color:#8a60b0;margin-left:auto}
+
+/* 进度条 */
+.progress-wrap{width:100%;height:4px;background:rgba(157,0,255,.15);border-radius:2px;margin-bottom:4px}
+.progress-bar{height:100%;background:linear-gradient(90deg,#9d00ff,#ff00ff);border-radius:2px;transition:width .3s ease;box-shadow:0 0 6px rgba(255,0,255,.3)}
+
+/* ================= 题目卡片 ================= */
+.q-card{background:rgba(157,0,255,.06);border:1px solid rgba(157,0,255,.25);border-radius:8px;padding:14px;position:relative;overflow:hidden}
+.q-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,#9d00ff,#ff00ff);border-radius:8px 0 0 8px}
+.q-number{font-size:11px;color:#ff00ff;margin-bottom:6px;opacity:.8}
+.q-text{font-size:14px;line-height:1.7;color:#e8d5ff;margin-bottom:12px;white-space:pre-wrap}
+
+/* 选项 */
+.options{display:flex;flex-direction:column;gap:8px}
+.opt-btn{background:rgba(157,0,255,.1);border:1px solid rgba(157,0,255,.3);color:#c8a8e8;padding:10px 14px;border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s;text-align:left;position:relative;overflow:hidden}
+.opt-btn:hover{background:rgba(157,0,255,.2);border-color:rgba(255,0,255,.5);color:#fff}
+.opt-btn.correct{background:rgba(0,255,100,.12);border-color:rgba(0,255,100,.5);color:#4aff8f}
+.opt-btn.wrong{background:rgba(255,0,80,.12);border-color:rgba(255,0,80,.5);color:#ff5a8a}
+.opt-btn.disabled{pointer-events:none;opacity:.7}
+.opt-label{display:inline-block;width:22px;height:22px;border:1px solid rgba(157,0,255,.4);border-radius:50%;text-align:center;line-height:20px;font-size:11px;margin-right:8px;vertical-align:middle}
+.opt-btn:hover .opt-label{border-color:#ff00ff;color:#ff00ff}
+.opt-btn.correct .opt-label{border-color:#4aff8f;color:#4aff8f}
+.opt-btn.wrong .opt-label{border-color:#ff5a8a;color:#ff5a8a}
+
+/* 反馈提示 */
+.feedback{margin-top:10px;padding:8px 12px;border-radius:6px;font-size:12px;display:none;animation:slideDown .3s ease}
+.feedback.show{display:block}
+.feedback.ok{background:rgba(0,255,100,.08);border:1px solid rgba(0,255,100,.3);color:#4aff8f}
+.feedback.err{background:rgba(255,0,80,.08);border:1px solid rgba(255,0,80,.3);color:#ff5a8a}
+@keyframes slideDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+/* 解释区域 */
+.explain{margin-top:10px;padding:10px 12px;background:rgba(255,0,255,.04);border-left:2px solid #ff00ff;border-radius:0 6px 6px 0;font-size:12px;color:#b080d0;line-height:1.6;display:none}
+.explain.show{display:block}
+
+/* ================= 拖拽题特殊样式 ================= */
+.drag-container{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;min-height:40px;padding:8px;border:1px dashed rgba(157,0,255,.3);border-radius:6px;background:rgba(157,0,255,.03)}
+.drag-item{padding:6px 12px;background:rgba(157,0,255,.15);border:1px solid rgba(157,0,255,.4);border-radius:4px;color:#d0a8ff;font-size:12px;cursor:grab;user-select:none;transition:transform .1s}
+.drag-item:active{cursor:grabbing;transform:scale(1.05)}
+.drag-slot{padding:6px 12px;border:1px dashed rgba(157,0,255,.4);border-radius:4px;color:#6a4090;font-size:12px;min-width:60px;text-align:center;background:rgba(157,0,255,.05)}
+.drag-slot.filled{background:rgba(0,255,100,.08);border-color:rgba(0,255,100,.4);color:#4aff8f}
+.drag-slot.wrong-fill{background:rgba(255,0,80,.08);border-color:rgba(255,0,80,.4);color:#ff5a8a}
+.drag-verify-btn{margin-top:8px;padding:8px 16px;background:rgba(157,0,255,.2);border:1px solid rgba(157,0,255,.5);color:#ff00ff;border-radius:4px;cursor:pointer;font-size:12px;letter-spacing:1px}
+.drag-verify-btn:hover{background:rgba(157,0,255,.35)}
+
+/* ================= 填空题 ================= */
+.fill-blank{display:inline-block;min-width:60px;border-bottom:2px solid rgba(157,0,255,.5);text-align:center;color:#ff00ff;font-weight:bold;padding:0 4px}
+.fill-input{background:transparent;border:none;border-bottom:2px solid #ff00ff;color:#ff00ff;font-family:inherit;font-size:14px;width:80px;text-align:center;outline:none;padding:2px}
+
+/* ================= 排序题 ================= */
+.sort-list{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.sort-item{padding:8px 12px;background:rgba(157,0,255,.1);border:1px solid rgba(157,0,255,.3);border-radius:4px;color:#c8a8e8;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s}
+.sort-item:hover{background:rgba(157,0,255,.2)}
+.sort-item .sort-num{width:20px;height:20px;border:1px solid rgba(157,0,255,.4);border-radius:50%;text-align:center;line-height:18px;font-size:10px;color:#ff00ff}
+.sort-item.selected{border-color:#ff00ff;box-shadow:0 0 8px rgba(255,0,255,.2)}
+
+/* ================= 计时器 ================= */
+.timer-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#ff00ff,#9d00ff);z-index:100;transition:width 1s linear}
+.timer-text{position:fixed;top:6px;right:16px;z-index:100;font-size:12px;color:#ff00ff;background:rgba(15,0,24,.8);padding:2px 8px;border-radius:3px;border:1px solid rgba(255,0,255,.3)}
+
+/* ================= 结算画面 ================= */
+.result-screen{display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:20px;text-align:center;animation:fadeIn .5s ease}
+.result-screen.active{display:flex}
+.result-title{font-size:22px;font-weight:bold;color:#ff00ff;text-shadow:0 0 12px rgba(255,0,255,.5);margin-bottom:8px}
+.result-grade{font-size:56px;font-weight:bold;color:#ff00ff;text-shadow:0 0 20px rgba(255,0,255,.6);font-family:Georgia,serif;margin:8px 0}
+.result-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%;max-width:320px}
+.stat-box{padding:10px;background:rgba(157,0,255,.08);border:1px solid rgba(157,0,255,.25);border-radius:6px}
+.stat-label{font-size:10px;color:#8a60b0;margin-bottom:2px}
+.stat-val{font-size:16px;color:#ff00ff;font-weight:bold}
+.badge-area{margin-top:12px;padding:16px;background:rgba(255,0,255,.06);border:1px solid rgba(255,0,255,.25);border-radius:8px;max-width:320px;width:100%}
+.badge-icon{font-size:36px;margin-bottom:6px}
+.badge-name{font-size:14px;color:#ff00ff;font-weight:bold;margin-bottom:4px}
+.badge-desc{font-size:11px;color:#a070c0}
+.result-btn{padding:10px 32px;background:rgba(157,0,255,.2);border:2px solid #ff00ff;color:#ff00ff;border-radius:6px;cursor:pointer;font-size:14px;letter-spacing:2px;margin-top:8px;transition:all .2s}
+.result-btn:hover{background:rgba(157,0,255,.4);box-shadow:0 0 16px rgba(255,0,255,.3)}
+
+/* ================= 封面 ================= */
+.cover-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;text-align:center;animation:fadeIn .6s ease}
+.cover-screen.active{display:flex}
+.cover-dept{font-size:11px;letter-spacing:4px;color:#ff00ff;opacity:.7;border:1px solid rgba(255,0,255,.3);padding:4px 16px;border-radius:3px}
+.cover-code{font-size:12px;color:#9d00ff;letter-spacing:6px;margin-top:4px}
+.cover-title{font-size:26px;font-weight:bold;color:#ff00ff;text-shadow:0 0 16px rgba(255,0,255,.5);margin:8px 0;line-height:1.3}
+.cover-sub{font-size:13px;color:#a070c0;line-height:1.6;max-width:300px}
+.cover-features{display:flex;gap:16px;margin:8px 0;font-size:11px;color:#8a60b0}
+.cover-features span{display:flex;align-items:center;gap:4px}
+.cover-start{padding:12px 48px;background:rgba(157,0,255,.15);border:2px solid #ff00ff;color:#ff00ff;border-radius:6px;cursor:pointer;font-size:15px;letter-spacing:3px;margin-top:12px;transition:all .2s;position:relative;overflow:hidden}
+.cover-start:hover{background:rgba(157,0,255,.35);box-shadow:0 0 20px rgba(255,0,255,.4)}
+.cover-start::after{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 40%,rgba(255,0,255,.15) 50%,transparent 60%);animation:shine 3s infinite}
+@keyframes shine{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+/* ================= 底部导航 ================= */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:60px;background:rgba(15,0,24,.92);border-top:1px solid rgba(157,0,255,.25);display:flex;align-items:center;justify-content:space-around;z-index:50;backdrop-filter:blur(8px)}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .2s;border:none;background:transparent;color:#6a4090;font-size:10px;position:relative}
+.nav-btn.active{color:#ff00ff}
+.nav-btn.active::after{content:'';position:absolute;bottom:-4px;width:20px;height:2px;background:#ff00ff;border-radius:1px}
+.nav-btn:hover{color:#a060d0}
+.nav-icon{font-size:18px}
+
+/* ================= 弹窗 ================= */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.show{display:flex}
+.modal-box{background:#160024;border:1px solid rgba(157,0,255,.4);border-radius:10px;padding:20px;max-width:300px;width:85%;text-align:center;box-shadow:0 0 30px rgba(157,0,255,.2)}
+.modal-title{font-size:16px;color:#ff00ff;margin-bottom:10px;font-weight:bold}
+.modal-text{font-size:13px;color:#b090d0;line-height:1.6;margin-bottom:16px}
+.modal-btn{padding:8px 24px;background:rgba(157,0,255,.2);border:1px solid rgba(255,0,255,.4);color:#ff00ff;border-radius:4px;cursor:pointer;font-size:12px;letter-spacing:1px}
+.modal-btn:hover{background:rgba(157,0,255,.35)}
+
+/* ================= 连击特效 ================= */
+.combo-pop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:bold;color:#ff00ff;text-shadow:0 0 20px rgba(255,0,255,.8);z-index:150;pointer-events:none;animation:comboAnim .8s ease forwards;display:none}
+@keyframes comboAnim{0%{opacity:1;transform:translate(-50%,-50%) scale(.5)}50%{transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-80%) scale(1)}}
+
+/* ================= 数据记录本细节 ================= */
+.stamp{position:absolute;top:10px;right:12px;font-size:9px;color:rgba(157,0,255,.25);transform:rotate(-12deg);border:1px solid rgba(157,0,255,.2);padding:2px 6px;border-radius:2px;letter-spacing:1px}
+.page-corner{position:absolute;bottom:0;right:0;width:0;height:0;border-style:solid;border-width:0 0 20px 20px;border-color:transparent transparent rgba(157,0,255,.12) transparent;pointer-events:none}
+
+/* ================= 粒子效果容器 ================= */
+#particles{position:fixed;inset:0;pointer-events:none;z-index:5}
+.particle{position:absolute;width:3px;height:3px;background:#ff00ff;border-radius:50%;opacity:.6;animation:particleFloat linear infinite}
+@keyframes particleFloat{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:.6}90%{opacity:.6}100%{transform:translateY(-10vh) scale(1);opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- 背景层 -->
+<div class="paper-bg"></div>
+<div class="grid-deco"></div>
+<div id="particles"></div>
+
+<!-- 装饰 -->
+<div class="antenna"><div class="top"></div><div class="pole"></div></div>
+<div class="wave-ring"><span></span><span></span><span></span></div>
+<div class="satellite"><div class="sat-wing-l"></div><div class="sat-body"></div><div class="sat-wing-r"></div></div>
+
+<!-- 计时器 -->
+<div id="timerBar" class="timer-bar" style="width:0;display:none"></div>
+<div id="timerText" class="timer-text" style="display:none"></div>
+
+<!-- 连击特效 -->
+<div id="comboPop" class="combo-pop"></div>
+
+<!-- 主应用 -->
+<div id="app">
+  <!-- 顶部栏 -->
+  <div class="header" id="header" style="display:none">
+    <div class="header-left">
+      <span class="dept-badge">通信实验室</span>
+      <span class="chapter-title">WAVE · 电磁波</span>
+    </div>
+    <div class="header-right">
+      <div class="hp-row" id="hpRow"></div>
+      <div class="combo-badge" id="comboBadge">连击x0</div>
+      <div class="score-badge" id="scoreBadge">0分</div>
+    </div>
+  </div>
+
+  <!-- 主内容 -->
+  <div class="main" id="main">
+    <!-- 封面 -->
+    <div class="cover-screen active" id="cover">
+      <div class="cover-dept">COMMUNICATION LAB</div>
+      <div class="cover-code">WAVE-09-15</div>
+      <div class="cover-title">电磁波<br>及其应用</div>
+      <div class="cover-sub">掌握电磁振荡、波谱规律与信息传递原理<br>完成通信实验室的五阶段实验</div>
+      <div class="cover-features">
+        <span>❤️ 3生命</span>
+        <span>⚡ 连击</span>
+        <span>🏆 评级</span>
+      </div>
+      <button class="cover-start" onclick="game.start()">开始实验</button>
+    </div>
+
+    <!-- Stage 1 -->
+    <div class="stage-screen" id="stage1"></div>
+    <!-- Stage 2 -->
+    <div class="stage-screen" id="stage2"></div>
+    <!-- Stage 3 -->
+    <div class="stage-screen" id="stage3"></div>
+    <!-- Stage 4 -->
+    <div class="stage-screen" id="stage4"></div>
+    <!-- Stage 5 -->
+    <div class="stage-screen" id="stage5"></div>
+
+    <!-- 结算 -->
+    <div class="result-screen" id="result">
+      <div class="result-title">实验报告</div>
+      <div class="result-grade" id="resultGrade">S</div>
+      <div class="result-stats">
+        <div class="stat-box"><div class="stat-label">得分</div><div class="stat-val" id="rsScore">0</div></div>
+        <div class="stat-box"><div class="stat-label">正确率</div><div class="stat-val" id="rsRate">0%</div></div>
+        <div class="stat-box"><div class="stat-label">最高连击</div><div class="stat-val" id="rsCombo">0</div></div>
+        <div class="stat-box"><div class="stat-label">用时</div><div class="stat-val" id="rsTime">0s</div></div>
+      </div>
+      <div class="badge-area" id="badgeArea">
+        <div class="badge-icon" id="badgeIcon">📡</div>
+        <div class="badge-name" id="badgeName">通信学徒</div>
+        <div class="badge-desc" id="badgeDesc">继续加油，电磁波世界等你探索</div>
+      </div>
+      <button class="result-btn" onclick="game.restart()">再次实验</button>
+    </div>
+  </div>
+
+  <!-- 底部导航 -->
+  <div class="bottom-nav" id="bottomNav" style="display:none">
+    <button class="nav-btn active" data-stage="1" onclick="game.navTo(1)"><div class="nav-icon">📟</div><span>产生</span></button>
+    <button class="nav-btn" data-stage="2" onclick="game.navTo(2)"><div class="nav-icon">〰️</div><span>传播</span></button>
+    <button class="nav-btn" data-stage="3" onclick="game.navTo(3)"><div class="nav-icon">📻</div><span>应用</span></button>
+    <button class="nav-btn" data-stage="4" onclick="game.navTo(4)"><div class="nav-icon">📡</div><span>通信</span></button>
+    <button class="nav-btn" data-stage="5" onclick="game.navTo(5)"><div class="nav-icon">⚡</div><span>终极</span></button>
+  </div>
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">提示</div>
+    <div class="modal-text" id="modalText"></div>
+    <button class="modal-btn" onclick="game.closeModal()">确定</button>
+  </div>
+</div>
+
+<script>
+// ===================== 数据 =====================
+const STAGES = [
+  {
+    id: 1, name: '电磁波产生', desc: '振荡电路 · 波谱 · 公式',
+    questions: [
+      {
+        type: 'choice',
+        text: '下列电路中，能够产生高频电磁振荡的是（  ）',
+        options: ['仅有电阻的电路','LC振荡电路','纯电容电路','直流电源电路'],
+        answer: 1,
+        explain: 'LC振荡电路中，电容器不断充放电，线圈产生自感电动势，形成周期性的电磁振荡，从而向外辐射电磁波。'
+      },
+      {
+        type: 'choice',
+        text: '电磁波谱按频率从低到高排列，正确的顺序是（  ）',
+        options: ['无线电波→红外线→可见光→紫外线→X射线→γ射线','γ射线→X射线→紫外线→可见光→红外线→无线电波','可见光→红外线→紫外线→无线电波→X射线→γ射线','无线电波→可见光→红外线→紫外线→X射线→γ射线'],
+        answer: 0,
+        explain: '电磁波谱按频率从低到高：无线电波＜微波＜红外线＜可见光＜紫外线＜X射线＜γ射线。'
+      },
+      {
+        type: 'choice',
+        text: '某电磁波在真空中的波长为600nm，其频率约为（  ）\n（c=3×10⁸m/s）',
+        options: ['5×10¹⁴ Hz','5×10¹³ Hz','3×10¹⁴ Hz','3×10¹⁵ Hz'],
+        answer: 0,
+        explain: 'f = c/λ = 3×10⁸/(600×10⁻⁹) = 5×10¹⁴ Hz。注意单位换算：600nm = 600×10⁻⁹m。'
+      },
+      {
+        type: 'choice',
+        text: '要提高LC振荡电路发射电磁波的频率，可以采取的措施是（  ）',
+        options: ['增大电容器的电容','增大线圈的匝数','减小电容器的电容','增加线圈中的铁芯'],
+        answer: 2,
+        explain: '频率公式 f=1/(2π√LC)，减小C或L都能提高频率。减小电容器的电容C，f增大。'
+      },
+      {
+        type: 'choice',
+        text: '频率为100MHz的电磁波，在真空中的波长为（  ）',
+        options: ['0.3m','3m','30m','300m'],
+        answer: 1,
+        explain: 'λ = c/f = 3×10⁸/(100×10⁶) = 3m。100MHz常用于FM广播。'
+      },
+      {
+        type: 'sort',
+        text: '将以下电磁波按波长从长到短排序（点击选择两项交换位置）',
+        items: ['无线电波','可见光','X射线','微波'],
+        correct: ['无线电波','微波','可见光','X射线'],
+        explain: '波长从长到短：无线电波＞微波＞红外线＞可见光＞紫外线＞X射线＞γ射线。'
+      }
+    ]
+  },
+  {
+    id: 2, name: '电磁波传播', desc: '传播特性 · 真空速度 · 介质影响',
+    questions: [
+      {
+        type: 'choice',
+        text: '关于电磁波的传播，下列说法正确的是（  ）',
+        options: ['电磁波传播需要介质','电磁波只能在空气中传播','电磁波可以在真空中传播','电磁波不能在水中传播'],
+        answer: 2,
+        explain: '电磁波是电磁场的传播，不需要介质，可以在真空中、空气中、水中等各种环境中传播。'
+      },
+      {
+        type: 'choice',
+        text: '电磁波在真空中的传播速度约为（  ）',
+        options: ['3×10⁵ m/s','3×10⁶ m/s','3×10⁷ m/s','3×10⁸ m/s'],
+        answer: 3,
+        explain: '电磁波在真空中的传播速度c≈3×10⁸m/s，也就是光速，这是一个需要牢记的常数。'
+      },
+      {
+        type: 'choice',
+        text: '光从空气射入水中时（  ）',
+        options: ['频率不变，波长不变','频率不变，波长变短','频率变低，波长不变','频率变高，波长变长'],
+        answer: 1,
+        explain: '光进入水中，频率由波源决定不变；速度变小(v=c/n)，由v=λf可知波长变短。'
+      },
+      {
+        type: 'choice',
+        text: '电磁波从真空进入玻璃，以下说法正确的是（  ）',
+        options: ['速度变大，波长变长','速度变小，波长变短','速度变小，波长变长','速度不变，波长不变'],
+        answer: 1,
+        explain: '进入介质后速度v=c/n变小(n>1)，频率f不变，所以波长λ=v/f变小。'
+      },
+      {
+        type: 'choice',
+        text: '下列关于电磁波与声波的说法正确的是（  ）',
+        options: ['两者都需要介质传播','两者传播速度相同','电磁波可以在真空中传播，声波不能','声波可以在真空中传播，电磁波不能'],
+        answer: 2,
+        explain: '电磁波是场传播，不需要介质；声波是机械振动传播，必须依靠介质。真空中可以传播电磁波，但不能传播声波。'
+      },
+      {
+        type: 'choice',
+        text: '某电磁波在某种介质中的传播速度为2×10⁸m/s，该介质的折射率约为（  ）',
+        options: ['1.0','1.5','2.0','3.0'],
+        answer: 1,
+        explain: '折射率n=c/v = 3×10⁸/(2×10⁸) = 1.5。常见玻璃的折射率就在这个范围。'
+      }
+    ]
+  },
+  {
+    id: 3, name: '电磁波应用', desc: '无线电 · 电视 · 手机 · 雷达 · 微波炉 · X光',
+    questions: [
+      {
+        type: 'match',
+        text: '将左侧电磁波应用与右侧对应技术匹配：',
+        pairs: [
+          {left:'无线电广播',right:'调谐选台'},
+          {left:'电视遥控',right:'红外线信号'},
+          {left:'手机通信',right:'微波频段'},
+          {left:'雷达测距',right:'微波反射'},
+          {left:'医学影像',right:'X射线穿透'},
+          {left:'食物加热',right:'微波共振'}
+        ],
+        explain: '不同频率的电磁波有不同的特性和应用：微波用于通信和加热，红外线用于遥控，X射线用于医学成像等。'
+      },
+      {
+        type: 'choice',
+        text: '微波炉加热食物的原理是利用微波（  ）',
+        options: ['穿透食物直接加热','使食物中的水分子共振摩擦生热','产生化学反应分解食物','用高温火焰加热'],
+        answer: 1,
+        explain: '微波炉产生的微波频率约2.45GHz，与水分子共振频率接近，使水分子高速振动摩擦生热。'
+      },
+      {
+        type: 'choice',
+        text: '雷达利用电磁波来探测目标，主要利用的是（  ）',
+        options: ['电磁波的衍射','电磁波的干涉','电磁波的反射','电磁波的折射'],
+        answer: 2,
+        explain: '雷达发射微波，遇到目标后反射回来，根据回波的时间和方向计算目标的位置和速度。'
+      },
+      {
+        type: 'choice',
+        text: '手机通信使用的电磁波主要属于（  ）',
+        options: ['无线电波','红外线','紫外线','X射线'],
+        answer: 0,
+        explain: '手机通信使用的微波属于无线电波范畴，工作频段通常在800MHz~2.6GHz之间。'
+      },
+      {
+        type: 'choice',
+        text: '下列设备中，工作时利用了紫外线的是（  ）',
+        options: ['遥控器','验钞机','微波炉','雷达'],
+        answer: 1,
+        explain: '验钞机利用紫外线使钞票上的荧光物质发光进行防伪检测。遥控器用红外线，微波炉和雷达用微波。'
+      },
+      {
+        type: 'choice',
+        text: 'X射线在医学上主要用于（  ），利用了它（  ）的特性。',
+        options: ['消毒杀菌，能量高','透视拍片，穿透能力强','治疗肿瘤，热效应明显','检测心跳，反射性强'],
+        answer: 1,
+        explain: 'X射线频率极高、能量大、穿透能力强，可以穿透人体软组织，被骨骼阻挡，因而在医学上用于拍片检查。'
+      }
+    ]
+  },
+  {
+    id: 4, name: '信息传递', desc: '模拟/数字 · 光纤 · 卫星通信',
+    questions: [
+      {
+        type: 'choice',
+        text: '关于模拟信号与数字信号，下列说法正确的是（  ）',
+        options: ['模拟信号抗干扰能力强','数字信号只能表示两个值','模拟信号是连续的，数字信号是离散的','数字信号传输距离近'],
+        answer: 2,
+        explain: '模拟信号幅度连续变化；数字信号用离散值(如0和1)表示信息。数字信号抗干扰能力强、便于处理和加密。'
+      },
+      {
+        type: 'choice',
+        text: '光纤通信的原理是利用激光在光纤中（  ）',
+        options: ['直线传播','不断反射向前传播','折射传播','衍射传播'],
+        answer: 1,
+        explain: '光纤由高折射率的纤芯和低折射率的包层组成，激光在纤芯与包层界面发生全反射，不断反射向前传播。'
+      },
+      {
+        type: 'choice',
+        text: '光纤通信相比传统电缆通信的主要优势是（  ）',
+        options: ['成本更低','传输容量大、损耗小、抗干扰','铺设更容易','不需要中继站'],
+        answer: 1,
+        explain: '光纤通信带宽极大(传输容量大)、光信号在光纤中损耗很小、不受电磁干扰，是现代通信的骨干技术。'
+      },
+      {
+        type: 'choice',
+        text: '卫星通信中，通信卫星一般位于（  ）轨道',
+        options: ['近地轨道','地球同步轨道','太阳同步轨道','椭圆轨道'],
+        answer: 1,
+        explain: '地球同步轨道卫星(约36000km高度)相对地面静止，三颗即可覆盖全球(除两极)，是通信卫星的理想位置。'
+      },
+      {
+        type: 'choice',
+        text: '现代通信的"信息高速公路"指的是（  ）',
+        options: ['高速公路上的信号系统','以光纤为骨干的高速数据通信网络','卫星广播系统','无线电广播网'],
+        answer: 1,
+        explain: '"信息高速公路"形象地比喻以光纤、卫星等高带宽技术为骨干的高速互联网和数据通信基础设施。'
+      }
+    ]
+  },
+  {
+    id: 5, name: '终极实验', desc: '60秒综合挑战',
+    questions: [
+      {
+        type: 'choice',
+        text: '【极速判断】无线电波、红外线、可见光、紫外线在真空中传播速度的关系是（  ）',
+        options: ['v无线电>v红外>v可见>v紫外','v无线电<v红外<v可见<v紫外','一样大','无法确定'],
+        answer: 2,
+        explain: '所有电磁波在真空中传播速度都相同，均为c≈3×10⁸m/s，与频率无关。'
+      },
+      {
+        type: 'choice',
+        text: '【极速计算】某电视台发射频率为600MHz，对应的波长为（  ）',
+        options: ['0.5m','5m','50m','500m'],
+        answer: 0,
+        explain: 'λ=c/f=3×10⁸/(600×10⁶)=0.5m。'
+      },
+      {
+        type: 'choice',
+        text: '【极速判断】关于电磁波，以下说法错误的是（  ）',
+        options: ['电磁波可以传递信息','电磁波可以传递能量','电磁波是横波','电磁波不能在金属中传播'],
+        answer: 3,
+        explain: '电磁波可以在金属中传播(只是会被屏蔽或衰减)，比如微波炉的金属腔壁会反射微波。其他三个说法均正确。'
+      },
+      {
+        type: 'choice',
+        text: '【极速应用】5G通信使用的电磁波频段比4G更（  ），因此波长更（  ），绕射能力更（  ）',
+        options: ['高，长，强','高，短，弱','低，长，弱','低，短，强'],
+        answer: 1,
+        explain: '5G使用更高频率(如毫米波)，波长更短，绕射能力更弱，所以基站覆盖范围更小、数量更多。'
+      },
+      {
+        type: 'choice',
+        text: '【极速原理】调制解调器(Modem)的作用是（  ）',
+        options: ['把模拟信号变成数字信号','把数字信号加载到载波上/从载波提取','放大信号功率','过滤噪声'],
+        answer: 1,
+        explain: '调制(Modulation)把数字信号加载到载波上发送；解调(Demodulation)从载波中提取数字信号。'
+      },
+      {
+        type: 'choice',
+        text: '【极速综合】下列排列顺序正确的是（  ）',
+        options: ['频率：无线电波>可见光>γ射线','波长：γ射线>X射线>可见光','能量：γ射线>X射线>可见光','穿透力：可见光>X射线>γ射线'],
+        answer: 2,
+        explain: 'γ射线频率最高、波长最短、能量最大、穿透力最强。能量排序：γ>X>紫外>可见>红外>微波>无线电。'
+      }
+    ]
+  }
+];
+
+// ===================== 游戏引擎 =====================
+const game = {
+  currentStage: 0,
+  currentQ: 0,
+  score: 0,
+  hp: 3,
+  combo: 0,
+  maxCombo: 0,
+  correctCount: 0,
+  totalQ: 29,
+  startTime: 0,
+  stageProgress: [0,0,0,0,0],
+  stageCompleted: [false,false,false,false,false],
+  sortState: null,
+  matchState: null,
+  timerId: null,
+  timeLeft: 0,
+
+  start() {
+    this.currentStage = 0;
+    this.currentQ = 0;
+    this.score = 0;
+    this.hp = 3;
+    this.combo = 0;
+    this.maxCombo = 0;
+    this.correctCount = 0;
+    this.stageProgress = [0,0,0,0,0];
+    this.stageCompleted = [false,false,false,false,false];
+    this.startTime = Date.now();
+    document.getElementById('cover').classList.remove('active');
+    document.getElementById('header').style.display = 'flex';
+    document.getElementById('bottomNav').style.display = 'flex';
+    this.updateHeader();
+    this.renderStage(1);
+  },
+
+  updateHeader() {
+    const hpRow = document.getElementById('hpRow');
+    hpRow.innerHTML = '';
+    for(let i=0;i<3;i++){
+      const h = document.createElement('span');
+      h.className = 'hp-heart' + (i>=this.hp?' lost':'');
+      h.textContent = '❤️';
+      hpRow.appendChild(h);
+    }
+    document.getElementById('comboBadge').textContent = '连击x'+this.combo;
+    document.getElementById('scoreBadge').textContent = this.score+'分';
+  },
+
+  renderStage(n) {
+    document.querySelectorAll('.stage-screen').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    const sid = 'stage'+n;
+    const screen = document.getElementById(sid);
+    screen.classList.add('active');
+    document.querySelector('.nav-btn[data-stage="'+n+'"]').classList.add('active');
+    this.currentStage = n;
+    this.currentQ = this.stageProgress[n-1];
+    const stage = STAGES[n-1];
+    
+    // 进度条
+    const pct = (this.currentQ / stage.questions.length) * 100;
+    
+    let html = '<div class="stage-header">';
+    html += '<span class="stage-num">0'+n+'</span>';
+    html += '<span class="stage-name">'+stage.name+'</span>';
+    html += '<span class="stage-desc">'+this.currentQ+'/'+stage.questions.length+'</span>';
+    html += '</div>';
+    html += '<div class="progress-wrap"><div class="progress-bar" style="width:'+pct+'%"></div></div>';
+
+    // 显示当前题目
+    const q = stage.questions[this.currentQ];
+    html += this.renderQuestion(q, n, this.currentQ);
+
+    screen.innerHTML = html;
+
+    // Stage 5 启动计时器
+    if(n===5 && this.currentQ===0) this.startTimer(60);
+
+    // 绑定事件
+    this.bindEvents(q, n, this.currentQ);
+  },
+
+  renderQuestion(q, stageIdx, qIdx) {
+    let html = '<div class="q-card" id="qCard">';
+    html += '<div class="stamp">通信实验室</div>';
+    html += '<div class="page-corner"></div>';
+    html += '<div class="q-number">题目 '+(qIdx+1)+' / '+STAGES[stageIdx-1].questions.length+'</div>';
+    html += '<div class="q-text">'+q.text+'</div>';
+
+    if(q.type==='choice'){
+      html += '<div class="options">';
+      q.options.forEach((opt,i)=>{
+        html += '<button class="opt-btn" data-idx="'+i+'" onclick="game.answer('+stageIdx+','+qIdx+','+i+')">';
+        html += '<span class="opt-label">'+String.fromCharCode(65+i)+'</span>'+opt;
+        html += '</button>';
+      });
+      html += '</div>';
+    }
+    else if(q.type==='sort'){
+      html += '<div class="sort-list" id="sortList">';
+      // 乱序
+      const shuffled = [...q.items].sort(()=>Math.random()-.5);
+      shuffled.forEach((item,i)=>{
+        html += '<div class="sort-item" data-val="'+item+'" onclick="game.sortClick(this)">'+item+'</div>';
+      });
+      html += '</div>';
+      html += '<button class="drag-verify-btn" onclick="game.sortCheck('+stageIdx+','+qIdx+')">提交排序</button>';
+    }
+    else if(q.type==='match'){
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0">';
+      html += '<div style="font-size:11px;color:#ff00ff;text-align:center">应用</div>';
+      html += '<div style="font-size:11px;color:#ff00ff;text-align:center">技术原理</div>';
+      const lefts = q.pairs.map((p,i)=>({text:p.left,idx:i}));
+      const rights = q.pairs.map((p,i)=>({text:p.right,idx:i})).sort(()=>Math.random()-.5);
+      html += '</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+      html += '<div id="matchLeft" style="display:flex;flex-direction:column;gap:6px">';
+      lefts.forEach((item)=>{
+        html += '<div class="drag-item" data-lidx="'+item.idx+'" onclick="game.matchClick(this,\'left\')">'+item.text+'</div>';
+      });
+      html += '</div>';
+      html += '<div id="matchRight" style="display:flex;flex-direction:column;gap:6px">';
+      rights.forEach((item)=>{
+        html += '<div class="drag-item" data-ridx="'+item.idx+'" onclick="game.matchClick(this,\'right\')">'+item.text+'</div>';
+      });
+      html += '</div>';
+      html += '</div>';
+      html += '<div id="matchResult" style="margin-top:8px;font-size:12px"></div>';
+      html += '<button class="drag-verify-btn" onclick="game.matchCheck('+stageIdx+','+qIdx+')">提交匹配</button>';
+    }
+
+    html += '<div class="feedback" id="fdb"></div>';
+    html += '<div class="explain" id="exp"></div>';
+    html += '</div>';
+    return html;
+  },
+
+  bindEvents(q, stageIdx, qIdx) {
+    // 事件已内联在HTML中
+  },
+
+  // 选择题作答
+  answer(stageIdx, qIdx, choice) {
+    const q = STAGES[stageIdx-1].questions[qIdx];
+    const btns = document.querySelectorAll('#qCard .opt-btn');
+    btns.forEach(b=>b.classList.add('disabled'));
+    const fdb = document.getElementById('fdb');
+    const exp = document.getElementById('exp');
+
+    if(choice === q.answer){
+      btns[choice].classList.add('correct');
+      fdb.textContent = '✓ 正确！';
+      fdb.className = 'feedback ok show';
+      this.combo++;
+      this.correctCount++;
+      if(this.combo>this.maxCombo) this.maxCombo=this.combo;
+      const pts = 10 + Math.min(this.combo*2, 20);
+      this.score += pts;
+      if(this.combo>=3) this.showComboPop(this.combo);
+    } else {
+      btns[choice].classList.add('wrong');
+      btns[q.answer].classList.add('correct');
+      fdb.textContent = '✗ 错误，正确答案是 '+String.fromCharCode(65+q.answer);
+      fdb.className = 'feedback err show';
+      this.combo = 0;
+      this.hp--;
+      if(this.hp<=0){
+        this.gameOver();
+        return;
+      }
+    }
+
+    exp.textContent = '💡 '+q.explain;
+    exp.className = 'explain show';
+    this.updateHeader();
+
+    setTimeout(()=>this.nextQ(stageIdx), 1800);
+  },
+
+  // 排序题
+  sortClick(el) {
+    const list = document.getElementById('sortList');
+    const items = list.querySelectorAll('.sort-item');
+    if(!this.sortState){
+      this.sortState = el;
+      el.classList.add('selected');
+    } else {
+      if(this.sortState !== el){
+        const parent = list;
+        const a = this.sortState, b = el;
+        const nextA = a.nextSibling, nextB = b.nextSibling;
+        if(nextA === b) parent.insertBefore(b, a);
+        else if(nextB === a) parent.insertBefore(a, b);
+        else {
+          parent.insertBefore(b, nextA);
+          parent.insertBefore(a, nextB);
+        }
+      }
+      this.sortState.classList.remove('selected');
+      this.sortState = null;
+    }
+  },
+
+  sortCheck(stageIdx, qIdx) {
+    const q = STAGES[stageIdx-1].questions[qIdx];
+    const list = document.getElementById('sortList');
+    const items = Array.from(list.querySelectorAll('.sort-item')).map(el=>el.dataset.val);
+    const fdb = document.getElementById('fdb');
+    const exp = document.getElementById('exp');
+
+    let correct = true;
+    for(let i=0;i<items.length;i++){
+      if(items[i]!==q.correct[i]) correct=false;
+    }
+
+    if(correct){
+      fdb.textContent = '✓ 排序正确！';
+      fdb.className = 'feedback ok show';
+      this.combo++;
+      this.correctCount++;
+      if(this.combo>this.maxCombo) this.maxCombo=this.combo;
+      this.score += 10 + Math.min(this.combo*2, 20);
+      if(this.combo>=3) this.showComboPop(this.combo);
+    } else {
+      fdb.textContent = '✗ 排序有误';
+      fdb.className = 'feedback err show';
+      this.combo = 0;
+      this.hp--;
+      if(this.hp<=0){this.gameOver();return;}
+    }
+
+    exp.textContent = '💡 '+q.explain;
+    exp.className = 'explain show';
+    this.updateHeader();
+    setTimeout(()=>this.nextQ(stageIdx), 2000);
+  },
+
+  // 匹配题
+  matchClick(el, side) {
+    const container = side==='left'?document.getElementById('matchLeft'):document.getElementById('matchRight');
+    const all = container.querySelectorAll('.drag-item');
+    all.forEach(e=>e.style.borderColor='');
+    
+    if(!this.matchState){
+      this.matchState = {el, side};
+      el.style.borderColor = '#ff00ff';
+    } else {
+      if(this.matchState.side !== side){
+        // 交换文本
+        const temp = el.textContent;
+        const tempIdx = el.dataset[side==='left'?'lidx':'ridx'];
+        el.textContent = this.matchState.el.textContent;
+        el.dataset[side==='left'?'lidx':'ridx'] = this.matchState.el.dataset[this.matchState.side==='left'?'lidx':'ridx'];
+        this.matchState.el.textContent = temp;
+        this.matchState.el.dataset[this.matchState.side==='left'?'lidx':'ridx'] = tempIdx;
+      }
+      this.matchState.el.style.borderColor = '';
+      this.matchState = null;
+    }
+  },
+
+  matchCheck(stageIdx, qIdx) {
+    const q = STAGES[stageIdx-1].questions[qIdx];
+    const lefts = Array.from(document.getElementById('matchLeft').querySelectorAll('.drag-item'));
+    const rights = Array.from(document.getElementById('matchRight').querySelectorAll('.drag-item'));
+    const fdb = document.getElementById('fdb');
+    const exp = document.getElementById('exp');
+
+    let correctCount = 0;
+    lefts.forEach((l,i)=>{
+      const li = parseInt(l.dataset.lidx);
+      const ri = parseInt(rights[i].dataset.ridx);
+      if(li===ri) correctCount++;
+    });
+
+    if(correctCount === q.pairs.length){
+      fdb.textContent = '✓ 全部匹配正确！';
+      fdb.className = 'feedback ok show';
+      this.combo++;
+      this.correctCount++;
+      if(this.combo>this.maxCombo) this.maxCombo=this.combo;
+      this.score += 10 + Math.min(this.combo*2, 20);
+      if(this.combo>=3) this.showComboPop(this.combo);
+    } else {
+      fdb.textContent = '✗ 正确 '+correctCount+'/'+q.pairs.length;
+      fdb.className = 'feedback err show';
+      this.combo = 0;
+      this.hp--;
+      if(this.hp<=0){this.gameOver();return;}
+    }
+
+    exp.textContent = '💡 '+q.explain;
+    exp.className = 'explain show';
+    this.updateHeader();
+    setTimeout(()=>this.nextQ(stageIdx), 2000);
+  },
+
+  showComboPop(n) {
+    const pop = document.getElementById('comboPop');
+    const msgs = ['','','🔥 x'+n+' 连击！','⚡ x'+n+' 连击！','💥 x'+n+' 连击！','🌟 x'+n+' 连击！'];
+    pop.textContent = msgs[Math.min(n,5)] || '🔥 x'+n+' 连击！';
+    pop.style.display = 'block';
+    pop.style.animation = 'none';
+    pop.offsetHeight;
+    pop.style.animation = 'comboAnim .8s ease forwards';
+    setTimeout(()=>pop.style.display='none',800);
+  },
+
+  nextQ(stageIdx) {
+    const stage = STAGES[stageIdx-1];
+    this.stageProgress[stageIdx-1]++;
+    this.currentQ = this.stageProgress[stageIdx-1];
+
+    if(this.currentQ >= stage.questions.length){
+      this.stageCompleted[stageIdx-1] = true;
+      // Stage 5 结束计时
+      if(stageIdx===5) this.stopTimer();
+      
+      // 找下一个未完成的stage
+      let next = 0;
+      for(let i=0;i<5;i++){
+        if(!this.stageCompleted[i]){next=i+1;break;}
+      }
+      if(next===0){
+        this.showResult();
+      } else {
+        this.renderStage(next);
+      }
+    } else {
+      this.renderStage(stageIdx);
+    }
+  },
+
+  navTo(n) {
+    if(this.stageCompleted[n-1] || this.stageProgress[n-1]>0 || n===this.currentStage){
+      this.renderStage(n);
+    } else if(n<this.currentStage || (n>1 && this.stageProgress[n-2]>=STAGES[n-2].questions.length)){
+      this.renderStage(n);
+    } else {
+      this.showModal('提示','请先完成前面的实验阶段！');
+    }
+  },
+
+  startTimer(seconds) {
+    this.timeLeft = seconds;
+    const bar = document.getElementById('timerBar');
+    const txt = document.getElementById('timerText');
+    bar.style.display = 'block'; txt.style.display = 'block';
+    bar.style.width = '100%';
+    const start = Date.now();
+    this.timerId = setInterval(()=>{
+      const elapsed = (Date.now()-start)/1000;
+      const left = Math.max(0, seconds-elapsed);
+      this.timeLeft = left;
+      bar.style.width = (left/seconds*100)+'%';
+      txt.textContent = '⏱️ '+Math.ceil(left)+'s';
+      if(left<=0){
+        this.stopTimer();
+        this.showModal('时间到！','60秒挑战结束，进入结算。');
+        setTimeout(()=>this.showResult(),1500);
+      }
+    }, 100);
+  },
+
+  stopTimer() {
+    if(this.timerId){clearInterval(this.timerId);this.timerId=null;}
+    document.getElementById('timerBar').style.display='none';
+    document.getElementById('timerText').style.display='none';
+  },
+
+  gameOver() {
+    this.showModal('实验失败','生命值耗尽，电磁波实验被迫终止。');
+    setTimeout(()=>{
+      this.closeModal();
+      this.showResult(true);
+    }, 2000);
+  },
+
+  showResult(failed=false) {
+    document.querySelectorAll('.stage-screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('header').style.display = 'none';
+    document.getElementById('bottomNav').style.display = 'none';
+    this.stopTimer();
+    document.getElementById('result').classList.add('active');
+
+    const rate = Math.round(this.correctCount/this.totalQ*100);
+    const time = Math.round((Date.now()-this.startTime)/1000);
+    let grade = 'C';
+    if(this.hp>=3 && rate>=90) grade='S';
+    else if(this.hp>=2 && rate>=80) grade='A';
+    else if(this.hp>=1 && rate>=60) grade='B';
+    else grade='C';
+    if(failed) grade='D';
+
+    document.getElementById('resultGrade').textContent = grade;
+    document.getElementById('rsScore').textContent = this.score;
+    document.getElementById('rsRate').textContent = rate+'%';
+    document.getElementById('rsCombo').textContent = this.maxCombo;
+    document.getElementById('rsTime').textContent = time+'s';
+
+    const badges = {
+      S:{icon:'🏆',name:'通信大师',desc:'完美通关！你是电磁波世界真正的掌控者'},
+      A:{icon:'🥇',name:'通信专家',desc:'出色的表现，你对电磁波了如指掌'},
+      B:{icon:'🥈',name:'通信工程师',desc:'良好的基础，继续精进会走得更远'},
+      C:{icon:'🥉',name:'通信学徒',desc:'完成实验，还有很多知识等你探索'},
+      D:{icon:'📵',name:'信号丢失',desc:'实验中断，调整状态再来一次吧'}
+    };
+    const b = badges[grade];
+    document.getElementById('badgeIcon').textContent = b.icon;
+    document.getElementById('badgeName').textContent = b.name;
+    document.getElementById('badgeDesc').textContent = b.desc;
+  },
+
+  restart() {
+    document.getElementById('result').classList.remove('active');
+    document.getElementById('cover').classList.add('active');
+    document.getElementById('header').style.display = 'none';
+    document.getElementById('bottomNav').style.display = 'none';
+  },
+
+  showModal(title, text) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalText').textContent = text;
+    document.getElementById('modal').classList.add('show');
+  },
+
+  closeModal() {
+    document.getElementById('modal').classList.remove('show');
+  }
+};
+
+// ===================== 粒子背景 =====================
+(function initParticles(){
+  const container = document.getElementById('particles');
+  for(let i=0;i<20;i++){
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random()*100+'vw';
+    p.style.animationDuration = (6+Math.random()*8)+'s';
+    p.style.animationDelay = (Math.random()*8)+'s';
+    p.style.opacity = .3+Math.random()*.4;
+    container.appendChild(p);
+  }
+})();
+</script>
+</body>
+</html>
