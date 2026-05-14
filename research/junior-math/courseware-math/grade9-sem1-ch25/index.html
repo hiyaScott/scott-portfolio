@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：TRIG | 锐角的三角比</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f; --bg2: #0a0e18; --bg3: #101520;
+  --accent: #00f5d4; --accent2: #00d4b8; --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0e6f0; --text2: #8a9ab0; --text3: #4a5a70;
+  --border: rgba(0,245,212,0.2); --glass: rgba(10,14,24,0.85);
+  --glass-border: rgba(0,245,212,0.12); --green: #00ff88; --yellow: #ffcc00;
+  --red: #ff3366; --orange: #ff8844; --purple: #cc66ff;
+  --pink: #ff00ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Share Tech Mono', monospace; font-size: 15px; line-height: 1.7;
+  overflow-x: hidden; position: relative; min-height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px; pointer-events: none; z-index: 1;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2; animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute; width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* Hero */
+.hero { text-align: center; padding: 60px 0 30px; position: relative; }
+.hero-badge {
+  display: inline-block; border: 1px solid var(--accent); padding: 4px 16px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px;
+  color: var(--accent); margin-bottom: 16px; text-transform: uppercase;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%,100% { box-shadow: 0 0 8px rgba(0,245,212,0.2); }
+  50% { box-shadow: 0 0 20px rgba(0,245,212,0.4); }
+}
+.hero h1 { font-family: 'Orbitron', sans-serif; font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 30px rgba(0,245,212,0.3); margin-bottom: 8px; }
+.hero-sub { font-size: 14px; color: var(--text2); letter-spacing: 3px; }
+.hero-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 20px auto; }
+
+/* HUD Bar */
+.hud-bar {
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  padding: 14px 24px; margin-bottom: 24px;
+  background: var(--glass); border: 1px solid var(--glass-border); border-radius: 10px;
+  backdrop-filter: blur(12px); flex-wrap: wrap;
+}
+.hud-item { display: flex; align-items: center; gap: 8px; font-family: 'Orbitron', sans-serif; font-size: 13px; }
+.hud-item .label { color: var(--text3); font-size: 11px; letter-spacing: 1px; }
+.hud-item .value { color: var(--accent); font-weight: 700; }
+.hud-item .value.red { color: var(--red); }
+.hud-item .value.green { color: var(--green); }
+.hud-item .value.yellow { color: var(--yellow); }
+.hud-item .value.pink { color: var(--pink); }
+.hud-item .lives { display: flex; gap: 3px; }
+.hud-item .life { width: 14px; height: 14px; background: var(--red); clip-path: polygon(50% 0%, 100% 35%, 85% 100%, 50% 80%, 15% 100%, 0% 35%); opacity: 1; transition: opacity 0.3s; }
+.hud-item .life.lost { opacity: 0.15; }
+
+/* Stage Panel */
+.stage-panel {
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap;
+}
+.stage-btn {
+  padding: 8px 18px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.3s;
+}
+.stage-btn:hover { border-color: var(--border); color: var(--text); }
+.stage-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 12px rgba(0,245,212,0.15); }
+.stage-btn.locked { opacity: 0.4; cursor: not-allowed; }
+.stage-btn.cleared::after { content: ' ✓'; color: var(--green); }
+
+/* Game Card */
+.game-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px); overflow: hidden; margin-bottom: 24px;
+  position: relative;
+}
+.game-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.game-header {
+  padding: 20px 28px 16px; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.game-stage-num { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); opacity: 0.4; }
+.game-stage-title { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: 1px; }
+.game-progress { font-family: 'Orbitron', sans-serif; font-size: 13px; color: var(--text3); }
+
+.game-body { padding: 24px 28px 28px; }
+
+/* Canvas Area */
+.canvas-area {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 16px; margin-bottom: 20px; text-align: center; position: relative;
+}
+.canvas-area h4 {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.canvas-area canvas {
+  background: var(--bg); border-radius: 6px; border: 1px solid var(--glass-border);
+  max-width: 100%;
+}
+
+/* Question */
+.question-box { margin-bottom: 20px; }
+.question-box .q-num {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  background: var(--accent-dim); padding: 2px 10px; border-radius: 3px; letter-spacing: 1px;
+  display: inline-block; margin-bottom: 10px;
+}
+.question-box .q-text { color: var(--text); font-size: 16px; margin-bottom: 16px; line-height: 1.8; }
+.question-box .q-text .math { color: var(--accent); }
+
+/* Options */
+.opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.opt {
+  padding: 12px 16px; border: 1px solid var(--glass-border); border-radius: 8px;
+  cursor: pointer; transition: all 0.2s; font-size: 15px; display: flex; align-items: center; gap: 10px;
+}
+.opt:hover { border-color: var(--border); background: var(--bg3); }
+.opt .opt-letter {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--text3); flex-shrink: 0;
+}
+.opt:hover .opt-letter { border-color: var(--accent); color: var(--accent); }
+.opt.correct { border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green); }
+.opt.correct .opt-letter { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.15); }
+.opt.wrong { border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red); }
+.opt.wrong .opt-letter { border-color: var(--red); color: var(--red); background: rgba(255,51,102,0.15); }
+.opt.disabled { pointer-events: none; opacity: 0.7; }
+
+/* Number input */
+.num-input-wrap { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.num-input {
+  background: var(--bg3); border: 1px solid var(--glass-border); border-radius: 6px;
+  padding: 10px 16px; color: var(--accent); font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; width: 180px; outline: none;
+}
+.num-input:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(0,245,212,0.15); }
+.submit-btn {
+  background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent);
+  padding: 10px 24px; border-radius: 6px; font-family: 'Orbitron', sans-serif; font-size: 13px;
+  letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.submit-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* Feedback */
+.feedback {
+  padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; display: none;
+  animation: feedbackIn 0.3s ease;
+}
+@keyframes feedbackIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+.feedback.show { display: block; }
+.feedback.correct { background: rgba(0,255,136,0.08); border-left: 3px solid var(--green); color: var(--green); }
+.feedback.wrong { background: rgba(255,51,102,0.08); border-left: 3px solid var(--red); color: var(--red); }
+.feedback.timeout { background: rgba(255,204,0,0.08); border-left: 3px solid var(--yellow); color: var(--yellow); }
+.feedback .fb-title { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.feedback .fb-text { font-size: 14px; color: var(--text2); }
+
+/* Timer bar */
+.timer-bar-wrap { height: 4px; background: var(--bg3); border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
+.timer-bar { height: 100%; background: linear-gradient(90deg, var(--green), var(--accent)); border-radius: 2px; transition: width 1s linear; }
+.timer-bar.warn { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+.timer-bar.danger { background: linear-gradient(90deg, var(--red), var(--orange)); }
+
+/* Big countdown for Stage 5 */
+.countdown-big {
+  font-family: 'Orbitron', sans-serif; font-size: 48px; font-weight: 900;
+  color: var(--accent); text-align: center; margin-bottom: 16px;
+  text-shadow: 0 0 20px rgba(0,245,212,0.4);
+  animation: countdownPulse 1s ease-in-out infinite;
+}
+.countdown-big.warn { color: var(--yellow); text-shadow: 0 0 20px rgba(255,204,0,0.4); }
+.countdown-big.danger { color: var(--red); text-shadow: 0 0 20px rgba(255,51,102,0.4); }
+@keyframes countdownPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+/* Special angle flash cards for Stage 2 */
+.flash-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;
+}
+.flash-card {
+  border: 1px solid var(--glass-border); border-radius: 10px;
+  background: var(--bg2); padding: 20px; text-align: center; cursor: pointer;
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.flash-card:hover { border-color: var(--accent); box-shadow: 0 0 16px rgba(0,245,212,0.1); }
+.flash-card .flash-angle {
+  font-family: 'Orbitron', sans-serif; font-size: 36px; font-weight: 800;
+  color: var(--accent); margin-bottom: 8px;
+}
+.flash-card .flash-label {
+  font-family: 'Share Tech Mono', monospace; font-size: 13px; color: var(--text3);
+}
+.flash-card.selected {
+  border-color: var(--accent); background: var(--accent-dim);
+  box-shadow: 0 0 20px rgba(0,245,212,0.2);
+}
+.flash-card.selected .flash-angle { color: var(--green); }
+
+/* Step hint box */
+.step-hint {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.step-hint .step-title {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; margin-bottom: 8px; text-transform: uppercase;
+}
+.step-hint .step-list {
+  font-size: 14px; color: var(--text2); line-height: 1.9;
+}
+.step-hint .step-list code {
+  color: var(--accent); font-family: 'Share Tech Mono', monospace; background: var(--bg3);
+  padding: 1px 6px; border-radius: 3px; font-size: 13px;
+}
+
+/* Controls */
+.controls { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.ctrl-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ctrl-btn.primary { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.ctrl-btn.primary:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 16px rgba(0,245,212,0.3); }
+
+/* Results */
+.results-screen {
+  text-align: center; padding: 40px 28px;
+}
+.results-screen .result-grade {
+  font-family: 'Orbitron', sans-serif; font-size: 72px; font-weight: 900;
+  margin-bottom: 12px; text-shadow: 0 0 40px currentColor;
+}
+.results-screen .result-grade.S { color: var(--accent); text-shadow: 0 0 50px rgba(0,245,212,0.5); }
+.results-screen .result-grade.A { color: var(--green); }
+.results-screen .result-grade.B { color: var(--yellow); }
+.results-screen .result-grade.C { color: var(--orange); }
+.results-screen .result-grade.F { color: var(--red); }
+.results-screen .result-title { font-family: 'Orbitron', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
+.results-screen .result-desc { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
+.result-stats { display: flex; justify-content: center; gap: 32px; margin-bottom: 32px; flex-wrap: wrap; }
+.result-stat { text-align: center; }
+.result-stat .stat-val { font-family: 'Orbitron', sans-serif; font-size: 28px; color: var(--accent); font-weight: 700; }
+.result-stat .stat-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* Badges */
+.badge-grid { display: flex; justify-content: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+.badge {
+  width: 80px; height: 80px; border-radius: 12px; border: 2px solid var(--glass-border);
+  background: var(--bg2); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all 0.3s; opacity: 0.4;
+}
+.badge.unlocked { opacity: 1; border-color: var(--accent); box-shadow: 0 0 20px rgba(0,245,212,0.2); }
+.badge .badge-icon { font-size: 32px; margin-bottom: 4px; }
+.badge .badge-name { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--text3); letter-spacing: 1px; text-align: center; }
+.badge.unlocked .badge-name { color: var(--accent); }
+
+/* Start screen */
+.start-screen { text-align: center; padding: 40px 28px 60px; }
+.start-screen p { color: var(--text2); max-width: 600px; margin: 0 auto 32px; line-height: 1.8; }
+.mission-list { text-align: left; max-width: 520px; margin: 0 auto 32px; }
+.mission-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--glass-border); color: var(--text2); font-size: 14px;
+}
+.mission-item:last-child { border-bottom: none; }
+.mission-item .mi-num {
+  width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--accent);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; color: var(--accent); flex-shrink: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* Nav */
+.chapter-nav {
+  display: flex; justify-content: space-between; padding: 20px 0 40px;
+  border-top: 1px solid var(--glass-border); margin-top: 8px;
+}
+.nav-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; text-decoration: none;
+}
+.nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.nav-btn.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 26px; }
+  .hud-bar { gap: 12px; padding: 10px 14px; }
+  .game-header { flex-direction: column; align-items: flex-start; }
+  .game-stage-num { font-size: 22px; }
+  .game-stage-title { font-size: 15px; }
+  .countdown-big { font-size: 36px; }
+  .flash-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">三角大师 · 代号 TRIG</div>
+  <h1>代号：TRIG</h1>
+  <div class="hero-sub">锐角的三角比 · 实战演练</div>
+  <div class="hero-line"></div>
+  <p style="color:var(--text3);font-size:14px;max-width:680px;margin:0 auto;">
+    五大战术模块，三十道实战题目。Canvas 动态直角三角形 + 即时反馈。<br>
+    你的任务：掌握 sin/cos/tan，征服特殊角，解锁「三角大师」徽章。
+  </p>
+</div>
+
+<!-- HUD -->
+<div class="hud-bar" id="hud-bar" style="display:none;">
+  <div class="hud-item"><span class="label">SCORE</span><span class="value" id="hud-score">0</span></div>
+  <div class="hud-item"><span class="label">LIVES</span><div class="lives" id="hud-lives"></div></div>
+  <div class="hud-item"><span class="label">COMBO</span><span class="value yellow" id="hud-combo">x1</span></div>
+  <div class="hud-item"><span class="label">TIME</span><span class="value" id="hud-time">30</span></div>
+  <div class="hud-item"><span class="label">STAGE</span><span class="value" id="hud-stage">1/5</span></div>
+</div>
+
+<!-- STAGE PANEL -->
+<div class="stage-panel" id="stage-panel" style="display:none;">
+  <button class="stage-btn active" data-stage="0" onclick="jumpToStage(0)">STAGE 1 · 密码</button>
+  <button class="stage-btn" data-stage="1" onclick="jumpToStage(1)">STAGE 2 · 速查</button>
+  <button class="stage-btn" data-stage="2" onclick="jumpToStage(2)">STAGE 3 · 解三角</button>
+  <button class="stage-btn" data-stage="3" onclick="jumpToStage(3)">STAGE 4 · 测量</button>
+  <button class="stage-btn" data-stage="4" onclick="jumpToStage(4)">STAGE 5 · 终极</button>
+</div>
+
+<!-- START SCREEN -->
+<div id="start-screen" class="game-card start-screen">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务简报</div>
+  </div>
+  <div class="game-body">
+    <p>欢迎来到三角大师训练场。你将接受五个阶段的实战考核，每个阶段包含 5～8 道题目。答对可获得分数与连击加成，答错将扣除生命。完成所有阶段后，系统将根据准确率与速度给出 S/A/B/C 评级，并解锁「三角大师」徽章。</p>
+    <div class="mission-list">
+      <div class="mission-item"><div class="mi-num">01</div><div>三角密码：根据直角三角形边长计算 sin/cos/tan 值</div></div>
+      <div class="mission-item"><div class="mi-num">02</div><div>特殊角速查：限时回忆 30°/45°/60° 的三角函数值</div></div>
+      <div class="mission-item"><div class="mi-num">03</div><div>解三角：已知条件解直角三角形（求边或求角）</div></div>
+      <div class="mission-item"><div class="mi-num">04</div><div>实地测量：仰角、俯角、坡度应用题</div></div>
+      <div class="mission-item"><div class="mi-num">05</div><div>终极密码：60 秒综合挑战</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn primary" onclick="startGame()">开始任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME AREA -->
+<div id="game-area" style="display:none;">
+  <div class="game-card">
+    <div class="game-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="game-stage-num" id="stage-num">01</div>
+        <div class="game-stage-title" id="stage-title">三角密码</div>
+      </div>
+      <div class="game-progress" id="game-progress">题目 1 / 5</div>
+    </div>
+    <div class="game-body">
+      <!-- Big countdown for Stage 5 -->
+      <div class="countdown-big" id="countdown-big" style="display:none;">60</div>
+      <!-- Timer bar -->
+      <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar" style="width:100%;"></div></div>
+
+      <!-- Canvas -->
+      <div class="canvas-area">
+        <h4 id="canvas-title">▌ 可视化</h4>
+        <canvas id="game-canvas" width="700" height="340"></canvas>
+      </div>
+
+      <!-- Step hint (Stage 3) -->
+      <div class="step-hint" id="step-hint" style="display:none;">
+        <div class="step-title">▌ 解题步骤</div>
+        <div class="step-list" id="step-list"></div>
+      </div>
+
+      <!-- Question -->
+      <div class="question-box">
+        <span class="q-num" id="q-num">Q1</span>
+        <div class="q-text" id="q-text"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="feedback" id="feedback"><div class="fb-title"></div><div class="fb-text"></div></div>
+
+      <!-- Options / Input -->
+      <div id="answer-area"></div>
+
+      <!-- Controls -->
+      <div class="controls" id="q-controls">
+        <button class="ctrl-btn primary" id="next-btn" onclick="nextQuestion()" style="display:none;">下一题 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="results-screen" class="game-card results-screen" style="display:none;">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务完成</div>
+  </div>
+  <div class="game-body">
+    <div class="result-grade" id="result-grade">S</div>
+    <div class="result-title" id="result-title">完美执行</div>
+    <div class="result-desc" id="result-desc">所有阶段全部通关，锐角三角比知识体系已掌握。</div>
+
+    <!-- Badges -->
+    <div class="badge-grid" id="badge-grid">
+      <div class="badge unlocked" id="badge-master">
+        <div class="badge-icon">📐</div>
+        <div class="badge-name">三角大师</div>
+      </div>
+    </div>
+
+    <div class="result-stats">
+      <div class="result-stat"><div class="stat-val" id="res-score">0</div><div class="stat-label">总分</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-correct">0</div><div class="stat-label">正确</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-maxcombo">0</div><div class="stat-label">最高连击</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-time">0</div><div class="stat-label">用时(秒)</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-accuracy">0%</div><div class="stat-label">准确率</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn" onclick="location.reload()">重新开始</button>
+      <a class="ctrl-btn primary" href="tutorial.html" style="text-decoration:none;">查看教案</a>
+    </div>
+  </div>
+</div>
+
+<!-- CHAPTER NAV -->
+<div class="chapter-nav" id="chapter-nav" style="display:none;">
+  <a class="nav-btn" href="../grade9-sem1-ch24/index.html">← 上一章</a>
+  <a class="nav-btn" href="../grade9-sem1-ch26/index.html">下一章 →</a>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ===================== GAME DATA =====================
+const STAGES = [
+  // ===== STAGE 1: 三角密码 =====
+  {
+    title: '三角密码',
+    questions: [
+      {
+        text: '如图，Rt△ABC 中，∠C = 90°，∠A = 30°，BC = 1，则 sin A = ?',
+        type: 'choice', options: ['A. 1/2', 'B. √3/2', 'C. √3/3', 'D. 1'],
+        correct: 0,
+        canvas: 'right-tri-trig', canvasData: {A:30,B:60,C:90,a:1,b:'√3',c:2,showAngle:'A',showSide:'BC'},
+        feedbackCorrect: '正确！sin A = 对边/斜边 = BC/AB = 1/2。30°角的 sin 值 = 1/2。',
+        feedbackWrong: '错误。sin A = 对边/斜边 = BC/AB。在 30-60-90 三角形中，BC=1，AB=2，所以 sin A = 1/2。',
+        time: 25
+      },
+      {
+        text: 'Rt△ABC 中，∠C = 90°，AC = 3，BC = 4，AB = 5，则 cos A = ?',
+        type: 'choice', options: ['A. 3/5', 'B. 4/5', 'C. 3/4', 'D. 4/3'],
+        correct: 0,
+        canvas: 'right-tri-trig', canvasData: {A:'∠A',B:'∠B',C:90,a:4,b:3,c:5,showAngle:'A',showSide:'AC'},
+        feedbackCorrect: '正确！cos A = 邻边/斜边 = AC/AB = 3/5。',
+        feedbackWrong: '错误。cos A = 邻边/斜边。∠A 的邻边是 AC = 3，斜边 AB = 5，所以 cos A = 3/5。',
+        time: 25
+      },
+      {
+        text: 'Rt△ABC 中，∠C = 90°，AC = 5，BC = 12，则 tan A = ?',
+        type: 'choice', options: ['A. 5/12', 'B. 12/5', 'C. 5/13', 'D. 12/13'],
+        correct: 1,
+        canvas: 'right-tri-trig', canvasData: {A:'∠A',B:'∠B',C:90,a:12,b:5,c:13,showAngle:'A',showSide:'BC'},
+        feedbackCorrect: '正确！tan A = 对边/邻边 = BC/AC = 12/5。',
+        feedbackWrong: '错误。tan A = 对边/邻边。∠A 的对边是 BC = 12，邻边是 AC = 5，所以 tan A = 12/5。',
+        time: 25
+      },
+      {
+        text: '已知 sin α = 3/5，则 cos α = ?（α 为锐角）',
+        type: 'choice', options: ['A. 2/5', 'B. 3/4', 'C. 4/5', 'D. 1'],
+        correct: 2,
+        canvas: 'trig-identity', canvasData: {sin:'3/5',cos:'4/5',tan:'3/4'},
+        feedbackCorrect: '正确！由 sin²α + cos²α = 1，cos²α = 1 − 9/25 = 16/25，cos α = 4/5。',
+        feedbackWrong: '错误。利用恒等式 sin²α + cos²α = 1，cos²α = 1 − (3/5)² = 16/25，cos α = 4/5。',
+        time: 30
+      },
+      {
+        text: '如图，直角三角形中，一个锐角的正切值为 1，则该锐角为 ?',
+        type: 'choice', options: ['A. 30°', 'B. 45°', 'C. 60°', 'D. 90°'],
+        correct: 1,
+        canvas: 'right-tri-trig', canvasData: {A:45,B:45,C:90,a:1,b:1,c:'√2',showAngle:'A',showSide:'both'},
+        feedbackCorrect: '正确！tan 45° = 1。等腰直角三角形两锐角均为 45°，对边 = 邻边。',
+        feedbackWrong: '错误。tan A = 对边/邻边 = 1 意味着对边 = 邻边，这是等腰直角三角形，锐角 = 45°。',
+        time: 25
+      },
+      {
+        text: '在 Rt△ABC 中，∠C = 90°，sin A = 1/3，AB = 6，则 BC = ?',
+        type: 'input', answer: '2', altAnswers: ['2'],
+        canvas: 'right-tri-trig', canvasData: {A:'∠A',B:'∠B',C:90,a:2,b:'4√2',c:6,showAngle:'A',showSide:'BC'},
+        feedbackCorrect: '正确！sin A = BC/AB → BC = AB × sin A = 6 × 1/3 = 2。',
+        feedbackWrong: '错误。sin A = 对边/斜边 = BC/AB → BC = AB × sin A = 6 × 1/3 = 2。',
+        time: 30
+      },
+      {
+        text: '已知 tan α = 2，则 sin α · cos α = ?',
+        type: 'choice', options: ['A. 1/2', 'B. 2/3', 'C. 2/5', 'D. 1/5'],
+        correct: 2,
+        canvas: 'trig-identity', canvasData: {tan:2,sin:'2/√5',cos:'1/√5',product:'2/5'},
+        feedbackCorrect: '正确！设对边=2，邻边=1，斜边=√5，sin α = 2/√5，cos α = 1/√5，乘积 = 2/5。',
+        feedbackWrong: '错误。由 tan α = 2，构造直角三角形：对边=2，邻边=1，斜边=√5。sin α = 2/√5，cos α = 1/√5，sin α·cos α = 2/5。',
+        time: 40
+      }
+    ]
+  },
+  // ===== STAGE 2: 特殊角速查 (5秒限时) =====
+  {
+    title: '特殊角速查',
+    timePerQ: 5,
+    questions: [
+      {
+        text: 'sin 30° = ?',
+        type: 'choice', options: ['A. 1/2', 'B. √2/2', 'C. √3/2', 'D. √3/3'],
+        correct: 0,
+        canvas: 'special-angle', canvasData: {angle:30,sin:'1/2',cos:'√3/2',tan:'√3/3'},
+        feedbackCorrect: '正确！sin 30° = 1/2。',
+        feedbackWrong: '错误。sin 30° = 1/2。记住：30° 的对边是斜边的一半。',
+        time: 5
+      },
+      {
+        text: 'cos 45° = ?',
+        type: 'choice', options: ['A. 1/2', 'B. √2/2', 'C. √3/2', 'D. 1'],
+        correct: 1,
+        canvas: 'special-angle', canvasData: {angle:45,sin:'√2/2',cos:'√2/2',tan:'1'},
+        feedbackCorrect: '正确！cos 45° = √2/2。',
+        feedbackWrong: '错误。cos 45° = √2/2。等腰直角三角形中两锐角的 sin 和 cos 相等。',
+        time: 5
+      },
+      {
+        text: 'tan 60° = ?',
+        type: 'choice', options: ['A. 1', 'B. √2', 'C. √3', 'D. √3/3'],
+        correct: 2,
+        canvas: 'special-angle', canvasData: {angle:60,sin:'√3/2',cos:'1/2',tan:'√3'},
+        feedbackCorrect: '正确！tan 60° = √3。',
+        feedbackWrong: '错误。tan 60° = √3。60° 的对边是邻边的 √3 倍。',
+        time: 5
+      },
+      {
+        text: 'cos 60° = ?',
+        type: 'choice', options: ['A. 1/2', 'B. √2/2', 'C. √3/2', 'D. 0'],
+        correct: 0,
+        canvas: 'special-angle', canvasData: {angle:60,sin:'√3/2',cos:'1/2',tan:'√3'},
+        feedbackCorrect: '正确！cos 60° = 1/2。',
+        feedbackWrong: '错误。cos 60° = 1/2。注意 cos 60° = sin 30° = 1/2。',
+        time: 5
+      },
+      {
+        text: 'sin 45° = ?',
+        type: 'choice', options: ['A. 1/2', 'B. √2/2', 'C. √3/2', 'D. 1'],
+        correct: 1,
+        canvas: 'special-angle', canvasData: {angle:45,sin:'√2/2',cos:'√2/2',tan:'1'},
+        feedbackCorrect: '正确！sin 45° = √2/2。',
+        feedbackWrong: '错误。sin 45° = √2/2。',
+        time: 5
+      },
+      {
+        text: 'tan 30° = ?',
+        type: 'choice', options: ['A. √3', 'B. √3/2', 'C. √3/3', 'D. 1/2'],
+        correct: 2,
+        canvas: 'special-angle', canvasData: {angle:30,sin:'1/2',cos:'√3/2',tan:'√3/3'},
+        feedbackCorrect: '正确！tan 30° = √3/3 = 1/√3。',
+        feedbackWrong: '错误。tan 30° = √3/3。30° 的对边比邻边 = 1 : √3 = √3/3。',
+        time: 5
+      },
+      {
+        text: 'sin 60° = ?',
+        type: 'choice', options: ['A. 1/2', 'B. √2/2', 'C. √3/2', 'D. 1'],
+        correct: 2,
+        canvas: 'special-angle', canvasData: {angle:60,sin:'√3/2',cos:'1/2',tan:'√3'},
+        feedbackCorrect: '正确！sin 60° = √3/2。',
+        feedbackWrong: '错误。sin 60° = √3/2。注意 sin 60° = cos 30° = √3/2。',
+        time: 5
+      },
+      {
+        text: 'cos 30° = ?',
+        type: 'choice', options: ['A. 1/2', 'B. √2/2', 'C. √3/2', 'D. √3/3'],
+        correct: 2,
+        canvas: 'special-angle', canvasData: {angle:30,sin:'1/2',cos:'√3/2',tan:'√3/3'},
+        feedbackCorrect: '正确！cos 30° = √3/2。',
+        feedbackWrong: '错误。cos 30° = √3/2。',
+        time: 5
+      }
+    ]
+  },
+  // ===== STAGE 3: 解三角 =====
+  {
+    title: '解三角',
+    questions: [
+      {
+        text: 'Rt△ABC 中，∠C = 90°，∠A = 30°，AB = 8，求 BC',
+        type: 'choice', options: ['A. 4', 'B. 4√3', 'C. 8', 'D. 8√3'],
+        correct: 0,
+        canvas: 'right-tri-trig', canvasData: {A:30,B:60,C:90,a:4,b:'4√3',c:8,showAngle:'A',showSide:'BC'},
+        steps: ['已知：∠A = 30°，斜边 AB = 8', '求：对边 BC', '用 sin：sin A = BC/AB', 'BC = AB × sin 30° = 8 × 1/2 = 4'],
+        feedbackCorrect: '正确！BC = AB × sin 30° = 8 × 1/2 = 4。',
+        feedbackWrong: '错误。sin 30° = BC/AB → BC = 8 × 1/2 = 4。',
+        time: 35
+      },
+      {
+        text: 'Rt△ABC 中，∠C = 90°，BC = 6，tan A = 3/4，求 AC',
+        type: 'input', answer: '8', altAnswers: ['8'],
+        canvas: 'right-tri-trig', canvasData: {A:'∠A',B:'∠B',C:90,a:6,b:8,c:10,showAngle:'A',showSide:'AC'},
+        steps: ['已知：tan A = 3/4，即 对边/邻边 = 3/4', 'BC 是 ∠A 的对边 = 6', '设 AC = x，则 6/x = 3/4', 'x = 6 × 4/3 = 8'],
+        feedbackCorrect: '正确！tan A = BC/AC = 3/4 → 6/AC = 3/4 → AC = 8。',
+        feedbackWrong: '错误。tan A = 对边/邻边 = BC/AC = 3/4 → 6/AC = 3/4 → AC = 8。',
+        time: 40
+      },
+      {
+        text: 'Rt△ABC 中，∠C = 90°，AC = 5，BC = 5√3，求 ∠A',
+        type: 'choice', options: ['A. 30°', 'B. 45°', 'C. 60°', 'D. 90°'],
+        correct: 2,
+        canvas: 'right-tri-trig', canvasData: {A:60,B:30,C:90,a:'5√3',b:5,c:10,showAngle:'A',showSide:'BC'},
+        steps: ['已知：AC = 5（邻边），BC = 5√3（对边）', '求：∠A', '用 tan：tan A = BC/AC = 5√3/5 = √3', 'tan 60° = √3，所以 ∠A = 60°'],
+        feedbackCorrect: '正确！tan A = BC/AC = 5√3/5 = √3 = tan 60°，所以 ∠A = 60°。',
+        feedbackWrong: '错误。tan A = 对边/邻边 = 5√3/5 = √3。tan 60° = √3，故 ∠A = 60°。',
+        time: 40
+      },
+      {
+        text: 'Rt△ABC 中，∠C = 90°，∠A = 45°，AC = 3，求 AB',
+        type: 'choice', options: ['A. 3', 'B. 3√2', 'C. 6', 'D. 3√3'],
+        correct: 1,
+        canvas: 'right-tri-trig', canvasData: {A:45,B:45,C:90,a:3,b:3,c:'3√2',showAngle:'A',showSide:'AB'},
+        steps: ['已知：∠A = 45°，AC = 3（邻边）', '求：斜边 AB', '用 cos：cos A = AC/AB', 'AB = AC / cos 45° = 3 / (√2/2) = 3√2'],
+        feedbackCorrect: '正确！cos 45° = AC/AB → AB = 3 / (√2/2) = 3√2。',
+        feedbackWrong: '错误。cos 45° = √2/2 = AC/AB = 3/AB → AB = 3√2。',
+        time: 40
+      },
+      {
+        text: 'Rt△ABC 中，∠C = 90°，AB = 10，sin A = 4/5，求 AC',
+        type: 'input', answer: '6', altAnswers: ['6'],
+        canvas: 'right-tri-trig', canvasData: {A:'∠A',B:'∠B',C:90,a:8,b:6,c:10,showAngle:'A',showSide:'AC'},
+        steps: ['已知：sin A = 4/5，AB = 10', 'sin A = BC/AB → BC = 10 × 4/5 = 8', '由勾股定理：AC = √(AB² − BC²) = √(100 − 64) = √36 = 6'],
+        feedbackCorrect: '正确！BC = 10 × 4/5 = 8，AC = √(10² − 8²) = 6。',
+        feedbackWrong: '错误。sin A = BC/AB → BC = 8。再由勾股：AC = √(100−64) = 6。',
+        time: 45
+      },
+      {
+        text: '等腰三角形顶角为 120°，腰长为 6，则底边长为 ?',
+        type: 'choice', options: ['A. 6', 'B. 6√2', 'C. 6√3', 'D. 12'],
+        correct: 2,
+        canvas: 'isoceles-trig', canvasData: {top:120,side:6,base:'6√3',halfAngle:60},
+        steps: ['作底边的高，将等腰三角形分成两个直角三角形', '顶角 120° 被平分，半角 = 60°', '直角三角形中：sin 60° = (底边一半)/腰', '底边一半 = 6 × sin 60° = 6 × √3/2 = 3√3', '底边 = 6√3'],
+        feedbackCorrect: '正确！底边的一半 = 6 × sin 60° = 3√3，底边 = 6√3。',
+        feedbackWrong: '错误。作高后，半角 = 60°，sin 60° = (底边/2)/6 → 底边/2 = 3√3 → 底边 = 6√3。',
+        time: 50
+      }
+    ]
+  },
+  // ===== STAGE 4: 实地测量 =====
+  {
+    title: '实地测量',
+    questions: [
+      {
+        text: '如图，小明在地面 A 处测得树顶 C 的仰角为 30°，向树走近 10m 到 B 处，测得仰角为 45°，求树高 CD',
+        type: 'choice', options: ['A. 5(√3+1)m', 'B. 10(√3+1)m', 'C. 5(√3−1)m', 'D. 10m'],
+        correct: 0,
+        canvas: 'elevation-angle', canvasData: {alpha:30,beta:45,distance:10,h:'5(√3+1)'},
+        feedbackCorrect: '正确！设 CD = h，BD = h（tan 45° = 1），AD = h + 10。tan 30° = h/(h+10) = 1/√3 → h = 5(√3+1)。',
+        feedbackWrong: '错误。设树高 = h，由 tan 45° = 1 得 BD = h。由 tan 30° = h/(h+10) = 1/√3，解得 h = 5(√3+1)。',
+        time: 50
+      },
+      {
+        text: '如图，飞机在高度 1000m 处测得地面目标 A 的俯角为 30°，则飞机到 A 的水平距离为 ?',
+        type: 'input', answer: '1000√3', altAnswers: ['1000√3', '√3000000', '1000*√3', '1000sqrt(3)'],
+        canvas: 'depression-angle', canvasData: {height:1000,angle:30,distance:'1000√3'},
+        feedbackCorrect: '正确！俯角 = 30° → 水平距离 = 1000 / tan 30° = 1000√3 m。',
+        feedbackWrong: '错误。俯角 30° = 仰角 30°，tan 30° = 1000/水平距离 → 水平距离 = 1000√3。',
+        time: 40
+      },
+      {
+        text: '一段斜坡的坡角为 15°，坡长为 100m，则坡面的垂直高度为 ?（sin 15° ≈ 0.259）',
+        type: 'choice', options: ['A. 15.9m', 'B. 25.9m', 'C. 50m', 'D. 96.6m'],
+        correct: 1,
+        canvas: 'slope-angle', canvasData: {angle:15,length:100,height:'25.9',ratio:'1:3.73'},
+        feedbackCorrect: '正确！垂直高度 = 坡长 × sin 15° ≈ 100 × 0.259 = 25.9m。',
+        feedbackWrong: '错误。坡角 = 坡面与水平面的夹角，sin 15° = 垂直高度/坡长 → 高度 = 100 × 0.259 = 25.9m。',
+        time: 40
+      },
+      {
+        text: '如图，从楼顶 A 测得地面标志物 B 的俯角为 60°，已知楼高 AC = 30m，则 AB 的距离为 ?',
+        type: 'choice', options: ['A. 15m', 'B. 20√3m', 'C. 30m', 'D. 20m'],
+        correct: 1,
+        canvas: 'depression-angle', canvasData: {height:30,angle:60,distance:'20√3',slant:'20√3'},
+        feedbackCorrect: '正确！俯角 60°，水平距离 = 30/tan 60° = 30/√3 = 10√3。AB = √(30² + (10√3)²) = √(900+300) = √1200 = 20√3。',
+        feedbackWrong: '错误。水平距离 = 30/tan 60° = 10√3。AB = √(30² + (10√3)²) = 20√3。或直接 sin 60° = 30/AB → AB = 30/(√3/2) = 20√3。',
+        time: 50
+      },
+      {
+        text: '一山坡的坡度 i = 1:√3，则坡角为 ?',
+        type: 'choice', options: ['A. 15°', 'B. 30°', 'C. 45°', 'D. 60°'],
+        correct: 1,
+        canvas: 'slope-gradient', canvasData: {ratio:'1:√3',angle:30,tan:'1/√3'},
+        feedbackCorrect: '正确！坡度 i = 垂直:水平 = 1:√3，tan α = 1/√3 = √3/3 → α = 30°。',
+        feedbackWrong: '错误。坡度 = 垂直高度/水平宽度 = tan α = 1/√3 = √3/3 → α = 30°。',
+        time: 35
+      },
+      {
+        text: '如图，灯塔高 50m，观测船从正东方向驶来，在 A 处测得灯塔顶仰角 45°，继续航行到 B 处测得仰角 30°，求 AB 的距离',
+        type: 'input', answer: '50(√3-1)', altAnswers: ['50(√3-1)', '50√3-50', '50*(√3-1)', '50(sqrt(3)-1)'],
+        canvas: 'elevation-angle', canvasData: {alpha:45,beta:30,height:50,distance:'50(√3-1)'},
+        feedbackCorrect: '正确！DA = 50（tan 45°=1），DB = 50√3（tan 30°=1/√3），AB = DB − DA = 50(√3−1)。',
+        feedbackWrong: '错误。tan 45° = 50/DA → DA = 50。tan 30° = 50/DB → DB = 50√3。AB = 50√3 − 50 = 50(√3−1)。',
+        time: 50
+      }
+    ]
+  },
+  // ===== STAGE 5: 终极密码 (60秒) =====
+  {
+    title: '终极密码',
+    timeLimit: 60,
+    questions: [
+      {
+        text: 'sin² 30° + cos² 30° = ?',
+        type: 'choice', options: ['A. 0', 'B. 1/2', 'C. 1', 'D. √3/2'],
+        correct: 2,
+        canvas: 'special-angle', canvasData: {angle:30,identity:true},
+        feedbackCorrect: '正确！sin²α + cos²α = 1（恒等式），与角度无关。',
+        feedbackWrong: '错误。这是基本恒等式 sin²α + cos²α = 1，对任何锐角 α 都成立。',
+        time: 60
+      },
+      {
+        text: 'Rt△ABC 中，∠C=90°，∠A=60°，AC=4，则 AB = ?',
+        type: 'choice', options: ['A. 4', 'B. 8', 'C. 4√3', 'D. 8√3'],
+        correct: 1,
+        canvas: 'right-tri-trig', canvasData: {A:60,B:30,C:90,a:'4√3',b:4,c:8,showAngle:'A',showSide:'AB'},
+        feedbackCorrect: '正确！cos 60° = AC/AB = 4/AB → AB = 4/(1/2) = 8。',
+        feedbackWrong: '错误。cos 60° = 邻边/斜边 = AC/AB = 4/AB = 1/2 → AB = 8。',
+        time: 60
+      },
+      {
+        text: 'tan 45° + tan 30° · tan 60° = ?',
+        type: 'choice', options: ['A. 1', 'B. 2', 'C. √3', 'D. 1+√3'],
+        correct: 1,
+        canvas: 'special-angle', canvasData: {expression:true,values:[1,'√3/3','√3']},
+        feedbackCorrect: '正确！tan 45° = 1，tan 30° = √3/3，tan 60° = √3。所以 1 + (√3/3)(√3) = 1 + 1 = 2。',
+        feedbackWrong: '错误。1 + (√3/3)(√3) = 1 + 3/3 = 2。',
+        time: 60
+      },
+      {
+        text: '已知 sin α = 5/13，α 为锐角，则 tan α = ?',
+        type: 'choice', options: ['A. 5/12', 'B. 12/5', 'C. 5/13', 'D. 13/5'],
+        correct: 0,
+        canvas: 'trig-identity', canvasData: {sin:'5/13',cos:'12/13',tan:'5/12'},
+        feedbackCorrect: '正确！cos α = √(1−25/169) = 12/13，tan α = sin/cos = (5/13)/(12/13) = 5/12。',
+        feedbackWrong: '错误。由 sin²α+cos²α=1 得 cos=12/13，tan = sin/cos = 5/12。',
+        time: 60
+      },
+      {
+        text: '从地面测得山顶仰角 30°，沿山坡走 100m 后测得仰角 45°，求山高（用含 √3 式子表示）',
+        type: 'input', answer: '50(√3+1)', altAnswers: ['50(√3+1)', '50√3+50', '50*(√3+1)', '50(sqrt(3)+1)'],
+        canvas: 'elevation-angle', canvasData: {alpha:30,beta:45,walk:100,height:'50(√3+1)'},
+        feedbackCorrect: '正确！设山高 h，第一次水平距 = h√3，走 100m 后水平距 = h。由 h√3 − h = 100·cos30°... 简化得 h = 50(√3+1)。',
+        feedbackWrong: '错误。设山高 = h，tan 30° = h/d₁，tan 45° = h/d₂，d₁ − d₂ = 100·cos30°（近似），最终 h = 50(√3+1)。',
+        time: 60
+      }
+    ]
+  }
+];
+
+// ===================== GAME STATE =====================
+let state = {
+  stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+  correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+  stageCleared: [false, false, false, false, false], answered: false,
+  stageStartTime: 0, globalTimer: null
+};
+
+// ===================== INIT =====================
+function initLives() {
+  const el = document.getElementById('hud-lives');
+  el.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const heart = document.createElement('div');
+    heart.className = 'life' + (i >= state.lives ? ' lost' : '');
+    el.appendChild(heart);
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-combo').textContent = 'x' + (state.combo + 1);
+  document.getElementById('hud-time').textContent = state.timeLeft;
+  document.getElementById('hud-stage').textContent = (state.stage + 1) + '/5';
+  initLives();
+}
+
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('hud-bar').style.display = 'flex';
+  document.getElementById('stage-panel').style.display = 'flex';
+  document.getElementById('game-area').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  state = { stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+    correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+    stageCleared: [false, false, false, false, false], answered: false,
+    stageStartTime: 0, globalTimer: null };
+  updateHUD();
+  loadQuestion();
+}
+
+function jumpToStage(s) {
+  if (s > 0 && !state.stageCleared[s-1] && s !== state.stage) return;
+  state.stage = s; state.question = 0; state.answered = false;
+  document.getElementById('results-screen').style.display = 'none';
+  document.getElementById('game-area').style.display = 'block';
+  updateStageButtons();
+  loadQuestion();
+}
+
+function updateStageButtons() {
+  document.querySelectorAll('.stage-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === state.stage);
+    btn.classList.toggle('cleared', state.stageCleared[i]);
+    btn.classList.toggle('locked', i > 0 && !state.stageCleared[i-1] && i !== state.stage);
+  });
+}
+
+// ===================== QUESTION LOADING =====================
+function loadQuestion() {
+  const stage = STAGES[state.stage];
+  const q = stage.questions[state.question];
+  state.answered = false;
+
+  // Stage 5 uses global 60s timer
+  if (state.stage === 4) {
+    if (state.question === 0) {
+      state.timeLeft = stage.timeLimit || 60;
+      state.stageStartTime = Date.now();
+    }
+  } else if (state.stage === 1) {
+    // Stage 2: 5 seconds per question
+    state.timeLeft = stage.timePerQ || 5;
+  } else {
+    state.timeLeft = q.time;
+  }
+
+  document.getElementById('stage-num').textContent = String(state.stage + 1).padStart(2, '0');
+  document.getElementById('stage-title').textContent = stage.title;
+  document.getElementById('game-progress').textContent = '题目 ' + (state.question + 1) + ' / ' + stage.questions.length;
+  document.getElementById('q-num').textContent = 'Q' + (state.question + 1);
+  document.getElementById('q-text').innerHTML = q.text;
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '<div class="fb-title"></div><div class="fb-text"></div>';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('timer-bar').className = 'timer-bar';
+  document.getElementById('timer-bar').style.width = '100%';
+
+  // Step hint for Stage 3
+  const hintEl = document.getElementById('step-hint');
+  const listEl = document.getElementById('step-list');
+  if (state.stage === 2 && q.steps) {
+    hintEl.style.display = 'block';
+    listEl.innerHTML = q.steps.map(s => '<div>› ' + s + '</div>').join('');
+  } else {
+    hintEl.style.display = 'none';
+  }
+
+  // Stage 5 countdown
+  const cd = document.getElementById('countdown-big');
+  if (state.stage === 4) {
+    cd.style.display = 'block';
+    cd.textContent = state.timeLeft;
+    cd.className = 'countdown-big';
+  } else {
+    cd.style.display = 'none';
+  }
+
+  // Build answer area
+  const area = document.getElementById('answer-area');
+  area.innerHTML = '';
+  if (q.type === 'choice') {
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    q.options.forEach((opt, i) => {
+      const div = document.createElement('div');
+      div.className = 'opt';
+      div.innerHTML = '<span class="opt-letter">' + String.fromCharCode(65 + i) + '</span><span>' + opt.substring(3) + '</span>';
+      div.onclick = () => checkAnswer(i);
+      opts.appendChild(div);
+    });
+    area.appendChild(opts);
+  } else {
+    const wrap = document.createElement('div');
+    wrap.className = 'num-input-wrap';
+    wrap.innerHTML = '<input type="text" class="num-input" id="num-answer" placeholder="输入答案..." onkeydown="if(event.key===\'Enter\')checkNumAnswer()">' +
+      '<button class="submit-btn" onclick="checkNumAnswer()">提交</button>';
+    area.appendChild(wrap);
+    setTimeout(() => document.getElementById('num-answer')?.focus(), 50);
+  }
+
+  // Draw canvas
+  drawCanvas(q.canvas, q.canvasData);
+
+  // Start timer
+  clearInterval(state.timer);
+  const totalTime = state.stage === 4 ? (stage.timeLimit || 60) : (state.stage === 1 ? (stage.timePerQ || 5) : q.time);
+  state.timer = setInterval(() => {
+    state.timeLeft--;
+    state.totalTime++;
+    updateHUD();
+
+    const pct = (state.timeLeft / totalTime) * 100;
+    const bar = document.getElementById('timer-bar');
+    bar.style.width = pct + '%';
+    if (pct <= 20) { bar.className = 'timer-bar danger'; }
+    else if (pct <= 50) { bar.className = 'timer-bar warn'; }
+
+    // Update big countdown for stage 5
+    if (state.stage === 4) {
+      const cdEl = document.getElementById('countdown-big');
+      cdEl.textContent = state.timeLeft;
+      if (state.timeLeft <= 10) { cdEl.className = 'countdown-big danger'; }
+      else if (state.timeLeft <= 20) { cdEl.className = 'countdown-big warn'; }
+    }
+
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timer);
+      if (state.stage === 4) {
+        handleStage5Timeout();
+      } else {
+        handleTimeout();
+      }
+    }
+  }, 1000);
+}
+
+// ===================== ANSWER CHECKING =====================
+function checkAnswer(idx) {
+  if (state.answered) return;
+  const q = STAGES[state.stage].questions[state.question];
+  const correct = idx === q.correct;
+  handleResult(correct, q);
+}
+
+function checkNumAnswer() {
+  if (state.answered) return;
+  const input = document.getElementById('num-answer');
+  if (!input) return;
+  const val = input.value.trim().toLowerCase().replace(/\s/g, '').replace(/\*/g, '').replace(/sqrt/g, '√');
+  const q = STAGES[state.stage].questions[state.question];
+  let correct = val === q.answer.toLowerCase().replace(/\s/g, '').replace(/\*/g, '').replace(/sqrt/g, '√');
+  if (!correct && q.altAnswers) {
+    correct = q.altAnswers.some(a => val === a.toLowerCase().replace(/\s/g, '').replace(/\*/g, '').replace(/sqrt/g, '√'));
+  }
+  handleResult(correct, q);
+}
+
+function handleTimeout() {
+  const q = STAGES[state.stage].questions[state.question];
+  state.answered = true;
+  state.combo = 0;
+  state.lives--;
+
+  showFeedback('timeout', '时间到！', q.feedbackWrong);
+  disableOptions();
+  updateHUD();
+
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function handleStage5Timeout() {
+  const stage = STAGES[4];
+  const remaining = stage.questions.length - state.question;
+  state.lives -= remaining;
+  state.combo = 0;
+  updateHUD();
+
+  if (state.lives <= 0) {
+    gameOver();
+    return;
+  }
+
+  state.stageCleared[4] = true;
+  updateStageButtons();
+  showResults();
+}
+
+function handleResult(correct, q) {
+  state.answered = true;
+  clearInterval(state.timer);
+
+  if (correct) {
+    state.combo++;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+    state.correctCount++;
+    const timeBonus = Math.floor(state.timeLeft * 10);
+    const comboMult = Math.min(state.combo, 5);
+    const pts = 100 + timeBonus + comboMult * 20;
+    state.score += pts;
+    showFeedback('correct', '回答正确！+' + pts + '分', q.feedbackCorrect);
+  } else {
+    state.combo = 0;
+    state.lives--;
+    showFeedback('wrong', '回答错误', q.feedbackWrong);
+  }
+
+  disableOptions();
+  updateHUD();
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function disableOptions() {
+  document.querySelectorAll('.opt').forEach(o => o.classList.add('disabled'));
+}
+
+function showFeedback(type, title, text) {
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback show ' + type;
+  fb.innerHTML = '<div class="fb-title">' + title + '</div><div class="fb-text">' + text + '</div>';
+}
+
+// ===================== NAVIGATION =====================
+function nextQuestion() {
+  state.question++;
+  const stage = STAGES[state.stage];
+  if (state.question >= stage.questions.length) {
+    state.stageCleared[state.stage] = true;
+    updateStageButtons();
+    if (state.stage < 4) {
+      state.stage++;
+      state.question = 0;
+      loadQuestion();
+    } else {
+      showResults();
+    }
+  } else {
+    loadQuestion();
+  }
+}
+
+function gameOver() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  document.getElementById('result-grade').textContent = 'F';
+  document.getElementById('result-grade').className = 'result-grade F';
+  document.getElementById('result-title').textContent = '任务失败';
+  document.getElementById('result-desc').textContent = '生命值耗尽。请重新挑战。';
+  document.getElementById('badge-master').classList.remove('unlocked');
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  document.getElementById('res-accuracy').textContent = Math.round(state.correctCount / totalQ * 100) + '%';
+}
+
+function showResults() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  const acc = state.correctCount / totalQ;
+  let grade, title, desc;
+  if (acc >= 0.95 && state.maxCombo >= 5) { grade = 'S'; title = '完美执行'; desc = '所有阶段全部通关，锐角三角比知识体系已完全掌握！「三角大师」徽章已解锁。'; }
+  else if (acc >= 0.85) { grade = 'A'; title = '优秀'; desc = '表现优异，大部分知识点已经掌握。'; }
+  else if (acc >= 0.7) { grade = 'B'; title = '良好'; desc = '基本掌握，但仍有提升空间。'; }
+  else if (acc >= 0.5) { grade = 'C'; title = '及格'; desc = '勉强过关，建议复习教案后重新挑战。'; }
+  else { grade = 'F'; title = '未通过'; desc = '需要更多练习，建议先学习 tutorial.html 教案。'; }
+
+  const gEl = document.getElementById('result-grade');
+  gEl.textContent = grade;
+  gEl.className = 'result-grade ' + grade;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-desc').textContent = desc;
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount + '/' + totalQ;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  document.getElementById('res-accuracy').textContent = Math.round(acc * 100) + '%';
+
+  const badge = document.getElementById('badge-master');
+  if (acc >= 0.7) {
+    badge.classList.add('unlocked');
+  } else {
+    badge.classList.remove('unlocked');
+  }
+}
+
+// ===================== CANVAS DRAWING =====================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+function clearCanvas() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+  for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+}
+
+function drawCanvas(type, data) {
+  clearCanvas();
+  const W = canvas.width, H = canvas.height;
+
+  switch (type) {
+    case 'right-tri-trig': drawRightTriTrig(data); break;
+    case 'trig-identity': drawTrigIdentity(data); break;
+    case 'special-angle': drawSpecialAngle(data); break;
+    case 'isoceles-trig': drawIsocelesTrig(data); break;
+    case 'elevation-angle': drawElevationAngle(data); break;
+    case 'depression-angle': drawDepressionAngle(data); break;
+    case 'slope-angle': drawSlopeAngle(data); break;
+    case 'slope-gradient': drawSlopeGradient(data); break;
+  }
+}
+
+// ---- Stage 1,3,5: Right triangle with trig labels ----
+function drawRightTriTrig(d) {
+  const W = canvas.width, H = canvas.height;
+  const ox = W / 2 - 100, oy = H / 2 + 80;
+  const triW = 160, triH = 120;
+
+  // Triangle fill
+  ctx.fillStyle = 'rgba(0,245,212,0.06)';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.fill();
+
+  // Triangle outline
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2.5;
+  ctx.shadowColor = 'rgba(0,245,212,0.3)'; ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.stroke(); ctx.shadowBlur = 0;
+
+  // Right angle mark
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5;
+  const sq = 14;
+  ctx.strokeRect(ox, oy - sq, sq, sq);
+
+  // Vertex labels
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '14px "Share Tech Mono"';
+  ctx.fillText('C', ox - 18, oy + 4);
+  ctx.fillText('B', ox + triW + 6, oy + 4);
+  ctx.fillText('A', ox - 6, oy - triH - 10);
+
+  // Side labels
+  ctx.fillStyle = '#ff8844';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('a=' + d.a, ox + triW/2 - 20, oy + 22);
+  ctx.fillStyle = '#cc66ff';
+  ctx.fillText('b=' + d.b, ox - 60, oy - triH/2);
+  ctx.fillStyle = '#00f5d4';
+  ctx.fillText('c=' + d.c, ox + triW/2 + 10, oy - triH/2 + 10);
+
+  // Angle arc
+  if (d.showAngle) {
+    ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 2;
+    const angleRad = d.A === 30 ? Math.PI/6 : d.A === 45 ? Math.PI/4 : d.A === 60 ? Math.PI/3 : Math.PI/6;
+    ctx.beginPath();
+    ctx.arc(ox, oy - triH, 30, Math.PI/2, Math.PI/2 + angleRad);
+    ctx.stroke();
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '13px "Orbitron"';
+    ctx.fillText('∠' + d.showAngle + (typeof d.A === 'number' ? '=' + d.A + '°' : ''), ox + 18, oy - triH + 38);
+  }
+
+  // Highlight requested side
+  if (d.showSide === 'BC' || d.showSide === 'a') {
+    ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.stroke();
+  } else if (d.showSide === 'AC' || d.showSide === 'b') {
+    ctx.strokeStyle = '#cc66ff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy - triH); ctx.stroke();
+  } else if (d.showSide === 'AB' || d.showSide === 'c') {
+    ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(ox, oy - triH); ctx.lineTo(ox + triW, oy); ctx.stroke();
+  }
+
+  // SOH CAH TOA helper
+  ctx.fillStyle = '#4a5a70';
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('sin = 对/斜    cos = 邻/斜    tan = 对/邻', 20, 30);
+}
+
+// ---- Trig identity visual ----
+function drawTrigIdentity(d) {
+  const W = canvas.width, H = canvas.height;
+
+  // Unit circle
+  const cx = W / 2 - 80, cy = H / 2, r = 80;
+
+  // Circle
+  ctx.strokeStyle = 'rgba(0,245,212,0.3)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+
+  // Axes
+  ctx.strokeStyle = 'rgba(138,154,176,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - r - 20, cy); ctx.lineTo(cx + r + 20, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - r - 20); ctx.lineTo(cx, cy + r + 20); ctx.stroke();
+
+  // Angle point
+  const angle = Math.PI / 6; // 30° for demo
+  const px = cx + r * Math.cos(angle);
+  const py = cy - r * Math.sin(angle);
+
+  // Radius line
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+
+  // Drop perpendicular
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, cy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('r=1', cx + r/2 - 10, cy - 10);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('sin α', px + 5, cy - r * Math.sin(angle) / 2);
+  ctx.fillStyle = '#cc66ff';
+  ctx.fillText('cos α', cx + r * Math.cos(angle) / 2, cy + 15);
+
+  // Values display
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('三角函数值', W/2 + 60, 30);
+  ctx.font = '13px "Share Tech Mono"';
+  const values = [
+    ['sin α', d.sin || '3/5'],
+    ['cos α', d.cos || '4/5'],
+    ['tan α', d.tan || '3/4']
+  ];
+  if (d.product) values.push(['sin·cos', d.product]);
+  if (d.identity) values.push(['sin²α+cos²α', '= 1']);
+
+  values.forEach((v, i) => {
+    ctx.fillStyle = i === values.length - 1 && d.identity ? '#00ff88' : '#e0e6f0';
+    ctx.fillText(v[0] + ' = ' + v[1], W/2 + 60, 55 + i * 22);
+  });
+
+  // Identity formula
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '12px "Orbitron"';
+  ctx.fillText('sin²α + cos²α = 1', 20, 30);
+}
+
+// ---- Stage 2: Special angle reference ----
+function drawSpecialAngle(d) {
+  const W = canvas.width, H = canvas.height;
+
+  // Triangle visualization
+  const ox = W / 2 - 80, oy = H / 2 + 60;
+  const triW = d.angle === 45 ? 100 : 130, triH = d.angle === 30 ? 75 : d.angle === 45 ? 100 : 112;
+
+  ctx.fillStyle = 'rgba(0,245,212,0.06)';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.stroke();
+
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(ox, oy - 12, 12, 12);
+
+  // Angle arc
+  ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 2;
+  const arcAngle = d.angle === 30 ? Math.PI/6 : d.angle === 45 ? Math.PI/4 : Math.PI/3;
+  ctx.beginPath();
+  ctx.arc(ox, oy - triH, 25, Math.PI/2, Math.PI/2 + arcAngle);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = 'bold 16px "Orbitron"';
+  ctx.fillText(d.angle + '°', ox + 30, oy - triH + 35);
+
+  // Side ratios
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText(d.angle + '° 对边 : 邻边 : 斜边', ox - 20, oy + 28);
+
+  const ratios = d.angle === 30 ? ['1', '√3', '2'] : d.angle === 45 ? ['1', '1', '√2'] : ['√3', '1', '2'];
+  ctx.fillStyle = '#ff8844'; ctx.fillText(ratios[0], ox + triW/2 - 10, oy + 45);
+  ctx.fillStyle = '#cc66ff'; ctx.fillText(':' + ratios[1], ox + triW/2 + 5, oy + 45);
+  ctx.fillStyle = '#00f5d4'; ctx.fillText(':' + ratios[2], ox + triW/2 + 35, oy + 45);
+
+  // Value cards on right
+  const cards = [
+    ['sin', d.sin || '1/2'],
+    ['cos', d.cos || '√3/2'],
+    ['tan', d.tan || '√3/3']
+  ];
+  cards.forEach((c, i) => {
+    const cardX = W/2 + 80;
+    const cardY = 60 + i * 55;
+    ctx.fillStyle = 'rgba(0,245,212,0.08)';
+    ctx.fillRect(cardX, cardY, 120, 42);
+    ctx.strokeStyle = 'rgba(0,245,212,0.2)'; ctx.lineWidth = 1;
+    ctx.strokeRect(cardX, cardY, 120, 42);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = 'bold 14px "Orbitron"';
+    ctx.fillText(c[0], cardX + 10, cardY + 18);
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '16px "Share Tech Mono"';
+    ctx.fillText(c[1], cardX + 50, cardY + 28);
+  });
+
+  if (d.expression) {
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '13px "Orbitron"';
+    ctx.fillText('计算：tan45° + tan30°·tan60°', 20, 30);
+    ctx.fillStyle = '#e0e6f0';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('= 1 + (√3/3)(√3) = 1 + 1 = 2', 20, 50);
+  }
+}
+
+// ---- Isosceles triangle for Stage 3 ----
+function drawIsocelesTrig(d) {
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, oy = H / 2 + 80;
+  const halfBase = 70, height = 90;
+
+  // Triangle
+  ctx.fillStyle = 'rgba(0,245,212,0.06)';
+  ctx.beginPath(); ctx.moveTo(cx, oy - height); ctx.lineTo(cx + halfBase, oy); ctx.lineTo(cx - halfBase, oy); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, oy - height); ctx.lineTo(cx + halfBase, oy); ctx.lineTo(cx - halfBase, oy); ctx.closePath();
+  ctx.stroke();
+
+  // Height line
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(cx, oy - height); ctx.lineTo(cx, oy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - 6, oy - 20); ctx.lineTo(cx + 6, oy - 20); ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('顶角 ' + d.top + '°', cx - 25, oy - height - 10);
+  ctx.fillText('腰 = ' + d.side, cx + halfBase + 5, oy - height/2);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('底边 = ' + d.base, cx - 30, oy + 18);
+  ctx.fillStyle = '#cc66ff';
+  ctx.fillText('半角 = ' + d.halfAngle + '°', cx + 8, oy - 10);
+
+  // Right triangle half
+  ctx.fillStyle = 'rgba(255,136,68,0.08)';
+  ctx.beginPath(); ctx.moveTo(cx, oy - height); ctx.lineTo(cx + halfBase, oy); ctx.lineTo(cx, oy); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, oy - height); ctx.lineTo(cx + halfBase, oy); ctx.lineTo(cx, oy); ctx.closePath();
+  ctx.stroke();
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Orbitron"';
+  ctx.fillText('sin ' + d.halfAngle + '° = (底边/2) / 腰', 20, 30);
+}
+
+// ---- Elevation angle diagram ----
+function drawElevationAngle(d) {
+  const W = canvas.width, H = canvas.height;
+  const groundY = H / 2 + 60;
+
+  // Ground
+  ctx.strokeStyle = 'rgba(0,245,212,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(50, groundY); ctx.lineTo(W - 50, groundY); ctx.stroke();
+
+  // Object (tree/building)
+  const tx = 450, th = (d.h ? parseFloat(d.h) || 80 : 80) * 0.8;
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(tx, groundY); ctx.lineTo(tx, groundY - th); ctx.stroke();
+  // Top
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath(); ctx.arc(tx, groundY - th, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('C', tx + 10, groundY - th - 5);
+  ctx.fillText('D', tx + 6, groundY + 14);
+
+  // Observer points
+  if (d.beta !== undefined) {
+    // Two points
+    const ax = 180, bx = 280;
+    // A point
+    ctx.fillStyle = '#ff8844';
+    ctx.beginPath(); ctx.arc(ax, groundY, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillText('A', ax - 6, groundY + 20);
+    // B point
+    ctx.fillStyle = '#cc66ff';
+    ctx.beginPath(); ctx.arc(bx, groundY, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillText('B', bx - 6, groundY + 20);
+
+    // Sight lines
+    ctx.strokeStyle = 'rgba(255,204,0,0.5)'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(ax, groundY); ctx.lineTo(tx, groundY - th); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx, groundY); ctx.lineTo(tx, groundY - th); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Angle arcs
+    ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(ax, groundY, 25, -Math.atan2(th, tx-ax), 0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, groundY, 25, -Math.atan2(th, tx-bx), 0); ctx.stroke();
+
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = '12px "Orbitron"';
+    ctx.fillText(d.alpha + '°', ax + 30, groundY - 8);
+    ctx.fillText(d.beta + '°', bx + 30, groundY - 8);
+
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText('AB = ' + d.distance + 'm', (ax + bx)/2 - 20, groundY + 22);
+  } else {
+    // Single point (for stage 5 variant)
+    const ax = 200;
+    ctx.fillStyle = '#ff8844';
+    ctx.beginPath(); ctx.arc(ax, groundY, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillText('A', ax - 6, groundY + 20);
+
+    ctx.strokeStyle = 'rgba(255,204,0,0.5)'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(ax, groundY); ctx.lineTo(tx, groundY - th); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('仰角测量', 20, 30);
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('tan(仰角) = 高度 / 水平距离', 20, 48);
+}
+
+// ---- Depression angle diagram ----
+function drawDepressionAngle(d) {
+  const W = canvas.width, H = canvas.height;
+  const eyeY = H / 2 - 40;
+  const groundY = H / 2 + 60;
+
+  // Observer / plane
+  const ex = W / 2 - 100;
+  ctx.fillStyle = '#cc66ff';
+  ctx.beginPath(); ctx.arc(ex, eyeY, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('E（飞机/楼顶）', ex - 30, eyeY - 15);
+
+  // Horizontal reference
+  ctx.strokeStyle = 'rgba(138,154,176,0.4)'; ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(ex - 120, eyeY); ctx.lineTo(ex + 200, eyeY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Ground target
+  const tx = ex + 180;
+  ctx.fillStyle = '#ff8844';
+  ctx.beginPath(); ctx.arc(tx, groundY, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('A（目标）', tx - 15, groundY + 20);
+
+  // Vertical height
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(ex, eyeY); ctx.lineTo(ex, groundY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('h=' + d.height + 'm', ex - 70, (eyeY + groundY)/2);
+
+  // Sight line
+  ctx.strokeStyle = 'rgba(255,204,0,0.5)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(ex, eyeY); ctx.lineTo(tx, groundY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Depression angle arc (above horizontal)
+  const dx = tx - ex, dy = groundY - eyeY;
+  const depAngle = Math.atan2(Math.abs(dy), dx);
+  ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(ex, eyeY, 35, 0, depAngle); ctx.stroke();
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '12px "Orbitron"';
+  ctx.fillText('俯角 ' + d.angle + '°', ex + 45, eyeY + 18);
+
+  // Distance
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('水平距离 = ' + d.distance, 20, 30);
+}
+
+// ---- Slope angle diagram ----
+function drawSlopeAngle(d) {
+  const W = canvas.width, H = canvas.height;
+  const ox = W / 2 - 120, oy = H / 2 + 60;
+  const slopeW = 200, slopeH = 60;
+
+  // Ground
+  ctx.strokeStyle = 'rgba(0,245,212,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + slopeW + 40, oy); ctx.stroke();
+
+  // Slope
+  ctx.fillStyle = 'rgba(255,136,68,0.1)';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + slopeW, oy); ctx.lineTo(ox, oy - slopeH); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + slopeW, oy); ctx.lineTo(ox, oy - slopeH); ctx.closePath();
+  ctx.stroke();
+
+  // Slope surface (highlighted)
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(ox, oy - slopeH); ctx.lineTo(ox + slopeW, oy); ctx.stroke();
+
+  // Angle arc
+  ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(ox, oy, 30, -Math.atan2(slopeH, slopeW), 0); ctx.stroke();
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('坡角 ' + d.angle + '°', ox + 35, oy - 5);
+
+  // Labels
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('坡长 = ' + d.length + 'm', ox + slopeW/2 - 30, oy + 22);
+  ctx.fillStyle = '#cc66ff';
+  ctx.fillText('高度 = ' + d.height, ox - 60, oy - slopeH/2);
+
+  // Ratio
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('坡度与坡角', 20, 30);
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('坡度 i = 垂直:水平 = tan(坡角)', 20, 48);
+}
+
+// ---- Slope gradient (ratio only) ----
+function drawSlopeGradient(d) {
+  const W = canvas.width, H = canvas.height;
+
+  // Triangle showing gradient
+  const ox = W / 2 - 60, oy = H / 2 + 60;
+  const triW = 140, triH = 80;
+
+  ctx.fillStyle = 'rgba(0,245,212,0.06)';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.stroke();
+
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(ox, oy - 12, 12, 12);
+
+  // Labels
+  ctx.fillStyle = '#ff8844';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('垂直 = 1', ox - 55, oy - triH/2);
+  ctx.fillStyle = '#cc66ff';
+  ctx.fillText('水平 = √3', ox + triW/2 - 20, oy + 18);
+
+  // Angle
+  ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(ox, oy, 25, -Math.atan2(triH, triW), 0); ctx.stroke();
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText(d.angle + '°', ox + 30, oy - 5);
+
+  // Formula
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('坡度定义', W/2 + 40, 30);
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('坡度 i = 垂直 : 水平', W/2 + 40, 52);
+  ctx.fillText('= ' + d.ratio, W/2 + 40, 72);
+  ctx.fillText('tan α = ' + d.tan, W/2 + 40, 92);
+  ctx.fillText('→ α = ' + d.angle + '°', W/2 + 40, 112);
+}
+
+// ---- Option click tracking for wrong highlight ----
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.opt');
+  if (!opt) return;
+  if (state.answered) return;
+  const opts = document.querySelectorAll('.opt');
+  const idx = Array.from(opts).indexOf(opt);
+  const q = STAGES[state.stage].questions[state.question];
+  if (q.type !== 'choice') return;
+  if (idx !== q.correct) {
+    opt.classList.add('wrong');
+  }
+  opts[q.correct].classList.add('correct');
+});
+</script>
+</body>
+</html>
