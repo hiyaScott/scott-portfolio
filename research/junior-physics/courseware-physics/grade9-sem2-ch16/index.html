@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十六章 从原子到星系 — COSMOS实验室</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+  :root {
+    --violet: #9d00ff;
+    --magenta: #ff00ff;
+    --dark-bg: #0a0014;
+    --panel-bg: rgba(157, 0, 255, 0.08);
+    --panel-border: rgba(157, 0, 255, 0.35);
+    --accent-glow: rgba(255, 0, 255, 0.3);
+    --text-main: #f0e6ff;
+    --text-dim: #a080c0;
+    --success: #00ff88;
+    --danger: #ff3366;
+    --warning: #ffaa00;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--dark-bg);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Starfield Background */
+  #starfield {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+    animation: twinkle var(--dur) ease-in-out infinite;
+    opacity: var(--op);
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: var(--op); }
+    50% { opacity: calc(var(--op) * 0.3); }
+  }
+
+  /* Floating decorations */
+  .deco {
+    position: fixed;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.12;
+  }
+  .deco-atom {
+    top: 8%; right: 5%;
+    width: 80px; height: 80px;
+    border: 2px solid var(--violet);
+    border-radius: 50%;
+    animation: orbit 12s linear infinite;
+  }
+  .deco-atom::before, .deco-atom::after {
+    content: '';
+    position: absolute;
+    border: 1.5px solid var(--magenta);
+    border-radius: 50%;
+    inset: -15px;
+    animation: orbit 8s linear infinite reverse;
+  }
+  .deco-atom::after { inset: -30px; animation-duration: 15s; }
+  @keyframes orbit {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .deco-planet {
+    bottom: 15%; left: 3%;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, var(--magenta), var(--violet));
+    box-shadow: 0 0 30px var(--accent-glow);
+    animation: float 6s ease-in-out infinite;
+  }
+  .deco-rocket {
+    top: 20%; left: 8%;
+    font-size: 40px;
+    animation: float 5s ease-in-out infinite 1s;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+  }
+
+  /* Main container */
+  #game-container {
+    position: relative;
+    z-index: 10;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  .lab-header {
+    text-align: center;
+    padding: 20px 0 16px;
+    border-bottom: 1px solid var(--panel-border);
+    margin-bottom: 16px;
+  }
+  .lab-header .dept {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--magenta);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .lab-header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--violet), var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+  }
+  .lab-header .subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* HUD */
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(8px);
+  }
+  .hud-group { display: flex; align-items: center; gap: 8px; }
+  .hud-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .hearts { font-size: 20px; letter-spacing: 2px; }
+  .heart-lost { opacity: 0.25; filter: grayscale(1); }
+  .combo-badge {
+    background: linear-gradient(135deg, var(--violet), var(--magenta));
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+  }
+  .score-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--magenta);
+  }
+  .timer {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--warning);
+  }
+  .timer.warning { color: var(--danger); animation: pulse 0.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* Stage indicator */
+  .stage-nav {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .stage-dot {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    padding: 8px 4px;
+    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+    background: var(--panel-bg);
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+  }
+  .stage-dot.active {
+    border-color: var(--magenta);
+    background: rgba(255, 0, 255, 0.15);
+    color: var(--text-main);
+    font-weight: 500;
+  }
+  .stage-dot.completed {
+    border-color: var(--success);
+    color: var(--success);
+  }
+  .stage-dot.locked { opacity: 0.4; cursor: not-allowed; }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-bottom: 16px;
+  }
+  .progress-bar {
+    height: 6px;
+    background: rgba(157, 0, 255, 0.15);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--violet), var(--magenta));
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  /* Question card */
+  .question-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(8px);
+    flex: 1;
+  }
+  .question-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .question-tag {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background: rgba(157, 0, 255, 0.2);
+    color: var(--magenta);
+    letter-spacing: 1px;
+  }
+  .question-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .question-text {
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 20px;
+    font-weight: 500;
+  }
+
+  /* Options */
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .option-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: rgba(157, 0, 255, 0.06);
+    border: 1px solid rgba(157, 0, 255, 0.2);
+    border-radius: 12px;
+    color: var(--text-main);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: left;
+    font-family: inherit;
+  }
+  .option-btn:hover:not(.disabled) {
+    background: rgba(157, 0, 255, 0.15);
+    border-color: var(--violet);
+    transform: translateX(4px);
+  }
+  .option-btn .opt-letter {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(157, 0, 255, 0.2);
+    color: var(--magenta);
+    flex-shrink: 0;
+  }
+  .option-btn.correct {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: var(--success);
+  }
+  .option-btn.correct .opt-letter { background: var(--success); color: var(--dark-bg); }
+  .option-btn.wrong {
+    background: rgba(255, 51, 102, 0.1);
+    border-color: var(--danger);
+  }
+  .option-btn.wrong .opt-letter { background: var(--danger); color: white; }
+  .option-btn.disabled { cursor: default; pointer-events: none; }
+
+  /* Feedback */
+  .feedback {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+    display: none;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .feedback.correct-fb {
+    background: rgba(0, 255, 136, 0.08);
+    border: 1px solid var(--success);
+    color: var(--success);
+  }
+  .feedback.wrong-fb {
+    background: rgba(255, 51, 102, 0.08);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+  }
+  .feedback .fb-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-family: 'Orbitron', monospace;
+  }
+
+  /* Next button */
+  .next-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 16px;
+    background: linear-gradient(135deg, var(--violet), var(--magenta));
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: none;
+  }
+  .next-btn:hover { transform: scale(1.02); box-shadow: 0 0 20px var(--accent-glow); }
+
+  /* Screens */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* Start screen */
+  .start-screen {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .start-screen .cosmos-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    display: block;
+  }
+  .start-screen h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--violet), var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .start-screen .desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.7;
+    max-width: 480px;
+    margin: 0 auto 28px;
+  }
+  .start-btn {
+    padding: 16px 48px;
+    background: linear-gradient(135deg, var(--violet), var(--magenta));
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+  }
+  .start-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px var(--accent-glow); }
+
+  .rules-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-top: 28px;
+    text-align: left;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .rules-box h3 {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--magenta);
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+  }
+  .rules-box ul { list-style: none; }
+  .rules-box li {
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 4px 0;
+    padding-left: 18px;
+    position: relative;
+  }
+  .rules-box li::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: var(--violet);
+    font-weight: 700;
+  }
+
+  /* Stage intro */
+  .stage-intro {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .stage-intro .stage-icon { font-size: 60px; margin-bottom: 16px; }
+  .stage-intro h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+  .stage-intro .stage-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+
+  /* Results screen */
+  .results-screen { padding: 30px 20px; text-align: center; }
+  .results-screen .result-icon { font-size: 72px; margin-bottom: 16px; }
+  .results-screen h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 26px;
+    margin-bottom: 8px;
+  }
+  .grade-display {
+    font-family: 'Orbitron', monospace;
+    font-size: 64px;
+    font-weight: 900;
+    margin: 16px 0;
+    background: linear-gradient(135deg, var(--violet), var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .badge-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: rgba(255, 0, 255, 0.1);
+    border: 1px solid var(--magenta);
+    border-radius: 30px;
+    margin: 12px 0 20px;
+  }
+  .badge-box .badge-icon { font-size: 24px; }
+  .badge-box .badge-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    color: var(--magenta);
+    font-weight: 700;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    max-width: 420px;
+    margin: 20px auto;
+  }
+  .stat-item {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .stat-item .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--magenta);
+  }
+  .stat-item .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .restart-btn {
+    padding: 14px 36px;
+    background: transparent;
+    border: 2px solid var(--violet);
+    border-radius: 12px;
+    color: var(--text-main);
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 16px;
+  }
+  .restart-btn:hover { background: var(--violet); color: white; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: flex;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--panel-border);
+    margin-top: auto;
+  }
+  .nav-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: inherit;
+  }
+  .nav-btn:hover { border-color: var(--violet); color: var(--text-main); }
+  .nav-btn.primary {
+    background: linear-gradient(135deg, var(--violet), var(--magenta));
+    color: white;
+    border: none;
+    font-weight: 500;
+  }
+
+  /* Combo popup */
+  .combo-popup {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-family: 'Orbitron', monospace;
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--magenta);
+    text-shadow: 0 0 20px var(--accent-glow);
+    pointer-events: none;
+    z-index: 100;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .combo-popup.show { transform: translate(-50%, -50%) scale(1); }
+
+  /* Game Over overlay */
+  .gameover-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 0, 20, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    flex-direction: column;
+  }
+  .gameover-overlay.active { display: flex; }
+  .gameover-overlay h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 36px;
+    color: var(--danger);
+    margin-bottom: 16px;
+  }
+  .gameover-overlay p { color: var(--text-dim); margin-bottom: 24px; }
+
+  @media (max-width: 480px) {
+    .lab-header h1 { font-size: 18px; }
+    .question-text { font-size: 15px; }
+    .option-btn { font-size: 14px; padding: 12px 14px; }
+    .grade-display { font-size: 48px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Starfield -->
+<div id="starfield"></div>
+
+<!-- Decorations -->
+<div class="deco deco-atom"></div>
+<div class="deco deco-planet"></div>
+<div class="deco deco-rocket">🚀</div>
+
+<!-- Combo popup -->
+<div class="combo-popup" id="comboPopup"></div>
+
+<!-- Game Over Overlay -->
+<div class="gameover-overlay" id="gameOverOverlay">
+  <h2>ENERGY DEPLETED</h2>
+  <p>护盾能量耗尽，实验中断</p>
+  <button class="restart-btn" onclick="restartGame()">RESTART MISSION</button>
+</div>
+
+<div id="game-container">
+
+  <!-- Header -->
+  <div class="lab-header" id="labHeader" style="display:none;">
+    <div class="dept">天体物理实验室 · COSMOS DIVISION</div>
+    <h1>第十六章 · 从原子到星系</h1>
+    <div class="subtitle">代号 COSMOS · 机密等级：教学公开</div>
+  </div>
+
+  <!-- HUD -->
+  <div class="hud" id="hud" style="display:none;">
+    <div class="hud-group">
+      <span class="hud-label">HP</span>
+      <span class="hearts" id="hearts">❤️❤️❤️</span>
+    </div>
+    <div class="hud-group">
+      <span class="hud-label">Combo</span>
+      <span class="combo-badge" id="comboBadge">x1</span>
+    </div>
+    <div class="hud-group">
+      <span class="hud-label">Score</span>
+      <span class="score-val" id="scoreVal">0</span>
+    </div>
+    <div class="hud-group" id="timerGroup" style="display:none;">
+      <span class="hud-label">Time</span>
+      <span class="timer" id="timerVal">60</span>
+    </div>
+  </div>
+
+  <!-- Stage Navigation -->
+  <div class="stage-nav" id="stageNav" style="display:none;"></div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap" style="display:none;">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- START SCREEN -->
+  <div class="screen active start-screen" id="startScreen">
+    <span class="cosmos-icon">🌌</span>
+    <h2>COSMOS LAB</h2>
+    <p class="desc">
+      欢迎来到天体物理实验室。你即将执行代号 COSMOS 的探索任务，<br>
+      穿越从微观原子到宏观星系的五个实验阶段。<br>
+      准备好接受挑战了吗？
+    </p>
+    <button class="start-btn" onclick="startGame()">INITIATE</button>
+    <div class="rules-box">
+      <h3>任务规则</h3>
+      <ul>
+        <li>护盾能量：3颗❤️，答错扣除1颗</li>
+        <li>连续答对触发连击加成，最高x5</li>
+        <li>每阶段6题（Stage 5为限时60秒挑战）</li>
+        <li>完成全部阶段解锁「宇宙大师」徽章</li>
+        <li>评级：S/A/B/C 依据正确率与速度</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- STAGE INTRO -->
+  <div class="screen stage-intro" id="stageIntroScreen">
+    <div class="stage-icon" id="stageIcon">⚛️</div>
+    <h2 id="stageIntroTitle">Stage 1</h2>
+    <p class="stage-desc" id="stageIntroDesc">原子结构探索</p>
+    <button class="start-btn" onclick="enterStage()">ENTER STAGE</button>
+  </div>
+
+  <!-- QUESTION SCREEN -->
+  <div class="screen" id="questionScreen">
+    <div class="question-card">
+      <div class="question-meta">
+        <span class="question-tag" id="questionTag">原子结构</span>
+        <span class="question-num" id="questionNum">1 / 6</span>
+      </div>
+      <div class="question-text" id="questionText"></div>
+      <div class="options" id="options"></div>
+      <div class="feedback" id="feedback"></div>
+      <button class="next-btn" id="nextBtn" onclick="nextQuestion()">CONTINUE →</button>
+    </div>
+  </div>
+
+  <!-- STAGE COMPLETE -->
+  <div class="screen stage-intro" id="stageCompleteScreen">
+    <div class="stage-icon" id="stageCompleteIcon">✨</div>
+    <h2 id="stageCompleteTitle">Stage Complete</h2>
+    <div class="stats-grid" id="stageStats"></div>
+    <button class="start-btn" id="stageNextBtn" onclick="nextStage()">NEXT STAGE →</button>
+  </div>
+
+  <!-- FINAL RESULTS -->
+  <div class="screen results-screen" id="resultsScreen">
+    <div class="result-icon" id="resultIcon">🏆</div>
+    <h2>MISSION COMPLETE</h2>
+    <div class="grade-display" id="finalGrade">S</div>
+    <div id="badgeContainer"></div>
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-val" id="finalScore">0</div>
+        <div class="stat-label">总分</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="finalCorrect">0</div>
+        <div class="stat-label">正确数</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="finalAccuracy">0%</div>
+        <div class="stat-label">正确率</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="finalMaxCombo">0</div>
+        <div class="stat-label">最高连击</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="finalTime">0s</div>
+        <div class="stat-label">总用时</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="finalStages">5/5</div>
+        <div class="stat-label">完成阶段</div>
+      </div>
+    </div>
+    <button class="restart-btn" onclick="restartGame()">RESTART MISSION</button>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav" id="bottomNav" style="display:none;">
+    <button class="nav-btn" onclick="showHelp()">📋 帮助</button>
+    <button class="nav-btn primary" onclick="restartGame()">🔄 重新开始</button>
+    <button class="nav-btn" onclick="toggleSound()">🔊 音效</button>
+  </div>
+
+</div>
+
+<script>
+// ===================== DATA =====================
+const STAGES = [
+  {
+    id: 1, name: '原子结构', icon: '⚛️', desc: '探索物质的最小单元',
+    questions: [
+      {
+        text: '根据卢瑟福的核式结构模型，原子的大部分质量和全部正电荷集中在（　）',
+        options: ['电子', '原子核', '质子', '中子'],
+        correct: 1,
+        explain: '卢瑟福α粒子散射实验表明：原子中心有一个很小的核，集中了全部正电荷和几乎全部质量，电子绕核运动。'
+      },
+      {
+        text: '某原子核内有8个质子、8个中子，核外有8个电子，则该原子的核电荷数为（　）',
+        options: ['8', '16', '24', '4'],
+        correct: 0,
+        explain: '核电荷数 = 质子数 = 核外电子数（原子呈电中性时）。该原子有8个质子，核电荷数为8。'
+      },
+      {
+        text: '关于原子结构，下列说法正确的是（　）',
+        options: [
+          '原子是不可再分的最小粒子',
+          '原子核由质子和电子组成',
+          '原子中质子数一定等于中子数',
+          '电子带负电，绕原子核高速运动'
+        ],
+        correct: 3,
+        explain: '原子可再分为原子核和电子；原子核由质子和中子组成（氢除外）；质子数与中子数不一定相等；电子带负电绕核运动是正确的。'
+      },
+      {
+        text: '一个碳-12原子有6个质子、6个中子和6个电子。若它失去2个电子形成离子，则该离子有（　）',
+        options: ['6个质子、8个电子', '8个质子、6个电子', '6个质子、4个电子', '4个质子、6个电子'],
+        correct: 2,
+        explain: '失去电子不改变质子数。碳原子有6个质子，失去2个电子后剩4个电子，形成C²⁺离子。'
+      },
+      {
+        text: '下列粒子中带正电的是（　）',
+        options: ['电子', '中子', '质子', '光子'],
+        correct: 2,
+        explain: '质子带正电，电子带负电，中子不带电，光子不带电。'
+      },
+      {
+        text: '原子核的直径约为原子直径的（　）',
+        options: ['1/2', '1/10', '1/10000', '1/100000000'],
+        correct: 2,
+        explain: '原子核直径约10⁻¹⁵m，原子直径约10⁻¹⁰m，原子核直径约为原子直径的1/10000。原子内部大部分是空的。'
+      }
+    ]
+  },
+  {
+    id: 2, name: '核能', icon: '☢️', desc: '释放原子核中的巨大能量',
+    questions: [
+      {
+        text: '核电站利用的是（　）释放的能量',
+        options: ['核裂变', '核聚变', '化学能', '太阳能'],
+        correct: 0,
+        explain: '目前核电站都是利用可控核裂变反应释放的能量来发电。核聚变尚处于研究阶段，还不能实现可控利用。'
+      },
+      {
+        text: '下列关于核裂变的说法，错误的是（　）',
+        options: [
+          '重原子核分裂成较轻的原子核',
+          '裂变过程中会释放巨大能量',
+          '链式反应可以人工控制',
+          '太阳发光发热是核裂变的结果'
+        ],
+        correct: 3,
+        explain: '太阳发光发热是核聚变（轻核聚合成重核）的结果，不是核裂变。核裂变是重核分裂为轻核。'
+      },
+      {
+        text: '原子弹与核电站都利用核裂变，关键区别在于（　）',
+        options: [
+          '反应物质不同',
+          '反应速度是否可控',
+          '放出的能量形式不同',
+          '是否产生放射性'
+        ],
+        correct: 1,
+        explain: '原子弹是不可控的链式反应，瞬间释放巨大能量；核电站是可控的链式反应，缓慢释放能量用于发电。'
+      },
+      {
+        text: '核聚变的典型例子是（　）',
+        options: ['核电站发电', '原子弹爆炸', '太阳发光', 'X射线产生'],
+        correct: 2,
+        explain: '太阳内部进行的是氢核聚变成氦核的反应（热核反应），持续释放光和热。核电站和原子弹利用的是裂变。'
+      },
+      {
+        text: '链式反应是指裂变产生的中子能（　）',
+        options: [
+          '被完全吸收',
+          '逃逸出反应堆',
+          '继续引发新的裂变',
+          '转化为质子'
+        ],
+        correct: 2,
+        explain: '链式反应：一个重核裂变时放出中子，这些中子又引发其他重核裂变，如此连续进行下去。'
+      },
+      {
+        text: '关于核能，下列说法正确的是（　）',
+        options: [
+          '核裂变和核聚变都是将轻核合成重核',
+          '核废料没有放射性，可以随意处理',
+          '核聚变比核裂变释放的能量更多且原料更丰富',
+          '核电站会排放大量二氧化碳'
+        ],
+        correct: 2,
+        explain: '核聚变（轻核合成重核）的原料氘可从海水中提取，十分丰富；聚变释放能量更多且产物清洁。核废料有放射性需妥善处理；核电站不排放CO₂。'
+      }
+    ]
+  },
+  {
+    id: 3, name: '太阳系', icon: '🪐', desc: '我们的宇宙家园',
+    questions: [
+      {
+        text: '太阳系八大行星中，距离太阳最近的是（　）',
+        options: ['金星', '地球', '水星', '火星'],
+        correct: 2,
+        explain: '八大行星距日由近到远：水星、金星、地球、火星、木星、土星、天王星、海王星。水星最近。'
+      },
+      {
+        text: '太阳系中体积和质量最大的行星是（　）',
+        options: ['地球', '土星', '木星', '天王星'],
+        correct: 2,
+        explain: '木星是太阳系最大的行星，质量约为其他所有行星总和的2.5倍，体积约为地球的1300倍。'
+      },
+      {
+        text: '日食发生时，月球位于（　）',
+        options: ['太阳和地球之间', '地球和太阳之间', '地球背向太阳一侧', '任意位置'],
+        correct: 0,
+        explain: '日食：月球运行到太阳和地球之间，挡住太阳光，月球影子投射到地球上。'
+      },
+      {
+        text: '月食发生时，地球位于（　）',
+        options: ['太阳和月球之间', '月球和太阳之间', '远离两者', '任意位置'],
+        correct: 0,
+        explain: '月食：地球运行到太阳和月球之间，地球挡住太阳光，地球影子投射到月球上。'
+      },
+      {
+        text: '下列行星中，属于类地行星（岩石行星）的是（　）',
+        options: ['木星', '土星', '天王星', '火星'],
+        correct: 3,
+        explain: '类地行星（岩石行星）：水星、金星、地球、火星。类木行星（气态巨行星）：木星、土星、天王星、海王星。'
+      },
+      {
+        text: '地球在太阳系中的特殊之处在于（　）',
+        options: [
+          '它是唯一有卫星的行星',
+          '它距太阳最近',
+          '它是目前已知唯一有生命的行星',
+          '它是最大的行星'
+        ],
+        correct: 2,
+        explain: '地球是目前已知唯一存在生命的行星，拥有适宜的温度、液态水和大气层。木星等也有卫星；地球不是最大或最近。'
+      }
+    ]
+  },
+  {
+    id: 4, name: '宇宙探索', icon: '🔭', desc: '人类对宇宙的终极追问',
+    questions: [
+      {
+        text: '光年是天文学中的（　）单位',
+        options: ['时间', '速度', '距离', '亮度'],
+        correct: 2,
+        explain: '光年（light-year）是距离单位，表示光在真空中一年传播的距离，约9.46×10¹²km。'
+      },
+      {
+        text: '恒星演化的最终阶段，质量较小的恒星（如太阳）最终会变成（　）',
+        options: ['黑洞', '中子星', '白矮星', '超新星'],
+        correct: 2,
+        explain: '质量类似太阳的恒星演化：主序星→红巨星→行星状星云→白矮星。更大质量恒星可能变为中子星或黑洞。'
+      },
+      {
+        text: '一架天文望远镜的物镜口径越大，则（　）',
+        options: [
+          '放大倍数越大',
+          '收集的光越多，能看到越暗弱的天体',
+          '成像越小',
+          '只能观测近处天体'
+        ],
+        correct: 1,
+        explain: '望远镜口径越大，集光能力越强，能看到越暗弱、越遥远的天体。放大倍数由目镜和物镜焦距比决定。'
+      },
+      {
+        text: '下列天体中，距离地球最近的是（　）',
+        options: ['太阳', '月球', '火星', '金星'],
+        correct: 1,
+        explain: '月球距地球约38万千米，是最近的天体。太阳约1.5亿千米；金星和火星距离随轨道位置变化，最近时也远大于月球距离。'
+      },
+      {
+        text: '下列说法正确的是（　）',
+        options: [
+          '银河系是宇宙中唯一的星系',
+          '宇宙正在膨胀，星系在相互远离',
+          '恒星的亮度越高，温度一定越高',
+          '宇宙大爆炸发生在银河系中心'
+        ],
+        correct: 1,
+        explain: '宇宙正在加速膨胀，绝大多数星系在相互远离（哈勃定律）。银河系只是宇宙中数千亿星系之一；恒星亮度与温度和表面积都有关。'
+      }
+    ]
+  },
+  {
+    id: 5, name: '终极实验', icon: '🚀', desc: '60秒综合挑战 — 全知识域速答',
+    questions: [
+      {
+        text: '【速答】一个氧原子有8个质子、8个中子，其核外电子数为（　）',
+        options: ['6', '8', '16', '4'],
+        correct: 1,
+        explain: '中性原子中：电子数=质子数=8。'
+      },
+      {
+        text: '【速答】核聚变是（　）的过程',
+        options: ['重核分裂', '轻核合成重核', '电子跃迁', '放射性衰变'],
+        correct: 1,
+        explain: '核聚变是轻原子核聚合成较重原子核的过程，如太阳内部的氢→氦反应。'
+      },
+      {
+        text: '【速答】八大行星中，地球的"邻居"从内到外依次是（　）',
+        options: ['火星、金星', '金星、火星', '水星、火星', '木星、火星'],
+        correct: 1,
+        explain: '距日顺序：水→金→地→火→木→土→天→海。地球内邻金星，外邻火星。'
+      },
+      {
+        text: '【速答】距离太阳最近的恒星是（　）',
+        options: ['天狼星', '比邻星', '北极星', '织女星'],
+        correct: 1,
+        explain: '比邻星（Proxima Centauri）距太阳约4.24光年，是已知最近的恒星。'
+      },
+      {
+        text: '【速答】关于核能，正确的是（　）',
+        options: [
+          '裂变和聚变都是可控制的',
+          '裂变不可控，聚变可控',
+          '裂变可控，聚变目前尚不可控',
+          '两者都完全不可控'
+        ],
+        correct: 2,
+        explain: '核裂变已实现可控（核电站）；核聚变目前只能在氢弹中不可控实现，可控核聚变尚在研究中。'
+      },
+      {
+        text: '【速答】日全食时，被遮挡的天体是（　）',
+        options: ['月球', '地球', '太阳', '火星'],
+        correct: 2,
+        explain: '日食是月球挡住太阳，地球上的人看不到太阳（或只能看到部分）。'
+      }
+    ]
+  }
+];
+
+// ===================== STATE =====================
+let state = {
+  currentStage: 0,
+  currentQuestion: 0,
+  hp: 3,
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  correctCount: 0,
+  totalAnswered: 0,
+  stageResults: [],
+  timer: null,
+  timeLeft: 60,
+  totalTime: 0,
+  soundOn: true,
+  answered: false
+};
+
+// ===================== INIT =====================
+function initStarfield() {
+  const sf = document.getElementById('starfield');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 1;
+    s.style.width = size + 'px';
+    s.style.height = size + 'px';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top = Math.random() * 100 + '%';
+    s.style.setProperty('--op', Math.random() * 0.7 + 0.3);
+    s.style.setProperty('--dur', (Math.random() * 3 + 2) + 's');
+    s.style.animationDelay = Math.random() * 5 + 's';
+    sf.appendChild(s);
+  }
+}
+initStarfield();
+
+// ===================== NAVIGATION =====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showHUD(show) {
+  const el = id => document.getElementById(id);
+  el('labHeader').style.display = show ? 'block' : 'none';
+  el('hud').style.display = show ? 'flex' : 'none';
+  el('stageNav').style.display = show ? 'flex' : 'none';
+  el('progressWrap').style.display = show ? 'flex' : 'none';
+  el('bottomNav').style.display = show ? 'flex' : 'none';
+}
+
+function renderStageNav() {
+  const nav = document.getElementById('stageNav');
+  nav.innerHTML = '';
+  STAGES.forEach((s, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'stage-dot';
+    if (i < state.currentStage) dot.classList.add('completed');
+    else if (i === state.currentStage) dot.classList.add('active');
+    else dot.classList.add('locked');
+    dot.textContent = `${s.icon} ${s.name}`;
+    dot.onclick = () => { if (i <= state.currentStage) jumpToStage(i); };
+    nav.appendChild(dot);
+  });
+}
+
+function updateHUD() {
+  const hearts = '❤️'.repeat(state.hp) + '🖤'.repeat(3 - state.hp);
+  document.getElementById('hearts').innerHTML = hearts;
+  document.getElementById('comboBadge').textContent = 'x' + (state.combo + 1);
+  document.getElementById('scoreVal').textContent = state.score;
+}
+
+function updateProgress() {
+  const stage = STAGES[state.currentStage];
+  const pct = ((state.currentQuestion + 1) / stage.questions.length) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+// ===================== GAME FLOW =====================
+function startGame() {
+  state = {
+    currentStage: 0,
+    currentQuestion: 0,
+    hp: 3,
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    correctCount: 0,
+    totalAnswered: 0,
+    stageResults: [],
+    timer: null,
+    timeLeft: 60,
+    totalTime: 0,
+    soundOn: true,
+    answered: false
+  };
+  showHUD(true);
+  showStageIntro();
+}
+
+function showStageIntro() {
+  const stage = STAGES[state.currentStage];
+  document.getElementById('stageIcon').textContent = stage.icon;
+  document.getElementById('stageIntroTitle').textContent = `Stage ${stage.id}: ${stage.name}`;
+  document.getElementById('stageIntroDesc').textContent = stage.desc;
+  renderStageNav();
+  showScreen('stageIntroScreen');
+}
+
+function enterStage() {
+  state.currentQuestion = 0;
+  state.answered = false;
+  if (state.currentStage === 4) {
+    state.timeLeft = 60;
+    startTimer();
+  } else {
+    stopTimer();
+  }
+  renderStageNav();
+  showQuestion();
+}
+
+function jumpToStage(idx) {
+  if (idx >= state.stageResults.length) return;
+  state.currentStage = idx;
+  state.currentQuestion = 0;
+  state.answered = false;
+  if (idx === 4) { state.timeLeft = 60; startTimer(); } else { stopTimer(); }
+  renderStageNav();
+  showQuestion();
+}
+
+function startTimer() {
+  document.getElementById('timerGroup').style.display = 'flex';
+  stopTimer();
+  state.timer = setInterval(() => {
+    state.timeLeft--;
+    state.totalTime++;
+    const tv = document.getElementById('timerVal');
+    tv.textContent = state.timeLeft;
+    if (state.timeLeft <= 10) tv.classList.add('warning');
+    else tv.classList.remove('warning');
+    if (state.timeLeft <= 0) {
+      stopTimer();
+      finishStage();
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+  document.getElementById('timerGroup').style.display = 'none';
+  document.getElementById('timerVal').classList.remove('warning');
+}
+
+function showQuestion() {
+  const stage = STAGES[state.currentStage];
+  const q = stage.questions[state.currentQuestion];
+  document.getElementById('questionTag').textContent = stage.name;
+  document.getElementById('questionNum').textContent = `${state.currentQuestion + 1} / ${stage.questions.length}`;
+  document.getElementById('questionText').textContent = q.text;
+  const opts = document.getElementById('options');
+  opts.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.innerHTML = `<span class="opt-letter">${String.fromCharCode(65 + i)}</span><span>${opt}</span>`;
+    btn.onclick = () => selectAnswer(i);
+    opts.appendChild(btn);
+  });
+  document.getElementById('feedback').style.display = 'none';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('nextBtn').style.display = 'none';
+  state.answered = false;
+  updateHUD();
+  updateProgress();
+  showScreen('questionScreen');
+}
+
+function selectAnswer(idx) {
+  if (state.answered) return;
+  state.answered = true;
+  const stage = STAGES[state.currentStage];
+  const q = stage.questions[state.currentQuestion];
+  const btns = document.querySelectorAll('.option-btn');
+  const fb = document.getElementById('feedback');
+  state.totalAnswered++;
+
+  if (idx === q.correct) {
+    // Correct
+    btns[idx].classList.add('correct');
+    state.combo++;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+    const comboMult = Math.min(state.combo, 5);
+    const basePoints = state.currentStage === 4 ? 20 : 10;
+    const points = basePoints * comboMult;
+    state.score += points;
+    state.correctCount++;
+    fb.className = 'feedback correct-fb';
+    fb.innerHTML = `<div class="fb-title">✓ CORRECT (+${points})</div>${q.explain}`;
+    if (state.combo >= 3) showComboPopup(state.combo);
+  } else {
+    // Wrong
+    btns[idx].classList.add('wrong');
+    btns[q.correct].classList.add('correct');
+    state.combo = 0;
+    state.hp--;
+    fb.className = 'feedback wrong-fb';
+    fb.innerHTML = `<div class="fb-title">✗ WRONG — 正确答案：${String.fromCharCode(65 + q.correct)}</div>${q.explain}`;
+  }
+
+  btns.forEach(b => b.classList.add('disabled'));
+  fb.style.display = 'block';
+  updateHUD();
+
+  if (state.hp <= 0) {
+    setTimeout(() => { stopTimer(); document.getElementById('gameOverOverlay').classList.add('active'); }, 1500);
+    return;
+  }
+
+  const isLast = state.currentQuestion >= stage.questions.length - 1;
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.textContent = isLast ? 'FINISH STAGE →' : 'CONTINUE →';
+  nextBtn.style.display = 'block';
+}
+
+function showComboPopup(n) {
+  const pop = document.getElementById('comboPopup');
+  pop.textContent = n + ' COMBO!';
+  pop.classList.add('show');
+  setTimeout(() => pop.classList.remove('show'), 800);
+}
+
+function nextQuestion() {
+  const stage = STAGES[state.currentStage];
+  if (state.currentQuestion < stage.questions.length - 1) {
+    state.currentQuestion++;
+    showQuestion();
+  } else {
+    finishStage();
+  }
+}
+
+function finishStage() {
+  stopTimer();
+  const stage = STAGES[state.currentStage];
+  const stageQs = stage.questions.length;
+  const stageCorrect = state.stageResults[state.currentStage]?.correct ||
+    (() => {
+      // Count correct in this stage by comparing current totals
+      const prevCorrect = state.stageResults.reduce((s, r) => s + r.correct, 0);
+      return state.correctCount - prevCorrect;
+    })();
+  // Recalculate properly
+  let stageCorrectCount = 0;
+  // We need to track per-stage; let's infer from the difference
+  const beforeCorrect = state.stageResults.reduce((sum, r) => sum + r.correct, 0);
+  stageCorrectCount = state.correctCount - beforeCorrect;
+
+  const stageScore = stageCorrectCount * 10 + (stageCorrectCount === stageQs ? 20 : 0);
+  state.stageResults.push({
+    stage: stage.id,
+    correct: stageCorrectCount,
+    total: stageQs,
+    score: stageScore
+  });
+
+  // Show stage complete
+  document.getElementById('stageCompleteIcon').textContent = stage.icon;
+  document.getElementById('stageCompleteTitle').textContent = `Stage ${stage.id} Complete: ${stage.name}`;
+  const stats = document.getElementById('stageStats');
+  const pct = Math.round((stageCorrectCount / stageQs) * 100);
+  stats.innerHTML = `
+    <div class="stat-item"><div class="stat-val">${stageCorrectCount}/${stageQs}</div><div class="stat-label">正确</div></div>
+    <div class="stat-item"><div class="stat-val">${pct}%</div><div class="stat-label">准确率</div></div>
+    <div class="stat-item"><div class="stat-val">+${stageScore}</div><div class="stat-label">得分</div></div>
+  `;
+  const nextBtn = document.getElementById('stageNextBtn');
+  if (state.currentStage < STAGES.length - 1) {
+    nextBtn.textContent = 'NEXT STAGE →';
+    nextBtn.onclick = nextStage;
+    nextBtn.style.display = 'inline-block';
+  } else {
+    nextBtn.textContent = 'VIEW RESULTS →';
+    nextBtn.onclick = showFinalResults;
+    nextBtn.style.display = 'inline-block';
+  }
+  showScreen('stageCompleteScreen');
+}
+
+function nextStage() {
+  state.currentStage++;
+  state.currentQuestion = 0;
+  state.answered = false;
+  showStageIntro();
+}
+
+function showFinalResults() {
+  stopTimer();
+  const totalQ = STAGES.reduce((s, st) => s + st.questions.length, 0);
+  const acc = Math.round((state.correctCount / totalQ) * 100);
+  let grade = 'C';
+  if (acc >= 95 && state.maxCombo >= 5) grade = 'S';
+  else if (acc >= 85) grade = 'A';
+  else if (acc >= 70) grade = 'B';
+
+  document.getElementById('finalGrade').textContent = grade;
+  document.getElementById('finalGrade').style.background = grade === 'S'
+    ? 'linear-gradient(135deg, #ffd700, #ffaa00)'
+    : grade === 'A'
+    ? 'linear-gradient(135deg, var(--violet), var(--magenta))'
+    : grade === 'B'
+    ? 'linear-gradient(135deg, #00aaff, #0088ff)'
+    : 'linear-gradient(135deg, #888, #666)';
+  document.getElementById('finalGrade').style.webkitBackgroundClip = 'text';
+
+  document.getElementById('finalScore').textContent = state.score;
+  document.getElementById('finalCorrect').textContent = state.correctCount;
+  document.getElementById('finalAccuracy').textContent = acc + '%';
+  document.getElementById('finalMaxCombo').textContent = 'x' + state.maxCombo;
+  document.getElementById('finalTime').textContent = state.totalTime + 's';
+
+  const badge = document.getElementById('badgeContainer');
+  if (grade === 'S' || grade === 'A') {
+    badge.innerHTML = `
+      <div class="badge-box">
+        <span class="badge-icon">🌌</span>
+        <span class="badge-text">宇宙大师 · COSMOS MASTER</span>
+      </div>
+    `;
+  } else if (grade === 'B') {
+    badge.innerHTML = `
+      <div class="badge-box">
+        <span class="badge-icon">⭐</span>
+        <span class="badge-text">星际旅者 · STELLAR TRAVELER</span>
+      </div>
+    `;
+  } else {
+    badge.innerHTML = `
+      <div class="badge-box">
+        <span class="badge-icon">🌱</span>
+        <span class="badge-text">宇宙学徒 · COSMOS APPRENTICE</span>
+      </div>
+    `;
+  }
+
+  showScreen('resultsScreen');
+}
+
+function restartGame() {
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  startGame();
+}
+
+function showHelp() {
+  alert('任务规则：\n• 护盾能量：3颗❤️，答错扣除1颗\n• 连续答对触发连击加成（最高x5）\n• Stage 5为60秒限时挑战\n• 完成全部阶段解锁徽章\n• 评级依据正确率和最高连击');
+}
+
+function toggleSound() {
+  state.soundOn = !state.soundOn;
+  alert('音效已' + (state.soundOn ? '开启' : '关闭'));
+}
+</script>
+
+</body>
+</html>
