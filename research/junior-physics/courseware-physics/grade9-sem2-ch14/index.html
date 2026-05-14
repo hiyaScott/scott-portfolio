@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十四章 电与磁 · MAGNET实验室</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+  :root {
+    --purple-deep: #4a0080;
+    --purple-main: #9d00ff;
+    --magenta: #ff00ff;
+    --purple-light: #d580ff;
+    --purple-glow: rgba(157,0,255,0.4);
+    --dark-bg: #0d0a12;
+    --panel-bg: rgba(20,15,30,0.85);
+    --grid-line: rgba(157,0,255,0.08);
+    --text-primary: #e8e0f0;
+    --text-secondary: #9a8ab0;
+    --accent-correct: #00ff88;
+    --accent-wrong: #ff3366;
+    --accent-caution: #ffaa00;
+    --heart: #ff3366;
+    --shadow-glow: 0 0 20px rgba(157,0,255,0.3), 0 0 60px rgba(255,0,255,0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--dark-bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Data lab notebook grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Decorative magnet / coil elements */
+  .deco-magnet {
+    position: fixed;
+    width: 120px; height: 200px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #ff3333 0%, #ff3333 45%, #cccccc 45%, #cccccc 55%, #3366ff 55%, #3366ff 100%);
+    opacity: 0.06;
+    z-index: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+  }
+  .deco-magnet:nth-child(1) { top: 5%; left: 3%; transform: rotate(-15deg); }
+  .deco-magnet:nth-child(2) { bottom: 10%; right: 5%; transform: rotate(20deg); }
+
+  .deco-coil {
+    position: fixed;
+    width: 160px; height: 160px;
+    border: 3px solid var(--purple-main);
+    border-radius: 50%;
+    opacity: 0.05;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .deco-coil::before, .deco-coil::after {
+    content: '';
+    position: absolute;
+    border: 2px solid var(--magenta);
+    border-radius: 50%;
+  }
+  .deco-coil::before { inset: 15px; }
+  .deco-coil::after { inset: 30px; }
+  .deco-coil:nth-child(3) { top: 15%; right: 8%; }
+  .deco-coil:nth-child(4) { bottom: 20%; left: 6%; }
+
+  .deco-compass {
+    position: fixed;
+    width: 100px; height: 100px;
+    border: 2px solid rgba(157,0,255,0.1);
+    border-radius: 50%;
+    z-index: 0;
+    pointer-events: none;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .deco-compass::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 2px; height: 45%;
+    background: linear-gradient(to top, var(--magenta), transparent);
+    transform-origin: bottom center;
+    transform: translate(-50%, -100%) rotate(30deg);
+  }
+
+  /* --- Screens --- */
+  .screen {
+    display: none;
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+  .screen.active { display: block; }
+
+  /* --- Header --- */
+  .lab-header {
+    padding: 20px 24px 12px;
+    border-bottom: 1px solid rgba(157,0,255,0.2);
+    background: linear-gradient(180deg, rgba(20,15,30,0.9) 0%, transparent 100%);
+  }
+  .lab-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .lab-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--purple-light);
+  }
+  .lab-title .code {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--magenta);
+    font-size: 0.85em;
+    margin-left: 8px;
+  }
+  .lab-sub {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .hud {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+  }
+  .hud-hearts { display: flex; gap: 4px; font-size: 1.2rem; }
+  .hud-hearts .heart { transition: all 0.3s; filter: drop-shadow(0 0 4px var(--heart)); }
+  .hud-hearts .heart.lost { opacity: 0.2; filter: grayscale(1); }
+  .hud-score { color: var(--accent-correct); text-shadow: 0 0 8px rgba(0,255,136,0.3); }
+  .hud-combo {
+    color: var(--magenta);
+    opacity: 0;
+    transition: opacity 0.3s;
+    text-shadow: 0 0 8px rgba(255,0,255,0.3);
+  }
+  .hud-combo.show { opacity: 1; }
+  .hud-timer {
+    color: var(--accent-caution);
+    text-shadow: 0 0 8px rgba(255,170,0,0.3);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  /* --- Stage banner --- */
+  .stage-banner {
+    margin: 16px 24px;
+    padding: 14px 20px;
+    background: var(--panel-bg);
+    border: 1px solid rgba(157,0,255,0.25);
+    border-left: 4px solid var(--purple-main);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+  }
+  .stage-banner .stage-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--purple-light);
+  }
+  .stage-banner .stage-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  /* --- Question card --- */
+  .question-card {
+    margin: 16px 24px;
+    padding: 24px;
+    background: var(--panel-bg);
+    border: 1px solid rgba(157,0,255,0.2);
+    border-radius: 12px;
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-glow);
+    position: relative;
+    overflow: hidden;
+  }
+  .question-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--purple-main), var(--magenta), var(--purple-main));
+    opacity: 0.6;
+  }
+  .q-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--magenta);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  }
+  .q-text {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    margin-bottom: 20px;
+    white-space: pre-wrap;
+  }
+  .q-diagram {
+    margin: 16px 0;
+    padding: 16px;
+    background: rgba(0,0,0,0.3);
+    border: 1px dashed rgba(157,0,255,0.3);
+    border-radius: 8px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre;
+  }
+
+  /* --- Options --- */
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .option {
+    padding: 14px 18px;
+    background: rgba(157,0,255,0.08);
+    border: 1px solid rgba(157,0,255,0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .option:hover {
+    background: rgba(157,0,255,0.18);
+    border-color: var(--purple-main);
+    transform: translateX(4px);
+  }
+  .option-key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--magenta);
+    min-width: 24px;
+    text-align: center;
+    border: 1px solid rgba(255,0,255,0.3);
+    border-radius: 4px;
+    padding: 2px 6px;
+    background: rgba(255,0,255,0.05);
+  }
+  .option.correct {
+    background: rgba(0,255,136,0.12);
+    border-color: var(--accent-correct);
+    color: var(--accent-correct);
+  }
+  .option.wrong {
+    background: rgba(255,51,102,0.12);
+    border-color: var(--accent-wrong);
+    color: var(--accent-wrong);
+  }
+  .option.disabled { pointer-events: none; opacity: 0.7; }
+
+  /* --- Feedback --- */
+  .feedback {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .feedback.show { display: block; }
+  .feedback.correct-fb {
+    background: rgba(0,255,136,0.1);
+    border: 1px solid var(--accent-correct);
+    color: var(--accent-correct);
+  }
+  .feedback.wrong-fb {
+    background: rgba(255,51,102,0.1);
+    border: 1px solid var(--accent-wrong);
+    color: var(--accent-wrong);
+  }
+
+  /* --- Buttons --- */
+  .btn {
+    padding: 12px 28px;
+    border: 1px solid var(--purple-main);
+    background: rgba(157,0,255,0.15);
+    color: var(--purple-light);
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .btn:hover {
+    background: rgba(157,0,255,0.3);
+    box-shadow: 0 0 15px var(--purple-glow);
+    transform: translateY(-1px);
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, rgba(157,0,255,0.4), rgba(255,0,255,0.2));
+    border-color: var(--magenta);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, rgba(157,0,255,0.6), rgba(255,0,255,0.4));
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+  /* --- Navigation --- */
+  .nav-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 0 14px;
+    background: rgba(10,8,16,0.95);
+    border-top: 1px solid rgba(157,0,255,0.2);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    opacity: 0.5;
+  }
+  .nav-item.active { opacity: 1; }
+  .nav-item:hover { opacity: 0.8; background: rgba(157,0,255,0.1); }
+  .nav-item.locked { opacity: 0.25; cursor: not-allowed; }
+  .nav-icon {
+    font-size: 1.3rem;
+    filter: drop-shadow(0 0 4px var(--purple-glow));
+  }
+  .nav-label {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+  }
+  .nav-item.active .nav-label { color: var(--purple-light); }
+
+  /* --- Home Screen --- */
+  .home-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 24px;
+    text-align: center;
+  }
+  .home-logo {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 20px var(--purple-glow));
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .home-title {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--purple-light);
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+    text-shadow: 0 0 30px var(--purple-glow);
+  }
+  .home-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--magenta);
+    letter-spacing: 4px;
+    margin-bottom: 24px;
+  }
+  .home-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    max-width: 400px;
+    line-height: 1.8;
+    margin-bottom: 36px;
+  }
+  .home-stats {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 36px;
+  }
+  .home-stat {
+    text-align: center;
+  }
+  .home-stat-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    color: var(--magenta);
+    font-weight: 700;
+  }
+  .home-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .stage-select {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 36px;
+  }
+  .stage-card {
+    padding: 18px 14px;
+    background: var(--panel-bg);
+    border: 1px solid rgba(157,0,255,0.2);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .stage-card:hover {
+    border-color: var(--purple-main);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-glow);
+  }
+  .stage-card.locked {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: rgba(157,0,255,0.1);
+  }
+  .stage-card.locked:hover { transform: none; box-shadow: none; }
+  .stage-card-icon { font-size: 2rem; margin-bottom: 8px; }
+  .stage-card-name { font-size: 0.85rem; font-weight: 700; color: var(--purple-light); }
+  .stage-card-desc { font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
+  .stage-card-status {
+    position: absolute;
+    top: 8px; right: 8px;
+    font-size: 0.75rem;
+  }
+  .stage-progress {
+    margin-top: 8px;
+    height: 3px;
+    background: rgba(157,0,255,0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .stage-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--purple-main), var(--magenta));
+    border-radius: 2px;
+    transition: width 0.5s;
+  }
+
+  /* --- Result Screen --- */
+  .result-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 24px;
+    text-align: center;
+  }
+  .result-grade {
+    font-size: 5rem;
+    font-weight: 900;
+    margin-bottom: 8px;
+    text-shadow: 0 0 40px var(--purple-glow);
+  }
+  .result-grade.S { color: #ffd700; text-shadow: 0 0 40px rgba(255,215,0,0.5); }
+  .result-grade.A { color: var(--accent-correct); }
+  .result-grade.B { color: var(--purple-light); }
+  .result-grade.C { color: var(--text-secondary); }
+  .result-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .result-sub {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+  .result-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 24px;
+  }
+  .result-stat-box {
+    padding: 14px;
+    background: var(--panel-bg);
+    border: 1px solid rgba(157,0,255,0.2);
+    border-radius: 10px;
+  }
+  .result-stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    color: var(--magenta);
+    font-weight: 700;
+  }
+  .result-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+  .badge-display {
+    margin: 20px 0;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(157,0,255,0.15), rgba(255,0,255,0.08));
+    border: 1px solid rgba(157,0,255,0.3);
+    border-radius: 16px;
+    max-width: 320px;
+    width: 100%;
+  }
+  .badge-icon { font-size: 3rem; margin-bottom: 8px; }
+  .badge-name { font-size: 1.1rem; font-weight: 700; color: var(--purple-light); }
+  .badge-desc { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
+
+  /* --- Animations --- */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  .shake { animation: shake 0.4s ease; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  .pulse { animation: pulse 0.5s ease; }
+  @keyframes comboPop {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .combo-pop { animation: comboPop 0.4s ease; }
+
+  /* --- 60s Challenge --- */
+  .challenge-bar {
+    margin: 16px 24px;
+    height: 6px;
+    background: rgba(157,0,255,0.15);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .challenge-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-correct), var(--accent-caution), var(--accent-wrong));
+    border-radius: 3px;
+    transition: width 1s linear;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .lab-header-top { flex-direction: column; align-items: flex-start; }
+    .hud { width: 100%; justify-content: space-between; }
+    .question-card { margin: 12px 16px; padding: 18px; }
+    .stage-banner { margin: 12px 16px; }
+    .home-title { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Decorations -->
+<div class="deco-magnet"></div>
+<div class="deco-magnet"></div>
+<div class="deco-coil"></div>
+<div class="deco-coil"></div>
+<div class="deco-compass"></div>
+
+<!-- ========== HOME SCREEN ========== -->
+<div id="screen-home" class="screen active home-screen">
+  <div class="home-logo">🧲</div>
+  <div class="home-title">电与磁</div>
+  <div class="home-code">MAGNET · 磁学实验室</div>
+  <div class="home-desc">
+    九年级物理 · 第十四章<br>
+    磁现象 · 电流的磁场 · 电动机 · 电磁感应<br>
+    准备好进入磁场世界了吗？
+  </div>
+  <div class="home-stats">
+    <div class="home-stat">
+      <div class="home-stat-num">29</div>
+      <div class="home-stat-label">实验题目</div>
+    </div>
+    <div class="home-stat">
+      <div class="home-stat-num">5</div>
+      <div class="home-stat-label">实验阶段</div>
+    </div>
+    <div class="home-stat">
+      <div class="home-stat-num">3</div>
+      <div class="home-stat-label">生命值</div>
+    </div>
+  </div>
+  <div class="stage-select">
+    <div class="stage-card" data-stage="0">
+      <div class="stage-card-status"></div>
+      <div class="stage-card-icon">🧭</div>
+      <div class="stage-card-name">Stage 1</div>
+      <div class="stage-card-desc">磁现象</div>
+      <div class="stage-progress"><div class="stage-progress-fill" id="prog-0" style="width:0%"></div></div>
+    </div>
+    <div class="stage-card" data-stage="1">
+      <div class="stage-card-status">🔒</div>
+      <div class="stage-card-icon">⚡</div>
+      <div class="stage-card-name">Stage 2</div>
+      <div class="stage-card-desc">电流的磁场</div>
+      <div class="stage-progress"><div class="stage-progress-fill" id="prog-1" style="width:0%"></div></div>
+    </div>
+    <div class="stage-card" data-stage="2">
+      <div class="stage-card-status">🔒</div>
+      <div class="stage-card-icon">🔌</div>
+      <div class="stage-card-name">Stage 3</div>
+      <div class="stage-card-desc">磁场对电流</div>
+      <div class="stage-progress"><div class="stage-progress-fill" id="prog-2" style="width:0%"></div></div>
+    </div>
+    <div class="stage-card" data-stage="3">
+      <div class="stage-card-status">🔒</div>
+      <div class="stage-card-icon">🔄</div>
+      <div class="stage-card-name">Stage 4</div>
+      <div class="stage-card-desc">电磁感应</div>
+      <div class="stage-progress"><div class="stage-progress-fill" id="prog-3" style="width:0%"></div></div>
+    </div>
+    <div class="stage-card" data-stage="4">
+      <div class="stage-card-status">🔒</div>
+      <div class="stage-card-icon">🏆</div>
+      <div class="stage-card-name">Stage 5</div>
+      <div class="stage-card-desc">终极实验</div>
+      <div class="stage-progress"><div class="stage-progress-fill" id="prog-4" style="width:0%"></div></div>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="startGame()">开始实验</button>
+</div>
+
+<!-- ========== GAME SCREEN ========== -->
+<div id="screen-game" class="screen">
+  <div class="lab-header">
+    <div class="lab-header-top">
+      <div>
+        <div class="lab-title">MAGNET <span class="code">磁学实验室</span></div>
+        <div class="lab-sub" id="stage-subtitle">Stage 1 · 磁现象</div>
+      </div>
+      <div class="hud">
+        <div class="hud-hearts" id="hearts">❤️❤️❤️</div>
+        <div class="hud-score" id="score">0</div>
+        <div class="hud-combo" id="combo"></div>
+        <div class="hud-timer" id="timer" style="display:none">60</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-banner" id="stage-banner">
+    <div class="stage-name" id="stage-name">Stage 1: 磁现象</div>
+    <div class="stage-desc" id="stage-desc">磁极判断 · 磁化与去磁 · 磁感线方向</div>
+  </div>
+
+  <div class="challenge-bar" id="challenge-bar" style="display:none">
+    <div class="challenge-bar-fill" id="challenge-bar-fill" style="width:100%"></div>
+  </div>
+
+  <div class="question-card" id="question-card">
+    <div class="q-number" id="q-number">Q1 / 6</div>
+    <div class="q-text" id="q-text"></div>
+    <div class="q-diagram" id="q-diagram" style="display:none"></div>
+    <div class="options" id="options"></div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+
+  <div style="text-align:center; margin: 20px 24px;">
+    <button class="btn" id="next-btn" onclick="nextQuestion()" style="display:none">下一题 →</button>
+  </div>
+</div>
+
+<!-- ========== RESULT SCREEN ========== -->
+<div id="screen-result" class="screen result-screen">
+  <div class="result-grade" id="result-grade">S</div>
+  <div class="result-title" id="result-title">磁学大师</div>
+  <div class="result-sub" id="result-sub">所有实验阶段完美通关！</div>
+  <div class="result-stats">
+    <div class="result-stat-box">
+      <div class="result-stat-val" id="res-score">0</div>
+      <div class="result-stat-label">总分</div>
+    </div>
+    <div class="result-stat-box">
+      <div class="result-stat-val" id="res-accuracy">0%</div>
+      <div class="result-stat-label">正确率</div>
+    </div>
+    <div class="result-stat-box">
+      <div class="result-stat-val" id="res-maxcombo">0</div>
+      <div class="result-stat-label">最高连击</div>
+    </div>
+    <div class="result-stat-box">
+      <div class="result-stat-val" id="res-hearts">3</div>
+      <div class="result-stat-label">剩余生命</div>
+    </div>
+  </div>
+  <div class="badge-display" id="badge-display">
+    <div class="badge-icon">🧲</div>
+    <div class="badge-name">磁学大师</div>
+    <div class="badge-desc">完成所有实验阶段，掌握电与磁的奥秘</div>
+  </div>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+    <button class="btn btn-primary" onclick="restartGame()">重新实验</button>
+    <button class="btn" onclick="goHome()">返回主页</button>
+  </div>
+</div>
+
+<!-- ========== NAV BAR ========== -->
+<div class="nav-bar" id="nav-bar" style="display:none">
+  <div class="nav-item" data-stage="0" onclick="goToStage(0)">
+    <div class="nav-icon">🧭</div>
+    <div class="nav-label">磁现象</div>
+  </div>
+  <div class="nav-item" data-stage="1" onclick="goToStage(1)">
+    <div class="nav-icon">⚡</div>
+    <div class="nav-label">电流磁场</div>
+  </div>
+  <div class="nav-item" data-stage="2" onclick="goToStage(2)">
+    <div class="nav-icon">🔌</div>
+    <div class="nav-label">电动机</div>
+  </div>
+  <div class="nav-item" data-stage="3" onclick="goToStage(3)">
+    <div class="nav-icon">🔄</div>
+    <div class="nav-label">电磁感应</div>
+  </div>
+  <div class="nav-item" data-stage="4" onclick="goToStage(4)">
+    <div class="nav-icon">🏆</div>
+    <div class="nav-label">终极实验</div>
+  </div>
+</div>
+
+<script>
+// ==================== DATA ====================
+const STAGES = [
+  {
+    name: "Stage 1: 磁现象",
+    desc: "磁极判断 · 磁化与去磁 · 磁感线方向",
+    icon: "🧭",
+    questions: [
+      {
+        text: "将一根条形磁铁的N极靠近另一根条形磁铁的N极，两磁极之间会产生什么现象？",
+        options: ["相互吸引", "相互排斥", "没有作用力", "先吸引后排斥"],
+        correct: 1,
+        explain: "同名磁极相互排斥，异名磁极相互吸引。N极与N极是同名磁极，故相互排斥。"
+      },
+      {
+        text: "下列哪种方法可以使一根钢针获得磁性？",
+        options: ["用力敲打钢针", "将钢针加热到红热状态", "将钢针在条形磁铁上沿同一方向摩擦多次", "将钢针放入水中"],
+        correct: 2,
+        explain: "磁化是指使原来没有磁性的物体获得磁性的过程。用磁铁沿同一方向摩擦钢针可使钢针磁化。"
+      },
+      {
+        text: "一根被磁化的钢针，如何使其失去磁性（去磁）？",
+        options: ["放入冰水中冷却", "猛烈敲打或高温加热", "放入干燥的盒子中", "用丝绸摩擦"],
+        correct: 1,
+        explain: "猛烈敲打或高温加热可以使磁体内部磁畴排列变得混乱，从而失去磁性，这就是去磁。"
+      },
+      {
+        text: "关于磁感线，下列说法正确的是：",
+        options: ["磁感线是真实存在的曲线", "磁感线从S极出发回到N极", "磁感线在磁体外部从N极出发回到S极", "磁感线可以相交"],
+        correct: 2,
+        explain: "磁感线是为了描述磁场而假想的曲线，在磁体外部从N极出发回到S极，内部从S极到N极，形成闭合曲线，且不相交。"
+      },
+      {
+        text: "观察以下磁感线分布示意图，a、b两点中哪一点磁场更强？\n\n    N ====== S\n      ↘  ↓  ↙\n       a  b\n      ↗  ↓  ↖",
+        hasDiagram: true,
+        options: ["a点更强", "b点更强", "一样强", "无法判断"],
+        correct: 0,
+        explain: "磁感线越密集的地方磁场越强。a点磁感线更密集，因此a点磁场更强。"
+      },
+      {
+        text: "地理北极附近存在的是什么磁极？",
+        options: ["地磁北极", "地磁南极", "没有地磁极", "地磁赤道"],
+        correct: 1,
+        explain: "地理北极附近实际上是地磁南极，地理南极附近是地磁北极。指南针的N极指向地理北方，即被地磁南极吸引。"
+      }
+    ]
+  },
+  {
+    name: "Stage 2: 电流的磁场",
+    desc: "奥斯特实验 · 安培定则 · 电磁铁",
+    icon: "⚡",
+    questions: [
+      {
+        text: "奥斯特实验证明了什么重要结论？",
+        options: ["电流可以产生磁场", "磁场可以产生电流", "磁体可以产生电流", "电场可以产生磁场"],
+        correct: 0,
+        explain: "1820年奥斯特发现：通电导线周围存在磁场，即电流的磁效应。这是电与磁联系的首次发现。"
+      },
+      {
+        text: "根据安培定则（右手螺旋定则），判断通电直导线周围的磁场方向时，正确的做法是：",
+        options: ["左手握住导线，大拇指指向电流方向", "右手握住导线，大拇指指向电流方向，四指弯曲方向为磁场方向", "左手握住导线，四指指向电流方向", "右手握住导线，四指指向电流方向，大拇指为磁场方向"],
+        correct: 1,
+        explain: "安培定则（右手螺旋定则）：右手握住导线，大拇指指向电流方向，四指弯曲方向即为磁感线（磁场）方向。"
+      },
+      {
+        text: "对于通电螺线管，用安培定则判断N极的方法是：",
+        options: ["左手握住螺线管，四指指向电流方向，大拇指指向N极", "右手握住螺线管，四指指向电流方向，大拇指指向N极", "右手握住螺线管，大拇指指向电流方向，四指指向N极", "左手握住螺线管，大拇指指向电流方向，四指指向N极"],
+        correct: 1,
+        explain: "判断通电螺线管：右手握住螺线管，四指弯曲方向与电流方向一致，大拇指所指一端即为N极。"
+      },
+      {
+        text: "一个电磁铁的磁性强弱与下列哪个因素无关？",
+        options: ["线圈匝数", "电流大小", "有无铁芯", "导线颜色"],
+        correct: 3,
+        explain: "电磁铁磁性强弱与线圈匝数、电流大小、有无铁芯有关，与导线颜色完全无关。"
+      },
+      {
+        text: "如图所示，通电螺线管上方放置一个小磁针，静止时小磁针N极指向哪边？\n\n    ┌──────┐\n    │  ⊙⊙⊙  │ ← 电流从背面流入\n    │  ⊙⊙⊙  │    正面流出\n    └──────┘\n       ↑ 小磁针",
+        hasDiagram: true,
+        options: ["向左", "向右", "向上", "向下"],
+        correct: 0,
+        explain: "电流从背面流入、正面流出，用安培定则判断：螺线管左侧为N极，右侧为S极。小磁针N极被螺线管N极排斥、S极吸引，故N极指向左方。"
+      },
+      {
+        text: "下列装置中，利用了电流磁效应工作的是：",
+        options: ["电动机", "电磁继电器", "发电机", "电风扇"],
+        correct: 1,
+        explain: "电磁继电器利用电流通过线圈产生磁场，吸引衔铁实现控制，是典型的电流磁效应应用。电动机和电风扇是磁场对电流的作用，发电机是电磁感应。"
+      }
+    ]
+  },
+  {
+    name: "Stage 3: 磁场对电流",
+    desc: "电动机原理 · 左手定则 · 受力方向",
+    icon: "🔌",
+    questions: [
+      {
+        text: "通电导体在磁场中会受到力的作用，这个力的方向可以用什么定则判断？",
+        options: ["右手定则", "左手定则", "安培定则", "欧姆定律"],
+        correct: 1,
+        explain: "判断通电导体在磁场中受力方向用左手定则（电动机定则），判断感应电流方向用右手定则（发电机定则）。"
+      },
+      {
+        text: "左手定则中，大拇指、四指和掌心分别代表什么？",
+        options: ["电流方向、磁场方向、受力方向", "受力方向、电流方向、磁场方向", "磁场方向、受力方向、电流方向", "受力方向、磁场方向、电流方向"],
+        correct: 1,
+        explain: "左手定则：掌心对N极（磁场方向穿入手心），四指指电流方向，大拇指指受力（运动）方向。"
+      },
+      {
+        text: "直流电动机的工作原理是：",
+        options: ["电磁感应", "磁场对通电导体有力的作用", "电流的热效应", "磁化现象"],
+        correct: 1,
+        explain: "电动机原理：通电线圈在磁场中受力转动，将电能转化为机械能。"
+      },
+      {
+        text: "电动机中换向器的作用是：",
+        options: ["改变磁场方向", "改变线圈中的电流方向，使线圈持续转动", "增加电流大小", "减少摩擦"],
+        correct: 1,
+        explain: "换向器（ commutator ）在电动机中每当线圈转过平衡位置时，自动改变线圈中的电流方向，保证线圈持续朝一个方向转动。"
+      },
+      {
+        text: "如图所示，导体ab中通入从a到b的电流，处于垂直纸面向外的磁场中，导体将受力向哪运动？\n\n     N  │  S\n        │\n    a───┼───b\n   ⊙→  │\n        │\n   磁场方向：垂直纸面向外（⊙表示）",
+        hasDiagram: true,
+        options: ["向上", "向下", "向左", "向右"],
+        correct: 0,
+        explain: "用左手定则：磁场垂直纸面向外（掌心向外/朝读者），四指指向电流方向a→b（向右），大拇指指向受力方向——向上。"
+      },
+      {
+        text: "要改变直流电动机的转动方向，可以采取的方法是：",
+        options: ["只改变磁场方向", "只改变电流方向", "同时改变磁场方向和电流方向", "只改变磁体强弱"],
+        correct: 0,
+        explain: "改变电动机转动方向：只改变磁场方向或只改变电流方向（二者改其一）。若同时改变两者，转动方向不变。"
+      }
+    ]
+  },
+  {
+    name: "Stage 4: 电磁感应",
+    desc: "感应电流条件 · 发电机原理 · 右手定则",
+    icon: "🔄",
+    questions: [
+      {
+        text: "产生感应电流的条件是：",
+        options: ["导体在磁场中运动", "闭合电路的一部分导体在磁场中做切割磁感线运动", "磁场增强", "导体发热"],
+        correct: 1,
+        explain: "电磁感应产生条件：①闭合电路；②一部分导体；③切割磁感线运动。三者缺一不可。"
+      },
+      {
+        text: "发电机是根据什么原理制成的？",
+        options: ["电流的磁效应", "磁场对电流的作用", "电磁感应", "磁化现象"],
+        correct: 2,
+        explain: "发电机利用电磁感应原理：闭合电路的一部分导体在磁场中切割磁感线，产生感应电流，将机械能转化为电能。"
+      },
+      {
+        text: "判断感应电流方向应该用：",
+        options: ["左手定则", "右手定则", "安培定则", "楞次定律（仅判断趋势）"],
+        correct: 1,
+        explain: "判断感应电流方向用右手定则（发电机定则）：掌心对N极，大拇指指导体运动方向，四指指感应电流方向。"
+      },
+      {
+        text: "交流发电机线圈在磁场中每转动一周，电流方向改变几次？",
+        options: ["1次", "2次", "3次", "4次"],
+        correct: 1,
+        explain: "线圈每转一周经过平衡位置两次，每次经过平衡位置时电流方向改变一次，故一周改变2次方向。"
+      },
+      {
+        text: "如图所示，导体AB向右运动，磁场方向垂直纸面向里（×表示），感应电流方向是？\n\n    N  │  S\n       │\n   A───┼───B → 运动\n   ×××│×××\n   ×××│×××\n   磁场：垂直纸面向里",
+        hasDiagram: true,
+        options: ["A→B", "B→A", "没有感应电流", "无法判断"],
+        correct: 1,
+        explain: "右手定则：掌心对N极（磁场向里则掌心向纸内/远离读者），大拇指指向运动方向（向右），四指弯曲方向为感应电流方向——从B流向A。"
+      }
+    ]
+  },
+  {
+    name: "Stage 5: 终极实验",
+    desc: "60秒综合挑战 · 电与磁全章知识",
+    icon: "🏆",
+    isChallenge: true,
+    timeLimit: 60,
+    questions: [
+      {
+        text: "下列说法正确的是：",
+        options: ["磁体只能吸引铁", "磁体可以吸引铁、钴、镍等物质", "磁体可以吸引所有金属", "磁体只能吸引磁铁"],
+        correct: 1,
+        explain: "磁体可以吸引铁、钴、镍等铁磁性物质，不是所有金属（如铜、铝不被吸引）。"
+      },
+      {
+        text: "奥斯特实验中，小磁针发生偏转说明：",
+        options: ["小磁针有磁性", "通电导线周围存在磁场", "导线带电", "磁针被磁化"],
+        correct: 1,
+        explain: "奥斯特实验证明通电导线周围存在磁场，使小磁针受力偏转。"
+      },
+      {
+        text: "电动机工作时能量转化是：",
+        options: ["机械能→电能", "电能→机械能", "电能→热能", "化学能→电能"],
+        correct: 1,
+        explain: "电动机将电能转化为机械能。发电机相反，将机械能转化为电能。"
+      },
+      {
+        text: "发电机工作时能量转化是：",
+        options: ["机械能→电能", "电能→机械能", "热能→电能", "光能→电能"],
+        correct: 0,
+        explain: "发电机通过电磁感应将机械能转化为电能。"
+      },
+      {
+        text: "闭合电路的导体在磁场中怎样运动才能产生感应电流？",
+        options: ["沿磁场方向运动", "切割磁感线运动", "静止不动", "任意运动"],
+        correct: 1,
+        explain: "必须切割磁感线运动才能产生感应电流。沿磁场方向运动不切割磁感线。"
+      },
+      {
+        text: "通电螺线管插入铁芯后磁性大大增强，原因是：",
+        options: ["铁芯本身带电", "铁芯被磁化，产生附加磁场", "铁芯使电流增大", "铁芯改变电流方向"],
+        correct: 1,
+        explain: "铁芯被螺线管的磁场磁化，也变成磁体，产生附加磁场，使总磁场大大增强。"
+      }
+    ]
+  }
+];
+
+// ==================== STATE ====================
+let gameState = {
+  currentStage: 0,
+  currentQuestion: 0,
+  score: 0,
+  lives: 3,
+  combo: 0,
+  maxCombo: 0,
+  totalCorrect: 0,
+  totalAnswered: 0,
+  stageProgress: [0, 0, 0, 0, 0],
+  stageUnlocked: [true, false, false, false, false],
+  answered: false,
+  challengeTimer: null,
+  challengeTimeLeft: 60,
+  challengeActive: false
+};
+
+// ==================== UTILS ====================
+function $(id) { return document.getElementById(id); }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+function updateHearts() {
+  let h = '';
+  for (let i = 0; i < 3; i++) h += i < gameState.lives ? '❤️' : '🖤';
+  $('hearts').innerHTML = h;
+}
+function updateHUD() {
+  $('score').textContent = gameState.score;
+  updateHearts();
+  const comboEl = $('combo');
+  if (gameState.combo >= 2) {
+    comboEl.textContent = `🔥 ${gameState.combo} 连击!`;
+    comboEl.classList.add('show', 'combo-pop');
+    setTimeout(() => comboEl.classList.remove('combo-pop'), 400);
+  } else {
+    comboEl.textContent = '';
+    comboEl.classList.remove('show');
+  }
+}
+
+// ==================== HOME ====================
+function updateHomeProgress() {
+  for (let i = 0; i < 5; i++) {
+    const prog = gameState.stageProgress[i];
+    const total = STAGES[i].questions.length;
+    const pct = Math.round((prog / total) * 100);
+    $(`prog-${i}`).style.width = pct + '%';
+  }
+  const cards = document.querySelectorAll('.stage-card');
+  cards.forEach((card, i) => {
+    const status = card.querySelector('.stage-card-status');
+    if (gameState.stageUnlocked[i]) {
+      card.classList.remove('locked');
+      status.textContent = gameState.stageProgress[i] >= STAGES[i].questions.length ? '✅' : '';
+    } else {
+      card.classList.add('locked');
+      status.textContent = '🔒';
+    }
+    card.onclick = () => {
+      if (!card.classList.contains('locked')) {
+        startStage(i);
+      }
+    };
+  });
+}
+
+function goHome() {
+  showScreen('screen-home');
+  $('nav-bar').style.display = 'none';
+  updateHomeProgress();
+}
+
+function startGame() {
+  gameState.currentStage = 0;
+  gameState.score = 0;
+  gameState.lives = 3;
+  gameState.combo = 0;
+  gameState.maxCombo = 0;
+  gameState.totalCorrect = 0;
+  gameState.totalAnswered = 0;
+  gameState.stageProgress = [0, 0, 0, 0, 0];
+  gameState.stageUnlocked = [true, false, false, false, false];
+  startStage(0);
+}
+
+function restartGame() {
+  startGame();
+}
+
+// ==================== STAGE & QUESTION ====================
+function startStage(stageIdx) {
+  gameState.currentStage = stageIdx;
+  gameState.currentQuestion = 0;
+  gameState.answered = false;
+  const stage = STAGES[stageIdx];
+
+  showScreen('screen-game');
+  $('nav-bar').style.display = 'flex';
+  updateNav();
+
+  $('stage-name').textContent = stage.name;
+  $('stage-desc').textContent = stage.desc;
+  $('stage-subtitle').textContent = stage.name;
+
+  // Challenge mode
+  if (stage.isChallenge) {
+    $('timer').style.display = 'block';
+    $('challenge-bar').style.display = 'block';
+    gameState.challengeActive = true;
+    gameState.challengeTimeLeft = stage.timeLimit || 60;
+    startChallengeTimer();
+  } else {
+    $('timer').style.display = 'none';
+    $('challenge-bar').style.display = 'none';
+    gameState.challengeActive = false;
+    stopChallengeTimer();
+  }
+
+  updateHUD();
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const stage = STAGES[gameState.currentStage];
+  const qIdx = gameState.currentQuestion;
+  const q = stage.questions[qIdx];
+  const total = stage.questions.length;
+
+  $('q-number').textContent = `Q${qIdx + 1} / ${total}`;
+  $('q-text').textContent = q.text;
+
+  if (q.hasDiagram) {
+    $('q-diagram').style.display = 'block';
+    $('q-diagram').textContent = q.text.split('\n').slice(q.text.indexOf('\n\n') > -1 ? q.text.indexOf('\n\n') + 2 : 0).join('\n');
+    // Actually, let's show diagram if text has drawing part
+    const lines = q.text.split('\n');
+    const diagramStart = lines.findIndex(l => l.includes('┌') || l.includes('│') || l.includes('N') && l.includes('S'));
+    if (diagramStart > -1) {
+      $('q-text').textContent = lines.slice(0, diagramStart).join('\n');
+      $('q-diagram').textContent = lines.slice(diagramStart).join('\n');
+      $('q-diagram').style.display = 'block';
+    } else {
+      $('q-diagram').style.display = 'none';
+    }
+  } else {
+    $('q-diagram').style.display = 'none';
+  }
+
+  const optsDiv = $('options');
+  optsDiv.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const el = document.createElement('div');
+    el.className = 'option';
+    el.innerHTML = `<span class="option-key">${String.fromCharCode(65 + i)}</span><span>${opt}</span>`;
+    el.onclick = () => selectOption(i);
+    optsDiv.appendChild(el);
+  });
+
+  $('feedback').className = 'feedback';
+  $('feedback').style.display = 'none';
+  $('next-btn').style.display = 'none';
+  gameState.answered = false;
+}
+
+function selectOption(idx) {
+  if (gameState.answered) return;
+  gameState.answered = true;
+
+  const stage = STAGES[gameState.currentStage];
+  const q = stage.questions[gameState.currentQuestion];
+  const opts = document.querySelectorAll('.option');
+
+  opts.forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i === q.correct) el.classList.add('correct');
+    else if (i === idx && idx !== q.correct) el.classList.add('wrong');
+  });
+
+  const fb = $('feedback');
+  if (idx === q.correct) {
+    fb.className = 'feedback correct-fb show';
+    fb.textContent = `✅ 正确！${q.explain}`;
+    gameState.score += 100 + gameState.combo * 20;
+    gameState.combo++;
+    gameState.totalCorrect++;
+    if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+    opts[idx].classList.add('pulse');
+  } else {
+    fb.className = 'feedback wrong-fb show';
+    fb.textContent = `❌ 错误！正确答案是 ${String.fromCharCode(65 + q.correct)}。${q.explain}`;
+    gameState.lives--;
+    gameState.combo = 0;
+    opts[idx].classList.add('shake');
+    if (gameState.lives <= 0) {
+      setTimeout(() => gameOver(), 800);
+      return;
+    }
+  }
+
+  gameState.totalAnswered++;
+  updateHUD();
+
+  // Update progress
+  gameState.stageProgress[gameState.currentStage] = Math.max(
+    gameState.stageProgress[gameState.currentStage],
+    gameState.currentQuestion + 1
+  );
+
+  $('next-btn').style.display = 'inline-block';
+}
+
+function nextQuestion() {
+  const stage = STAGES[gameState.currentStage];
+  gameState.currentQuestion++;
+
+  if (gameState.currentQuestion >= stage.questions.length) {
+    // Stage complete
+    if (gameState.currentStage < 4) {
+      gameState.stageUnlocked[gameState.currentStage + 1] = true;
+    }
+    stopChallengeTimer();
+    if (gameState.currentStage === 4) {
+      showResult();
+    } else {
+      showStageComplete();
+    }
+  } else {
+    renderQuestion();
+  }
+}
+
+// ==================== CHALLENGE TIMER ====================
+function startChallengeTimer() {
+  stopChallengeTimer();
+  $('timer').textContent = gameState.challengeTimeLeft;
+  $('challenge-bar-fill').style.width = '100%';
+  gameState.challengeTimer = setInterval(() => {
+    gameState.challengeTimeLeft--;
+    $('timer').textContent = gameState.challengeTimeLeft;
+    const pct = (gameState.challengeTimeLeft / 60) * 100;
+    $('challenge-bar-fill').style.width = pct + '%';
+    if (gameState.challengeTimeLeft <= 0) {
+      stopChallengeTimer();
+      gameOver();
+    }
+  }, 1000);
+}
+function stopChallengeTimer() {
+  if (gameState.challengeTimer) {
+    clearInterval(gameState.challengeTimer);
+    gameState.challengeTimer = null;
+  }
+}
+
+// ==================== STAGE COMPLETE ====================
+function showStageComplete() {
+  const stage = STAGES[gameState.currentStage];
+  const qText = $('q-text');
+  const opts = $('options');
+  const fb = $('feedback');
+  const nextBtn = $('next-btn');
+
+  $('q-number').textContent = '阶段完成';
+  qText.innerHTML = `<div style="text-align:center; padding: 30px 0;">
+    <div style="font-size: 3rem; margin-bottom: 12px;">${stage.icon}</div>
+    <div style="font-size: 1.3rem; font-weight: 700; color: var(--purple-light);">${stage.name} 完成！</div>
+    <div style="margin-top: 12px; color: var(--text-secondary);">下一关已解锁</div>
+  </div>`;
+  opts.innerHTML = '';
+  fb.style.display = 'none';
+  nextBtn.style.display = 'none';
+
+  // Replace next button with continue
+  const contBtn = document.createElement('button');
+  contBtn.className = 'btn btn-primary';
+  contBtn.textContent = '继续下一关 →';
+  contBtn.onclick = () => startStage(gameState.currentStage + 1);
+  contBtn.style.marginTop = '16px';
+  qText.appendChild(contBtn);
+
+  // Also show home/go buttons
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex; gap:12px; justify-content:center; margin-top:12px;';
+  btnRow.innerHTML = `<button class="btn" onclick="goHome()">返回主页</button>`;
+  qText.appendChild(btnRow);
+}
+
+// ==================== GAME OVER ====================
+function gameOver() {
+  stopChallengeTimer();
+  showScreen('screen-result');
+  $('nav-bar').style.display = 'none';
+
+  const accuracy = gameState.totalAnswered > 0
+    ? Math.round((gameState.totalCorrect / gameState.totalAnswered) * 100)
+    : 0;
+
+  let grade, title, sub;
+  if (accuracy >= 95 && gameState.lives === 3 && gameState.maxCombo >= 5) {
+    grade = 'S'; title = '磁学大师'; sub = '完美通关！所有知识全部掌握！';
+  } else if (accuracy >= 85) {
+    grade = 'A'; title = '磁学专家'; sub = '表现优秀，少数细节需要加强';
+  } else if (accuracy >= 70) {
+    grade = 'B'; title = '磁学学员'; sub = '基本掌握，还需巩固练习';
+  } else {
+    grade = 'C'; title = '磁学新手'; sub = '建议重新学习本章内容';
+  }
+
+  $('result-grade').textContent = grade;
+  $('result-grade').className = 'result-grade ' + grade;
+  $('result-title').textContent = title;
+  $('result-sub').textContent = sub;
+  $('res-score').textContent = gameState.score;
+  $('res-accuracy').textContent = accuracy + '%';
+  $('res-maxcombo').textContent = gameState.maxCombo;
+  $('res-hearts').textContent = gameState.lives;
+
+  // Badge
+  const badge = $('badge-display');
+  if (grade === 'S') {
+    badge.style.display = 'block';
+    badge.querySelector('.badge-icon').textContent = '🏆';
+    badge.querySelector('.badge-name').textContent = '磁学大师徽章';
+    badge.querySelector('.badge-desc').textContent = 'S级评价通关！完美掌握电与磁全部知识';
+  } else if (grade === 'A') {
+    badge.style.display = 'block';
+    badge.querySelector('.badge-icon').textContent = '🥈';
+    badge.querySelector('.badge-name').textContent = '磁学专家徽章';
+    badge.querySelector('.badge-desc').textContent = 'A级评价通关！知识掌握扎实';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ==================== RESULT ====================
+function showResult() {
+  stopChallengeTimer();
+  gameOver();
+}
+
+// ==================== NAV ====================
+function updateNav() {
+  document.querySelectorAll('.nav-item').forEach((el, i) => {
+    el.classList.toggle('active', i === gameState.currentStage);
+    el.classList.toggle('locked', !gameState.stageUnlocked[i]);
+  });
+}
+function goToStage(i) {
+  if (!gameState.stageUnlocked[i]) return;
+  // Save current progress before switching
+  stopChallengeTimer();
+  startStage(i);
+}
+
+// ==================== INIT ====================
+updateHomeProgress();
+</script>
+</body>
+</html>
