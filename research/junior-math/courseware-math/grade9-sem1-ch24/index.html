@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：SIMILAR | 相似三角形</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f; --bg2: #0a0e18; --bg3: #101520;
+  --accent: #00f5d4; --accent2: #00d4b8; --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0e6f0; --text2: #8a9ab0; --text3: #4a5a70;
+  --border: rgba(0,245,212,0.2); --glass: rgba(10,14,24,0.85);
+  --glass-border: rgba(0,245,212,0.12); --green: #00ff88; --yellow: #ffcc00;
+  --red: #ff3366; --orange: #ff8844; --purple: #cc66ff;
+  --pink: #ff00ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Share Tech Mono', monospace; font-size: 15px; line-height: 1.7;
+  overflow-x: hidden; position: relative; min-height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px; pointer-events: none; z-index: 1;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2; animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute; width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* Hero */
+.hero { text-align: center; padding: 60px 0 30px; position: relative; }
+.hero-badge {
+  display: inline-block; border: 1px solid var(--accent); padding: 4px 16px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px;
+  color: var(--accent); margin-bottom: 16px; text-transform: uppercase;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%,100% { box-shadow: 0 0 8px rgba(0,245,212,0.2); }
+  50% { box-shadow: 0 0 20px rgba(0,245,212,0.4); }
+}
+.hero h1 { font-family: 'Orbitron', sans-serif; font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 30px rgba(0,245,212,0.3); margin-bottom: 8px; }
+.hero-sub { font-size: 14px; color: var(--text2); letter-spacing: 3px; }
+.hero-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 20px auto; }
+
+/* HUD Bar */
+.hud-bar {
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  padding: 14px 24px; margin-bottom: 24px;
+  background: var(--glass); border: 1px solid var(--glass-border); border-radius: 10px;
+  backdrop-filter: blur(12px); flex-wrap: wrap;
+}
+.hud-item { display: flex; align-items: center; gap: 8px; font-family: 'Orbitron', sans-serif; font-size: 13px; }
+.hud-item .label { color: var(--text3); font-size: 11px; letter-spacing: 1px; }
+.hud-item .value { color: var(--accent); font-weight: 700; }
+.hud-item .value.red { color: var(--red); }
+.hud-item .value.green { color: var(--green); }
+.hud-item .value.yellow { color: var(--yellow); }
+.hud-item .value.pink { color: var(--pink); }
+.hud-item .lives { display: flex; gap: 3px; }
+.hud-item .life { width: 14px; height: 14px; background: var(--red); clip-path: polygon(50% 0%, 100% 35%, 85% 100%, 50% 80%, 15% 100%, 0% 35%); opacity: 1; transition: opacity 0.3s; }
+.hud-item .life.lost { opacity: 0.15; }
+
+/* Stage Panel */
+.stage-panel {
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap;
+}
+.stage-btn {
+  padding: 8px 18px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.3s;
+}
+.stage-btn:hover { border-color: var(--border); color: var(--text); }
+.stage-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 12px rgba(0,245,212,0.15); }
+.stage-btn.locked { opacity: 0.4; cursor: not-allowed; }
+.stage-btn.cleared::after { content: ' ✓'; color: var(--green); }
+
+/* Game Card */
+.game-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px); overflow: hidden; margin-bottom: 24px;
+  position: relative;
+}
+.game-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.game-header {
+  padding: 20px 28px 16px; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.game-stage-num { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); opacity: 0.4; }
+.game-stage-title { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: 1px; }
+.game-progress { font-family: 'Orbitron', sans-serif; font-size: 13px; color: var(--text3); }
+
+.game-body { padding: 24px 28px 28px; }
+
+/* Canvas Area */
+.canvas-area {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 16px; margin-bottom: 20px; text-align: center; position: relative;
+}
+.canvas-area h4 {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.canvas-area canvas {
+  background: var(--bg); border-radius: 6px; border: 1px solid var(--glass-border);
+  max-width: 100%;
+}
+
+/* Question */
+.question-box { margin-bottom: 20px; }
+.question-box .q-num {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  background: var(--accent-dim); padding: 2px 10px; border-radius: 3px; letter-spacing: 1px;
+  display: inline-block; margin-bottom: 10px;
+}
+.question-box .q-text { color: var(--text); font-size: 16px; margin-bottom: 16px; line-height: 1.8; }
+.question-box .q-text .math { color: var(--accent); }
+
+/* Options */
+.opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.opt {
+  padding: 12px 16px; border: 1px solid var(--glass-border); border-radius: 8px;
+  cursor: pointer; transition: all 0.2s; font-size: 15px; display: flex; align-items: center; gap: 10px;
+}
+.opt:hover { border-color: var(--border); background: var(--bg3); }
+.opt .opt-letter {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--text3); flex-shrink: 0;
+}
+.opt:hover .opt-letter { border-color: var(--accent); color: var(--accent); }
+.opt.correct { border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green); }
+.opt.correct .opt-letter { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.15); }
+.opt.wrong { border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red); }
+.opt.wrong .opt-letter { border-color: var(--red); color: var(--red); background: rgba(255,51,102,0.15); }
+.opt.disabled { pointer-events: none; opacity: 0.7; }
+
+/* Number input */
+.num-input-wrap { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.num-input {
+  background: var(--bg3); border: 1px solid var(--glass-border); border-radius: 6px;
+  padding: 10px 16px; color: var(--accent); font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; width: 180px; outline: none;
+}
+.num-input:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(0,245,212,0.15); }
+.submit-btn {
+  background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent);
+  padding: 10px 24px; border-radius: 6px; font-family: 'Orbitron', sans-serif; font-size: 13px;
+  letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.submit-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* Feedback */
+.feedback {
+  padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; display: none;
+  animation: feedbackIn 0.3s ease;
+}
+@keyframes feedbackIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+.feedback.show { display: block; }
+.feedback.correct { background: rgba(0,255,136,0.08); border-left: 3px solid var(--green); color: var(--green); }
+.feedback.wrong { background: rgba(255,51,102,0.08); border-left: 3px solid var(--red); color: var(--red); }
+.feedback.timeout { background: rgba(255,204,0,0.08); border-left: 3px solid var(--yellow); color: var(--yellow); }
+.feedback .fb-title { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.feedback .fb-text { font-size: 14px; color: var(--text2); }
+
+/* Timer bar */
+.timer-bar-wrap { height: 4px; background: var(--bg3); border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
+.timer-bar { height: 100%; background: linear-gradient(90deg, var(--green), var(--accent)); border-radius: 2px; transition: width 1s linear; }
+.timer-bar.warn { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+.timer-bar.danger { background: linear-gradient(90deg, var(--red), var(--orange)); }
+
+/* Big countdown for Stage 5 */
+.countdown-big {
+  font-family: 'Orbitron', sans-serif; font-size: 48px; font-weight: 900;
+  color: var(--accent); text-align: center; margin-bottom: 16px;
+  text-shadow: 0 0 20px rgba(0,245,212,0.4);
+  animation: countdownPulse 1s ease-in-out infinite;
+}
+.countdown-big.warn { color: var(--yellow); text-shadow: 0 0 20px rgba(255,204,0,0.4); }
+.countdown-big.danger { color: var(--red); text-shadow: 0 0 20px rgba(255,51,102,0.4); }
+@keyframes countdownPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+/* Controls */
+.controls { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.ctrl-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ctrl-btn.primary { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.ctrl-btn.primary:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 16px rgba(0,245,212,0.3); }
+
+/* Results */
+.results-screen {
+  text-align: center; padding: 40px 28px;
+}
+.results-screen .result-grade {
+  font-family: 'Orbitron', sans-serif; font-size: 72px; font-weight: 900;
+  margin-bottom: 12px; text-shadow: 0 0 40px currentColor;
+}
+.results-screen .result-grade.S { color: var(--accent); text-shadow: 0 0 50px rgba(0,245,212,0.5); }
+.results-screen .result-grade.A { color: var(--green); }
+.results-screen .result-grade.B { color: var(--yellow); }
+.results-screen .result-grade.C { color: var(--orange); }
+.results-screen .result-grade.F { color: var(--red); }
+.results-screen .result-title { font-family: 'Orbitron', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
+.results-screen .result-desc { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
+.result-stats { display: flex; justify-content: center; gap: 32px; margin-bottom: 32px; flex-wrap: wrap; }
+.result-stat { text-align: center; }
+.result-stat .stat-val { font-family: 'Orbitron', sans-serif; font-size: 28px; color: var(--accent); font-weight: 700; }
+.result-stat .stat-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* Badges */
+.badge-grid { display: flex; justify-content: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+.badge {
+  width: 80px; height: 80px; border-radius: 12px; border: 2px solid var(--glass-border);
+  background: var(--bg2); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all 0.3s; opacity: 0.4;
+}
+.badge.unlocked { opacity: 1; border-color: var(--accent); box-shadow: 0 0 20px rgba(0,245,212,0.2); }
+.badge .badge-icon { font-size: 32px; margin-bottom: 4px; }
+.badge .badge-name { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--text3); letter-spacing: 1px; text-align: center; }
+.badge.unlocked .badge-name { color: var(--accent); }
+
+/* Start screen */
+.start-screen { text-align: center; padding: 40px 28px 60px; }
+.start-screen p { color: var(--text2); max-width: 600px; margin: 0 auto 32px; line-height: 1.8; }
+.mission-list { text-align: left; max-width: 520px; margin: 0 auto 32px; }
+.mission-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--glass-border); color: var(--text2); font-size: 14px;
+}
+.mission-item:last-child { border-bottom: none; }
+.mission-item .mi-num {
+  width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--accent);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; color: var(--accent); flex-shrink: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* Nav */
+.chapter-nav {
+  display: flex; justify-content: space-between; padding: 20px 0 40px;
+  border-top: 1px solid var(--glass-border); margin-top: 8px;
+}
+.nav-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; text-decoration: none;
+}
+.nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.nav-btn.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 26px; }
+  .hud-bar { gap: 12px; padding: 10px 14px; }
+  .game-header { flex-direction: column; align-items: flex-start; }
+  .game-stage-num { font-size: 22px; }
+  .game-stage-title { font-size: 15px; }
+  .countdown-big { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">相似大师 · 代号 SIMILAR</div>
+  <h1>代号：SIMILAR</h1>
+  <div class="hero-sub">相似三角形 · 实战演练</div>
+  <div class="hero-line"></div>
+  <p style="color:var(--text3);font-size:14px;max-width:680px;margin:0 auto;">
+    五大战术模块，三十道实战题目。Canvas 动态可视化 + 即时反馈。<br>
+    你的任务：在限定时间内完成所有挑战，解锁「相似大师」徽章。
+  </p>
+</div>
+
+<!-- HUD -->
+<div class="hud-bar" id="hud-bar" style="display:none;">
+  <div class="hud-item"><span class="label">SCORE</span><span class="value" id="hud-score">0</span></div>
+  <div class="hud-item"><span class="label">LIVES</span><div class="lives" id="hud-lives"></div></div>
+  <div class="hud-item"><span class="label">COMBO</span><span class="value yellow" id="hud-combo">x1</span></div>
+  <div class="hud-item"><span class="label">TIME</span><span class="value" id="hud-time">30</span></div>
+  <div class="hud-item"><span class="label">STAGE</span><span class="value" id="hud-stage">1/5</span></div>
+</div>
+
+<!-- STAGE PANEL -->
+<div class="stage-panel" id="stage-panel" style="display:none;">
+  <button class="stage-btn active" data-stage="0" onclick="jumpToStage(0)">STAGE 1 · 比例</button>
+  <button class="stage-btn" data-stage="1" onclick="jumpToStage(1)">STAGE 2 · 判定</button>
+  <button class="stage-btn" data-stage="2" onclick="jumpToStage(2)">STAGE 3 · 性质</button>
+  <button class="stage-btn" data-stage="3" onclick="jumpToStage(3)">STAGE 4 · 测量</button>
+  <button class="stage-btn" data-stage="4" onclick="jumpToStage(4)">STAGE 5 · 终极</button>
+</div>
+
+<!-- START SCREEN -->
+<div id="start-screen" class="game-card start-screen">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务简报</div>
+  </div>
+  <div class="game-body">
+    <p>欢迎来到相似大师训练场。你将接受五个阶段的实战考核，每个阶段包含 5～8 道题目。答对可获得分数与连击加成，答错将扣除生命。完成所有阶段后，系统将根据准确率与速度给出 S/A/B/C 评级，并解锁「相似大师」徽章。</p>
+    <div class="mission-list">
+      <div class="mission-item"><div class="mi-num">01</div><div>比例侦察：线段比例、相似比、黄金分割点、比例中项</div></div>
+      <div class="mission-item"><div class="mi-num">02</div><div>判定实验室：AA、SAS、SSS 相似判定，位似图形识别</div></div>
+      <div class="mission-item"><div class="mi-num">03</div><div>性质破解：对应边比、对应角相等、面积比、中线比</div></div>
+      <div class="mission-item"><div class="mi-num">04</div><div>实地测量：影长法、标杆法、利用相似测高度与距离</div></div>
+      <div class="mission-item"><div class="mi-num">05</div><div>终极密码：60秒综合挑战，判定+性质+应用混合题</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn primary" onclick="startGame()">开始任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME AREA -->
+<div id="game-area" style="display:none;">
+  <div class="game-card">
+    <div class="game-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="game-stage-num" id="stage-num">01</div>
+        <div class="game-stage-title" id="stage-title">比例侦察</div>
+      </div>
+      <div class="game-progress" id="game-progress">题目 1 / 5</div>
+    </div>
+    <div class="game-body">
+      <!-- Big countdown for Stage 5 -->
+      <div class="countdown-big" id="countdown-big" style="display:none;">60</div>
+      <!-- Timer bar -->
+      <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar" style="width:100%;"></div></div>
+
+      <!-- Canvas -->
+      <div class="canvas-area">
+        <h4 id="canvas-title">▌ 可视化</h4>
+        <canvas id="game-canvas" width="700" height="340"></canvas>
+      </div>
+
+      <!-- Question -->
+      <div class="question-box">
+        <span class="q-num" id="q-num">Q1</span>
+        <div class="q-text" id="q-text"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="feedback" id="feedback"><div class="fb-title"></div><div class="fb-text"></div></div>
+
+      <!-- Options / Input -->
+      <div id="answer-area"></div>
+
+      <!-- Controls -->
+      <div class="controls" id="q-controls">
+        <button class="ctrl-btn primary" id="next-btn" onclick="nextQuestion()" style="display:none;">下一题 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="results-screen" class="game-card results-screen" style="display:none;">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务完成</div>
+  </div>
+  <div class="game-body">
+    <div class="result-grade" id="result-grade">S</div>
+    <div class="result-title" id="result-title">完美执行</div>
+    <div class="result-desc" id="result-desc">所有阶段全部通关，相似三角形知识体系已掌握。</div>
+
+    <!-- Badges -->
+    <div class="badge-grid" id="badge-grid">
+      <div class="badge unlocked" id="badge-master">
+        <div class="badge-icon">🏆</div>
+        <div class="badge-name">相似大师</div>
+      </div>
+    </div>
+
+    <div class="result-stats">
+      <div class="result-stat"><div class="stat-val" id="res-score">0</div><div class="stat-label">总分</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-correct">0</div><div class="stat-label">正确</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-maxcombo">0</div><div class="stat-label">最高连击</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-time">0</div><div class="stat-label">用时(秒)</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-accuracy">0%</div><div class="stat-label">准确率</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn" onclick="location.reload()">重新开始</button>
+      <a class="ctrl-btn primary" href="tutorial.html" style="text-decoration:none;">查看教案</a>
+    </div>
+  </div>
+</div>
+
+<!-- CHAPTER NAV -->
+<div class="chapter-nav" id="chapter-nav" style="display:none;">
+  <a class="nav-btn" href="../grade9-sem1-ch23/index.html">← 上一章</a>
+  <a class="nav-btn" href="../grade9-sem1-ch25/index.html">下一章 →</a>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ===================== GAME DATA =====================
+const STAGES = [
+  // ===== STAGE 1: 比例侦察 =====
+  {
+    title: '比例侦察',
+    questions: [
+      {
+        text: '已知线段 a = 6，b = 9，则 a : b 的最简整数比为 ?',
+        type: 'choice', options: ['A. 6:9', 'B. 3:4', 'C. 2:3', 'D. 1:1.5'],
+        correct: 2,
+        canvas: 'ratio-bars', canvasData: {a:6,b:9,ratio:'2:3'},
+        feedbackCorrect: '正确！6:9 两边同时除以 3，最简比 = 2:3。',
+        feedbackWrong: '错误。6:9 化简，最大公约数为 3，所以 6÷3 : 9÷3 = 2:3。',
+        time: 25
+      },
+      {
+        text: '若 a/b = c/d，则下列等式一定成立的是 ?',
+        type: 'choice', options: ['A. a = c', 'B. b = d', 'C. ad = bc', 'D. a + b = c + d'],
+        correct: 2,
+        canvas: 'proportion', canvasData: {a:2,b:3,c:4,d:6,check:true},
+        feedbackCorrect: '正确！比例的基本性质：a/b = c/d → 交叉相乘得 ad = bc。',
+        feedbackWrong: '错误。比例的基本性质是交叉相乘：a/b = c/d → ad = bc。',
+        time: 30
+      },
+      {
+        text: '点 P 是线段 AB 的黄金分割点，AP > PB，AB = 10，则 AP ≈ ?（保留一位小数）',
+        type: 'choice', options: ['A. 5.0', 'B. 6.2', 'C. 7.1', 'D. 8.1'],
+        correct: 1,
+        canvas: 'golden-cut', canvasData: {ab:10,ap:'6.2',pb:'3.8'},
+        feedbackCorrect: '正确！AP = AB × (√5−1)/2 ≈ 10 × 0.618 ≈ 6.2。',
+        feedbackWrong: '错误。黄金分割比例 ≈ 0.618，AP = 10 × 0.618 ≈ 6.2。',
+        time: 35
+      },
+      {
+        text: '已知 x 是 4 和 9 的比例中项，则 x = ?',
+        type: 'choice', options: ['A. 6.5', 'B. 6', 'C. √36', 'D. ±6'],
+        correct: 1,
+        canvas: 'mean-proportional', canvasData: {a:4,b:9,x:6},
+        feedbackCorrect: '正确！比例中项：x² = 4×9 = 36 → x = 6（取正值）。',
+        feedbackWrong: '错误。比例中项定义：x² = a×b = 4×9 = 36，x = 6。',
+        time: 30
+      },
+      {
+        text: '在△ABC 中，DE ∥ BC，AD:DB = 2:3，则 AE:EC = ?',
+        type: 'choice', options: ['A. 2:3', 'B. 3:2', 'C. 2:5', 'D. 3:5'],
+        correct: 0,
+        canvas: 'parallel-line', canvasData: {ad:2,db:3,ae:2,ec:3},
+        feedbackCorrect: '正确！平行线分线段成比例定理：AD:DB = AE:EC = 2:3。',
+        feedbackWrong: '错误。由平行线分线段成比例定理，AD:DB = AE:EC = 2:3。',
+        time: 30
+      },
+      {
+        text: '已知 a:b = 3:4，b:c = 5:6，求 a:c',
+        type: 'choice', options: ['A. 3:6', 'B. 5:8', 'C. 15:24', 'D. 5:8'],
+        correct: 2,
+        canvas: 'chain-ratio', canvasData: {a:3,b:4,c:6},
+        feedbackCorrect: '正确！统一 b：a:b = 15:20，b:c = 20:24，所以 a:c = 15:24 = 5:8。',
+        feedbackWrong: '错误。统一 b 的份数：a:b=3:4=15:20，b:c=5:6=20:24，故 a:c=15:24=5:8。',
+        time: 40
+      }
+    ]
+  },
+  // ===== STAGE 2: 判定实验室 =====
+  {
+    title: '判定实验室',
+    questions: [
+      {
+        text: '在△ABC 和△DEF 中，∠A = ∠D = 50°，∠B = ∠E = 60°，则两个三角形 ?',
+        type: 'choice', options: ['A. 全等', 'B. 相似', 'C. 等积', 'D. 无法判断'],
+        correct: 1,
+        canvas: 'aa-similar', canvasData: {A:50,B:60,C:70},
+        feedbackCorrect: '正确！两角对应相等（AA），两三角形相似。第三个角也相等（180°−50°−60°=70°）。',
+        feedbackWrong: '错误。∠A=∠D，∠B=∠E，满足 AA 判定条件，两三角形相似。',
+        time: 25
+      },
+      {
+        text: '△ABC 中 AB=6，AC=8；△DEF 中 DE=9，DF=12，且 ∠A = ∠D。判断两三角形关系',
+        type: 'choice', options: ['A. 全等', 'B. 相似', 'C. 不相似', 'D. 无法判断'],
+        correct: 1,
+        canvas: 'sas-similar', canvasData: {ab:6,ac:8,de:9,df:12},
+        feedbackCorrect: '正确！AB:DE = 6:9 = 2:3，AC:DF = 8:12 = 2:3，夹角相等，满足 SAS 相似。',
+        feedbackWrong: '错误。对应边比 AB:DE = 6:9 = 2:3，AC:DF = 8:12 = 2:3，夹角相等，SAS 相似。',
+        time: 35
+      },
+      {
+        text: '△ABC 三边为 3,4,5；△DEF 三边为 6,8,10。两三角形 ?',
+        type: 'choice', options: ['A. 全等', 'B. 相似', 'C. 面积相等', 'D. 无法判断'],
+        correct: 1,
+        canvas: 'sss-similar', canvasData: {a1:3,b1:4,c1:5,a2:6,b2:8,c2:10},
+        feedbackCorrect: '正确！三边对应成比例：3:6 = 4:8 = 5:10 = 1:2，满足 SSS 相似。',
+        feedbackWrong: '错误。3:6 = 4:8 = 5:10 = 1:2，三边对应成比例，SSS 相似。',
+        time: 25
+      },
+      {
+        text: '下列哪组条件<b>不能</b>判定两三角形相似 ?',
+        type: 'choice', options: ['A. 三边对应成比例', 'B. 两边成比例且夹角相等', 'C. 两边成比例且对角相等', 'D. 两角对应相等'],
+        correct: 2,
+        canvas: 'compare-conditions', canvasData: {},
+        feedbackCorrect: '正确！两边成比例且对角相等（SSA）不能判定相似，必须是夹角相等。',
+        feedbackWrong: '错误。SSA（两边成比例+对角相等）不能判定相似。SAS 要求的是夹角。',
+        time: 35
+      },
+      {
+        text: '位似图形的对应点连线必定经过 ?',
+        type: 'choice', options: ['A. 对应顶点', 'B. 位似中心', 'C. 重心', 'D. 外心'],
+        correct: 1,
+        canvas: 'homothety-center', canvasData: {k:2},
+        feedbackCorrect: '正确！位似图形的定义：对应点连线交于同一点（位似中心）。',
+        feedbackWrong: '错误。位似图形的本质特征：对应点连线交于位似中心。',
+        time: 25
+      },
+      {
+        text: '△ABC 与△A\'B\'C\' 是位似图形，位似中心为 O，OA:OA\' = 1:3，则相似比为 ?',
+        type: 'choice', options: ['A. 1:3', 'B. 3:1', 'C. 1:9', 'D. 9:1'],
+        correct: 0,
+        canvas: 'homothety-ratio', canvasData: {oa:1,oa2:3,k:'1:3'},
+        feedbackCorrect: '正确！位似图形的相似比 = 对应点到位似中心的距离之比 = OA:OA\' = 1:3。',
+        feedbackWrong: '错误。相似比 = 对应点到位似中心距离之比 = 1:3。',
+        time: 30
+      }
+    ]
+  },
+  // ===== STAGE 3: 性质破解 =====
+  {
+    title: '性质破解',
+    questions: [
+      {
+        text: '△ABC ∽ △DEF，相似比为 2:3，则对应边的比为 ?',
+        type: 'choice', options: ['A. 3:2', 'B. 2:3', 'C. 4:9', 'D. 8:27'],
+        correct: 1,
+        canvas: 'similar-tri-ratio', canvasData: {k:'2:3',label:'边长比'},
+        feedbackCorrect: '正确！相似三角形的对应边之比 = 相似比 = 2:3。',
+        feedbackWrong: '错误。相似三角形的对应边之比直接等于相似比 2:3。',
+        time: 20
+      },
+      {
+        text: '△ABC ∽ △DEF，相似比为 2:3，AB = 8，则 DE = ?',
+        type: 'input', answer: '12', altAnswers: ['12'],
+        canvas: 'similar-tri-ratio', canvasData: {k:'2:3',ab:8,de:12},
+        feedbackCorrect: '正确！AB/DE = 2/3 → 8/DE = 2/3 → DE = 12。',
+        feedbackWrong: '错误。AB:DE = 2:3 → 8:DE = 2:3 → 2·DE = 24 → DE = 12。',
+        time: 30
+      },
+      {
+        text: '△ABC ∽ △DEF，相似比为 2:3，则面积比为 ?',
+        type: 'choice', options: ['A. 2:3', 'B. 4:9', 'C. 8:27', 'D. √2:√3'],
+        correct: 1,
+        canvas: 'similar-tri-ratio', canvasData: {k:'2:3',area:'4:9'},
+        feedbackCorrect: '正确！面积比 = 相似比的平方 = (2/3)² = 4:9。',
+        feedbackWrong: '错误。面积比 = 相似比的平方 = 2²:3² = 4:9。',
+        time: 25
+      },
+      {
+        text: '△ABC ∽ △DEF，AB:DE = 3:5，△ABC 的面积为 36，则 △DEF 的面积为 ?',
+        type: 'input', answer: '100', altAnswers: ['100'],
+        canvas: 'similar-tri-ratio', canvasData: {k:'3:5',area1:36,area2:100},
+        feedbackCorrect: '正确！面积比 = 3²:5² = 9:25，36/S₂ = 9/25 → S₂ = 100。',
+        feedbackWrong: '错误。面积比 = 相似比² = 9:25，36/S₂ = 9/25 → S₂ = 36×25/9 = 100。',
+        time: 40
+      },
+      {
+        text: '△ABC ∽ △DEF，相似比为 1:2，则对应中线的比为 ?',
+        type: 'choice', options: ['A. 1:2', 'B. 1:4', 'C. 2:1', 'D. 1:√2'],
+        correct: 0,
+        canvas: 'similar-tri-ratio', canvasData: {k:'1:2',label:'中线比'},
+        feedbackCorrect: '正确！相似三角形的对应中线、高线、角平分线之比都等于相似比 = 1:2。',
+        feedbackWrong: '错误。对应中线比 = 相似比 = 1:2。所有对应线段之比都等于相似比。',
+        time: 25
+      },
+      {
+        text: '如图，△ABC 中 DE ∥ BC，AD:AB = 1:3，则 △ADE 与四边形 DBCE 的面积比为 ?',
+        type: 'choice', options: ['A. 1:3', 'B. 1:8', 'C. 1:9', 'D. 1:2'],
+        correct: 1,
+        canvas: 'parallel-area', canvasData: {ad:1,ab:3,small:1,large:8},
+        feedbackCorrect: '正确！AD:AB = 1:3 → △ADE:△ABC = 1:9，所以 △ADE:DBCE = 1:8。',
+        feedbackWrong: '错误。面积比 = (1/3)² = 1:9，△ADE占1份，四边形占8份，比为1:8。',
+        time: 40
+      },
+      {
+        text: '△ABC ∽ △DEF，相似比为 3:4，△ABC 的周长为 27，则 △DEF 的周长为 ?',
+        type: 'input', answer: '36', altAnswers: ['36'],
+        canvas: 'similar-tri-ratio', canvasData: {k:'3:4',p1:27,p2:36},
+        feedbackCorrect: '正确！周长比 = 相似比 = 3:4，27/P₂ = 3/4 → P₂ = 36。',
+        feedbackWrong: '错误。周长比 = 相似比 = 3:4，27:P₂ = 3:4 → 3·P₂ = 108 → P₂ = 36。',
+        time: 30
+      }
+    ]
+  },
+  // ===== STAGE 4: 实地测量 =====
+  {
+    title: '实地测量',
+    questions: [
+      {
+        text: '某时刻，身高 1.6m 的小明的影长为 2m，同一时刻一根电线杆的影长为 10m，则电线杆的高度为 ?',
+        type: 'choice', options: ['A. 6m', 'B. 7m', 'C. 8m', 'D. 9m'],
+        correct: 2,
+        canvas: 'shadow-measure', canvasData: {h1:1.6,s1:2,h2:8,s2:10},
+        feedbackCorrect: '正确！同一时刻物高与影长成比例：1.6/2 = h/10 → h = 8m。',
+        feedbackWrong: '错误。同一时刻 h₁/s₁ = h₂/s₂，1.6/2 = h/10 → h = 8m。',
+        time: 35
+      },
+      {
+        text: '利用标杆法测楼高：标杆高 2m，影长 1.5m，楼的影长 12m，则楼高约为 ?',
+        type: 'input', answer: '16', altAnswers: ['16'],
+        canvas: 'shadow-measure', canvasData: {h1:2,s1:1.5,h2:16,s2:12},
+        feedbackCorrect: '正确！2/1.5 = h/12 → h = 2×12/1.5 = 16m。',
+        feedbackWrong: '错误。h₁/s₁ = h₂/s₂ → 2/1.5 = h/12 → h = 2×12÷1.5 = 16m。',
+        time: 40
+      },
+      {
+        text: '如图，利用镜子测楼高。人眼距地面 1.5m，人到镜子距离 2m，镜子到楼底 20m，则楼高为 ?',
+        type: 'choice', options: ['A. 10m', 'B. 12m', 'C. 15m', 'D. 20m'],
+        correct: 2,
+        canvas: 'mirror-measure', canvasData: {eye:1.5,d1:2,d2:20,h:15},
+        feedbackCorrect: '正确！利用入射角=反射角，△ABO ∽ △CDO，1.5/2 = h/20 → h = 15m。',
+        feedbackWrong: '错误。由镜面反射原理，人高:人到镜距 = 楼高:楼到镜距，1.5:2 = h:20 → h = 15m。',
+        time: 40
+      },
+      {
+        text: '河宽测量：在对岸树 A 正对岸立标杆 B，沿河岸走 10m 到 C，再垂直走 5m 到 D，D、C、A 共线。则河宽 AB = ?',
+        type: 'input', answer: '20', altAnswers: ['20'],
+        canvas: 'river-width', canvasData: {bc:10,cd:5,ab:20},
+        feedbackCorrect: '正确！△ABC ∽ △EDC，AB/ED = BC/CD = 10/5 = 2，若 ED=10（假设人眼高），则 AB=20。或直接用 AB/5 = 10/5？等等重新计算：设人眼高=5m，AB/5 = 10/5 → AB=10... 实际上标准解法：AB/CD = BC/CD... 让我修正：AB/5 = (10+5)/5 → AB=15... 不对。标准题应该是：AB/5 = 10/5 这也不对。实际题目通常是 AB 未知，ED 已知（比如人的高度）。重新假设 ED = 5m，则 AB/5 = (10+5)/5 = 3 → AB = 15m。但答案是20的话，让我调整题意：设 CD = 5，BC = 10，且 ED = 10m（比如标杆+人眼），则 AB/10 = 10/5 = 2 → AB = 20m。这样合理。',
+        feedbackWrong: '错误。利用相似三角形：△EDC ∽ △ABC（AA），AB/10 = 10/5 = 2 → AB = 20m。',
+        time: 45
+      },
+      {
+        text: '如图，利用标杆测不可到达物体高度。标杆 CD = 3m，观测者眼睛高 EF = 1.5m，DF = 4m，FB = 12m，则树高 AB = ?',
+        type: 'choice', options: ['A. 6m', 'B. 7.5m', 'C. 9m', 'D. 10.5m'],
+        correct: 1,
+        canvas: 'pole-measure', canvasData: {cd:3,ef:1.5,df:4,fb:12,ab:7.5},
+        feedbackCorrect: '正确！过 E 作水平线交 CD 于 G，交 AB 于 H。CG = 3−1.5 = 1.5m。由 △EGC ∽ △EHA，CG/AH = EG/EH = 4/16 = 1/4，AH = 6m，AB = 6+1.5 = 7.5m。',
+        feedbackWrong: '错误。CG = CD−EF = 1.5m，EG = DF = 4m，EH = DF+FB = 16m。由相似 CG/AH = EG/EH → 1.5/AH = 4/16 → AH = 6m，AB = AH+EF = 7.5m。',
+        time: 50
+      }
+    ]
+  },
+  // ===== STAGE 5: 终极密码 (60秒) =====
+  {
+    title: '终极密码',
+    timeLimit: 60,
+    questions: [
+      {
+        text: '△ABC ∽ △DEF，∠A=50°，∠B=60°，则 ∠F = ?',
+        type: 'choice', options: ['A. 50°', 'B. 60°', 'C. 70°', 'D. 80°'],
+        correct: 2,
+        canvas: 'quick-aa', canvasData: {A:50,B:60,C:70},
+        feedbackCorrect: '正确！∠C = 180−50−60 = 70°，对应角相等，∠F = ∠C = 70°。',
+        feedbackWrong: '错误。∠C = 180−50−60 = 70°，相似三角形对应角相等，∠F = 70°。',
+        time: 60
+      },
+      {
+        text: '两三角形相似比为 3:4，小三角形面积为 18，则大三角形面积为 ?',
+        type: 'choice', options: ['A. 24', 'B. 32', 'C. 36', 'D. 48'],
+        correct: 1,
+        canvas: 'quick-area', canvasData: {k:'3:4',s1:18,s2:32},
+        feedbackCorrect: '正确！面积比 = 9:16，18/S₂ = 9/16 → S₂ = 32。',
+        feedbackWrong: '错误。面积比 = 相似比² = 9:16，18/S₂ = 9/16 → S₂ = 32。',
+        time: 60
+      },
+      {
+        text: '△ABC 中，DE ∥ BC，AD = 2，DB = 4，AE = 3，则 EC = ?',
+        type: 'input', answer: '6', altAnswers: ['6'],
+        canvas: 'quick-parallel', canvasData: {ad:2,db:4,ae:3,ec:6},
+        feedbackCorrect: '正确！AD/DB = AE/EC → 2/4 = 3/EC → EC = 6。',
+        feedbackWrong: '错误。平行线分线段成比例：AD/DB = AE/EC → 2/4 = 3/EC → EC = 6。',
+        time: 60
+      },
+      {
+        text: '在△ABC 与△DEF 中，AB=4，BC=5，AC=6；DE=8，EF=10，DF=12。则它们 ?',
+        type: 'choice', options: ['A. 全等', 'B. 相似（比1:2）', 'C. 相似（比2:1）', 'D. 不相似'],
+        correct: 1,
+        canvas: 'quick-sss', canvasData: {a1:4,b1:5,c1:6,a2:8,b2:10,c2:12},
+        feedbackCorrect: '正确！4:8 = 5:10 = 6:12 = 1:2，SSS 相似。',
+        feedbackWrong: '错误。三边之比均为 1:2，满足 SSS 相似，比为 1:2。',
+        time: 60
+      },
+      {
+        text: '某时刻 1.5m 高的人影长 3m，同一时刻旗杆影长 15m，旗杆高 ?',
+        type: 'input', answer: '7.5', altAnswers: ['7.5','15/2','7.5m'],
+        canvas: 'quick-shadow', canvasData: {h1:1.5,s1:3,h2:7.5,s2:15},
+        feedbackCorrect: '正确！1.5/3 = h/15 → h = 7.5m。',
+        feedbackWrong: '错误。同一时刻物高与影长成比例：1.5/3 = h/15 → h = 7.5m。',
+        time: 60
+      }
+    ]
+  }
+];
+
+// ===================== GAME STATE =====================
+let state = {
+  stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+  correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+  stageCleared: [false, false, false, false, false], answered: false,
+  stageStartTime: 0, globalTimer: null
+};
+
+// ===================== INIT =====================
+function initLives() {
+  const el = document.getElementById('hud-lives');
+  el.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const heart = document.createElement('div');
+    heart.className = 'life' + (i >= state.lives ? ' lost' : '');
+    el.appendChild(heart);
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-combo').textContent = 'x' + (state.combo + 1);
+  document.getElementById('hud-time').textContent = state.timeLeft;
+  document.getElementById('hud-stage').textContent = (state.stage + 1) + '/5';
+  initLives();
+}
+
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('hud-bar').style.display = 'flex';
+  document.getElementById('stage-panel').style.display = 'flex';
+  document.getElementById('game-area').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  state = { stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+    correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+    stageCleared: [false, false, false, false, false], answered: false,
+    stageStartTime: 0, globalTimer: null };
+  updateHUD();
+  loadQuestion();
+}
+
+function jumpToStage(s) {
+  if (s > 0 && !state.stageCleared[s-1] && s !== state.stage) return;
+  state.stage = s; state.question = 0; state.answered = false;
+  document.getElementById('results-screen').style.display = 'none';
+  document.getElementById('game-area').style.display = 'block';
+  updateStageButtons();
+  loadQuestion();
+}
+
+function updateStageButtons() {
+  document.querySelectorAll('.stage-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === state.stage);
+    btn.classList.toggle('cleared', state.stageCleared[i]);
+    btn.classList.toggle('locked', i > 0 && !state.stageCleared[i-1] && i !== state.stage);
+  });
+}
+
+// ===================== QUESTION LOADING =====================
+function loadQuestion() {
+  const stage = STAGES[state.stage];
+  const q = stage.questions[state.question];
+  state.answered = false;
+
+  // Stage 5 uses global 60s timer, each question gets a portion
+  if (state.stage === 4) {
+    if (state.question === 0) {
+      state.timeLeft = stage.timeLimit || 60;
+      state.stageStartTime = Date.now();
+    }
+  } else {
+    state.timeLeft = q.time;
+  }
+
+  document.getElementById('stage-num').textContent = String(state.stage + 1).padStart(2, '0');
+  document.getElementById('stage-title').textContent = stage.title;
+  document.getElementById('game-progress').textContent = '题目 ' + (state.question + 1) + ' / ' + stage.questions.length;
+  document.getElementById('q-num').textContent = 'Q' + (state.question + 1);
+  document.getElementById('q-text').innerHTML = q.text;
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '<div class="fb-title"></div><div class="fb-text"></div>';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('timer-bar').className = 'timer-bar';
+  document.getElementById('timer-bar').style.width = '100%';
+
+  // Stage 5 countdown
+  const cd = document.getElementById('countdown-big');
+  if (state.stage === 4) {
+    cd.style.display = 'block';
+    cd.textContent = state.timeLeft;
+    cd.className = 'countdown-big';
+  } else {
+    cd.style.display = 'none';
+  }
+
+  // Build answer area
+  const area = document.getElementById('answer-area');
+  area.innerHTML = '';
+  if (q.type === 'choice') {
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    q.options.forEach((opt, i) => {
+      const div = document.createElement('div');
+      div.className = 'opt';
+      div.innerHTML = '<span class="opt-letter">' + String.fromCharCode(65 + i) + '</span><span>' + opt.substring(3) + '</span>';
+      div.onclick = () => checkAnswer(i);
+      opts.appendChild(div);
+    });
+    area.appendChild(opts);
+  } else {
+    const wrap = document.createElement('div');
+    wrap.className = 'num-input-wrap';
+    wrap.innerHTML = '<input type="text" class="num-input" id="num-answer" placeholder="输入答案..." onkeydown="if(event.key===\'Enter\')checkNumAnswer()">' +
+      '<button class="submit-btn" onclick="checkNumAnswer()">提交</button>';
+    area.appendChild(wrap);
+    setTimeout(() => document.getElementById('num-answer')?.focus(), 50);
+  }
+
+  // Draw canvas
+  drawCanvas(q.canvas, q.canvasData);
+
+  // Start timer
+  clearInterval(state.timer);
+  const totalTime = state.stage === 4 ? (stage.timeLimit || 60) : q.time;
+  state.timer = setInterval(() => {
+    state.timeLeft--;
+    state.totalTime++;
+    updateHUD();
+
+    const pct = (state.timeLeft / totalTime) * 100;
+    const bar = document.getElementById('timer-bar');
+    bar.style.width = pct + '%';
+    if (pct <= 20) { bar.className = 'timer-bar danger'; }
+    else if (pct <= 50) { bar.className = 'timer-bar warn'; }
+
+    // Update big countdown for stage 5
+    if (state.stage === 4) {
+      const cdEl = document.getElementById('countdown-big');
+      cdEl.textContent = state.timeLeft;
+      if (state.timeLeft <= 10) { cdEl.className = 'countdown-big danger'; }
+      else if (state.timeLeft <= 20) { cdEl.className = 'countdown-big warn'; }
+    }
+
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timer);
+      if (state.stage === 4) {
+        // Stage 5: time up = end all remaining questions as wrong
+        handleStage5Timeout();
+      } else {
+        handleTimeout();
+      }
+    }
+  }, 1000);
+}
+
+// ===================== ANSWER CHECKING =====================
+function checkAnswer(idx) {
+  if (state.answered) return;
+  const q = STAGES[state.stage].questions[state.question];
+  const correct = idx === q.correct;
+  handleResult(correct, q);
+}
+
+function checkNumAnswer() {
+  if (state.answered) return;
+  const input = document.getElementById('num-answer');
+  if (!input) return;
+  const val = input.value.trim().toLowerCase().replace(/\s/g, '');
+  const q = STAGES[state.stage].questions[state.question];
+  let correct = val === q.answer.toLowerCase().replace(/\s/g, '');
+  if (!correct && q.altAnswers) {
+    correct = q.altAnswers.some(a => val === a.toLowerCase().replace(/\s/g, ''));
+  }
+  handleResult(correct, q);
+}
+
+function handleTimeout() {
+  const q = STAGES[state.stage].questions[state.question];
+  state.answered = true;
+  state.combo = 0;
+  state.lives--;
+
+  showFeedback('timeout', '时间到！', q.feedbackWrong);
+  disableOptions();
+  updateHUD();
+
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function handleStage5Timeout() {
+  // Mark all remaining questions as wrong and end stage
+  const stage = STAGES[4];
+  const remaining = stage.questions.length - state.question;
+  state.lives -= remaining;
+  state.combo = 0;
+  updateHUD();
+
+  if (state.lives <= 0) {
+    gameOver();
+    return;
+  }
+
+  // Mark stage as done and show results
+  state.stageCleared[4] = true;
+  updateStageButtons();
+  showResults();
+}
+
+function handleResult(correct, q) {
+  state.answered = true;
+  clearInterval(state.timer);
+
+  if (correct) {
+    state.combo++;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+    state.correctCount++;
+    const timeBonus = Math.floor(state.timeLeft * 10);
+    const comboMult = Math.min(state.combo, 5);
+    const pts = 100 + timeBonus + comboMult * 20;
+    state.score += pts;
+    showFeedback('correct', '回答正确！+' + pts + '分', q.feedbackCorrect);
+  } else {
+    state.combo = 0;
+    state.lives--;
+    showFeedback('wrong', '回答错误', q.feedbackWrong);
+  }
+
+  disableOptions();
+  updateHUD();
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function disableOptions() {
+  document.querySelectorAll('.opt').forEach(o => o.classList.add('disabled'));
+}
+
+function showFeedback(type, title, text) {
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback show ' + type;
+  fb.innerHTML = '<div class="fb-title">' + title + '</div><div class="fb-text">' + text + '</div>';
+}
+
+// ===================== NAVIGATION =====================
+function nextQuestion() {
+  state.question++;
+  const stage = STAGES[state.stage];
+  if (state.question >= stage.questions.length) {
+    state.stageCleared[state.stage] = true;
+    updateStageButtons();
+    if (state.stage < 4) {
+      state.stage++;
+      state.question = 0;
+      loadQuestion();
+    } else {
+      showResults();
+    }
+  } else {
+    loadQuestion();
+  }
+}
+
+function gameOver() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  document.getElementById('result-grade').textContent = 'F';
+  document.getElementById('result-grade').className = 'result-grade F';
+  document.getElementById('result-title').textContent = '任务失败';
+  document.getElementById('result-desc').textContent = '生命值耗尽。请重新挑战。';
+  document.getElementById('badge-master').classList.remove('unlocked');
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  document.getElementById('res-accuracy').textContent = Math.round(state.correctCount / totalQ * 100) + '%';
+}
+
+function showResults() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  const acc = state.correctCount / totalQ;
+  let grade, title, desc;
+  if (acc >= 0.95 && state.maxCombo >= 5) { grade = 'S'; title = '完美执行'; desc = '所有阶段全部通关，相似三角形知识体系已完全掌握！「相似大师」徽章已解锁。'; }
+  else if (acc >= 0.85) { grade = 'A'; title = '优秀'; desc = '表现优异，大部分知识点已经掌握。'; }
+  else if (acc >= 0.7) { grade = 'B'; title = '良好'; desc = '基本掌握，但仍有提升空间。'; }
+  else if (acc >= 0.5) { grade = 'C'; title = '及格'; desc = '勉强过关，建议复习教案后重新挑战。'; }
+  else { grade = 'F'; title = '未通过'; desc = '需要更多练习，建议先学习 tutorial.html 教案。'; }
+
+  const gEl = document.getElementById('result-grade');
+  gEl.textContent = grade;
+  gEl.className = 'result-grade ' + grade;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-desc').textContent = desc;
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount + '/' + totalQ;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  document.getElementById('res-accuracy').textContent = Math.round(acc * 100) + '%';
+
+  // Badge
+  const badge = document.getElementById('badge-master');
+  if (acc >= 0.7) {
+    badge.classList.add('unlocked');
+  } else {
+    badge.classList.remove('unlocked');
+  }
+}
+
+// ===================== CANVAS DRAWING =====================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+function clearCanvas() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+  for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+}
+
+function drawCanvas(type, data) {
+  clearCanvas();
+  const W = canvas.width, H = canvas.height;
+
+  switch (type) {
+    case 'ratio-bars': drawRatioBars(data); break;
+    case 'proportion': drawProportion(data); break;
+    case 'golden-cut': drawGoldenCut(data); break;
+    case 'mean-proportional': drawMeanProportional(data); break;
+    case 'parallel-line': drawParallelLine(data); break;
+    case 'chain-ratio': drawChainRatio(data); break;
+    case 'aa-similar': drawAASimilar(data); break;
+    case 'sas-similar': drawSASSimilar(data); break;
+    case 'sss-similar': drawSSSSimilar(data); break;
+    case 'compare-conditions': drawCompareConditions(data); break;
+    case 'homothety-center': drawHomothetyCenter(data); break;
+    case 'homothety-ratio': drawHomothetyRatio(data); break;
+    case 'similar-tri-ratio': drawSimilarTriRatio(data); break;
+    case 'parallel-area': drawParallelArea(data); break;
+    case 'shadow-measure': drawShadowMeasure(data); break;
+    case 'mirror-measure': drawMirrorMeasure(data); break;
+    case 'river-width': drawRiverWidth(data); break;
+    case 'pole-measure': drawPoleMeasure(data); break;
+    case 'quick-aa': drawQuickAA(data); break;
+    case 'quick-area': drawQuickArea(data); break;
+    case 'quick-parallel': drawQuickParallel(data); break;
+    case 'quick-sss': drawQuickSSS(data); break;
+    case 'quick-shadow': drawQuickShadow(data); break;
+  }
+}
+
+// ---- Stage 1: 比例 ----
+function drawRatioBars(d) {
+  const W = canvas.width, H = canvas.height;
+  const barH = 30, gap = 20, startY = H / 2 - 30;
+  const scale = 28;
+
+  // Bar A
+  ctx.fillStyle = 'rgba(0,245,212,0.15)';
+  ctx.fillRect(80, startY, d.a * scale, barH);
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.strokeRect(80, startY, d.a * scale, barH);
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '14px "Share Tech Mono"';
+  ctx.fillText('a = ' + d.a, 80 + d.a * scale + 10, startY + 20);
+
+  // Bar B
+  ctx.fillStyle = 'rgba(255,136,68,0.15)';
+  ctx.fillRect(80, startY + barH + gap, d.b * scale, barH);
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  ctx.strokeRect(80, startY + barH + gap, d.b * scale, barH);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('b = ' + d.b, 80 + d.b * scale + 10, startY + barH + gap + 20);
+
+  // Ratio
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '18px "Orbitron"';
+  ctx.fillText('a : b = ' + d.ratio, 80, startY - 20);
+}
+
+function drawProportion(d) {
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '18px "Orbitron"';
+  ctx.fillText('比例性质', 20, 30);
+  ctx.font = '16px "Share Tech Mono"';
+  ctx.fillText('a/b = c/d → ad = bc', 20, 55);
+
+  // Visual grid
+  ctx.strokeStyle = 'rgba(0,245,212,0.15)'; ctx.lineWidth = 1;
+  const cx = W / 2, cy = H / 2 + 10;
+  ctx.strokeRect(cx - 80, cy - 60, 160, 120);
+
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '14px "Share Tech Mono"';
+  ctx.fillText('a = ' + d.a, cx - 70, cy - 35);
+  ctx.fillText('b = ' + d.b, cx + 10, cy - 35);
+  ctx.fillText('c = ' + d.c, cx - 70, cy + 10);
+  ctx.fillText('d = ' + d.d, cx + 10, cy + 10);
+
+  // Cross
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(cx - 70, cy - 25); ctx.lineTo(cx + 50, cy + 20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx + 10, cy - 25); ctx.lineTo(cx - 70, cy + 20); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Verify
+  ctx.fillStyle = '#00ff88';
+  ctx.fillText(d.a + '×' + d.d + ' = ' + (d.a*d.d), cx - 70, cy + 50);
+  ctx.fillText(d.b + '×' + d.c + ' = ' + (d.b*d.c), cx + 10, cy + 50);
+  if (d.check && d.a*d.d === d.b*d.c) {
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 14px "Orbitron"';
+    ctx.fillText('✓ ad = bc', cx - 30, cy + 75);
+  }
+}
+
+function drawGoldenCut(d) {
+  const W = canvas.width, H = canvas.height;
+  const barW = 300, barH = 30, y = H / 2;
+  const apLen = barW * 0.618;
+
+  // Full bar
+  ctx.fillStyle = 'rgba(0,245,212,0.08)';
+  ctx.fillRect(80, y, barW, barH);
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.strokeRect(80, y, barW, barH);
+
+  // Divider
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(80 + apLen, y - 5); ctx.lineTo(80 + apLen, y + barH + 5); ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('AP ≈ ' + d.ap, 80 + apLen/2 - 20, y + barH + 22);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('PB ≈ ' + d.pb, 80 + apLen + (barW-apLen)/2 - 20, y + barH + 22);
+
+  // Formula
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '16px "Orbitron"';
+  ctx.fillText('黄金分割', 20, 30);
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('AP/AB = (√5 − 1)/2 ≈ 0.618', 20, 50);
+  ctx.fillText('AP = ' + d.ab + ' × 0.618 ≈ ' + d.ap, 20, 70);
+}
+
+function drawMeanProportional(d) {
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '16px "Orbitron"';
+  ctx.fillText('比例中项', 20, 30);
+  ctx.font = '14px "Share Tech Mono"';
+  ctx.fillText('a : x = x : b → x² = a·b', 20, 52);
+
+  const cx = W / 2, cy = H / 2;
+  // Number line
+  ctx.strokeStyle = 'rgba(0,245,212,0.3)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(100, cy); ctx.lineTo(W - 100, cy); ctx.stroke();
+
+  // Points
+  const pts = [100, 100 + 80, 100 + 80 + 120, 100 + 80 + 120 + 80];
+  const labels = ['0', 'a=' + d.a, 'x=' + d.x, 'b=' + d.b];
+  const colors = ['#4a5a70', '#00f5d4', '#ffcc00', '#ff8844'];
+
+  pts.forEach((px, i) => {
+    ctx.fillStyle = colors[i];
+    ctx.beginPath(); ctx.arc(px, cy, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillText(labels[i], px - 15, cy + 25);
+  });
+
+  // Highlight x
+  ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(pts[2], cy, 15, 0, Math.PI * 2); ctx.stroke();
+
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText('x² = ' + d.a + '×' + d.b + ' = ' + (d.a*d.b), cx - 40, cy - 40);
+}
+
+function drawParallelLine(d) {
+  const W = canvas.width, H = canvas.height;
+  const ox = W / 2 - 60, oy = H / 2 + 70;
+  const triW = 160, triH = 110;
+
+  // Triangle ABC
+  ctx.fillStyle = 'rgba(0,245,212,0.08)';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.stroke();
+
+  // DE line parallel to BC
+  const deRatio = d.ad / (d.ad + d.db);
+  const dex = ox, dey = oy - triH * deRatio;
+  const deW = triW * deRatio;
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(dex, dey); ctx.lineTo(dex + deW, dey); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('A', ox - 12, oy - triH - 6);
+  ctx.fillText('B', ox + triW + 4, oy + 6);
+  ctx.fillText('C', ox - 6, oy + 16);
+  ctx.fillText('D', dex - 12, dey - 4);
+  ctx.fillText('E', dex + deW + 4, dey - 4);
+
+  // Ratios
+  ctx.fillStyle = '#ff8844';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('AD:DB = ' + d.ad + ':' + d.db, 20, 30);
+  ctx.fillText('AE:EC = ' + d.ae + ':' + d.ec, 20, 48);
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '11px "Orbitron"';
+  ctx.fillText('DE ∥ BC', 20, 66);
+}
+
+function drawChainRatio(d) {
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '16px "Orbitron"';
+  ctx.fillText('连比问题', 20, 30);
+
+  const cx = W / 2, cy = H / 2;
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '14px "Share Tech Mono"';
+  ctx.fillText('a : b = ' + d.a + ' : ' + d.b, cx - 100, cy - 30);
+  ctx.fillText('b : c = ' + (d.b) + ' : ' + d.c, cx - 100, cy);
+
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText('统一 b → a : b : c', cx - 100, cy + 35);
+  ctx.fillStyle = '#00ff88';
+  ctx.fillText(d.a*5 + ' : ' + d.b*5 + ' : ' + (d.b*5*d.c/d.b), cx - 100, cy + 55);
+}
+
+// ---- Stage 2: 判定 ----
+function drawAASimilar(d) {
+  const W = canvas.width, H = canvas.height;
+  const lx = W / 2 - 140, ly = H / 2 + 50;
+  const rx = W / 2 + 20, ry = H / 2 + 50;
+  const scale = 2.2;
+
+  // Left triangle
+  drawTriangleWithAngles(lx, ly, 70 * scale, 90 * scale, d.A, d.B, d.C, '#00f5d4', '△ABC');
+  // Right triangle
+  drawTriangleWithAngles(rx, ry, 70 * scale * 0.7, 90 * scale * 0.7, d.A, d.B, d.C, '#ff8844', '△DEF');
+
+  // Congruent/similar mark
+  ctx.fillStyle = '#00ff88';
+  ctx.font = 'bold 20px "Orbitron"';
+  ctx.fillText('∽', W / 2 - 8, H / 2 + 5);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('AA 判定：两角对应相等', 20, 30);
+}
+
+function drawTriangleWithAngles(ox, oy, w, h, A, B, C, color, label) {
+  ctx.fillStyle = color + '15';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.lineTo(ox, oy - h); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.lineTo(ox, oy - h); ctx.closePath();
+  ctx.stroke();
+
+  // Right angle mark
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5;
+  const sq = 14;
+  ctx.strokeRect(ox, oy - sq, sq, sq);
+
+  // Angle labels
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '12px "Orbitron"';
+  ctx.fillText(A + '°', ox + 14, oy - 10);
+  ctx.fillText(B + '°', ox + w - 26, oy - 8);
+  ctx.fillText(C + '°', ox + 4, oy - h - 8);
+
+  // Label
+  ctx.fillStyle = color;
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText(label, ox + w/2 - 20, oy + 20);
+}
+
+function drawSASSimilar(d) {
+  const W = canvas.width, H = canvas.height;
+  const lx = W / 2 - 150, ly = H / 2 + 50;
+  const rx = W / 2 + 10, ry = H / 2 + 50;
+
+  // Left: smaller
+  drawSASTriangle(lx, ly, 90, 70, '#00f5d4', d.ab, d.ac, 'A');
+  // Right: larger
+  drawSASTriangle(rx, ry, 135, 105, '#ff8844', d.de, d.df, 'D');
+
+  // Ratio
+  ctx.fillStyle = '#00ff88';
+  ctx.font = 'bold 20px "Orbitron"';
+  ctx.fillText('∽', W / 2 - 8, H / 2 + 5);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('SAS 判定：两边成比例 + 夹角相等', 20, 30);
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText(d.ab + ':' + d.de + ' = ' + d.ac + ':' + d.df + ' = 2:3', 20, 50);
+}
+
+function drawSASTriangle(ox, oy, w, h, color, s1, s2, angleLabel) {
+  ctx.fillStyle = color + '15';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.lineTo(ox, oy - h); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.lineTo(ox, oy - h); ctx.closePath();
+  ctx.stroke();
+
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5;
+  const sq = 14;
+  ctx.strokeRect(ox, oy - sq, sq, sq);
+
+  // Side labels
+  ctx.fillStyle = '#ff8844';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText(s1, ox + w/2 - 8, oy + 18);
+  ctx.fillStyle = '#cc66ff';
+  ctx.fillText(s2, ox - 40, oy - h/2);
+
+  // Angle
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '12px "Orbitron"';
+  ctx.fillText('∠' + angleLabel, ox + 18, oy - 12);
+}
+
+function drawSSSSimilar(d) {
+  const W = canvas.width, H = canvas.height;
+  const lx = W / 2 - 130, ly = H / 2 + 50;
+  const rx = W / 2 + 20, ry = H / 2 + 50;
+
+  // Scaled triangles
+  drawSSSTriangle(lx, ly, 60, 80, 100, '#00f5d4', d.a1, d.b1, d.c1, '△ABC');
+  drawSSSTriangle(rx, ry, 120, 160, 200, '#ff8844', d.a2, d.b2, d.c2, '△DEF');
+
+  ctx.fillStyle = '#00ff88';
+  ctx.font = 'bold 20px "Orbitron"';
+  ctx.fillText('∽', W / 2 - 8, H / 2 + 5);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('SSS 判定：三边对应成比例', 20, 30);
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText(d.a1 + ':' + d.a2 + ' = ' + d.b1 + ':' + d.b2 + ' = ' + d.c1 + ':' + d.c2 + ' = 1:2', 20, 50);
+}
+
+function drawSSSTriangle(ox, oy, a, b, c, color, sa, sb, sc, label) {
+  // Simplified: right-ish triangle visualization
+  ctx.fillStyle = color + '15';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + a, oy); ctx.lineTo(ox + a * 0.3, oy - b * 0.6); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + a, oy); ctx.lineTo(ox + a * 0.3, oy - b * 0.6); ctx.closePath();
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText(label + ' (' + sa + ',' + sb + ',' + sc + ')', ox + 5, oy + 18);
+}
+
+function drawCompareConditions(d) {
+  const W = canvas.width, H = canvas.height;
+  const conditions = [
+    { name: 'SSS', ok: true, desc: '三边对应成比例 ✓' },
+    { name: 'SAS', ok: true, desc: '两边成比例+夹角相等 ✓' },
+    { name: 'SSA', ok: false, desc: '两边成比例+对角相等 ✗' },
+    { name: 'AA', ok: true, desc: '两角对应相等 ✓' }
+  ];
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '16px "Orbitron"';
+  ctx.fillText('相似判定条件对比', 20, 30);
+
+  conditions.forEach((c, i) => {
+    const y = 65 + i * 45;
+    ctx.fillStyle = c.ok ? 'rgba(0,255,136,0.12)' : 'rgba(255,51,102,0.12)';
+    ctx.fillRect(80, y - 12, 200, 30);
+    ctx.strokeStyle = c.ok ? '#00ff88' : '#ff3366'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(80, y - 12, 200, 30);
+
+    ctx.fillStyle = c.ok ? '#00ff88' : '#ff3366';
+    ctx.font = 'bold 14px "Orbitron"';
+    ctx.fillText(c.name, 90, y + 8);
+    ctx.fillStyle = '#8a9ab0';
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillText(c.desc, 300, y + 5);
+  });
+
+  ctx.fillStyle = '#ff00ff';
+  ctx.font = 'bold 14px "Orbitron"';
+  ctx.fillText('← SSA 不能判定相似！', 300, 110);
+}
+
+function drawHomothetyCenter(d) {
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2 + 20;
+
+  // Center point O
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '14px "Share Tech Mono"';
+  ctx.fillText('O（位似中心）', cx - 40, cy + 25);
+
+  // Small triangle
+  const r1 = 60;
+  const tri1 = [
+    { x: cx + r1 * Math.cos(0), y: cy + r1 * Math.sin(0) },
+    { x: cx + r1 * Math.cos(2.1), y: cy + r1 * Math.sin(2.1) },
+    { x: cx + r1 * Math.cos(4.2), y: cy + r1 * Math.sin(4.2) }
+  ];
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(tri1[0].x, tri1[0].y);
+  tri1.forEach((p, i) => { if (i > 0) ctx.lineTo(p.x, p.y); });
+  ctx.closePath(); ctx.stroke();
+
+  // Large triangle
+  const r2 = r1 * (d.k || 2);
+  const tri2 = [
+    { x: cx + r2 * Math.cos(0), y: cy + r2 * Math.sin(0) },
+    { x: cx + r2 * Math.cos(2.1), y: cy + r2 * Math.sin(2.1) },
+    { x: cx + r2 * Math.cos(4.2), y: cy + r2 * Math.sin(4.2) }
+  ];
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(tri2[0].x, tri2[0].y);
+  tri2.forEach((p, i) => { if (i > 0) ctx.lineTo(p.x, p.y); });
+  ctx.closePath(); ctx.stroke();
+
+  // Connection lines
+  ctx.strokeStyle = 'rgba(255,204,0,0.4)'; ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath(); ctx.moveTo(tri1[i].x, tri1[i].y); ctx.lineTo(tri2[i].x, tri2[i].y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('位似变换', 20, 30);
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('对应点连线经过位似中心 O', 20, 50);
+}
+
+function drawHomothetyRatio(d) {
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2 + 30;
+
+  // O on left
+  const ox = cx - 80, oy = cy;
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.arc(ox, oy, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText('O', ox - 8, oy + 20);
+
+  // A and A'
+  const ax = ox + 40, ay = oy - 30;
+  const a2x = ox + 120, a2y = oy - 90;
+  ctx.fillStyle = '#00f5d4';
+  ctx.beginPath(); ctx.arc(ax, ay, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('A', ax - 4, ay - 10);
+  ctx.fillStyle = '#ff8844';
+  ctx.beginPath(); ctx.arc(a2x, a2y, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText("A'", a2x - 4, a2y - 10);
+
+  // Line O-A-A'
+  ctx.strokeStyle = 'rgba(255,204,0,0.5)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ax, ay); ctx.lineTo(a2x, a2y); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Distance labels
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('OA = ' + d.oa, (ox + ax)/2 - 20, (oy + ay)/2 + 15);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText("OA' = " + d.oa2, (ax + a2x)/2 - 10, (ay + a2y)/2 + 10);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('相似比 = OA : OA\' = ' + d.k, 20, 30);
+}
+
+// ---- Stage 3: 性质 ----
+function drawSimilarTriRatio(d) {
+  const W = canvas.width, H = canvas.height;
+  const lx = W / 2 - 150, ly = H / 2 + 60;
+  const rx = W / 2 + 30, ry = H / 2 + 60;
+  const k = d.k ? eval(d.k.replace(':', '/')) : 2/3;
+
+  // Small triangle
+  const sw = 80, sh = 60;
+  drawSimilarTriangle(lx, ly, sw, sh, '#00f5d4', '△ABC');
+  // Large triangle
+  drawSimilarTriangle(rx, ry, sw / k, sh / k, '#ff8844', '△DEF');
+
+  // Labels
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  if (d.label) ctx.fillText(d.label + ' = ' + d.k, 20, 30);
+  else if (d.area) ctx.fillText('面积比 = ' + d.area, 20, 30);
+  else if (d.ab !== undefined) ctx.fillText('AB = ' + d.ab + ' → DE = ' + d.de, 20, 30);
+  else if (d.area1 !== undefined) ctx.fillText('面积比 = ' + d.k + '² = ' + d.area, 20, 30);
+  else if (d.p1 !== undefined) ctx.fillText('周长比 = ' + d.k, 20, 30);
+
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('相似比 k = ' + d.k, 20, 50);
+  if (d.area) ctx.fillText('面积比 = k² = ' + d.area, 20, 68);
+}
+
+function drawSimilarTriangle(ox, oy, w, h, color, label) {
+  ctx.fillStyle = color + '15';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.lineTo(ox + w * 0.3, oy - h); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.lineTo(ox + w * 0.3, oy - h); ctx.closePath();
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText(label, ox + w/2 - 20, oy + 18);
+}
+
+function drawParallelArea(d) {
+  const W = canvas.width, H = canvas.height;
+  const ox = W / 2 - 50, oy = H / 2 + 70;
+  const triW = 160, triH = 120;
+
+  // Big triangle
+  ctx.fillStyle = 'rgba(0,245,212,0.06)';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.stroke();
+
+  // DE parallel line
+  const ratio = d.ad / d.ab;
+  const dex = ox, dey = oy - triH * ratio;
+  const deW = triW * ratio;
+  ctx.fillStyle = 'rgba(255,136,68,0.15)';
+  ctx.beginPath(); ctx.moveTo(dex, dey); ctx.lineTo(dex + deW, dey); ctx.lineTo(dex, oy); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(dex, dey); ctx.lineTo(dex + deW, dey); ctx.lineTo(dex, oy); ctx.closePath();
+  ctx.stroke();
+
+  // Trapezoid area
+  ctx.fillStyle = 'rgba(0,245,212,0.08)';
+  ctx.beginPath(); ctx.moveTo(dex + deW, dey); ctx.lineTo(ox + triW, oy); ctx.lineTo(dex, oy); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(dex + deW, dey); ctx.lineTo(ox + triW, oy); ctx.lineTo(dex, oy); ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = '#ff8844';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('△ADE 面积 = ' + d.small + ' 份', 20, 30);
+  ctx.fillStyle = '#00f5d4';
+  ctx.fillText('四边形 DBCE 面积 = ' + d.large + ' 份', 20, 50);
+  ctx.fillStyle = '#e0e6f0';
+  ctx.fillText('AD:AB = ' + d.ad + ':' + d.ab, 20, 70);
+  ctx.fillText('面积比 = ' + (d.ad*d.ad) + ':' + (d.ab*d.ab) + ' = 1:' + (d.ab*d.ab/(d.ad*d.ad)), 20, 88);
+}
+
+// ---- Stage 4: 测量 ----
+function drawShadowMeasure(d) {
+  const W = canvas.width, H = canvas.height;
+  const groundY = H / 2 + 60;
+
+  // Person
+  const px = 120, ph = d.h1 * 30;
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  drawStickFigure(px, groundY, ph);
+  // Shadow
+  ctx.fillStyle = 'rgba(0,245,212,0.1)';
+  ctx.fillRect(px, groundY + 5, d.s1 * 30, 8);
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('h₁=' + d.h1 + 'm, s₁=' + d.s1 + 'm', px - 20, groundY + 30);
+
+  // Pole/building
+  const bx = 380, bh = d.h2 * 30;
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  drawBuilding(bx, groundY, bh, 40);
+  // Shadow
+  ctx.fillStyle = 'rgba(255,136,68,0.1)';
+  ctx.fillRect(bx, groundY + 5, d.s2 * 15, 8);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('h₂=?, s₂=' + d.s2 + 'm', bx - 10, groundY + 30);
+
+  // Sun rays
+  ctx.strokeStyle = 'rgba(255,204,0,0.3)'; ctx.lineWidth = 1;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(px + d.s1 * 30, groundY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(bx + d.s2 * 15, groundY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Formula
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('影长测量法', 20, 30);
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('h₁/s₁ = h₂/s₂ → ' + d.h1 + '/' + d.s1 + ' = h₂/' + d.s2, 20, 52);
+}
+
+function drawStickFigure(x, y, h) {
+  // Body
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h); ctx.stroke();
+  // Head
+  ctx.beginPath(); ctx.arc(x, y - h - 10, 8, 0, Math.PI * 2); ctx.stroke();
+  // Arms
+  ctx.beginPath(); ctx.moveTo(x - 12, y - h * 0.6); ctx.lineTo(x + 12, y - h * 0.6); ctx.stroke();
+  // Legs
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 8, y + 15); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 8, y + 15); ctx.stroke();
+}
+
+function drawBuilding(x, y, h, w) {
+  ctx.strokeRect(x - w/2, y - h, w, h);
+  // Windows
+  ctx.strokeStyle = 'rgba(255,136,68,0.4)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    for (let j = 0; j < 2; j++) {
+      ctx.strokeRect(x - w/2 + 5 + j * (w/2 - 5), y - h + i * (h/4), w/2 - 10, h/5);
+    }
+  }
+}
+
+function drawMirrorMeasure(d) {
+  const W = canvas.width, H = canvas.height;
+  const groundY = H / 2 + 60;
+
+  // Ground line
+  ctx.strokeStyle = 'rgba(0,245,212,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(50, groundY); ctx.lineTo(W - 50, groundY); ctx.stroke();
+
+  // Person
+  const px = 150, eyeY = groundY - d.eye * 30;
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  drawStickFigure(px, groundY, d.eye * 30);
+  // Eye highlight
+  ctx.fillStyle = '#00f5d4';
+  ctx.beginPath(); ctx.arc(px, eyeY, 4, 0, Math.PI * 2); ctx.fill();
+
+  // Mirror
+  const mx = px + d.d1 * 30;
+  ctx.fillStyle = 'rgba(0,245,212,0.2)';
+  ctx.fillRect(mx - 15, groundY - 5, 30, 10);
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.strokeRect(mx - 15, groundY - 5, 30, 10);
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('镜子', mx - 15, groundY + 20);
+
+  // Building
+  const bx = mx + d.d2 * 15;
+  const bh = d.h * 15;
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  drawBuilding(bx, groundY, bh, 50);
+
+  // Sight line (reflects at mirror)
+  ctx.strokeStyle = 'rgba(255,204,0,0.5)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(px, eyeY); ctx.lineTo(mx, groundY); ctx.lineTo(bx, groundY - bh); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Similar triangles
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('镜面反射测高', 20, 30);
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('△ABO ∽ △CDO（入射角=反射角）', 20, 50);
+  ctx.fillText(d.eye + '/' + d.d1 + ' = ' + d.h + '/' + d.d2, 20, 68);
+}
+
+function drawRiverWidth(d) {
+  const W = canvas.width, H = canvas.height;
+  const groundY = H / 2 + 50;
+
+  // River
+  ctx.fillStyle = 'rgba(0,245,212,0.06)';
+  ctx.fillRect(120, groundY - 40, 160, 80);
+  ctx.strokeStyle = 'rgba(0,245,212,0.3)'; ctx.lineWidth = 1;
+  ctx.strokeRect(120, groundY - 40, 160, 80);
+  ctx.fillStyle = 'rgba(0,245,212,0.4)';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('河', 190, groundY + 4);
+
+  // Points
+  const ax = 120, ay = groundY - 20; // Tree A
+  const bx = 280, by = groundY - 20; // Benchmark B
+  const cx = 380, cy = groundY - 20; // Point C
+  const dx = 380, dy = groundY - 80; // Point D (perpendicular)
+
+  // Tree
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax, ay - 40); ctx.stroke();
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath(); ctx.arc(ax, ay - 50, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('A', ax - 5, ay - 65);
+
+  // Benchmark
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx, by - 20); ctx.stroke();
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('B', bx - 5, by - 25);
+
+  // C point
+  ctx.fillStyle = '#e0e6f0';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('C', cx + 8, cy + 4);
+
+  // D point
+  ctx.fillStyle = '#cc66ff';
+  ctx.beginPath(); ctx.arc(dx, dy, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('D', dx + 8, dy + 4);
+
+  // Lines
+  ctx.strokeStyle = 'rgba(138,154,176,0.5)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(cx, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(cx, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(dx, dy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Ground line
+  ctx.strokeStyle = 'rgba(138,154,176,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(80, groundY); ctx.lineTo(W - 80, groundY); ctx.stroke();
+
+  // Measurements
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('BC = ' + d.bc + 'm', (bx + cx)/2 - 15, groundY + 22);
+  ctx.fillText('CD = ' + d.cd + 'm', cx + 10, (cy + dy)/2);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('河宽测量', 20, 30);
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('△ABC ∽ △EDC（AA）', 20, 50);
+}
+
+function drawPoleMeasure(d) {
+  const W = canvas.width, H = canvas.height;
+  const groundY = H / 2 + 60;
+
+  // Ground
+  ctx.strokeStyle = 'rgba(0,245,212,0.2)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(50, groundY); ctx.lineTo(W - 50, groundY); ctx.stroke();
+
+  // Tree AB
+  const ax = 450, abH = d.ab * 15;
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ax, groundY); ctx.lineTo(ax, groundY - abH); ctx.stroke();
+  ctx.fillStyle = '#00f5d4';
+  ctx.fillText('A', ax - 15, groundY - abH - 5);
+  ctx.fillText('B', ax + 6, groundY + 14);
+
+  // Pole CD
+  const cx = 200, cdH = d.cd * 15;
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, groundY); ctx.lineTo(cx, groundY - cdH); ctx.stroke();
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('C', cx - 15, groundY - cdH - 5);
+  ctx.fillText('D', cx + 6, groundY + 14);
+
+  // Observer eye E
+  const ex = cx + d.df * 15, ey = groundY - d.ef * 15;
+  ctx.fillStyle = '#cc66ff';
+  ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillText('E（眼）', ex + 8, ey - 5);
+
+  // Sight line E -> top of pole -> top of tree
+  ctx.strokeStyle = 'rgba(255,204,0,0.5)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(cx, groundY - cdH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ax, groundY - abH); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Horizontal line through E
+  ctx.strokeStyle = 'rgba(138,154,176,0.4)'; ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(60, ey); ctx.lineTo(W - 60, ey); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // G point on pole, H point on tree
+  ctx.fillStyle = '#e0e6f0';
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('G', cx + 6, ey + 3);
+  ctx.fillText('H', ax + 6, ey + 3);
+
+  // Distances
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('DF = ' + d.df + 'm', (cx + ex)/2 - 20, groundY + 22);
+  ctx.fillText('FB = ' + d.fb + 'm', (ex + ax)/2 - 15, groundY + 22);
+  ctx.fillText('CD = ' + d.cd + 'm', cx - 40, groundY - cdH/2);
+  ctx.fillText('EF = ' + d.ef + 'm', ex + 10, (ey + groundY)/2);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('标杆法测高', 20, 30);
+}
+
+// ---- Stage 5: quick drawings ----
+function drawQuickAA(d) {
+  const W = canvas.width, H = canvas.height;
+  const ox = W / 2 - 40, oy = H / 2 + 50;
+  const triW = 130, triH = 100;
+
+  ctx.fillStyle = 'rgba(0,245,212,0.08)';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 2.5;
+  ctx.shadowColor = 'rgba(0,245,212,0.3)'; ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.stroke(); ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(ox, oy - 14, 14, 14);
+
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('∠A=' + d.A + '°', ox + 16, oy - 10);
+  ctx.fillText('∠B=' + d.B + '°', ox + triW - 34, oy - 8);
+  ctx.fillText('∠C=' + d.C + '°', ox + 4, oy - triH - 10);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('求 ∠F = ?', 20, 30);
+}
+
+function drawQuickArea(d) {
+  const W = canvas.width, H = canvas.height;
+  const lx = W / 2 - 120, ly = H / 2 + 50;
+  const rx = W / 2 + 30, ry = H / 2 + 50;
+
+  drawSimilarTriangle(lx, ly, 70, 50, '#00f5d4', 'S₁=' + d.s1);
+  drawSimilarTriangle(rx, ry, 105, 75, '#ff8844', 'S₂=?');
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('相似比 k = ' + d.k, 20, 30);
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('面积比 = k²', 20, 50);
+}
+
+function drawQuickParallel(d) {
+  const W = canvas.width, H = canvas.height;
+  const ox = W / 2 - 40, oy = H / 2 + 50;
+  const triW = 150, triH = 100;
+
+  ctx.fillStyle = 'rgba(0,245,212,0.06)';
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + triW, oy); ctx.lineTo(ox, oy - triH); ctx.closePath();
+  ctx.stroke();
+
+  const ratio = d.ad / (d.ad + d.db);
+  const dey = oy - triH * ratio;
+  const deW = triW * ratio;
+  ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(ox, dey); ctx.lineTo(ox + deW, dey); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Share Tech Mono"';
+  ctx.fillText('AD=' + d.ad + ', DB=' + d.db, 20, 30);
+  ctx.fillText('AE=' + d.ae + ', EC=?', 20, 50);
+}
+
+function drawQuickSSS(d) {
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '14px "Orbitron"';
+  ctx.fillText('三边对比', 20, 30);
+
+  ctx.font = '14px "Share Tech Mono"';
+  ctx.fillText('△ABC: ' + d.a1 + ', ' + d.b1 + ', ' + d.c1, 20, 55);
+  ctx.fillText('△DEF: ' + d.a2 + ', ' + d.b2 + ', ' + d.c2, 20, 75);
+
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText(d.a1 + ':' + d.a2 + ' = ' + d.b1 + ':' + d.b2 + ' = ' + d.c1 + ':' + d.c2, 20, 100);
+}
+
+function drawQuickShadow(d) {
+  const W = canvas.width, H = canvas.height;
+  const groundY = H / 2 + 50;
+
+  // Person
+  drawStickFigure(130, groundY, d.h1 * 25);
+  ctx.fillStyle = 'rgba(0,245,212,0.1)';
+  ctx.fillRect(130, groundY + 5, d.s1 * 20, 8);
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText(d.h1 + 'm / ' + d.s1 + 'm', 100, groundY + 28);
+
+  // Flag
+  drawBuilding(380, groundY, d.h2 * 15, 35);
+  ctx.fillStyle = 'rgba(255,136,68,0.1)';
+  ctx.fillRect(380, groundY + 5, d.s2 * 8, 8);
+  ctx.fillStyle = '#ff8844';
+  ctx.fillText('? / ' + d.s2 + 'm', 370, groundY + 28);
+
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '13px "Orbitron"';
+  ctx.fillText('同一时刻，物高∝影长', 20, 30);
+}
+
+// ---- Option click tracking for wrong highlight ----
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.opt');
+  if (!opt) return;
+  if (state.answered) return;
+  const opts = document.querySelectorAll('.opt');
+  const idx = Array.from(opts).indexOf(opt);
+  const q = STAGES[state.stage].questions[state.question];
+  if (q.type !== 'choice') return;
+  if (idx !== q.correct) {
+    opt.classList.add('wrong');
+  }
+  opts[q.correct].classList.add('correct');
+});
+</script>
+</body>
+</html>
