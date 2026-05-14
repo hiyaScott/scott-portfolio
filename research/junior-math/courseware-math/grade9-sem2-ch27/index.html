@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：CIRCLE | 圆</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060f0e; --bg2: #0a1a18; --bg3: #0e2522;
+  --accent: #00f5d4; --accent2: #00c8a8; --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0f0ee; --text2: #8ab0a8; --text3: #4a7068;
+  --border: rgba(0,245,212,0.2); --glass: rgba(10,26,24,0.85);
+  --glass-border: rgba(0,245,212,0.12); --green: #00ff88; --yellow: #ffcc00;
+  --red: #ff3366; --orange: #ff8844; --purple: #cc66ff;
+  --pink: #ff66cc;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Share Tech Mono', monospace; font-size: 15px; line-height: 1.7;
+  overflow-x: hidden; position: relative; min-height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px; pointer-events: none; z-index: 1;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2; animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute; width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* Hero */
+.hero { text-align: center; padding: 60px 0 30px; position: relative; }
+.hero-badge {
+  display: inline-block; border: 1px solid var(--accent); padding: 4px 16px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px;
+  color: var(--accent); margin-bottom: 16px; text-transform: uppercase;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%,100% { box-shadow: 0 0 8px rgba(0,245,212,0.2); }
+  50% { box-shadow: 0 0 20px rgba(0,245,212,0.4); }
+}
+.hero h1 { font-family: 'Orbitron', sans-serif; font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 30px rgba(0,245,212,0.3); margin-bottom: 8px; }
+.hero-sub { font-size: 14px; color: var(--text2); letter-spacing: 3px; }
+.hero-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 20px auto; }
+
+/* HUD Bar */
+.hud-bar {
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  padding: 14px 24px; margin-bottom: 24px;
+  background: var(--glass); border: 1px solid var(--glass-border); border-radius: 10px;
+  backdrop-filter: blur(12px); flex-wrap: wrap;
+}
+.hud-item { display: flex; align-items: center; gap: 8px; font-family: 'Orbitron', sans-serif; font-size: 13px; }
+.hud-item .label { color: var(--text3); font-size: 11px; letter-spacing: 1px; }
+.hud-item .value { color: var(--accent); font-weight: 700; }
+.hud-item .value.red { color: var(--red); }
+.hud-item .value.green { color: var(--green); }
+.hud-item .value.yellow { color: var(--yellow); }
+.hud-item .value.pink { color: var(--pink); }
+.hud-item .lives { display: flex; gap: 3px; }
+.hud-item .life { width: 14px; height: 14px; background: var(--red); clip-path: polygon(50% 0%, 100% 35%, 85% 100%, 50% 80%, 15% 100%, 0% 35%); opacity: 1; transition: opacity 0.3s; }
+.hud-item .life.lost { opacity: 0.15; }
+
+/* Stage Panel */
+.stage-panel {
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap;
+}
+.stage-btn {
+  padding: 8px 18px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.3s;
+}
+.stage-btn:hover { border-color: var(--border); color: var(--text); }
+.stage-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 12px rgba(0,245,212,0.15); }
+.stage-btn.locked { opacity: 0.4; cursor: not-allowed; }
+.stage-btn.cleared::after { content: ' ✓'; color: var(--green); }
+
+/* Game Card */
+.game-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px); overflow: hidden; margin-bottom: 24px;
+  position: relative;
+}
+.game-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.game-header {
+  padding: 20px 28px 16px; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.game-stage-num { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); opacity: 0.4; }
+.game-stage-title { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: 1px; }
+.game-progress { font-family: 'Orbitron', sans-serif; font-size: 13px; color: var(--text3); }
+
+.game-body { padding: 24px 28px 28px; }
+
+/* Canvas Area */
+.canvas-area {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 16px; margin-bottom: 20px; text-align: center; position: relative;
+}
+.canvas-area h4 {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.canvas-area canvas {
+  background: var(--bg); border-radius: 6px; border: 1px solid var(--glass-border);
+  max-width: 100%;
+}
+
+/* Question */
+.question-box { margin-bottom: 20px; }
+.question-box .q-num {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  background: var(--accent-dim); padding: 2px 10px; border-radius: 3px; letter-spacing: 1px;
+  display: inline-block; margin-bottom: 10px;
+}
+.question-box .q-text { color: var(--text); font-size: 16px; margin-bottom: 16px; line-height: 1.8; }
+.question-box .q-text .math { color: var(--accent); }
+
+/* Options */
+.opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.opt {
+  padding: 12px 16px; border: 1px solid var(--glass-border); border-radius: 8px;
+  cursor: pointer; transition: all 0.2s; font-size: 15px; display: flex; align-items: center; gap: 10px;
+}
+.opt:hover { border-color: var(--border); background: var(--bg3); }
+.opt .opt-letter {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--text3); flex-shrink: 0;
+}
+.opt:hover .opt-letter { border-color: var(--accent); color: var(--accent); }
+.opt.correct { border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green); }
+.opt.correct .opt-letter { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.15); }
+.opt.wrong { border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red); }
+.opt.wrong .opt-letter { border-color: var(--red); color: var(--red); background: rgba(255,51,102,0.15); }
+.opt.disabled { pointer-events: none; opacity: 0.7; }
+
+/* Number input */
+.num-input-wrap { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.num-input {
+  background: var(--bg3); border: 1px solid var(--glass-border); border-radius: 6px;
+  padding: 10px 16px; color: var(--accent); font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; width: 180px; outline: none;
+}
+.num-input:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(0,245,212,0.15); }
+.submit-btn {
+  background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent);
+  padding: 10px 24px; border-radius: 6px; font-family: 'Orbitron', sans-serif; font-size: 13px;
+  letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.submit-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* Feedback */
+.feedback {
+  padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; display: none;
+  animation: feedbackIn 0.3s ease;
+}
+@keyframes feedbackIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+.feedback.show { display: block; }
+.feedback.correct { background: rgba(0,255,136,0.08); border-left: 3px solid var(--green); color: var(--green); }
+.feedback.wrong { background: rgba(255,51,102,0.08); border-left: 3px solid var(--red); color: var(--red); }
+.feedback.timeout { background: rgba(255,204,0,0.08); border-left: 3px solid var(--yellow); color: var(--yellow); }
+.feedback .fb-title { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.feedback .fb-text { font-size: 14px; color: var(--text2); }
+
+/* Timer bar */
+.timer-bar-wrap { height: 4px; background: var(--bg3); border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
+.timer-bar { height: 100%; background: linear-gradient(90deg, var(--green), var(--accent)); border-radius: 2px; transition: width 1s linear; }
+.timer-bar.warn { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+.timer-bar.danger { background: linear-gradient(90deg, var(--red), var(--orange)); }
+
+/* Big countdown for Stage 5 */
+.countdown-big {
+  font-family: 'Orbitron', sans-serif; font-size: 48px; font-weight: 900;
+  color: var(--accent); text-align: center; margin-bottom: 16px;
+  text-shadow: 0 0 20px rgba(0,245,212,0.4);
+  animation: countdownPulse 1s ease-in-out infinite;
+}
+.countdown-big.warn { color: var(--yellow); text-shadow: 0 0 20px rgba(255,204,0,0.4); }
+.countdown-big.danger { color: var(--red); text-shadow: 0 0 20px rgba(255,51,102,0.4); }
+@keyframes countdownPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+/* Step hint box */
+.step-hint {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.step-hint .sh-title {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.step-hint .sh-steps {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.step-hint .sh-step {
+  padding: 6px 12px; border-radius: 4px; border: 1px solid var(--glass-border);
+  font-size: 13px; color: var(--text2); background: var(--bg3);
+}
+.step-hint .sh-step.done { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.08); }
+.step-hint .sh-step.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* Controls */
+.controls { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.ctrl-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ctrl-btn.primary { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.ctrl-btn.primary:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 16px rgba(0,245,212,0.3); }
+
+/* Results */
+.results-screen { text-align: center; padding: 40px 28px; }
+.results-screen .result-grade {
+  font-family: 'Orbitron', sans-serif; font-size: 72px; font-weight: 900;
+  margin-bottom: 12px; text-shadow: 0 0 40px currentColor;
+}
+.results-screen .result-grade.S { color: var(--accent); text-shadow: 0 0 50px rgba(0,245,212,0.5); }
+.results-screen .result-grade.A { color: var(--green); }
+.results-screen .result-grade.B { color: var(--yellow); }
+.results-screen .result-grade.C { color: var(--orange); }
+.results-screen .result-grade.F { color: var(--red); }
+.results-screen .result-title { font-family: 'Orbitron', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
+.results-screen .result-desc { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
+.result-stats { display: flex; justify-content: center; gap: 32px; margin-bottom: 32px; flex-wrap: wrap; }
+.result-stat { text-align: center; }
+.result-stat .stat-val { font-family: 'Orbitron', sans-serif; font-size: 28px; color: var(--accent); font-weight: 700; }
+.result-stat .stat-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* Badges */
+.badge-grid { display: flex; justify-content: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+.badge {
+  width: 80px; height: 80px; border-radius: 12px; border: 2px solid var(--glass-border);
+  background: var(--bg2); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all 0.3s; opacity: 0.4;
+}
+.badge.unlocked { opacity: 1; border-color: var(--accent); box-shadow: 0 0 20px rgba(0,245,212,0.2); }
+.badge .badge-icon { font-size: 32px; margin-bottom: 4px; }
+.badge .badge-name { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--text3); letter-spacing: 1px; text-align: center; }
+.badge.unlocked .badge-name { color: var(--accent); }
+
+/* Start screen */
+.start-screen { text-align: center; padding: 40px 28px 60px; }
+.start-screen p { color: var(--text2); max-width: 600px; margin: 0 auto 32px; line-height: 1.8; }
+.mission-list { text-align: left; max-width: 520px; margin: 0 auto 32px; }
+.mission-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--glass-border); color: var(--text2); font-size: 14px;
+}
+.mission-item:last-child { border-bottom: none; }
+.mission-item .mi-num {
+  width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--accent);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; color: var(--accent); flex-shrink: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* Nav */
+.chapter-nav {
+  display: flex; justify-content: space-between; padding: 20px 0 40px;
+  border-top: 1px solid var(--glass-border); margin-top: 8px;
+}
+.nav-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; text-decoration: none;
+}
+.nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.nav-btn.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 26px; }
+  .hud-bar { gap: 12px; padding: 10px 14px; }
+  .game-header { flex-direction: column; align-items: flex-start; }
+  .game-stage-num { font-size: 22px; }
+  .game-stage-title { font-size: 15px; }
+  .countdown-big { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">圆周大师 · 代号 CIRCLE</div>
+  <h1>代号：CIRCLE</h1>
+  <div class="hero-sub">圆 · 实战演练</div>
+  <div class="hero-line"></div>
+  <p style="color:var(--text3);font-size:14px;max-width:680px;margin:0 auto;">
+    五大战术模块，三十道实战题目。Canvas 动态圆图 + 即时反馈。<br>
+    你的任务：在限定时间内完成所有挑战，解锁「圆周大师」徽章。
+  </p>
+</div>
+
+<!-- HUD -->
+<div class="hud-bar" id="hud-bar" style="display:none;">
+  <div class="hud-item"><span class="label">SCORE</span><span class="value" id="hud-score">0</span></div>
+  <div class="hud-item"><span class="label">LIVES</span><div class="lives" id="hud-lives"></div></div>
+  <div class="hud-item"><span class="label">COMBO</span><span class="value yellow" id="hud-combo">x1</span></div>
+  <div class="hud-item"><span class="label">TIME</span><span class="value" id="hud-time">30</span></div>
+  <div class="hud-item"><span class="label">STAGE</span><span class="value" id="hud-stage">1/5</span></div>
+</div>
+
+<!-- STAGE PANEL -->
+<div class="stage-panel" id="stage-panel" style="display:none;">
+  <button class="stage-btn active" data-stage="0" onclick="jumpToStage(0)">STAGE 1 · 圆周密码</button>
+  <button class="stage-btn" data-stage="1" onclick="jumpToStage(1)">STAGE 2 · 切线判定</button>
+  <button class="stage-btn" data-stage="2" onclick="jumpToStage(2)">STAGE 3 · 两圆侦查</button>
+  <button class="stage-btn" data-stage="3" onclick="jumpToStage(3)">STAGE 4 · 圆中计算</button>
+  <button class="stage-btn" data-stage="4" onclick="jumpToStage(4)">STAGE 5 · 终极密码</button>
+</div>
+
+<!-- START SCREEN -->
+<div id="start-screen" class="game-card start-screen">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务简报</div>
+  </div>
+  <div class="game-body">
+    <p>欢迎来到圆周大师训练场。你将接受五个阶段的实战考核，每个阶段包含 5～8 道题目。答对可获得分数与连击加成，答错将扣除生命。完成所有阶段后，系统将根据准确率与速度给出 S/A/B/C 评级，并解锁「圆周大师」徽章。</p>
+    <div class="mission-list">
+      <div class="mission-item"><div class="mi-num">01</div><div>圆周密码：圆心角与圆周角关系、弦心距、等弧对等弦</div></div>
+      <div class="mission-item"><div class="mi-num">02</div><div>切线判定：直线与圆的位置关系、切线判定定理、切线长定理</div></div>
+      <div class="mission-item"><div class="mi-num">03</div><div>两圆侦查：判断两圆位置关系（外离、外切、相交、内切、内含）</div></div>
+      <div class="mission-item"><div class="mi-num">04</div><div>圆中计算：弧长、扇形面积、弓形面积公式运用</div></div>
+      <div class="mission-item"><div class="mi-num">05</div><div>终极密码：60秒综合挑战，圆周角+切线+两圆+计算混合题</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn primary" onclick="startGame()">开始任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME AREA -->
+<div id="game-area" style="display:none;">
+  <div class="game-card">
+    <div class="game-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="game-stage-num" id="stage-num">01</div>
+        <div class="game-stage-title" id="stage-title">圆周密码</div>
+      </div>
+      <div class="game-progress" id="game-progress">题目 1 / 5</div>
+    </div>
+    <div class="game-body">
+      <!-- Big countdown for Stage 5 -->
+      <div class="countdown-big" id="countdown-big" style="display:none;">60</div>
+      <!-- Timer bar -->
+      <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar" style="width:100%;"></div></div>
+
+      <!-- Step hint (Stage 2 & 4) -->
+      <div class="step-hint" id="step-hint" style="display:none;">
+        <div class="sh-title" id="sh-title">解题步骤</div>
+        <div class="sh-steps" id="sh-steps"></div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-area">
+        <h4 id="canvas-title">▌ 几何图示</h4>
+        <canvas id="game-canvas" width="700" height="360"></canvas>
+      </div>
+
+      <!-- Question -->
+      <div class="question-box">
+        <span class="q-num" id="q-num">Q1</span>
+        <div class="q-text" id="q-text"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="feedback" id="feedback"><div class="fb-title"></div><div class="fb-text"></div></div>
+
+      <!-- Options / Input -->
+      <div id="answer-area"></div>
+
+      <!-- Controls -->
+      <div class="controls" id="q-controls">
+        <button class="ctrl-btn primary" id="next-btn" onclick="nextQuestion()" style="display:none;">下一题 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="results-screen" class="game-card results-screen" style="display:none;">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务完成</div>
+  </div>
+  <div class="game-body">
+    <div class="result-grade" id="result-grade">S</div>
+    <div class="result-title" id="result-title">完美执行</div>
+    <div class="result-desc" id="result-desc">所有阶段全部通关，圆的知识体系已掌握。</div>
+
+    <!-- Badges -->
+    <div class="badge-grid" id="badge-grid">
+      <div class="badge unlocked" id="badge-master">
+        <div class="badge-icon">🏆</div>
+        <div class="badge-name">圆周大师</div>
+      </div>
+    </div>
+
+    <div class="result-stats">
+      <div class="result-stat"><div class="stat-val" id="res-score">0</div><div class="stat-label">总分</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-correct">0</div><div class="stat-label">正确</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-maxcombo">0</div><div class="stat-label">最高连击</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-time">0</div><div class="stat-label">用时(秒)</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-accuracy">0%</div><div class="stat-label">准确率</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn" onclick="location.reload()">重新开始</button>
+      <a class="ctrl-btn primary" href="tutorial.html" style="text-decoration:none;">查看教案</a>
+    </div>
+  </div>
+</div>
+
+<!-- CHAPTER NAV -->
+<div class="chapter-nav" id="chapter-nav" style="display:none;">
+  <a class="nav-btn" href="../grade9-sem1-ch26/index.html">← 上一章</a>
+  <a class="nav-btn disabled" href="#">下一章 →</a>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ===================== GAME DATA =====================
+const STAGES = [
+  // ===== STAGE 1: 圆周密码 =====
+  {
+    title: '圆周密码',
+    questions: [
+      {
+        text: '如图，圆O中，∠AOB = 80° 为圆心角，点C在圆周上。则圆周角 ∠ACB = ?',
+        type: 'choice', options: ['A. 80°', 'B. 40°', 'C. 160°', 'D. 20°'],
+        correct: 1,
+        canvas: 'circle-central-inscribed', canvasData: {central:80,inscribed:40},
+        feedbackCorrect: '正确！同弧所对圆周角等于圆心角的一半：∠ACB = 80°/2 = 40°。',
+        feedbackWrong: '错误。圆周角定理：同弧所对圆周角 = 圆心角的一半 = 80°/2 = 40°。',
+        time: 25
+      },
+      {
+        text: '如图，圆O中，弦AB所对的圆周角 ∠ACB = 35°。则圆心角 ∠AOB = ?',
+        type: 'input', answer: '70', altAnswers: ['70°','70度'],
+        canvas: 'circle-inscribed-central', canvasData: {inscribed:35,central:70},
+        feedbackCorrect: '正确！圆心角 = 2 × 圆周角 = 2 × 35° = 70°。',
+        feedbackWrong: '错误。圆心角是同弧所对圆周角的 2 倍：∠AOB = 2 × 35° = 70°。',
+        time: 25
+      },
+      {
+        text: '如图，AB是圆O的直径，点C在圆周上。则 ∠ACB = ?',
+        type: 'choice', options: ['A. 45°', 'B. 60°', 'C. 90°', 'D. 180°'],
+        correct: 2,
+        canvas: 'circle-diameter-angle', canvasData: {},
+        feedbackCorrect: '正确！直径所对的圆周角是直角，∠ACB = 90°。',
+        feedbackWrong: '错误。直径所对的圆周角恒为 90°（半圆上的圆周角）。',
+        time: 20
+      },
+      {
+        text: '如图，圆O中，弦AB = 8cm，弦心距（圆心到弦的距离）OD = 3cm。则圆的半径 r = ?',
+        type: 'input', answer: '5', altAnswers: ['5cm','5厘米'],
+        canvas: 'circle-chord-dist', canvasData: {chord:8,dist:3,radius:5},
+        feedbackCorrect: '正确！由垂径定理，AD = AB/2 = 4cm。在 Rt△OAD 中，r² = 3² + 4² = 25，r = 5cm。',
+        feedbackWrong: '错误。垂径定理：OD⊥AB 则 AD = 4cm。由勾股定理 r² = 3² + 4² = 25，r = 5cm。',
+        time: 35
+      },
+      {
+        text: '如图，圆O中，∠A = 28°，∠B = 42°，A、B、C在圆周上。求 ∠ACB 的度数。',
+        type: 'input', answer: '70', altAnswers: ['70°','70度'],
+        canvas: 'circle-triangle-inscribed', canvasData: {a:28,b:42,c:70},
+        feedbackCorrect: '正确！同弧所对圆周角相等，∠ACB 与 ∠AOB 的一半相关。或直接利用圆内接三角形性质。',
+        feedbackWrong: '错误。圆内接三角形中，可利用圆周角关系或三角形内角和间接求解。∠ACB = 70°。',
+        time: 40
+      },
+      {
+        text: '如图，圆O中，弧AB = 弧CD。则弦AB 与 弦CD 的关系是 ?',
+        type: 'choice', options: ['A. AB > CD', 'B. AB < CD', 'C. AB = CD', 'D. 无法确定'],
+        correct: 2,
+        canvas: 'circle-equal-arcs', canvasData: {},
+        feedbackCorrect: '正确！在同圆或等圆中，等弧对等弦。',
+        feedbackWrong: '错误。定理：在同圆或等圆中，等弧所对的弦相等。',
+        time: 20
+      },
+      {
+        text: '如图，圆O的半径为 6cm，圆心角 ∠AOB = 120°。则弦AB 的长度为 ?',
+        type: 'choice', options: ['A. 6cm', 'B. 6√3 cm', 'C. 12cm', 'D. 3√3 cm'],
+        correct: 1,
+        canvas: 'circle-chord-length', canvasData: {r:6,angle:120,chord:'6√3'},
+        feedbackCorrect: '正确！作 OD⊥AB，则 ∠AOD = 60°，AD = r·sin60° = 6×√3/2 = 3√3，AB = 2AD = 6√3 cm。',
+        feedbackWrong: '错误。由垂径定理，AB = 2r·sin(θ/2) = 2×6×sin60° = 12×√3/2 = 6√3 cm。',
+        time: 40
+      }
+    ]
+  },
+  // ===== STAGE 2: 切线判定 =====
+  {
+    title: '切线判定',
+    questions: [
+      {
+        text: '如图，圆O的半径 r = 5，圆心到直线 l 的距离 d = 5。则直线 l 与圆的位置关系是 ?',
+        type: 'choice', options: ['A. 相交', 'B. 相切', 'C. 相离', 'D. 内含'],
+        correct: 1,
+        canvas: 'tangent-d-equals-r', canvasData: {r:5,d:5},
+        feedbackCorrect: '正确！d = r = 5，直线与圆相切（有且只有一个公共点）。',
+        feedbackWrong: '错误。判定法则：d = r 时相切；d < r 时相交；d > r 时相离。此处 d = r = 5。',
+        time: 25
+      },
+      {
+        text: '如图，圆O的半径 r = 4，圆心到直线 l 的距离 d = 6。则直线 l 与圆的位置关系是 ?',
+        type: 'choice', options: ['A. 相交', 'B. 相切', 'C. 相离', 'D. 内含'],
+        correct: 2,
+        canvas: 'tangent-d-greater-r', canvasData: {r:4,d:6},
+        feedbackCorrect: '正确！d = 6 > r = 4，直线与圆相离（没有公共点）。',
+        feedbackWrong: '错误。d > r 时相离，d = r 时相切，d < r 时相交。此处 d = 6 > 4 = r，相离。',
+        time: 25
+      },
+      {
+        text: '如图，圆O的半径 r = 5，圆心到直线 l 的距离 d = 3。则直线 l 与圆有几个公共点 ?',
+        type: 'choice', options: ['A. 0个', 'B. 1个', 'C. 2个', 'D. 3个'],
+        correct: 2,
+        canvas: 'tangent-d-less-r', canvasData: {r:5,d:3},
+        feedbackCorrect: '正确！d = 3 < r = 5，直线与圆相交，有 2 个公共点。',
+        feedbackWrong: '错误。d < r 时相交，有 2 个公共点。d = r 时相切，1 个公共点。d > r 时相离，0 个公共点。',
+        time: 25
+      },
+      {
+        text: '如图，PA、PB 是圆O的两条切线，切点分别为 A、B，PO = 10，圆半径 r = 6。则切线长 PA = ?',
+        type: 'input', answer: '8', altAnswers: ['8','8cm','8厘米'],
+        canvas: 'tangent-length', canvasData: {po:10,r:6,pa:8},
+        feedbackCorrect: '正确！由切线长定理，PA⊥OA，在 Rt△POA 中，PA² + OA² = PO²，PA² = 100 − 36 = 64，PA = 8。',
+        feedbackWrong: '错误。切线性质：切线⊥半径。Rt△POA 中，PA = √(PO² − r²) = √(100−36) = √64 = 8。',
+        time: 40
+      },
+      {
+        text: '如图，直线 l 经过圆O上一点 A，且 OA⊥l。则可判定直线 l 是圆O的 ?',
+        type: 'choice', options: ['A. 割线', 'B. 切线', 'C. 直径', 'D. 弦'],
+        correct: 1,
+        canvas: 'tangent-perp-radius', canvasData: {},
+        feedbackCorrect: '正确！切线判定定理：经过半径外端且垂直于这条半径的直线是圆的切线。',
+        feedbackWrong: '错误。切线判定定理：过半径外端且垂直于半径的直线是切线。OA⊥l 且 A 在圆上，所以 l 是切线。',
+        time: 25
+      },
+      {
+        text: '如图，PA 切圆O于 A，割线 PBC 交圆于 B、C，PA = 6，PB = 4。则 PC = ?',
+        type: 'input', answer: '9', altAnswers: ['9','9cm'],
+        canvas: 'tangent-secant', canvasData: {pa:6,pb:4,pc:9},
+        feedbackCorrect: '正确！切割线定理：PA² = PB·PC，36 = 4·PC，PC = 9。',
+        feedbackWrong: '错误。切割线定理：切线长的平方等于割线外段与全段的积。PA² = PB·PC，36 = 4×PC，PC = 9。',
+        time: 40
+      }
+    ]
+  },
+  // ===== STAGE 3: 两圆侦查 =====
+  {
+    title: '两圆侦查',
+    questions: [
+      {
+        text: '如图，圆O₁半径 R = 5，圆O₂半径 r = 3，圆心距 d = 10。则两圆的位置关系是 ?',
+        type: 'choice', options: ['A. 外离', 'B. 外切', 'C. 相交', 'D. 内切'],
+        correct: 0,
+        canvas: 'two-circle-outside', canvasData: {R:5,r:3,d:10},
+        feedbackCorrect: '正确！d = 10 > R + r = 8，两圆外离（无公共点）。',
+        feedbackWrong: '错误。R + r = 8，d = 10 > 8，所以两圆外离。d > R+r 时外离。',
+        time: 30
+      },
+      {
+        text: '如图，圆O₁半径 R = 5，圆O₂半径 r = 3，圆心距 d = 8。则两圆的位置关系是 ?',
+        type: 'choice', options: ['A. 外离', 'B. 外切', 'C. 相交', 'D. 内切'],
+        correct: 1,
+        canvas: 'two-circle-external-tangent', canvasData: {R:5,r:3,d:8},
+        feedbackCorrect: '正确！d = 8 = R + r = 8，两圆外切（有1个公共点）。',
+        feedbackWrong: '错误。d = R + r = 8 时两圆外切，有且仅有 1 个公共点。',
+        time: 25
+      },
+      {
+        text: '如图，圆O₁半径 R = 5，圆O₂半径 r = 3，圆心距 d = 6。则两圆的位置关系是 ?',
+        type: 'choice', options: ['A. 外切', 'B. 相交', 'C. 内切', 'D. 内含'],
+        correct: 1,
+        canvas: 'two-circle-intersect', canvasData: {R:5,r:3,d:6},
+        feedbackCorrect: '正确！R−r = 2 < d = 6 < R+r = 8，两圆相交（有2个公共点）。',
+        feedbackWrong: '错误。判定：|R−r| < d < R+r 时相交。此处 2 < 6 < 8，相交。',
+        time: 30
+      },
+      {
+        text: '如图，圆O₁半径 R = 5，圆O₂半径 r = 3，圆心距 d = 2。则两圆的位置关系是 ?',
+        type: 'choice', options: ['A. 外切', 'B. 相交', 'C. 内切', 'D. 内含'],
+        correct: 2,
+        canvas: 'two-circle-internal-tangent', canvasData: {R:5,r:3,d:2},
+        feedbackCorrect: '正确！d = 2 = R − r = 2，两圆内切（有1个公共点）。',
+        feedbackWrong: '错误。d = R − r = 2 时两圆内切。注意内切是 d = |R−r|，不是 d = 0。',
+        time: 30
+      },
+      {
+        text: '如图，圆O₁半径 R = 5，圆O₂半径 r = 3，圆心距 d = 1。则两圆的位置关系是 ?',
+        type: 'choice', options: ['A. 内切', 'B. 相交', 'C. 内含', 'D. 同心'],
+        correct: 2,
+        canvas: 'two-circle-contained', canvasData: {R:5,r:3,d:1},
+        feedbackCorrect: '正确！d = 1 < R − r = 2，两圆内含（无公共点，小圆在大圆内部）。',
+        feedbackWrong: '错误。d < |R−r| 时内含。此处 d = 1 < 2 = R−r，两圆内含。',
+        time: 30
+      },
+      {
+        text: '两圆外切时，圆心距 d 与两圆半径 R、r 的关系是 ?',
+        type: 'input', answer: 'd=R+r', altAnswers: ['d=R+r','d=r+R','R+r=d','r+R=d'],
+        canvas: 'two-circle-formula', canvasData: {},
+        feedbackCorrect: '正确！两圆外切 ⇔ d = R + r。',
+        feedbackWrong: '错误。两圆外切：圆心距等于两半径之和，即 d = R + r。',
+        time: 25
+      },
+      {
+        text: '两圆半径分别为 4 和 2，若两圆相交，则圆心距 d 的取值范围是 ?',
+        type: 'choice', options: ['A. 2 < d < 6', 'B. d = 6', 'C. d > 6', 'D. 0 < d < 2'],
+        correct: 0,
+        canvas: 'two-circle-range', canvasData: {R:4,r:2},
+        feedbackCorrect: '正确！相交条件：|R−r| < d < R+r，即 2 < d < 6。',
+        feedbackWrong: '错误。相交：|R−r| < d < R+r = 4+2 = 6。R−r = 2，所以 2 < d < 6。',
+        time: 30
+      }
+    ]
+  },
+  // ===== STAGE 4: 圆中计算 =====
+  {
+    title: '圆中计算',
+    questions: [
+      {
+        text: '圆心角为 60°，半径 r = 6cm 的扇形，其弧长为 ?（结果保留 π）',
+        type: 'choice', options: ['A. 2π cm', 'B. π cm', 'C. 6π cm', 'D. 3π cm'],
+        correct: 0,
+        canvas: 'calc-arc-length', canvasData: {n:60,r:6,arc:'2π'},
+        steps: ['弧长公式 l = nπr/180', '代入 n=60, r=6', 'l = 60×π×6/180', '化简得 2π'],
+        feedbackCorrect: '正确！l = nπr/180 = 60×π×6/180 = 360π/180 = 2π cm。',
+        feedbackWrong: '错误。弧长公式 l = nπr/180 = 60×6×π/180 = 2π cm。',
+        time: 35
+      },
+      {
+        text: '圆心角为 120°，半径 r = 3cm 的扇形，其面积为 ?（结果保留 π）',
+        type: 'input', answer: '3π', altAnswers: ['3π','3πcm²','3π平方厘米'],
+        canvas: 'calc-sector-area', canvasData: {n:120,r:3,area:'3π'},
+        steps: ['扇形面积 S = nπr²/360', '代入 n=120, r=3', 'S = 120×π×9/360', '化简得 3π'],
+        feedbackCorrect: '正确！S = nπr²/360 = 120×π×9/360 = 1080π/360 = 3π cm²。',
+        feedbackWrong: '错误。S = nπr²/360 = 120×9×π/360 = 3π cm²。',
+        time: 40
+      },
+      {
+        text: '如图，半径 r = 6cm 的圆中，圆心角 ∠AOB = 90°。则弓形（阴影部分）的面积为 ?（结果保留 π）',
+        type: 'choice', options: ['A. 9π − 18', 'B. 9π − 9', 'C. 6π − 9', 'D. 12π − 18'],
+        correct: 0,
+        canvas: 'calc-bow-area', canvasData: {r:6,n:90},
+        steps: ['弓形面积 = 扇形面积 − 三角形面积', '扇形 = 90π×36/360 = 9π', '三角形 = 6×6/2 = 18', '弓形 = 9π − 18'],
+        feedbackCorrect: '正确！扇形面积 = 90×π×36/360 = 9π，△AOB = 6×6/2 = 18，弓形 = 9π − 18。',
+        feedbackWrong: '错误。弓形 = 扇形 − 三角形 = (90π×36/360) − (6×6/2) = 9π − 18。',
+        time: 50
+      },
+      {
+        text: '一个扇形的弧长为 4π cm，半径为 6cm。则该扇形的圆心角为 ?',
+        type: 'input', answer: '120', altAnswers: ['120°','120度'],
+        canvas: 'calc-central-angle', canvasData: {l:'4π',r:6,n:120},
+        steps: ['由 l = nπr/180', '得 n = 180l/(πr)', 'n = 180×4π/(6π)', 'n = 120°'],
+        feedbackCorrect: '正确！n = 180l/(πr) = 180×4π/(6π) = 120°。',
+        feedbackWrong: '错误。由 l = nπr/180，解得 n = 180×4π/(6π) = 120°。',
+        time: 40
+      },
+      {
+        text: '如图，圆锥的底面半径 r = 3cm，母线 l = 5cm。则圆锥的侧面积为 ?（结果保留 π）',
+        type: 'choice', options: ['A. 12π cm²', 'B. 15π cm²', 'C. 20π cm²', 'D. 9π cm²'],
+        correct: 1,
+        canvas: 'calc-cone-lateral', canvasData: {r:3,l:5,area:'15π'},
+        steps: ['圆锥侧面积 = πrl', '代入 r=3, l=5', 'S = π×3×5', 'S = 15π'],
+        feedbackCorrect: '正确！圆锥侧面积 S = πrl = π×3×5 = 15π cm²。',
+        feedbackWrong: '错误。圆锥侧面积公式 S = πrl = π × 3 × 5 = 15π cm²。',
+        time: 35
+      },
+      {
+        text: '如图，半径为 4cm 的圆中，一条弦长为 4√3 cm。则该弦所对的圆心角为 ?',
+        type: 'choice', options: ['A. 60°', 'B. 90°', 'C. 120°', 'D. 150°'],
+        correct: 2,
+        canvas: 'calc-chord-angle', canvasData: {r:4,chord:'4√3',angle:120},
+        steps: ['作弦心距，半弦 = 2√3', 'sin(θ/2) = (2√3)/4 = √3/2', 'θ/2 = 60°', 'θ = 120°'],
+        feedbackCorrect: '正确！半弦 = 2√3，sin(θ/2) = 2√3/4 = √3/2，θ/2 = 60°，圆心角 θ = 120°。',
+        feedbackWrong: '错误。半弦长 = 2√3，sin(θ/2) = 半弦/r = 2√3/4 = √3/2，θ/2 = 60°，θ = 120°。',
+        time: 45
+      }
+    ]
+  },
+  // ===== STAGE 5: 终极密码 (60秒) =====
+  {
+    title: '终极密码',
+    timeLimit: 60,
+    questions: [
+      {
+        text: '圆心角为 100°，则同弧所对圆周角为 ?',
+        type: 'choice', options: ['A. 100°', 'B. 50°', 'C. 200°', 'D. 25°'],
+        correct: 1,
+        canvas: 'quick-central', canvasData: {central:100,inscribed:50},
+        feedbackCorrect: '正确！圆周角 = 圆心角/2 = 50°。',
+        feedbackWrong: '错误。圆周角 = 100°/2 = 50°。',
+        time: 60
+      },
+      {
+        text: '圆半径 r = 5，圆心到直线距离 d = 3。直线与圆有几个公共点 ?',
+        type: 'choice', options: ['A. 0', 'B. 1', 'C. 2', 'D. 3'],
+        correct: 2,
+        canvas: 'quick-line-circle', canvasData: {r:5,d:3},
+        feedbackCorrect: '正确！d < r，相交，2个公共点。',
+        feedbackWrong: '错误。d = 3 < 5 = r，相交，2个公共点。',
+        time: 60
+      },
+      {
+        text: '两圆半径 5 和 2，圆心距 d = 3。两圆位置关系是 ?',
+        type: 'choice', options: ['A. 外切', 'B. 内切', 'C. 相交', 'D. 内含'],
+        correct: 1,
+        canvas: 'quick-two-circle', canvasData: {R:5,r:2,d:3},
+        feedbackCorrect: '正确！d = 3 = 5−2，内切。',
+        feedbackWrong: '错误。d = R−r = 3，两圆内切。',
+        time: 60
+      },
+      {
+        text: '半径为 6 的圆中，60°圆心角所对弧长为 ?（保留 π）',
+        type: 'input', answer: '2π', altAnswers: ['2π','2πcm'],
+        canvas: 'quick-arc', canvasData: {r:6,n:60,arc:'2π'},
+        feedbackCorrect: '正确！l = 60×π×6/180 = 2π。',
+        feedbackWrong: '错误。l = nπr/180 = 60×6×π/180 = 2π。',
+        time: 60
+      },
+      {
+        text: 'PA 切圆于 A，PA = 8，PO = 10。圆半径 r = ?',
+        type: 'input', answer: '6', altAnswers: ['6','6cm'],
+        canvas: 'quick-tangent', canvasData: {pa:8,po:10,r:6},
+        feedbackCorrect: '正确！r² = PO² − PA² = 100 − 64 = 36，r = 6。',
+        feedbackWrong: '错误。r = √(PO² − PA²) = √(100−64) = √36 = 6。',
+        time: 60
+      },
+      {
+        text: '弦长 8cm，弦心距 3cm。圆半径 = ?',
+        type: 'input', answer: '5', altAnswers: ['5','5cm'],
+        canvas: 'quick-chord', canvasData: {chord:8,dist:3,r:5},
+        feedbackCorrect: '正确！r² = 4² + 3² = 25，r = 5。',
+        feedbackWrong: '错误。r = √((8/2)² + 3²) = √(16+9) = 5。',
+        time: 60
+      },
+      {
+        text: '扇形半径 4，圆心角 90°，扇形面积 = ?（保留 π）',
+        type: 'input', answer: '4π', altAnswers: ['4π','4πcm²'],
+        canvas: 'quick-sector', canvasData: {r:4,n:90,area:'4π'},
+        feedbackCorrect: '正确！S = 90×π×16/360 = 4π。',
+        feedbackWrong: '错误。S = nπr²/360 = 90×16×π/360 = 4π。',
+        time: 60
+      }
+    ]
+  }
+];
+
+// ===================== GAME STATE =====================
+let state = {
+  stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+  correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+  stageCleared: [false, false, false, false, false], answered: false,
+  stageStartTime: 0, globalTimer: null
+};
+
+// ===================== INIT =====================
+function initLives() {
+  const el = document.getElementById('hud-lives');
+  el.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const heart = document.createElement('div');
+    heart.className = 'life' + (i >= state.lives ? ' lost' : '');
+    el.appendChild(heart);
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-combo').textContent = 'x' + (state.combo + 1);
+  document.getElementById('hud-time').textContent = state.timeLeft;
+  document.getElementById('hud-stage').textContent = (state.stage + 1) + '/5';
+  initLives();
+}
+
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('hud-bar').style.display = 'flex';
+  document.getElementById('stage-panel').style.display = 'flex';
+  document.getElementById('game-area').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  state = { stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+    correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+    stageCleared: [false, false, false, false, false], answered: false,
+    stageStartTime: 0, globalTimer: null };
+  updateHUD();
+  loadQuestion();
+}
+
+function jumpToStage(s) {
+  if (s > 0 && !state.stageCleared[s-1] && s !== state.stage) return;
+  state.stage = s; state.question = 0; state.answered = false;
+  document.getElementById('results-screen').style.display = 'none';
+  document.getElementById('game-area').style.display = 'block';
+  updateStageButtons();
+  loadQuestion();
+}
+
+function updateStageButtons() {
+  document.querySelectorAll('.stage-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === state.stage);
+    btn.classList.toggle('cleared', state.stageCleared[i]);
+    btn.classList.toggle('locked', i > 0 && !state.stageCleared[i-1] && i !== state.stage);
+  });
+}
+
+// ===================== QUESTION LOADING =====================
+function loadQuestion() {
+  const stage = STAGES[state.stage];
+  const q = stage.questions[state.question];
+  state.answered = false;
+
+  if (state.stage === 4) {
+    if (state.question === 0) {
+      state.timeLeft = stage.timeLimit || 60;
+      state.stageStartTime = Date.now();
+    }
+  } else {
+    state.timeLeft = q.time;
+  }
+
+  document.getElementById('stage-num').textContent = String(state.stage + 1).padStart(2, '0');
+  document.getElementById('stage-title').textContent = stage.title;
+  document.getElementById('game-progress').textContent = '题目 ' + (state.question + 1) + ' / ' + stage.questions.length;
+  document.getElementById('q-num').textContent = 'Q' + (state.question + 1);
+  document.getElementById('q-text').innerHTML = q.text;
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '<div class="fb-title"></div><div class="fb-text"></div>';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('timer-bar').className = 'timer-bar';
+  document.getElementById('timer-bar').style.width = '100%';
+
+  const cd = document.getElementById('countdown-big');
+  if (state.stage === 4) {
+    cd.style.display = 'block';
+    cd.textContent = state.timeLeft;
+    cd.className = 'countdown-big';
+  } else {
+    cd.style.display = 'none';
+  }
+
+  const stepHint = document.getElementById('step-hint');
+  if ((state.stage === 1 || state.stage === 3) && q.steps) {
+    stepHint.style.display = 'block';
+    document.getElementById('sh-title').textContent =
+      state.stage === 1 ? '切线判定 · 解题步骤' : '圆中计算 · 解题步骤';
+    const stepsEl = document.getElementById('sh-steps');
+    stepsEl.innerHTML = '';
+    q.steps.forEach((s, i) => {
+      const div = document.createElement('div');
+      div.className = 'sh-step' + (i === 0 ? ' active' : '');
+      div.textContent = (i + 1) + '. ' + s;
+      stepsEl.appendChild(div);
+    });
+  } else {
+    stepHint.style.display = 'none';
+  }
+
+  const area = document.getElementById('answer-area');
+  area.innerHTML = '';
+  if (q.type === 'choice') {
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    q.options.forEach((opt, i) => {
+      const div = document.createElement('div');
+      div.className = 'opt';
+      div.innerHTML = '<span class="opt-letter">' + String.fromCharCode(65 + i) + '</span><span>' + opt.substring(3) + '</span>';
+      div.onclick = () => checkAnswer(i);
+      opts.appendChild(div);
+    });
+    area.appendChild(opts);
+  } else {
+    const wrap = document.createElement('div');
+    wrap.className = 'num-input-wrap';
+    wrap.innerHTML = '<input type="text" class="num-input" id="num-answer" placeholder="输入答案..." onkeydown="if(event.key===\'Enter\')checkNumAnswer()">' +
+      '<button class="submit-btn" onclick="checkNumAnswer()">提交</button>';
+    area.appendChild(wrap);
+    setTimeout(() => document.getElementById('num-answer')?.focus(), 50);
+  }
+
+  drawCanvas(q.canvas, q.canvasData);
+
+  clearInterval(state.timer);
+  const totalTime = state.stage === 4 ? (stage.timeLimit || 60) : q.time;
+  state.timer = setInterval(() => {
+    state.timeLeft--;
+    state.totalTime++;
+    updateHUD();
+
+    const pct = (state.timeLeft / totalTime) * 100;
+    const bar = document.getElementById('timer-bar');
+    bar.style.width = pct + '%';
+    if (pct <= 20) { bar.className = 'timer-bar danger'; }
+    else if (pct <= 50) { bar.className = 'timer-bar warn'; }
+
+    if (state.stage === 4) {
+      const cdEl = document.getElementById('countdown-big');
+      cdEl.textContent = state.timeLeft;
+      if (state.timeLeft <= 10) { cdEl.className = 'countdown-big danger'; }
+      else if (state.timeLeft <= 20) { cdEl.className = 'countdown-big warn'; }
+    }
+
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timer);
+      if (state.stage === 4) {
+        handleStage5Timeout();
+      } else {
+        handleTimeout();
+      }
+    }
+  }, 1000);
+}
+
+// ===================== ANSWER CHECKING =====================
+function checkAnswer(idx) {
+  if (state.answered) return;
+  const q = STAGES[state.stage].questions[state.question];
+  const correct = idx === q.correct;
+  handleResult(correct, q);
+}
+
+function checkNumAnswer() {
+  if (state.answered) return;
+  const input = document.getElementById('num-answer');
+  if (!input) return;
+  const val = input.value.trim().toLowerCase().replace(/\s/g, '');
+  const q = STAGES[state.stage].questions[state.question];
+  let correct = val === q.answer.toLowerCase().replace(/\s/g, '');
+  if (!correct && q.altAnswers) {
+    correct = q.altAnswers.some(a => val === a.toLowerCase().replace(/\s/g, ''));
+  }
+  handleResult(correct, q);
+}
+
+function handleTimeout() {
+  const q = STAGES[state.stage].questions[state.question];
+  state.answered = true;
+  state.combo = 0;
+  state.lives--;
+
+  showFeedback('timeout', '时间到！', q.feedbackWrong);
+  disableOptions();
+  updateHUD();
+
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function handleStage5Timeout() {
+  const stage = STAGES[4];
+  const remaining = stage.questions.length - state.question;
+  state.lives -= remaining;
+  state.combo = 0;
+  updateHUD();
+
+  if (state.lives <= 0) {
+    gameOver();
+    return;
+  }
+
+  state.stageCleared[4] = true;
+  updateStageButtons();
+  showResults();
+}
+
+function handleResult(correct, q) {
+  state.answered = true;
+  clearInterval(state.timer);
+
+  if (correct) {
+    state.combo++;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+    state.correctCount++;
+    const timeBonus = Math.floor(state.timeLeft * 10);
+    const comboMult = Math.min(state.combo, 5);
+    const pts = 100 + timeBonus + comboMult * 20;
+    state.score += pts;
+    showFeedback('correct', '回答正确！+' + pts + '分', q.feedbackCorrect);
+  } else {
+    state.combo = 0;
+    state.lives--;
+    showFeedback('wrong', '回答错误', q.feedbackWrong);
+  }
+
+  disableOptions();
+  updateHUD();
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function disableOptions() {
+  document.querySelectorAll('.opt').forEach(o => o.classList.add('disabled'));
+}
+
+function showFeedback(type, title, text) {
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback show ' + type;
+  fb.innerHTML = '<div class="fb-title">' + title + '</div><div class="fb-text">' + text + '</div>';
+}
+
+// ===================== NAVIGATION =====================
+function nextQuestion() {
+  state.question++;
+  const stage = STAGES[state.stage];
+  if (state.question >= stage.questions.length) {
+    state.stageCleared[state.stage] = true;
+    updateStageButtons();
+    if (state.stage < 4) {
+      state.stage++;
+      state.question = 0;
+      loadQuestion();
+    } else {
+      showResults();
+    }
+  } else {
+    loadQuestion();
+  }
+}
+
+function gameOver() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  document.getElementById('result-grade').textContent = 'F';
+  document.getElementById('result-grade').className = 'result-grade F';
+  document.getElementById('result-title').textContent = '任务失败';
+  document.getElementById('result-desc').textContent = '生命值耗尽。请重新挑战。';
+  document.getElementById('badge-master').classList.remove('unlocked');
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  document.getElementById('res-accuracy').textContent = Math.round(state.correctCount / totalQ * 100) + '%';
+}
+
+function showResults() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  const acc = state.correctCount / totalQ;
+  let grade, title, desc;
+  if (acc >= 0.95 && state.maxCombo >= 5) { grade = 'S'; title = '完美执行'; desc = '所有阶段全部通关，圆的知识体系已完全掌握！「圆周大师」徽章已解锁。'; }
+  else if (acc >= 0.85) { grade = 'A'; title = '优秀'; desc = '表现优异，大部分知识点已经掌握。'; }
+  else if (acc >= 0.7) { grade = 'B'; title = '良好'; desc = '基本掌握，但仍有提升空间。'; }
+  else if (acc >= 0.5) { grade = 'C'; title = '及格'; desc = '勉强过关，建议复习教案后重新挑战。'; }
+  else { grade = 'F'; title = '未通过'; desc = '需要更多练习，建议先学习 tutorial.html 教案。'; }
+
+  const gEl = document.getElementById('result-grade');
+  gEl.textContent = grade;
+  gEl.className = 'result-grade ' + grade;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-desc').textContent = desc;
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount + '/' + totalQ;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  document.getElementById('res-accuracy').textContent = Math.round(acc * 100) + '%';
+
+  const badge = document.getElementById('badge-master');
+  if (acc >= 0.7) {
+    badge.classList.add('unlocked');
+  } else {
+    badge.classList.remove('unlocked');
+  }
+}
+
+// ===================== CANVAS DRAWING =====================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+function clearCanvas() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+  for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+}
+
+function drawCircle(cx, cy, r, color, fillColor) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = color || '#00f5d4'; ctx.lineWidth = 2;
+  ctx.stroke();
+  if (fillColor) {
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+  }
+}
+
+function drawPoint(x, y, color, label, labelOffset) {
+  ctx.fillStyle = color || '#00f5d4';
+  ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+  if (label) {
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillStyle = color || '#00f5d4';
+    const off = labelOffset || {x: 8, y: -8};
+    ctx.fillText(label, x + off.x, y + off.y);
+  }
+}
+
+function drawLine(x1, y1, x2, y2, color, dashed) {
+  ctx.strokeStyle = color || 'rgba(0,245,212,0.5)'; ctx.lineWidth = 1.5;
+  if (dashed) { ctx.setLineDash([5, 4]); }
+  else { ctx.setLineDash([]); }
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawAngleArc(cx, cy, r, startAngle, endAngle, color) {
+  ctx.strokeStyle = color || '#ffcc00'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, r, startAngle, endAngle); ctx.stroke();
+}
+
+function drawLabel(text, x, y, color, fontSize) {
+  ctx.font = (fontSize || 12) + 'px "Share Tech Mono"';
+  ctx.fillStyle = color || '#00f5d4';
+  ctx.fillText(text, x, y);
+}
+
+function drawCanvas(type, data) {
+  clearCanvas();
+  switch (type) {
+    // Stage 1
+    case 'circle-central-inscribed': drawCircleCentralInscribed(data); break;
+    case 'circle-inscribed-central': drawCircleInscribedCentral(data); break;
+    case 'circle-diameter-angle': drawCircleDiameterAngle(data); break;
+    case 'circle-chord-dist': drawCircleChordDist(data); break;
+    case 'circle-triangle-inscribed': drawCircleTriangleInscribed(data); break;
+    case 'circle-equal-arcs': drawCircleEqualArcs(data); break;
+    case 'circle-chord-length': drawCircleChordLength(data); break;
+    // Stage 2
+    case 'tangent-d-equals-r': drawTangentDEqualsR(data); break;
+    case 'tangent-d-greater-r': drawTangentDGreaterR(data); break;
+    case 'tangent-d-less-r': drawTangentDLessR(data); break;
+    case 'tangent-length': drawTangentLength(data); break;
+    case 'tangent-perp-radius': drawTangentPerpRadius(data); break;
+    case 'tangent-secant': drawTangentSecant(data); break;
+    // Stage 3
+    case 'two-circle-outside': drawTwoCircleOutside(data); break;
+    case 'two-circle-external-tangent': drawTwoCircleExternalTangent(data); break;
+    case 'two-circle-intersect': drawTwoCircleIntersect(data); break;
+    case 'two-circle-internal-tangent': drawTwoCircleInternalTangent(data); break;
+    case 'two-circle-contained': drawTwoCircleContained(data); break;
+    case 'two-circle-formula': drawTwoCircleFormula(data); break;
+    case 'two-circle-range': drawTwoCircleRange(data); break;
+    // Stage 4
+    case 'calc-arc-length': drawCalcArcLength(data); break;
+    case 'calc-sector-area': drawCalcSectorArea(data); break;
+    case 'calc-bow-area': drawCalcBowArea(data); break;
+    case 'calc-central-angle': drawCalcCentralAngle(data); break;
+    case 'calc-cone-lateral': drawCalcConeLateral(data); break;
+    case 'calc-chord-angle': drawCalcChordAngle(data); break;
+    // Stage 5
+    case 'quick-central': drawQuickCentral(data); break;
+    case 'quick-line-circle': drawQuickLineCircle(data); break;
+    case 'quick-two-circle': drawQuickTwoCircle(data); break;
+    case 'quick-arc': drawQuickArc(data); break;
+    case 'quick-tangent': drawQuickTangent(data); break;
+    case 'quick-chord': drawQuickChord(data); break;
+    case 'quick-sector': drawQuickSector(data); break;
+  }
+}
+
+// ===== Stage 1: 圆周密码 =====
+function drawCircleCentralInscribed(d) {
+  const ox = W/2, oy = H/2, r = 80;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O', {x:-18, y:5});
+  const a = {x: ox - r*0.7, y: oy - r*0.7};
+  const b = {x: ox + r*0.7, y: oy - r*0.7};
+  const c = {x: ox, y: oy + r*0.9};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawPoint(c.x, c.y, '#00ff88', 'C');
+  drawLine(ox, oy, a.x, a.y, '#ffcc00');
+  drawLine(ox, oy, b.x, b.y, '#ffcc00');
+  drawLine(a.x, a.y, c.x, c.y, '#00ff88');
+  drawLine(b.x, b.y, c.x, c.y, '#00ff88');
+  drawAngleArc(ox, oy, 25, Math.PI*1.1, Math.PI*1.75, '#ffcc00');
+  drawLabel('∠AOB=' + d.central + '°', ox - 40, oy - 30, '#ffcc00', 11);
+  drawLabel('∠ACB=?', c.x + 12, c.y + 5, '#00ff88', 11);
+  drawLabel('圆心角 → 圆周角', 20, 30, '#00f5d4', 13);
+}
+
+function drawCircleInscribedCentral(d) {
+  const ox = W/2, oy = H/2, r = 80;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O', {x:-18, y:5});
+  const a = {x: ox - r*0.7, y: oy - r*0.7};
+  const b = {x: ox + r*0.7, y: oy - r*0.7};
+  const c = {x: ox, y: oy + r*0.9};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawPoint(c.x, c.y, '#00ff88', 'C');
+  drawLine(ox, oy, a.x, a.y, '#ffcc00', true);
+  drawLine(ox, oy, b.x, b.y, '#ffcc00', true);
+  drawLine(a.x, a.y, c.x, c.y, '#00ff88');
+  drawLine(b.x, b.y, c.x, c.y, '#00ff88');
+  drawAngleArc(c.x, c.y, 18, Math.PI*0.3, Math.PI*0.9, '#00ff88');
+  drawLabel('∠ACB=' + d.inscribed + '°', c.x + 15, c.y + 8, '#00ff88', 11);
+  drawLabel('∠AOB=?', ox - 30, oy - 30, '#ffcc00', 11);
+  drawLabel('圆周角 → 圆心角', 20, 30, '#00f5d4', 13);
+}
+
+function drawCircleDiameterAngle(d) {
+  const ox = W/2, oy = H/2, r = 80;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O', {x:-18, y:5});
+  const a = {x: ox - r, y: oy};
+  const b = {x: ox + r, y: oy};
+  const c = {x: ox, y: oy - r*0.8};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawPoint(c.x, c.y, '#00ff88', 'C');
+  drawLine(a.x, a.y, b.x, b.y, '#ffcc00');
+  drawLine(a.x, a.y, c.x, c.y, '#00ff88');
+  drawLine(b.x, b.y, c.x, c.y, '#00ff88');
+  drawAngleArc(c.x, c.y, 20, Math.PI*0.15, Math.PI*0.85, '#00ff88');
+  drawLabel('∠ACB=?', c.x + 12, c.y - 15, '#00ff88', 12);
+  drawLabel('AB 是直径', 20, 30, '#00f5d4', 13);
+  drawLabel('直径所对圆周角 = 90°', 20, 50, '#8ab0a8', 11);
+}
+
+function drawCircleChordDist(d) {
+  const ox = W/2, oy = H/2, r = 80;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox - 50, y: oy + 50};
+  const b = {x: ox + 50, y: oy + 50};
+  const dpt = {x: ox, y: oy + 50};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawPoint(dpt.x, dpt.y, '#ff8844', 'D');
+  drawLine(a.x, a.y, b.x, b.y, '#ffcc00');
+  drawLine(ox, oy, dpt.x, dpt.y, '#ff8844', true);
+  drawLine(ox, a.x, ox, a.y, '#00f5d4');
+  drawAngleArc(ox, oy, 22, Math.PI*0.5, Math.PI*0.85, '#00f5d4');
+  drawLabel('AB=' + d.chord + 'cm', a.x + 5, a.y + 18, '#ffcc00', 11);
+  drawLabel('OD=' + d.dist + 'cm', ox + 8, oy + 35, '#ff8844', 11);
+  drawLabel('r=?', ox - 25, oy - 15, '#00f5d4', 12);
+  drawLabel('弦心距与弦长', 20, 30, '#00f5d4', 13);
+}
+
+function drawCircleTriangleInscribed(d) {
+  const ox = W/2, oy = H/2, r = 80;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O', {x:-18, y:5});
+  const a = {x: ox, y: oy - r};
+  const b = {x: ox - r*0.85, y: oy + r*0.5};
+  const c = {x: ox + r*0.85, y: oy + r*0.5};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawPoint(c.x, c.y, '#00ff88', 'C');
+  drawLine(a.x, a.y, b.x, b.y, '#ffcc00');
+  drawLine(b.x, b.y, c.x, c.y, '#00ff88');
+  drawLine(c.x, c.y, a.x, a.y, '#ffcc00');
+  drawLabel('∠A=' + d.a + '°', a.x - 20, a.y - 8, '#ffcc00', 11);
+  drawLabel('∠B=' + d.b + '°', b.x - 35, b.y + 12, '#ffcc00', 11);
+  drawLabel('∠ACB=?', c.x + 12, c.y + 12, '#00ff88', 11);
+  drawLabel('圆内接三角形', 20, 30, '#00f5d4', 13);
+}
+
+function drawCircleEqualArcs(d) {
+  const ox = W/2 - 80, oy = H/2, r = 70;
+  const ox2 = W/2 + 80, oy2 = H/2, r2 = 70;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawCircle(ox2, oy2, r2, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  drawPoint(ox2, oy2, '#00f5d4', 'O');
+  const a1 = {x: ox - 40, y: oy - 55};
+  const b1 = {x: ox + 50, y: oy - 40};
+  const a2 = {x: ox2 - 40, y: oy2 - 55};
+  const b2 = {x: ox2 + 50, y: oy2 - 40};
+  drawPoint(a1.x, a1.y, '#ffcc00', 'A');
+  drawPoint(b1.x, b1.y, '#ffcc00', 'B');
+  drawPoint(a2.x, a2.y, '#00ff88', 'C');
+  drawPoint(b2.x, b2.y, '#00ff88', 'D');
+  drawLine(a1.x, a1.y, b1.x, b1.y, '#ffcc00');
+  drawLine(a2.x, a2.y, b2.x, b2.y, '#00ff88');
+  drawLabel('弧AB = 弧CD', W/2 - 50, 30, '#00f5d4', 13);
+  drawLabel('等弧对等弦', W/2 - 40, 50, '#8ab0a8', 11);
+}
+
+function drawCircleChordLength(d) {
+  const ox = W/2, oy = H/2, r = 80;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox - 52, y: oy + 52};
+  const b = {x: ox + 52, oy: oy + 52};
+  const dpt = {x: ox, y: oy + 52};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(a.x, a.y, b.x, b.y, '#ffcc00');
+  drawLine(ox, oy, dpt.x, dpt.y, '#ff8844', true);
+  drawLine(ox, a.x, ox, a.y, '#00f5d4');
+  drawAngleArc(ox, oy, 25, Math.PI*0.5, Math.PI*0.9, '#00f5d4');
+  drawLabel('r=' + d.r + 'cm', ox + 10, oy - 15, '#00f5d4', 11);
+  drawLabel('∠AOB=' + d.angle + '°', ox - 50, oy - 30, '#ffcc00', 11);
+  drawLabel('AB=?', a.x + 10, a.y + 18, '#ffcc00', 12);
+  drawLabel('弦长计算', 20, 30, '#00f5d4', 13);
+}
+
+// ===== Stage 2: 切线判定 =====
+function drawTangentDEqualsR(d) {
+  const ox = W/2, oy = H/2, r = 60;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const ly = oy - r;
+  drawLine(ox - 120, ly, ox + 120, ly, '#00ff88', true);
+  drawPoint(ox, ly, '#00ff88', 'A');
+  drawLine(ox, oy, ox, ly, '#ffcc00', true);
+  drawLabel('l', ox + 130, ly + 4, '#00ff88', 13);
+  drawLabel('d = r = ' + d.r, ox + 8, oy - r/2, '#ffcc00', 11);
+  drawLabel('d = r → 相切', 20, 30, '#00f5d4', 13);
+  drawLabel('切线判定动画：d = r', 20, 50, '#8ab0a8', 11);
+}
+
+function drawTangentDGreaterR(d) {
+  const ox = W/2, oy = H/2, r = 50;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const ly = oy - r - 25;
+  drawLine(ox - 120, ly, ox + 120, ly, '#ff3366', true);
+  drawLine(ox, oy, ox, ly, '#ffcc00', true);
+  drawLabel('l', ox + 130, ly + 4, '#ff3366', 13);
+  drawLabel('d=' + d.d, ox + 8, ly + 18, '#ffcc00', 11);
+  drawLabel('r=' + d.r, ox + 8, oy - r/2, '#00f5d4', 11);
+  drawLabel('d > r → 相离', 20, 30, '#00f5d4', 13);
+  drawLabel('无公共点', 20, 50, '#ff3366', 11);
+}
+
+function drawTangentDLessR(d) {
+  const ox = W/2, oy = H/2, r = 70;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const ly = oy - r + 25;
+  drawLine(ox - 120, ly, ox + 120, ly, '#ff8844');
+  const ix1 = ox - Math.sqrt(r*r - 25*25);
+  const ix2 = ox + Math.sqrt(r*r - 25*25);
+  drawPoint(ix1, ly, '#ff8844', 'A');
+  drawPoint(ix2, ly, '#ff8844', 'B');
+  drawLine(ox, oy, ox, ly, '#ffcc00', true);
+  drawLabel('l', ox + 130, ly + 4, '#ff8844', 13);
+  drawLabel('d=' + d.d, ox + 8, ly + 18, '#ffcc00', 11);
+  drawLabel('r=' + d.r, ox + 8, oy - 20, '#00f5d4', 11);
+  drawLabel('d < r → 相交', 20, 30, '#00f5d4', 13);
+  drawLabel('2个公共点', 20, 50, '#ff8844', 11);
+}
+
+function drawTangentLength(d) {
+  const ox = W/2 - 40, oy = H/2, r = 50;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const px = ox + 80;
+  const py = oy - 70;
+  drawPoint(px, py, '#ffcc00', 'P');
+  const a = {x: ox + r*0.8, y: oy - r*0.6};
+  const b = {x: ox + r*0.8, y: oy + r*0.6};
+  drawPoint(a.x, a.y, '#00ff88', 'A');
+  drawPoint(b.x, b.y, '#00ff88', 'B');
+  drawLine(px, py, a.x, a.y, '#00ff88');
+  drawLine(px, py, b.x, b.y, '#00ff88');
+  drawLine(ox, a.x, ox, a.y, '#00f5d4');
+  drawLine(ox, b.x, ox, b.y, '#00f5d4');
+  drawLine(ox, oy, px, py, '#ffcc00', true);
+  drawLabel('PA=PB=?', px + 8, py - 10, '#00ff88', 11);
+  drawLabel('PO=' + d.po, px - 30, py + 25, '#ffcc00', 11);
+  drawLabel('r=' + d.r, ox + 8, oy - 20, '#00f5d4', 11);
+  drawLabel('切线长定理', 20, 30, '#00f5d4', 13);
+}
+
+function drawTangentPerpRadius(d) {
+  const ox = W/2, oy = H/2, r = 70;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox + r, y: oy};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawLine(ox, a.x, ox, a.y, '#ffcc00');
+  drawLine(a.x, a.y, a.x + 60, a.y, '#00ff88');
+  drawLine(a.x, a.y, a.x, a.y - 50, '#00ff88');
+  drawLine(a.x + 60, a.y, a.x, a.y - 50, '#00ff88');
+  const perpX = a.x + 25;
+  const perpY = a.y - 25;
+  drawPoint(perpX, perpY, '#00ff88', 'l');
+  drawAngleArc(a.x, a.y, 12, Math.PI*1.5, Math.PI*2, '#ffcc00');
+  drawLabel('OA⊥l', a.x + 8, a.y - 35, '#ffcc00', 11);
+  drawLabel('A在圆上 → l是切线', 20, 30, '#00f5d4', 13);
+}
+
+function drawTangentSecant(d) {
+  const ox = W/2 - 20, oy = H/2, r = 55;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const px = ox + 95;
+  const py = oy - 60;
+  drawPoint(px, py, '#ffcc00', 'P');
+  const a = {x: ox + r*0.85, y: oy - r*0.5};
+  const b = {x: ox + 35, y: oy - 40};
+  const c = {x: ox - 10, y: oy - 52};
+  drawPoint(a.x, a.y, '#00ff88', 'A');
+  drawPoint(b.x, b.y, '#ff8844', 'B');
+  drawPoint(c.x, c.y, '#ff8844', 'C');
+  drawLine(px, py, a.x, a.y, '#00ff88');
+  drawLine(px, py, c.x, c.y, '#ff8844');
+  drawLine(ox, a.x, ox, a.y, '#00f5d4');
+  drawLabel('PA=' + d.pa, px + 8, py - 8, '#00ff88', 11);
+  drawLabel('PB=' + d.pb, (px+b.x)/2 + 5, (py+b.y)/2 - 10, '#ff8844', 11);
+  drawLabel('PC=?', (px+c.x)/2 - 20, (py+c.y)/2 - 10, '#ff8844', 11);
+  drawLabel('切割线定理', 20, 30, '#00f5d4', 13);
+}
+
+// ===== Stage 3: 两圆侦查 =====
+function drawTwoCircleOutside(d) {
+  const o1x = W/2 - 70, o1y = H/2, r1 = 45;
+  const o2x = W/2 + 70, o2y = H/2, r2 = 30;
+  drawCircle(o1x, o1y, r1, '#00f5d4');
+  drawCircle(o2x, o2y, r2, '#ff8844');
+  drawPoint(o1x, o1y, '#00f5d4', 'O₁');
+  drawPoint(o2x, o2y, '#ff8844', 'O₂');
+  drawLine(o1x, o1y, o2x, o2y, '#ffcc00', true);
+  drawLabel('d=' + d.d, W/2 - 15, H/2 - 10, '#ffcc00', 11);
+  drawLabel('R+r=' + (d.R+d.r), W/2 - 25, H/2 + 15, '#8ab0a8', 11);
+  drawLabel('d > R+r → 外离', 20, 30, '#00f5d4', 13);
+  drawLabel('无公共点', 20, 50, '#8ab0a8', 11);
+}
+
+function drawTwoCircleExternalTangent(d) {
+  const o1x = W/2 - 55, o1y = H/2, r1 = 45;
+  const o2x = W/2 + 55, o2y = H/2, r2 = 35;
+  drawCircle(o1x, o1y, r1, '#00f5d4');
+  drawCircle(o2x, o2y, r2, '#ff8844');
+  drawPoint(o1x, o1y, '#00f5d4', 'O₁');
+  drawPoint(o2x, o2y, '#ff8844', 'O₂');
+  const tp = {x: W/2, y: H/2 - 25};
+  drawPoint(tp.x, tp.y, '#00ff88', 'T');
+  drawLine(o1x, o1y, o2x, o2y, '#ffcc00', true);
+  drawLabel('d=' + d.d + '=R+r', W/2 - 35, H/2 - 10, '#ffcc00', 11);
+  drawLabel('外切：1个公共点', 20, 30, '#00f5d4', 13);
+}
+
+function drawTwoCircleIntersect(d) {
+  const o1x = W/2 - 40, o1y = H/2, r1 = 55;
+  const o2x = W/2 + 40, o2y = H/2, r2 = 45;
+  drawCircle(o1x, o1y, r1, '#00f5d4');
+  drawCircle(o2x, o2y, r2, '#ff8844');
+  drawPoint(o1x, o1y, '#00f5d4', 'O₁');
+  drawPoint(o2x, o2y, '#ff8844', 'O₂');
+  const ix1 = W/2 - 10, iy1 = H/2 - 35;
+  const ix2 = W/2 - 10, iy2 = H/2 + 35;
+  drawPoint(ix1, iy1, '#00ff88', 'A');
+  drawPoint(ix2, iy2, '#00ff88', 'B');
+  drawLine(o1x, o1y, o2x, o2y, '#ffcc00', true);
+  drawLabel('d=' + d.d, W/2 - 15, H/2 - 10, '#ffcc00', 11);
+  drawLabel('R-r=' + (d.R-d.r) + '< d < R+r=' + (d.R+d.r), 20, 30, '#00f5d4', 12);
+  drawLabel('相交：2个公共点', 20, 50, '#00ff88', 11);
+}
+
+function drawTwoCircleInternalTangent(d) {
+  const o1x = W/2 - 20, o1y = H/2, r1 = 65;
+  const o2x = W/2 + 20, o2y = H/2, r2 = 35;
+  drawCircle(o1x, o1y, r1, '#00f5d4');
+  drawCircle(o2x, o2y, r2, '#ff8844');
+  drawPoint(o1x, o1y, '#00f5d4', 'O₁');
+  drawPoint(o2x, o2y, '#ff8844', 'O₂');
+  const tp = {x: W/2 + 45, y: H/2};
+  drawPoint(tp.x, tp.y, '#00ff88', 'T');
+  drawLine(o1x, o1y, o2x, o2y, '#ffcc00', true);
+  drawLabel('d=' + d.d + '=R-r', W/2 - 30, H/2 - 10, '#ffcc00', 11);
+  drawLabel('内切：1个公共点', 20, 30, '#00f5d4', 13);
+}
+
+function drawTwoCircleContained(d) {
+  const o1x = W/2, o1y = H/2, r1 = 70;
+  const o2x = W/2 + 20, o2y = H/2, r2 = 30;
+  drawCircle(o1x, o1y, r1, '#00f5d4');
+  drawCircle(o2x, o2y, r2, '#ff8844');
+  drawPoint(o1x, o1y, '#00f5d4', 'O₁');
+  drawPoint(o2x, o2y, '#ff8844', 'O₂');
+  drawLine(o1x, o1y, o2x, o2y, '#ffcc00', true);
+  drawLabel('d=' + d.d, W/2 + 8, H/2 - 10, '#ffcc00', 11);
+  drawLabel('R-r=' + (d.R-d.r), W/2 + 5, H/2 + 15, '#8ab0a8', 11);
+  drawLabel('d < R-r → 内含', 20, 30, '#00f5d4', 13);
+  drawLabel('无公共点，小圆在大圆内', 20, 50, '#8ab0a8', 11);
+}
+
+function drawTwoCircleFormula(d) {
+  drawLabel('两圆位置关系判定公式', W/2 - 100, 40, '#00f5d4', 14);
+  const formulas = [
+    '外离：d > R + r',
+    '外切：d = R + r',
+    '相交：|R−r| < d < R + r',
+    '内切：d = |R − r|',
+    '内含：d < |R − r|'
+  ];
+  formulas.forEach((f, i) => {
+    drawLabel(f, W/2 - 90, 75 + i * 28, i === 1 ? '#00ff88' : '#8ab0a8', 13);
+  });
+  drawLabel('题目：外切时的关系？', 20, 220, '#ffcc00', 12);
+}
+
+function drawTwoCircleRange(d) {
+  drawLabel('相交条件：|R−r| < d < R+r', W/2 - 100, 40, '#00f5d4', 13);
+  drawLabel('R = ' + d.R + ', r = ' + d.r, W/2 - 50, 70, '#ffcc00', 12);
+  drawLabel('R+r = ' + (d.R+d.r), W/2 - 40, 100, '#00ff88', 12);
+  drawLabel('|R−r| = ' + Math.abs(d.R-d.r), W/2 - 40, 130, '#ff8844', 12);
+  drawLabel('∴ ' + Math.abs(d.R-d.r) + ' < d < ' + (d.R+d.r), W/2 - 60, 165, '#00f5d4', 13);
+  const o1x = W/2 - 60, o1y = H/2 + 40, r1 = 45;
+  const o2x = W/2 + 30, o2y = H/2 + 40, r2 = 25;
+  drawCircle(o1x, o1y, r1, '#00f5d4');
+  drawCircle(o2x, o2y, r2, '#ff8844');
+  drawPoint(o1x, o1y, '#00f5d4', 'O₁');
+  drawPoint(o2x, o2y, '#ff8844', 'O₂');
+}
+
+// ===== Stage 4: 圆中计算 =====
+function drawCalcArcLength(d) {
+  const ox = W/2, oy = H/2, r = 75;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox + r*Math.cos(Math.PI*0.8), y: oy - r*Math.sin(Math.PI*0.8)};
+  const b = {x: ox + r*Math.cos(Math.PI*0.2), y: oy - r*Math.sin(Math.PI*0.2)};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(ox, a.x, ox, a.y, '#ffcc00');
+  drawLine(ox, b.x, ox, b.y, '#ffcc00');
+  drawAngleArc(ox, oy, 30, Math.PI*0.2, Math.PI*0.8, '#ffcc00');
+  drawLabel('n=' + d.n + '°', ox + 35, oy - 40, '#ffcc00', 11);
+  drawLabel('r=' + d.r + 'cm', ox + 8, oy + 15, '#00f5d4', 11);
+  drawLabel('l = nπr/180', 20, 30, '#00f5d4', 13);
+}
+
+function drawCalcSectorArea(d) {
+  const ox = W/2, oy = H/2, r = 75;
+  ctx.beginPath(); ctx.moveTo(ox, oy);
+  ctx.arc(ox, oy, r, Math.PI*0.2, Math.PI*0.8);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,245,212,0.1)'; ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.stroke();
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox + r*Math.cos(Math.PI*0.8), y: oy - r*Math.sin(Math.PI*0.8)};
+  const b = {x: ox + r*Math.cos(Math.PI*0.2), y: oy - r*Math.sin(Math.PI*0.2)};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(ox, a.x, ox, a.y, '#ffcc00');
+  drawLine(ox, b.x, ox, b.y, '#ffcc00');
+  drawAngleArc(ox, oy, 30, Math.PI*0.2, Math.PI*0.8, '#ffcc00');
+  drawLabel('n=' + d.n + '°', ox + 35, oy - 40, '#ffcc00', 11);
+  drawLabel('r=' + d.r + 'cm', ox + 8, oy + 15, '#00f5d4', 11);
+  drawLabel('S = nπr²/360', 20, 30, '#00f5d4', 13);
+}
+
+function drawCalcBowArea(d) {
+  const ox = W/2, oy = H/2, r = 70;
+  ctx.beginPath(); ctx.moveTo(ox, oy);
+  ctx.arc(ox, oy, r, Math.PI*0.5, Math.PI*1.5);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,51,102,0.1)'; ctx.fill();
+  ctx.strokeStyle = '#ff3366'; ctx.stroke();
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox, y: oy - r};
+  const b = {x: ox, y: oy + r};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(a.x, a.y, b.x, b.y, '#ffcc00');
+  drawLine(ox, a.x, ox, a.y, '#ffcc00');
+  drawLine(ox, b.x, ox, b.y, '#ffcc00');
+  drawAngleArc(ox, oy, 25, Math.PI*0.5, Math.PI*1.5, '#ffcc00');
+  drawLabel('∠AOB=90°', ox + 30, oy - 10, '#ffcc00', 11);
+  drawLabel('r=' + d.r + 'cm', ox + 8, oy + 25, '#00f5d4', 11);
+  drawLabel('弓形 = 扇形 − △AOB', 20, 30, '#00f5d4', 13);
+  drawLabel('阴影 = 弓形面积', 20, 50, '#ff3366', 11);
+}
+
+function drawCalcCentralAngle(d) {
+  const ox = W/2, oy = H/2, r = 70;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox + r*Math.cos(Math.PI*0.8), y: oy - r*Math.sin(Math.PI*0.8)};
+  const b = {x: ox + r*Math.cos(Math.PI*0.2), y: oy - r*Math.sin(Math.PI*0.2)};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(ox, a.x, ox, a.y, '#ffcc00');
+  drawLine(ox, b.x, ox, b.y, '#ffcc00');
+  drawLabel('l=' + d.l + 'cm', ox + 10, oy - 50, '#ffcc00', 11);
+  drawLabel('r=' + d.r + 'cm', ox + 8, oy + 15, '#00f5d4', 11);
+  drawLabel('n = 180l/(πr)', 20, 30, '#00f5d4', 13);
+}
+
+function drawCalcConeLateral(d) {
+  const cx = W/2, cy = H/2 + 40;
+  const r = d.r * 8;
+  const h = 50;
+  const l = d.l * 8;
+  // Draw cone
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, r, r*0.3, 0, 0, Math.PI);
+  ctx.strokeStyle = '#00f5d4'; ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - r, cy);
+  ctx.lineTo(cx, cy - h);
+  ctx.lineTo(cx + r, cy);
+  ctx.strokeStyle = '#00f5d4'; ctx.stroke();
+  // Dashed height
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - h); ctx.stroke();
+  ctx.setLineDash([]);
+  drawPoint(cx, cy, '#00f5d4', 'O');
+  drawPoint(cx, cy - h, '#ffcc00', 'S');
+  drawLabel('r=' + d.r + 'cm', cx - r - 30, cy + 10, '#00f5d4', 11);
+  drawLabel('l=' + d.l + 'cm', cx + r + 8, cy - h/2, '#ffcc00', 11);
+  drawLabel('S侧 = πrl', 20, 30, '#00f5d4', 13);
+}
+
+function drawCalcChordAngle(d) {
+  const ox = W/2, oy = H/2, r = 70;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox - 55, y: oy + 40};
+  const b = {x: ox + 55, y: oy + 40};
+  const dpt = {x: ox, y: oy + 40};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawPoint(dpt.x, dpt.y, '#ff8844', 'D');
+  drawLine(a.x, a.y, b.x, b.y, '#ffcc00');
+  drawLine(ox, dpt.x, ox, dpt.y, '#ff8844', true);
+  drawLine(ox, a.x, ox, a.y, '#00f5d4');
+  drawAngleArc(ox, oy, 28, Math.PI*0.5, Math.PI*0.95, '#00f5d4');
+  drawLabel('弦=' + d.chord, a.x + 5, a.y + 18, '#ffcc00', 11);
+  drawLabel('r=' + d.r, ox + 8, oy - 20, '#00f5d4', 11);
+  drawLabel('圆心角=?', ox - 40, oy - 40, '#00f5d4', 12);
+  drawLabel('弦长与圆心角', 20, 30, '#00f5d4', 13);
+}
+
+// ===== Stage 5: 终极密码 =====
+function drawQuickCentral(d) {
+  const ox = W/2, oy = H/2, r = 70;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox - 50, y: oy - 50};
+  const b = {x: ox + 50, y: oy - 50};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(ox, a.x, ox, a.y, '#ffcc00', true);
+  drawLine(ox, b.x, ox, b.y, '#ffcc00', true);
+  drawLabel('圆心角=' + d.central + '°', ox - 40, oy - 30, '#ffcc00', 11);
+  drawLabel('圆周角=?', 20, 30, '#00f5d4', 13);
+}
+
+function drawQuickLineCircle(d) {
+  const ox = W/2, oy = H/2, r = 55;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const ly = oy - r + 20;
+  drawLine(ox - 100, ly, ox + 100, ly, '#ff8844');
+  const ix1 = ox - Math.sqrt(r*r - 20*20);
+  const ix2 = ox + Math.sqrt(r*r - 20*20);
+  drawPoint(ix1, ly, '#ff8844');
+  drawPoint(ix2, ly, '#ff8844');
+  drawLine(ox, oy, ox, ly, '#ffcc00', true);
+  drawLabel('r=' + d.r, ox + 8, oy - 20, '#00f5d4', 11);
+  drawLabel('d=' + d.d, ox + 8, ly + 18, '#ffcc00', 11);
+  drawLabel('几个公共点？', 20, 30, '#00f5d4', 13);
+}
+
+function drawQuickTwoCircle(d) {
+  const o1x = W/2 - 35, o1y = H/2, r1 = 55;
+  const o2x = W/2 + 35, o2y = H/2, r2 = 30;
+  drawCircle(o1x, o1y, r1, '#00f5d4');
+  drawCircle(o2x, o2y, r2, '#ff8844');
+  drawPoint(o1x, o1y, '#00f5d4', 'O₁');
+  drawPoint(o2x, o2y, '#ff8844', 'O₂');
+  drawLine(o1x, o1y, o2x, o2y, '#ffcc00', true);
+  drawLabel('d=' + d.d, W/2 - 15, H/2 - 10, '#ffcc00', 11);
+  drawLabel('位置关系？', 20, 30, '#00f5d4', 13);
+}
+
+function drawQuickArc(d) {
+  const ox = W/2, oy = H/2, r = 65;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox + r*0.5, y: oy - r*0.87};
+  const b = {x: ox + r, y: oy};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(ox, a.x, ox, a.y, '#ffcc00');
+  drawLine(ox, b.x, ox, b.y, '#ffcc00');
+  drawAngleArc(ox, oy, 25, 0, Math.PI*0.33, '#ffcc00');
+  drawLabel('n=' + d.n + '° r=' + d.r, ox + 30, oy - 30, '#ffcc00', 11);
+  drawLabel('l=?', 20, 30, '#00f5d4', 13);
+}
+
+function drawQuickTangent(d) {
+  const ox = W/2 - 30, oy = H/2, r = 45;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const px = ox + 75;
+  const py = oy - 55;
+  drawPoint(px, py, '#ffcc00', 'P');
+  const a = {x: ox + r*0.85, y: oy - r*0.55};
+  drawPoint(a.x, a.y, '#00ff88', 'A');
+  drawLine(px, py, a.x, a.y, '#00ff88');
+  drawLine(ox, a.x, ox, a.y, '#00f5d4');
+  drawLine(ox, oy, px, py, '#ffcc00', true);
+  drawLabel('PA=' + d.pa, px + 8, py - 8, '#00ff88', 11);
+  drawLabel('PO=' + d.po, (ox+px)/2, (oy+py)/2 + 15, '#ffcc00', 11);
+  drawLabel('r=?', ox + 8, oy - 20, '#00f5d4', 11);
+}
+
+function drawQuickChord(d) {
+  const ox = W/2, oy = H/2, r = 65;
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox - 48, y: oy + 40};
+  const b = {x: ox + 48, y: oy + 40};
+  const dpt = {x: ox, y: oy + 40};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(a.x, a.y, b.x, b.y, '#ffcc00');
+  drawLine(ox, dpt.x, ox, dpt.y, '#ff8844', true);
+  drawLine(ox, a.x, ox, a.y, '#00f5d4');
+  drawLabel('AB=' + d.chord, a.x + 5, a.y + 18, '#ffcc00', 11);
+  drawLabel('d=' + d.dist, ox + 8, oy + 35, '#ff8844', 11);
+  drawLabel('r=?', ox - 25, oy - 20, '#00f5d4', 12);
+}
+
+function drawQuickSector(d) {
+  const ox = W/2, oy = H/2, r = 65;
+  ctx.beginPath(); ctx.moveTo(ox, oy);
+  ctx.arc(ox, oy, r, Math.PI*0.5, Math.PI);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,245,212,0.1)'; ctx.fill();
+  ctx.strokeStyle = '#00f5d4'; ctx.stroke();
+  drawCircle(ox, oy, r, '#00f5d4');
+  drawPoint(ox, oy, '#00f5d4', 'O');
+  const a = {x: ox, y: oy - r};
+  const b = {x: ox - r, y: oy};
+  drawPoint(a.x, a.y, '#ffcc00', 'A');
+  drawPoint(b.x, b.y, '#ffcc00', 'B');
+  drawLine(ox, a.x, ox, a.y, '#ffcc00');
+  drawLine(ox, b.x, ox, b.y, '#ffcc00');
+  drawAngleArc(ox, oy, 22, Math.PI*0.5, Math.PI, '#ffcc00');
+  drawLabel('n=' + d.n + '° r=' + d.r, ox - 60, oy - 40, '#ffcc00', 11);
+  drawLabel('S=?', 20, 30, '#00f5d4', 13);
+}
+
+// ---- Option click tracking for wrong highlight ----
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.opt');
+  if (!opt) return;
+  if (state.answered) return;
+  const opts = document.querySelectorAll('.opt');
+  const idx = Array.from(opts).indexOf(opt);
+  const q = STAGES[state.stage].questions[state.question];
+  if (q.type !== 'choice') return;
+  if (idx !== q.correct) {
+    opt.classList.add('wrong');
+  }
+  opts[q.correct].classList.add('correct');
+});
+</script>
+</body>
+</html>
