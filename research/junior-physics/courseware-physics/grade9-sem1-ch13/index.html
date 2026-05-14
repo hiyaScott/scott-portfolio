@@ -3,500 +3,816 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>电力实验室 · 第十三章 电功率</title>
+<title>特工装备室 · 第十三章 电功率</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
-
   :root {
-    --neon: #9d00ff;
-    --hot: #ff00ff;
-    --ink: #1a0a2e;
-    --page: #faf8f5;
-    --grid: #e8e4df;
-    --warn: #ff4757;
-    --ok: #00d2d3;
+    --bg: #06080f;
+    --panel: #11111f;
+    --panel2: #1a1a2e;
+    --accent: #00f5d4;
+    --accent2: #00bbf9;
+    --danger: #ef476f;
+    --warn: #ffd166;
+    --text: #c0c8d8;
+    --text2: #8b8b9a;
+    --grid: rgba(0,245,212,0.06);
+    --success: #06d6a0;
+    --glass: rgba(17,17,31,0.92);
     --gold: #ffd700;
     --silver: #c0c0c0;
     --bronze: #cd7f32;
   }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
   body {
-    font-family: 'Noto Sans SC', sans-serif;
-    background: var(--ink);
-    color: #333;
+    font-family: 'Share Tech Mono', 'Courier New', 'PingFang SC', 'Microsoft YaHei', monospace;
+    background: var(--bg);
+    color: var(--text);
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
+    overflow-x: hidden;
   }
 
-  .bg-grid {
+  /* HUD grid background */
+  body::before {
+    content: '';
     position: fixed; inset: 0;
     background-image:
-      linear-gradient(rgba(157,0,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(157,0,255,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 60px 60px;
     pointer-events: none;
     z-index: 0;
   }
 
-  .spark {
-    position: fixed; width: 3px; height: 3px;
-    background: var(--hot);
-    border-radius: 50%;
-    box-shadow: 0 0 8px var(--hot), 0 0 16px var(--neon);
-    pointer-events: none; z-index: 1;
-    animation: spark-float 4s ease-in-out infinite;
-  }
-  @keyframes spark-float {
-    0%,100% { transform: translate(0,0) scale(1); opacity: 0.6; }
-    50% { transform: translate(30px,-50px) scale(1.5); opacity: 1; }
+  /* Scanlines */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 245, 212, 0.03) 2px,
+      rgba(0, 245, 212, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
   }
 
+  /* Corner decorations */
+  .corner-tl, .corner-tr, .corner-bl, .corner-br {
+    position: fixed;
+    width: 20px; height: 20px;
+    border-color: var(--accent);
+    border-style: solid;
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0.6;
+  }
+  .corner-tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+  .corner-tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+  .corner-bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
+  .corner-br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+
+  /* ===================== GAME CONTAINER ===================== */
   .game-container {
     width: 100%; max-width: 720px;
     height: 100vh; max-height: 900px;
-    background: var(--page);
+    background: var(--glass);
+    backdrop-filter: blur(12px);
     position: relative; z-index: 2;
-    display: flex; flex-direction: column;
-    box-shadow: 0 0 60px rgba(157,0,255,0.2);
+    display: none;
+    flex-direction: column;
+    border: 1px solid rgba(0,245,212,0.15);
     overflow: hidden;
+    margin: 0 auto;
   }
 
-  /* 顶部信息栏 */
+  /* ===================== TOP BAR / HUD ===================== */
   .top-bar {
-    background: linear-gradient(135deg, var(--ink) 0%, #2d1b4e 100%);
-    color: #fff; padding: 12px 20px;
-    display: flex; justify-content: space-between; align-items: center;
-    border-bottom: 2px solid var(--neon);
-    position: relative; overflow: hidden;
+    background: var(--glass);
+    backdrop-filter: blur(8px);
+    color: var(--text);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(0,245,212,0.25);
+    position: relative;
   }
   .top-bar::after {
-    content: ''; position: absolute; bottom: -2px; left: 0; right: 0;
-    height: 2px; background: var(--hot);
-    animation: pulse-line 2s ease-in-out infinite;
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 120px;
+    height: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
   }
-  @keyframes pulse-line { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
-
   .dept-badge {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 0.75rem; opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 1px;
   }
   .dept-badge .icon { font-size: 1.1rem; }
-  .lives { display: flex; gap: 4px; font-size: 1.3rem; }
+  .lives {
+    display: flex;
+    gap: 4px;
+    font-size: 1.3rem;
+  }
   .lives .heart { transition: all 0.3s; }
   .lives .heart.lost { opacity: 0.2; filter: grayscale(1); }
   .lives .heart.hit { animation: heart-beat 0.5s; }
-  @keyframes heart-beat { 0%,100%{transform:scale(1)} 25%{transform:scale(1.4)} 50%{transform:scale(0.8)} }
-
+  @keyframes heart-beat {
+    0%,100%{transform:scale(1)}
+    25%{transform:scale(1.4)}
+    50%{transform:scale(0.8)}
+  }
   .score-board {
-    display: flex; gap: 16px; align-items: center;
+    display: flex;
+    gap: 16px;
+    align-items: center;
     font-size: 0.8rem;
   }
   .score-item { text-align: center; }
   .score-item .val {
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 700; font-size: 1.1rem;
-    color: var(--hot);
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
   }
-  .score-item .label { font-size: 0.65rem; opacity: 0.6; }
+  .score-item .label {
+    font-size: 0.65rem;
+    color: var(--text2);
+  }
   .combo-bar {
-    position: relative; width: 80px; height: 6px;
-    background: rgba(255,255,255,0.15); border-radius: 3px;
-    overflow: hidden; margin-top: 2px;
+    position: relative;
+    width: 80px;
+    height: 6px;
+    background: rgba(0,245,212,0.15);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 2px;
   }
   .combo-fill {
-    height: 100%; border-radius: 3px;
-    background: linear-gradient(90deg, var(--neon), var(--hot));
-    transition: width 0.3s; width: 0%;
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.3s;
+    width: 0%;
   }
 
-  /* 主内容区 */
+  /* ===================== MAIN AREA ===================== */
   .main-area {
-    flex: 1; overflow-y: auto;
-    padding: 24px 20px;
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
     position: relative;
   }
   .main-area::-webkit-scrollbar { width: 6px; }
   .main-area::-webkit-scrollbar-track { background: transparent; }
-  .main-area::-webkit-scrollbar-thumb { background: var(--neon); border-radius: 3px; }
+  .main-area::-webkit-scrollbar-thumb { background: rgba(0,245,212,0.3); border-radius: 3px; }
 
-  /* 页面纸张纹理 */
+  /* Paper / Panel */
   .paper {
-    background: #fff;
-    border: 1px solid var(--grid);
+    background: var(--panel);
+    border: 1px solid rgba(0,245,212,0.15);
     border-radius: 8px;
     padding: 24px;
     position: relative;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  }
-  .paper::before {
-    content: ''; position: absolute; top: 0; left: 40px; right: 40px;
-    height: 1px; background: var(--warn);
-    opacity: 0.3;
   }
 
-  /* 关卡标题 */
+  /* Stage header */
   .stage-header {
-    display: flex; align-items: center; gap: 12px;
-    margin-bottom: 20px; padding-bottom: 16px;
-    border-bottom: 2px dashed var(--grid);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0,245,212,0.15);
   }
   .stage-num {
-    width: 48px; height: 48px; border-radius: 12px;
-    background: linear-gradient(135deg, var(--neon), var(--hot));
-    color: #fff; display: flex; align-items: center; justify-content: center;
-    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.3rem;
-    flex-shrink: 0; box-shadow: 0 4px 16px rgba(157,0,255,0.3);
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(0,245,212,0.2), rgba(0,187,249,0.2));
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 16px rgba(0,245,212,0.15);
   }
   .stage-info h2 {
-    font-size: 1.15rem; color: var(--ink);
-    font-weight: 700; margin-bottom: 2px;
+    font-size: 1.15rem;
+    color: var(--accent);
+    font-weight: 700;
+    font-family: 'Orbitron', sans-serif;
+    margin-bottom: 2px;
+    letter-spacing: 1px;
   }
   .stage-info .desc {
-    font-size: 0.75rem; color: #888;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text2);
+    font-family: 'Share Tech Mono', monospace;
   }
 
-  /* 题目卡片 */
-  .q-card {
-    background: #fff;
-    border-left: 4px solid var(--neon);
-    border-radius: 0 8px 8px 0;
-    padding: 18px 20px;
-    margin-bottom: 16px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
-    transition: all 0.3s;
-  }
-  .q-card:hover { box-shadow: 0 4px 16px rgba(157,0,255,0.1); }
-  .q-card.correct { border-left-color: var(--ok); background: #f0fffe; }
-  .q-card.wrong { border-left-color: var(--warn); background: #fff5f5; }
-  .q-card.locked { opacity: 0.4; pointer-events: none; }
-
-  .q-num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 50%;
-    background: var(--ink); color: #fff;
-    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
-    margin-right: 10px; vertical-align: middle;
-  }
-  .q-card.correct .q-num { background: var(--ok); }
-  .q-card.wrong .q-num { background: var(--warn); }
-
-  .q-text {
-    font-size: 0.95rem; line-height: 1.7;
-    color: #333; margin-bottom: 14px;
-  }
-  .q-text .highlight {
-    background: linear-gradient(180deg, transparent 60%, rgba(157,0,255,0.15) 60%);
-    padding: 0 2px; font-weight: 500;
-  }
-  .q-formula {
-    display: inline-block;
-    background: var(--ink); color: var(--hot);
-    padding: 4px 10px; border-radius: 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem; margin: 4px 0;
-  }
-
-  .options { display: flex; flex-direction: column; gap: 8px; }
-  .opt-btn {
-    text-align: left; padding: 12px 16px;
-    border: 1.5px solid var(--grid);
-    border-radius: 8px; background: #fff;
-    cursor: pointer; font-size: 0.9rem;
-    transition: all 0.2s; color: #333;
-    display: flex; align-items: center; gap: 10px;
-  }
-  .opt-btn:hover:not(:disabled) {
-    border-color: var(--neon);
-    background: rgba(157,0,255,0.03);
-    transform: translateX(4px);
-  }
-  .opt-btn:disabled { cursor: default; }
-  .opt-btn.correct-opt {
-    border-color: var(--ok); background: #e8fffe;
-    color: #006666; font-weight: 500;
-  }
-  .opt-btn.wrong-opt {
-    border-color: var(--warn); background: #ffe8e8;
-    color: #991f1f; font-weight: 500;
-  }
-  .opt-letter {
-    width: 24px; height: 24px; border-radius: 6px;
-    background: var(--grid); color: #666;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
-    flex-shrink: 0;
-  }
-  .opt-btn.correct-opt .opt-letter { background: var(--ok); color: #fff; }
-  .opt-btn.wrong-opt .opt-letter { background: var(--warn); color: #fff; }
-
-  .feedback {
-    margin-top: 12px; padding: 10px 14px;
-    border-radius: 6px; font-size: 0.85rem;
-    display: none; animation: fade-in 0.3s;
-  }
-  .feedback.show { display: block; }
-  .feedback.ok { background: #e8fffe; color: #006666; border: 1px solid var(--ok); }
-  .feedback.err { background: #ffe8e8; color: #991f1f; border: 1px solid var(--warn); }
-  @keyframes fade-in { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
-
-  /* 输入题 */
-  .input-group {
-    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-  }
-  .input-group input {
-    flex: 1; min-width: 120px;
-    padding: 10px 14px; border: 2px solid var(--grid);
-    border-radius: 8px; font-size: 1rem;
-    font-family: 'JetBrains Mono', monospace;
-    outline: none; transition: border-color 0.2s;
-  }
-  .input-group input:focus { border-color: var(--neon); }
-  .input-group input.correct { border-color: var(--ok); background: #e8fffe; }
-  .input-group input.wrong { border-color: var(--warn); background: #ffe8e8; }
-  .submit-btn {
-    padding: 10px 24px; border: none; border-radius: 8px;
-    background: linear-gradient(135deg, var(--neon), var(--hot));
-    color: #fff; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; font-size: 0.9rem;
-  }
-  .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(157,0,255,0.3); }
-  .submit-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
-
-  /* 导航 */
-  .bottom-nav {
-    background: #fff;
-    border-top: 2px solid var(--grid);
-    padding: 10px 16px;
-    display: flex; justify-content: center; gap: 6px;
-    z-index: 10;
-  }
-  .nav-dot {
-    width: 36px; height: 36px; border-radius: 10px;
-    border: 2px solid var(--grid); background: #fff;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem; font-weight: 700; color: #999;
-    transition: all 0.2s;
-  }
-  .nav-dot:hover { border-color: var(--neon); color: var(--neon); }
-  .nav-dot.active {
-    border-color: var(--neon); background: linear-gradient(135deg, var(--neon), var(--hot));
-    color: #fff; box-shadow: 0 2px 8px rgba(157,0,255,0.3);
-  }
-  .nav-dot.cleared { border-color: var(--ok); color: var(--ok); }
-  .nav-dot.boss {
-    width: auto; padding: 0 14px;
-    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
-    border-color: transparent; color: #fff;
-  }
-  .nav-dot.boss.active {
-    background: linear-gradient(135deg, var(--neon), var(--hot));
-  }
-
-  /* 结算 */
-  .result-screen {
-    position: fixed; inset: 0; z-index: 100;
-    background: rgba(26,10,46,0.95);
-    display: none; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 40px; text-align: center;
-  }
-  .result-screen.show { display: flex; }
-  .rank-display {
-    font-size: 6rem; font-weight: 900;
-    font-family: 'JetBrains Mono', monospace;
-    animation: rank-pop 0.6s cubic-bezier(0.34,1.56,0.64,1);
-    margin-bottom: 20px;
-  }
-  .rank-display.S { color: var(--gold); text-shadow: 0 0 40px rgba(255,215,0,0.5); }
-  .rank-display.A { color: #c0c0c0; text-shadow: 0 0 30px rgba(192,192,192,0.4); }
-  .rank-display.B { color: #cd7f32; }
-  .rank-display.C { color: #888; }
-  @keyframes rank-pop { from { transform: scale(0) rotate(-10deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
-
-  .badge-display {
-    width: 120px; height: 120px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--neon), var(--hot));
-    display: flex; align-items: center; justify-content: center;
-    font-size: 3rem; margin: 20px 0;
-    box-shadow: 0 0 40px rgba(157,0,255,0.4);
-    animation: badge-spin 1s ease-out;
-  }
-  @keyframes badge-spin { from { transform: rotateY(360deg) scale(0); } to { transform: rotateY(0) scale(1); } }
-
-  .result-stats {
-    color: #fff; font-size: 0.9rem;
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 20px; margin: 20px 0; max-width: 400px; width: 100%;
-  }
-  .stat-item { text-align: center; }
-  .stat-item .num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.6rem; font-weight: 700;
-    color: var(--hot);
-  }
-  .stat-item .lbl { font-size: 0.7rem; opacity: 0.6; margin-top: 4px; }
-
-  .restart-btn {
-    margin-top: 30px; padding: 14px 40px;
-    border: 2px solid var(--hot); border-radius: 12px;
-    background: transparent; color: var(--hot);
-    font-size: 1rem; font-weight: 700; cursor: pointer;
-    transition: all 0.2s;
-  }
-  .restart-btn:hover {
-    background: var(--hot); color: var(--ink);
-    box-shadow: 0 0 30px rgba(255,0,255,0.3);
-  }
-
-  /* 开始画面 */
-  .start-screen {
-    position: fixed; inset: 0; z-index: 200;
-    background: var(--ink);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    text-align: center; padding: 40px;
-  }
-  .start-screen .dept-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem; color: var(--neon);
-    letter-spacing: 4px; margin-bottom: 20px;
-  }
-  .start-screen h1 {
-    font-size: 2.4rem; font-weight: 900;
-    color: #fff; margin-bottom: 8px;
-    text-shadow: 0 0 30px rgba(157,0,255,0.5);
-  }
-  .start-screen .subtitle {
-    font-size: 1rem; color: var(--hot);
-    margin-bottom: 40px; font-weight: 500;
-  }
-  .start-screen .decor {
-    font-size: 4rem; margin-bottom: 30px;
-    animation: float 3s ease-in-out infinite;
-  }
-  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
-
-  .start-btn {
-    padding: 16px 60px;
-    background: linear-gradient(135deg, var(--neon), var(--hot));
-    border: none; border-radius: 12px;
-    color: #fff; font-size: 1.1rem; font-weight: 700;
-    cursor: pointer; box-shadow: 0 4px 24px rgba(157,0,255,0.4);
-    transition: all 0.2s;
-  }
-  .start-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(157,0,255,0.5); }
-
-  .start-rules {
-    margin-top: 30px; color: rgba(255,255,255,0.5);
-    font-size: 0.75rem; max-width: 320px;
-    line-height: 1.8;
-  }
-  .start-rules span { color: var(--hot); }
-
-  /* 进度条 */
+  /* Progress bar */
   .stage-progress {
-    height: 3px; background: var(--grid);
-    margin: -24px -20px 20px -20px;
+    height: 3px;
+    background: rgba(0,245,212,0.1);
+    margin: -16px -20px 20px -20px;
     position: relative;
   }
   .stage-progress-fill {
-    height: 100%; background: linear-gradient(90deg, var(--neon), var(--hot));
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
     transition: width 0.5s;
+    box-shadow: 0 0 8px var(--accent);
   }
 
-  /* 装饰元素 */
-  .decor-plug {
-    position: absolute; top: 12px; right: 20px;
-    font-size: 1.4rem; opacity: 0.15;
-    transform: rotate(15deg);
+  /* Question card */
+  .q-card {
+    background: var(--panel2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+    position: relative;
   }
-  .decor-meter {
-    position: absolute; bottom: 12px; left: 20px;
-    font-size: 1.2rem; opacity: 0.1;
+  .q-card:hover { box-shadow: 0 0 20px rgba(0,245,212,0.08); }
+  .q-card.correct { border-left-color: var(--success); background: rgba(6,214,160,0.08); }
+  .q-card.wrong { border-left-color: var(--danger); background: rgba(239,71,113,0.08); }
+  .q-card.locked { opacity: 0.4; pointer-events: none; }
+
+  .q-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-right: 10px;
+    vertical-align: middle;
   }
-  .decor-bolt {
-    position: absolute; top: 50%; right: 10px;
-    font-size: 1.6rem; opacity: 0.08;
-    transform: rotate(-10deg);
+  .q-card.correct .q-num { background: var(--success); color: var(--bg); }
+  .q-card.wrong .q-num { background: var(--danger); color: #fff; }
+
+  .q-text {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+  .q-text .highlight {
+    background: linear-gradient(180deg, transparent 60%, rgba(0,245,212,0.2) 60%);
+    padding: 0 2px;
+    font-weight: 500;
+  }
+  .q-formula {
+    display: inline-block;
+    background: var(--panel);
+    color: var(--accent);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    margin: 4px 0;
+    border: 1px solid rgba(0,245,212,0.2);
   }
 
-  /* 计时器 */
+  /* Options */
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  .opt-btn {
+    text-align: left;
+    padding: 12px 16px;
+    border: 1.5px solid rgba(0,245,212,0.2);
+    border-radius: 8px;
+    background: var(--panel);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Share Tech Mono', 'PingFang SC', sans-serif;
+  }
+  .opt-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: rgba(0,245,212,0.08);
+    transform: translateX(4px);
+    box-shadow: 0 0 12px rgba(0,245,212,0.1);
+  }
+  .opt-btn:disabled { cursor: default; opacity: 0.7; }
+  .opt-btn.correct-opt {
+    border-color: var(--success);
+    background: rgba(6,214,160,0.12);
+    color: var(--success);
+    font-weight: 500;
+  }
+  .opt-btn.wrong-opt {
+    border-color: var(--danger);
+    background: rgba(239,71,113,0.12);
+    color: var(--danger);
+    font-weight: 500;
+  }
+  .opt-letter {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: rgba(0,245,212,0.15);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+  }
+  .opt-btn.correct-opt .opt-letter { background: var(--success); color: var(--bg); }
+  .opt-btn.wrong-opt .opt-letter { background: var(--danger); color: #fff; }
+
+  /* Feedback */
+  .feedback {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: none;
+    animation: fade-in 0.3s;
+  }
+  .feedback.show { display: block; }
+  .feedback.ok {
+    background: rgba(6,214,160,0.1);
+    color: var(--success);
+    border: 1px solid var(--success);
+  }
+  .feedback.err {
+    background: rgba(239,71,113,0.1);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+  @keyframes fade-in {
+    from { opacity:0; transform:translateY(-4px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+
+  /* Input */
+  .input-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .input-group input {
+    flex: 1;
+    min-width: 120px;
+    padding: 10px 14px;
+    border: 1.5px solid rgba(0,245,212,0.25);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: 'Share Tech Mono', monospace;
+    outline: none;
+    transition: all 0.2s;
+    background: var(--panel);
+    color: var(--accent);
+  }
+  .input-group input:focus { border-color: var(--accent); box-shadow: 0 0 12px rgba(0,245,212,0.15); }
+  .input-group input.correct { border-color: var(--success); background: rgba(6,214,160,0.08); }
+  .input-group input.wrong { border-color: var(--danger); background: rgba(239,71,113,0.08); }
+  .submit-btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: var(--bg);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 1px;
+  }
+  .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,245,212,0.3); }
+  .submit-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+  /* Timer bar */
   .timer-bar {
-    position: absolute; top: 0; left: 0; right: 0;
-    height: 3px; background: var(--grid);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(0,245,212,0.1);
+    z-index: 10;
   }
   .timer-fill {
-    height: 100%; background: linear-gradient(90deg, var(--ok), var(--neon), var(--warn));
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), var(--accent), var(--danger));
     transition: width 1s linear;
   }
 
-  /* 响应式 */
-  @media (max-width: 480px) {
+  /* Bottom nav */
+  .bottom-nav {
+    background: var(--glass);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(0,245,212,0.2);
+    padding: 10px 16px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    z-index: 10;
+  }
+  .nav-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1.5px solid rgba(0,245,212,0.25);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text2);
+    transition: all 0.2s;
+  }
+  .nav-dot:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 12px rgba(0,245,212,0.15); }
+  .nav-dot.active {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(0,245,212,0.2), rgba(0,187,249,0.2));
+    color: var(--accent);
+    box-shadow: 0 0 16px rgba(0,245,212,0.2);
+  }
+  .nav-dot.cleared { border-color: var(--success); color: var(--success); }
+  .nav-dot.boss {
+    width: auto;
+    padding: 0 16px;
+    background: linear-gradient(135deg, rgba(239,71,113,0.3), rgba(255,209,102,0.2));
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .nav-dot.boss.active {
+    background: linear-gradient(135deg, rgba(0,245,212,0.2), rgba(0,187,249,0.2));
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ===================== START SCREEN ===================== */
+  .start-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+  }
+  .start-box {
+    max-width: 560px;
+    padding: 40px 32px;
+    background: var(--panel);
+    border: 1px solid rgba(0,245,212,0.2);
+    border-radius: 12px;
+    box-shadow: 0 0 40px rgba(0,245,212,0.08);
+    position: relative;
+  }
+  .start-box::before {
+    content: 'TOP SECRET';
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font-size: 0.65rem;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 2px 6px;
+    letter-spacing: 2px;
+    transform: rotate(3deg);
+    opacity: 0.8;
+    font-family: 'Orbitron', sans-serif;
+  }
+  .start-box .dept-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+  }
+  .start-box .decor {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100%{transform:translateY(0)}
+    50%{transform:translateY(-15px)}
+  }
+  .start-box h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+    font-family: 'Orbitron', sans-serif;
+  }
+  .start-box .subtitle {
+    font-size: 1rem;
+    color: var(--accent2);
+    margin-bottom: 32px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .start-btn {
+    display: inline-block;
+    padding: 14px 48px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+    font-family: 'Orbitron', sans-serif;
+  }
+  .start-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,245,212,0.4); }
+  .start-rules {
+    margin-top: 24px;
+    color: var(--text2);
+    font-size: 0.8rem;
+    max-width: 320px;
+    line-height: 1.8;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .start-rules span { color: var(--accent); }
+
+  /* ===================== RESULT SCREEN ===================== */
+  .result-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(6,8,15,0.95);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    text-align: center;
+  }
+  .result-screen.show { display: flex; }
+  .result-box {
+    max-width: 500px;
+    padding: 40px 32px;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid rgba(0,245,212,0.2);
+    box-shadow: 0 0 40px rgba(0,245,212,0.08);
+  }
+  .rank-display {
+    font-size: 5rem;
+    font-weight: 900;
+    font-family: 'Orbitron', sans-serif;
+    animation: rank-pop 0.6s cubic-bezier(0.34,1.56,0.64,1);
+    margin-bottom: 12px;
+  }
+  .rank-display.S { color: var(--gold); text-shadow: 0 0 40px rgba(255,215,0,0.4); }
+  .rank-display.A { color: var(--silver); text-shadow: 0 0 30px rgba(192,192,192,0.3); }
+  .rank-display.B { color: var(--bronze); }
+  .rank-display.C { color: var(--text2); }
+  @keyframes rank-pop {
+    from { transform: scale(0) rotate(-10deg); opacity: 0; }
+    to { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .result-box .rank-title {
+    color: var(--text);
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 1px;
+  }
+  .result-box .rank-desc {
+    color: var(--text2);
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+  .badge-display {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    margin: 16px auto;
+    box-shadow: 0 0 40px rgba(0,245,212,0.3);
+    animation: badge-spin 1s ease-out;
+  }
+  @keyframes badge-spin {
+    from { transform: rotateY(360deg) scale(0); }
+    to { transform: rotateY(0) scale(1); }
+  }
+  .result-stats {
+    color: var(--text);
+    font-size: 0.9rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin: 20px 0;
+    max-width: 400px;
+    width: 100%;
+  }
+  .stat-item { text-align: center; }
+  .stat-item .num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .stat-item .lbl {
+    font-size: 0.7rem;
+    color: var(--text2);
+    margin-top: 4px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .restart-btn {
+    margin-top: 24px;
+    padding: 12px 36px;
+    border: 1.5px solid var(--accent);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--accent);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 1px;
+  }
+  .restart-btn:hover {
+    background: rgba(0,245,212,0.1);
+    box-shadow: 0 0 20px rgba(0,245,212,0.2);
+  }
+
+  /* ===================== FEEDBACK OVERLAY ===================== */
+  .feedback-overlay {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    padding: 14px 32px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.05rem;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+    transition: all 0.3s;
+    white-space: nowrap;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .feedback-overlay.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  .feedback-overlay.ok {
+    background: rgba(6,214,160,0.15);
+    border: 1px solid var(--success);
+    color: var(--success);
+    box-shadow: 0 0 20px rgba(6,214,160,0.3);
+  }
+  .feedback-overlay.err {
+    background: rgba(239,71,113,0.15);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    box-shadow: 0 0 20px rgba(239,71,113,0.3);
+  }
+
+  /* ===================== DECORATIONS ===================== */
+  .decor-plug {
+    position: absolute;
+    top: 12px;
+    right: 20px;
+    font-size: 1.4rem;
+    opacity: 0.15;
+  }
+  .decor-meter {
+    position: absolute;
+    bottom: 12px;
+    left: 20px;
+    font-size: 1.2rem;
+    opacity: 0.1;
+  }
+  .decor-bolt {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    font-size: 1.6rem;
+    opacity: 0.08;
+  }
+
+  /* ===================== RESPONSIVE ===================== */
+  @media (max-width: 768px) {
     .game-container { max-height: 100vh; }
-    .main-area { padding: 16px 12px; }
+    .main-area { padding: 12px 14px; }
     .paper { padding: 16px; }
-    .start-screen h1 { font-size: 1.8rem; }
+    .start-box { max-width: 90vw; padding: 32px 24px; }
+    .start-box h1 { font-size: 1.4rem; }
+    .result-box { padding: 32px 24px; }
     .rank-display { font-size: 4rem; }
-    .bottom-nav { padding: 8px 10px; gap: 4px; }
-    .nav-dot { width: 30px; height: 30px; font-size: 0.65rem; }
+    .bottom-nav { padding: 8px 10px; gap: 6px; }
+    .nav-dot { width: 36px; height: 36px; font-size: 0.65rem; }
+    .top-bar { padding: 10px 14px; }
+    .score-board { gap: 10px; }
+  }
+  @media (max-width: 480px) {
+    .start-box h1 { font-size: 1.2rem; }
+    .start-rules { font-size: 0.7rem; }
+    .q-text { font-size: 0.85rem; }
+    .opt-btn { padding: 10px 12px; font-size: 0.85rem; }
+    .input-group input { min-width: 80px; font-size: 0.9rem; }
+    .submit-btn { padding: 8px 18px; font-size: 0.8rem; }
+    .result-stats { grid-template-columns: 1fr; gap: 12px; }
   }
 </style>
 </head>
 <body>
-<div class="bg-grid"></div>
-<div class="spark" style="top:10%;left:15%;animation-delay:0s;"></div>
-<div class="spark" style="top:30%;left:80%;animation-delay:1s;"></div>
-<div class="spark" style="top:70%;left:25%;animation-delay:2s;"></div>
-<div class="spark" style="top:85%;left:70%;animation-delay:3s;"></div>
+<div class="corner-tl"></div>
+<div class="corner-tr"></div>
+<div class="corner-bl"></div>
+<div class="corner-br"></div>
 
-<!-- 开始画面 -->
+<!-- ===================== START SCREEN ===================== -->
 <div class="start-screen" id="startScreen">
-  <div class="dept-label">⚡ POWER DIVISION · 电力实验室</div>
-  <div class="decor">🔌⚡</div>
-  <h1>第十三章 电功率</h1>
-  <div class="subtitle">代号：POWER · 九年级物理上学期</div>
-  <button class="start-btn" onclick="startGame()">进入实验室</button>
-  <div class="start-rules">
-    ❤️❤️❤️ 三条生命 · 连击加分<br>
-    5个Stage · 29道题目 · 60秒终极挑战<br>
-    <span>S级</span>评级 = 电力大师徽章
+  <div class="start-box">
+    <div class="dept-label">⚡ POWER DIVISION · 电力装备部</div>
+    <div class="decor">🔌⚡</div>
+    <h1>特工装备室</h1>
+    <div class="subtitle">第十三章 电功率 · 九年级物理上学期</div>
+    <button class="start-btn" onclick="startGame()">接受任务</button>
+    <div class="start-rules">
+      ❤️❤️❤️ 生命值 · 连击加分<br>
+      5个Stage · 29道题目 · 60秒终极挑战<br>
+      <span>S级</span>评级 = 电力大师徽章
+    </div>
   </div>
 </div>
 
-<!-- 结算画面 -->
+<!-- ===================== RESULT SCREEN ===================== -->
 <div class="result-screen" id="resultScreen">
-  <div class="rank-display" id="rankDisplay">S</div>
-  <div style="color:#fff;font-size:1.1rem;margin-bottom:8px;" id="rankTitle">电力大师</div>
-  <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;" id="rankDesc">完美通关！所有电路知识已掌握</div>
-  <div class="badge-display" id="badgeDisplay">⚡</div>
-  <div class="result-stats">
-    <div class="stat-item">
-      <div class="num" id="statScore">0</div>
-      <div class="lbl">总分</div>
+  <div class="result-box">
+    <div class="rank-display" id="rankDisplay">S</div>
+    <div class="rank-title" id="rankTitle">电力大师</div>
+    <div class="rank-desc" id="rankDesc">完美通关！所有电路知识已掌握</div>
+    <div class="badge-display" id="badgeDisplay">⚡</div>
+    <div class="result-stats">
+      <div class="stat-item">
+        <div class="num" id="statScore">0</div>
+        <div class="lbl">TOTAL SCORE</div>
+      </div>
+      <div class="stat-item">
+        <div class="num" id="statCombo">0</div>
+        <div class="lbl">MAX COMBO</div>
+      </div>
+      <div class="stat-item">
+        <div class="num" id="statAcc">0%</div>
+        <div class="lbl">ACCURACY</div>
+      </div>
     </div>
-    <div class="stat-item">
-      <div class="num" id="statCombo">0</div>
-      <div class="lbl">最高连击</div>
-    </div>
-    <div class="stat-item">
-      <div class="num" id="statAcc">0%</div>
-      <div class="lbl">正确率</div>
-    </div>
+    <button class="restart-btn" onclick="restartGame()">再次挑战</button>
   </div>
-  <button class="restart-btn" onclick="restartGame()">再次挑战</button>
 </div>
 
-<!-- 游戏主体 -->
-<div class="game-container" id="gameContainer" style="display:none;">
-  <div class="timer-bar" id="timerBar" style="display:none;"><div class="timer-fill" id="timerFill"></div></div>
+<!-- ===================== GAME CONTAINER ===================== -->
+<div class="game-container" id="gameContainer">
+  <div class="timer-bar" id="timerBar" style="display:none;">
+    <div class="timer-fill" id="timerFill"></div>
+  </div>
   <div class="top-bar">
-    <div class="dept-badge"><span class="icon">🔌</span><span>POWER实验室</span></div>
+    <div class="dept-badge">
+      <span class="icon">🔌</span>
+      <span>电力装备部</span>
+    </div>
     <div class="lives" id="livesDisplay">❤️❤️❤️</div>
     <div class="score-board">
       <div class="score-item">
@@ -524,8 +840,40 @@
   </div>
 </div>
 
+<!-- Feedback overlay -->
+<div class="feedback-overlay" id="feedbackOverlay"></div>
+
 <script>
-// ==================== 游戏数据 ====================
+// ===================== AUDIO ENGINE =====================
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone(freq, duration, type='square', vol=0.08) {
+  ensureAudio();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + duration);
+}
+function sndOk() {
+  playTone(523, 0.12, 'sine', 0.1);
+  setTimeout(() => playTone(659, 0.15, 'sine', 0.1), 120);
+}
+function sndErr() {
+  playTone(200, 0.25, 'sawtooth', 0.08);
+  setTimeout(() => playTone(150, 0.3, 'sawtooth', 0.08), 200);
+}
+function sndClick() { playTone(880, 0.06, 'square', 0.05); }
+function sndWin() {
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,0.25,'sine',0.1),i*150));
+}
+
+// ===================== GAME DATA =====================
 const STAGES = [
   {
     title: "电功与电能",
@@ -540,7 +888,7 @@ const STAGES = [
       },
       {
         type: "input",
-        text: "某电能表标有"3000r/kW·h"，当用电器工作时，电能表转盘在5分钟内转了150转，求这段时间消耗的电能（kW·h）。",
+        text: "某电能表标有\"3000r/kW·h\"，当用电器工作时，电能表转盘在5分钟内转了150转，求这段时间消耗的电能（kW·h）。",
         answer: "0.05",
         unit: "kW·h",
         explain: "W = 150r ÷ 3000r/kW·h = 0.05 kW·h"
@@ -578,10 +926,10 @@ const STAGES = [
           "电能表应串联在电路中",
           "电能表可以直接读出消耗的电能",
           "电能表转盘转得越快，说明电流做功越快",
-          "电能表标有"220V 10(20)A"，表示额定电压220V，额定电流10A"
+          "电能表标有\"220V 10(20)A\"，表示额定电压220V，额定电流10A"
         ],
         answer: 0,
-        explain: "电能表应串联在电路中——此说法正确；但题目问"错误的是"，实际上A是对的。重新审视：电能表确实是串联的，所有选项描述都正确？不对，再想想——电能表标的是工作电压和最大电流，A说"串联"是对的。等等，答案是A？不对，让我重读...电能表确实是串联在电路中的，这个描述是对的。题目可能有误。选A是因为"应串联"表述可能引起歧义，实际上电能表必须串联。"
+        explain: "电能表应串联在电路中——此说法正确；但题目问\"错误的是\"，实际上A是对的。重新审视：电能表确实是串联的，所有选项描述都正确？不对，再想想——电能表标的是工作电压和最大电流，A说\"串联\"是对的。等等，答案是A？不对，让我重读...电能表确实是串联在电路中的，这个描述是对的。题目可能有误。选A是因为\"应串联\"表述可能引起歧义，实际上电能表必须串联。"
       }
     ]
   },
@@ -591,21 +939,21 @@ const STAGES = [
     questions: [
       {
         type: "choice",
-        text: "一个灯泡标有"220V 40W"，当它正常工作时，通过的电流约为多少？",
+        text: "一个灯泡标有\"220V 40W\"，当它正常工作时，通过的电流约为多少？",
         options: ["0.18A", "0.36A", "5.5A", "11A"],
         answer: 0,
         explain: "I = P/U = 40W/220V ≈ 0.18A"
       },
       {
         type: "input",
-        text: "一个电烙铁标有"220V 100W"，求其正常工作时的电阻R（Ω）。（保留整数）",
+        text: "一个电烙铁标有\"220V 100W\"，求其正常工作时的电阻R（Ω）。（保留整数）",
         answer: "484",
         unit: "Ω",
         explain: "R = U²/P = 220²/100 = 48400/100 = 484Ω"
       },
       {
         type: "choice",
-        text: "将"220V 100W"和"220V 40W"的两灯泡串联接入220V电路中，比较它们的实际功率：",
+        text: "将\"220V 100W\"和\"220V 40W\"的两灯泡串联接入220V电路中，比较它们的实际功率：",
         options: [
           "100W灯泡更亮",
           "40W灯泡更亮",
@@ -765,14 +1113,14 @@ const STAGES = [
     questions: [
       {
         type: "choice",
-        text: "电能表标"600r/kW·h"，1分钟转30r，求用电器功率（W）。",
+        text: "电能表标\"600r/kW·h\"，1分钟转30r，求用电器功率（W）。",
         options: ["300W", "600W", "1800W", "3000W"],
         answer: 3,
         explain: "W=30/600=0.05kW·h，P=W/t=0.05/(1/60)=3kW=3000W"
       },
       {
         type: "choice",
-        text: "灯泡"220V 100W"与"220V 25W"并联，哪个更亮？",
+        text: "灯泡\"220V 100W\"与\"220V 25W\"并联，哪个更亮？",
         options: ["100W灯泡", "25W灯泡", "一样亮", "无法判断"],
         answer: 0,
         explain: "并联时电压均为220V，100W灯泡额定功率大，实际功率=额定功率，更亮。"
@@ -811,7 +1159,7 @@ const STAGES = [
       {
         type: "input",
         text: "某电路中，R₁=10Ω与R₂=20Ω串联接30V电源，求1分钟内R₂产生的热量Q（J）。",
-        answer: "800",
+        answer: "1200",
         unit: "J",
         explain: "I=30/(10+20)=1A，Q₂=I²R₂t=1×20×60=1200J"
       }
@@ -819,7 +1167,7 @@ const STAGES = [
   }
 ];
 
-// ==================== 游戏状态 ====================
+// ===================== GAME STATE =====================
 let state = {
   stage: 0,
   score: 0,
@@ -835,28 +1183,41 @@ let state = {
 };
 
 function startGame() {
+  sndClick();
   document.getElementById('startScreen').style.display = 'none';
   document.getElementById('gameContainer').style.display = 'flex';
-  state = { stage: 0, score: 0, lives: 3, combo: 0, maxCombo: 0, correct: 0, total: 0, answered: new Array(STAGES.length).fill(null).map(() => []), timer: null, timeLeft: 0, gameOver: false };
+  state = {
+    stage: 0,
+    score: 0,
+    lives: 3,
+    combo: 0,
+    maxCombo: 0,
+    correct: 0,
+    total: 0,
+    answered: new Array(STAGES.length).fill(null).map(() => []),
+    timer: null,
+    timeLeft: 0,
+    gameOver: false
+  };
   renderStage(0);
   updateHUD();
 }
 
 function restartGame() {
+  sndClick();
   document.getElementById('resultScreen').classList.remove('show');
   startGame();
 }
 
 function updateHUD() {
   const hearts = '❤️'.repeat(state.lives) + '🖤'.repeat(3 - state.lives);
-  document.getElementById('livesDisplay').innerHTML = hearts.split('').map((h,i) =>
+  document.getElementById('livesDisplay').innerHTML = hearts.split('').map((h, i) =>
     `<span class="heart ${i >= state.lives ? 'lost' : ''}">${h}</span>`
   ).join('');
   document.getElementById('scoreDisplay').textContent = state.score;
   document.getElementById('comboDisplay').textContent = 'x' + state.combo;
   document.getElementById('comboFill').style.width = Math.min(state.combo * 10, 100) + '%';
 
-  // 导航状态
   document.querySelectorAll('.nav-dot').forEach((dot, i) => {
     dot.classList.toggle('active', i === state.stage);
     const cleared = state.answered[i] && state.answered[i].filter(a => a).length === STAGES[i].questions.length;
@@ -866,9 +1227,19 @@ function updateHUD() {
 
 function goStage(n) {
   if (n < 0 || n >= STAGES.length || state.gameOver) return;
+  sndClick();
   state.stage = n;
   renderStage(n);
   updateHUD();
+}
+
+function showOverlay(text, type) {
+  const f = document.getElementById('feedbackOverlay');
+  f.textContent = text;
+  f.className = 'feedback-overlay ' + type;
+  void f.offsetWidth;
+  f.classList.add('show');
+  setTimeout(() => f.classList.remove('show'), 1400);
 }
 
 function renderStage(n) {
@@ -876,8 +1247,7 @@ function renderStage(n) {
   const main = document.getElementById('mainArea');
   main.innerHTML = '';
 
-  // 进度条
-  const answeredInStage = state.answered[n] ? state.answered[n].filter(a => a !== undefined).length : 0;
+  const answeredInStage = state.answered[n] ? state.answered[n].filter(a => a !== undefined && a !== null).length : 0;
   const totalInStage = stage.questions.length;
   const progressPct = (answeredInStage / totalInStage) * 100;
 
@@ -912,7 +1282,7 @@ function renderStage(n) {
     if (q.type === 'choice') {
       html += `<div class="options">`;
       q.options.forEach((opt, j) => {
-        const optCls = locked ? (j === q.answer ? 'correct-opt' : (ans === false && j === getSelectedOpt(n,i) ? 'wrong-opt' : '')) : '';
+        const optCls = locked ? (j === q.answer ? 'correct-opt' : (ans === false && j === getSelectedOpt(n, i) ? 'wrong-opt' : '')) : '';
         html += `<button class="opt-btn ${optCls}" onclick="answerChoice(${n},${i},${j})" ${locked ? 'disabled' : ''}>`;
         html += `<span class="opt-letter">${String.fromCharCode(65+j)}</span>${opt}`;
         html += `</button>`;
@@ -920,15 +1290,14 @@ function renderStage(n) {
       html += `</div>`;
     } else if (q.type === 'input') {
       const inputCls = locked ? (ans ? 'correct' : 'wrong') : '';
-      const val = locked ? (state.answered[n] && state.answered[n][i+'_val'] || '') : '';
+      const val = locked ? (state.answered[n] && state.answered[n][i + '_val'] || '') : '';
       html += `<div class="input-group">`;
       html += `<input type="text" id="in-${n}-${i}" placeholder="输入答案" class="${inputCls}" value="${val}" ${locked ? 'disabled' : ''} onkeydown="if(event.key==='Enter')answerInput(${n},${i})">`;
-      html += `<span style="color:#999;font-size:0.85rem;">${q.unit}</span>`;
+      html += `<span style="color:var(--text2);font-size:0.85rem;">${q.unit}</span>`;
       html += `<button class="submit-btn" onclick="answerInput(${n},${i})" ${locked ? 'disabled' : ''}>提交</button>`;
       html += `</div>`;
     }
 
-    // 反馈区
     html += `<div class="feedback ${ans === true ? 'ok show' : ans === false ? 'err show' : ''}" id="fb-${n}-${i}">`;
     if (ans === true) {
       html += `✅ 正确！${q.explain}`;
@@ -970,7 +1339,6 @@ function answerInput(n, i) {
   if (!val) return;
 
   const q = STAGES[n].questions[i];
-  // 支持数值近似匹配
   let isCorrect = false;
   const userNum = parseFloat(val);
   const ansNum = parseFloat(q.answer);
@@ -987,29 +1355,30 @@ function answerInput(n, i) {
 function processAnswer(n, i, isCorrect, detail) {
   if (!state.answered[n]) state.answered[n] = [];
   state.answered[n][i] = isCorrect;
-  if (typeof detail === 'string') state.answered[n][i+'_val'] = detail;
+  if (typeof detail === 'string') state.answered[n][i + '_val'] = detail;
   else selectedOpts[`${n}-${i}`] = detail;
 
   state.total++;
   if (isCorrect) {
+    sndOk();
     state.correct++;
     state.combo++;
     if (state.combo > state.maxCombo) state.maxCombo = state.combo;
-    // 连击加分
     const base = 100;
     const comboBonus = Math.min(state.combo - 1, 10) * 20;
     state.score += base + comboBonus;
+    showOverlay(`+${base + comboBonus} 连击x${state.combo}`, 'ok');
   } else {
+    sndErr();
     state.combo = 0;
     state.lives--;
-    // 扣命动画
     const hearts = document.querySelectorAll('.heart');
     if (hearts[state.lives]) hearts[state.lives].classList.add('hit');
+    showOverlay('❌ 错误，失去一条生命', 'err');
   }
 
   updateHUD();
 
-  // 重渲染当前题目显示状态
   const card = document.getElementById(`q-${n}-${i}`);
   if (card) {
     card.classList.remove('correct', 'wrong');
@@ -1019,7 +1388,6 @@ function processAnswer(n, i, isCorrect, detail) {
     fb.className = `feedback ${isCorrect ? 'ok' : 'err'} show`;
     fb.textContent = (isCorrect ? '✅ 正确！' : '❌ 错误。') + q.explain;
 
-    // 禁用按钮
     if (q.type === 'choice') {
       card.querySelectorAll('.opt-btn').forEach((btn, j) => {
         btn.disabled = true;
@@ -1035,12 +1403,10 @@ function processAnswer(n, i, isCorrect, detail) {
     }
   }
 
-  // 更新进度条
   const answeredInStage = state.answered[n].filter(a => a !== undefined && a !== null).length;
   const fill = document.querySelector('.stage-progress-fill');
   if (fill) fill.style.width = (answeredInStage / STAGES[n].questions.length * 100) + '%';
 
-  // 检查是否Stage完成
   if (answeredInStage === STAGES[n].questions.length) {
     setTimeout(() => {
       if (n < STAGES.length - 1 && !state.gameOver) {
@@ -1051,7 +1417,6 @@ function processAnswer(n, i, isCorrect, detail) {
     }, 1200);
   }
 
-  // 检查生命值
   if (state.lives <= 0) {
     state.gameOver = true;
     stopTimer();
@@ -1070,7 +1435,6 @@ function startTimer(seconds) {
     fill.style.width = (state.timeLeft / seconds * 100) + '%';
     if (state.timeLeft <= 0) {
       stopTimer();
-      // 时间到，剩余未答题判错
       const stage = state.stage;
       STAGES[stage].questions.forEach((q, i) => {
         if (state.answered[stage][i] === undefined || state.answered[stage][i] === null) {
@@ -1090,30 +1454,35 @@ function endGame() {
   state.gameOver = true;
 
   const accuracy = state.total > 0 ? Math.round(state.correct / state.total * 100) : 0;
-  let rank, title, desc;
+  let rank, title, desc, badge;
 
   if (state.lives > 0 && accuracy >= 90 && state.maxCombo >= 5) {
-    rank = 'S'; title = '电力大师'; desc = '完美通关！所有电路知识已精通，获得电力大师徽章！';
+    rank = 'S'; title = 'S级特工 — 电力大师'; desc = '完美通关！所有电路知识已精通，获得电力大师徽章！'; badge = '⚡';
   } else if (state.lives > 0 && accuracy >= 80) {
-    rank = 'A'; title = '高级电工'; desc = '表现优秀！电路分析能力相当扎实。';
+    rank = 'A'; title = 'A级特工 — 高级电工'; desc = '表现优秀！电路分析能力相当扎实。'; badge = '🔌';
   } else if (state.lives > 0 && accuracy >= 60) {
-    rank = 'B'; title = '合格学员'; desc = '基础尚可，部分知识点需要加强。';
+    rank = 'B'; title = 'B级特工 — 合格学员'; desc = '基础尚可，部分知识点需要加强。'; badge = '💡';
   } else {
-    rank = 'C'; title = '见习生'; desc = '建议重新复习本章内容后再来挑战。';
+    rank = 'C'; title = 'C级学员 — 见习特工'; desc = '建议重新复习本章内容后再来挑战。'; badge = '🔋';
   }
 
   document.getElementById('rankDisplay').textContent = rank;
   document.getElementById('rankDisplay').className = 'rank-display ' + rank;
   document.getElementById('rankTitle').textContent = title;
   document.getElementById('rankDesc').textContent = desc;
-  document.getElementById('badgeDisplay').textContent = rank === 'S' ? '⚡' : rank === 'A' ? '🔌' : rank === 'B' ? '💡' : '🔋';
-  document.getElementById('badgeDisplay').style.display = rank === 'S' ? 'flex' : 'none';
+  document.getElementById('badgeDisplay').textContent = badge;
+  document.getElementById('badgeDisplay').style.display = 'flex';
   document.getElementById('statScore').textContent = state.score;
   document.getElementById('statCombo').textContent = state.maxCombo;
   document.getElementById('statAcc').textContent = accuracy + '%';
 
+  sndWin();
   document.getElementById('resultScreen').classList.add('show');
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+  // stay on start screen
+});
 </script>
 </body>
 </html>
