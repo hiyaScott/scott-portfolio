@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第28章 统计初步 · STATS · 数据分析科</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap');
+:root { --bg:#06080f; --bg2:#0a0e18; --bg3:#101520; --accent:#00f5d4; --accent2:#00c8a0; --text:#e0e6f0; --text2:#8a9ab0; --green:#00f5d4; --yellow:#ffcc00; --red:#ff3366; --orange:#ff8844; }
+body { background:var(--bg); color:var(--text); font-family:'Share Tech Mono',monospace; font-size:15px; line-height:1.7; margin:0; padding:20px; }
+body::before { content:''; position:fixed; inset:0; background:linear-gradient(90deg,transparent 49%,rgba(0,245,212,0.03) 50%,transparent 51%),linear-gradient(0deg,transparent 49%,rgba(0,245,212,0.03) 50%,transparent 51%); background-size:60px 60px; pointer-events:none; z-index:1; }
+h1,h2,h3 { font-family:'Orbitron',sans-serif; color:var(--accent); }
+.module { background:var(--bg2); border:1px solid rgba(0,245,212,0.2); border-radius:12px; padding:25px; margin:20px 0; position:relative; z-index:2; }
+.module-title { font-family:'Orbitron'; font-size:1.4rem; color:var(--accent); border-bottom:2px solid var(--accent); padding-bottom:10px; margin-bottom:20px; }
+.knowledge-card { background:var(--bg3); border-left:3px solid var(--green); padding:15px; margin:15px 0; border-radius:0 8px 8px 0; }
+.knowledge-card h4 { color:var(--green); margin:0 0 10px 0; font-family:'Orbitron'; font-size:1rem; }
+.example { background:var(--bg3); border-left:3px solid var(--accent); padding:15px; margin:15px 0; cursor:pointer; border-radius:0 8px 8px 0; transition:background 0.2s; }
+.example:hover { background:rgba(0,245,212,0.08); }
+.example-title { color:var(--accent); font-weight:bold; }
+.example-answer { display:none; padding-top:10px; color:var(--text2); border-top:1px dashed rgba(0,245,212,0.2); margin-top:10px; }
+.example.open .example-answer { display:block; }
+.example-answer code, .example-answer .formula { color:var(--yellow); }
+.formula { font-family:'Share Tech Mono'; color:var(--yellow); background:rgba(255,204,0,0.08); padding:2px 6px; border-radius:4px; }
+.highlight-formula { font-family:'Share Tech Mono'; color:var(--yellow); background:rgba(255,204,0,0.12); padding:8px 12px; border-radius:6px; display:inline-block; border:1px solid rgba(255,204,0,0.3); margin:5px 0; }
+.quiz { background:var(--bg3); border:1px solid rgba(0,245,212,0.3); border-radius:8px; padding:15px; margin:15px 0; }
+.quiz-title { color:var(--accent); font-weight:bold; margin-bottom:10px; }
+.quiz-options label { display:block; margin:6px 0; cursor:pointer; padding:6px 10px; border-radius:4px; transition:background 0.2s; }
+.quiz-options label:hover { background:rgba(0,245,212,0.08); }
+.quiz-options input { margin-right:8px; }
+.quiz-btn { background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-family:'Orbitron'; margin-top:10px; }
+.quiz-btn:hover { opacity:0.9; }
+.quiz-result { margin-top:10px; font-weight:bold; min-height:24px; }
+.progress-hud { position:fixed; top:0; left:0; right:0; height:3px; background:var(--bg3); z-index:200; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); width:0%; transition:width 0.3s; }
+.nav-panel { position:fixed; top:60px; right:15px; background:rgba(10,14,24,0.9); border:1px solid var(--accent); border-radius:8px; padding:10px; z-index:100; max-height:70vh; overflow-y:auto; }
+.nav-panel a { color:var(--text2); text-decoration:none; display:block; padding:5px 0; font-size:0.85rem; border-bottom:1px solid rgba(0,245,212,0.1); }
+.nav-panel a:hover { color:var(--accent); }
+.nav-panel a:last-child { border-bottom:none; }
+.header { text-align:center; padding:40px 20px; position:relative; z-index:2; }
+.header h1 { font-size:2.2rem; margin:0; text-shadow:0 0 20px rgba(0,245,212,0.3); }
+.header .subtitle { color:var(--text2); font-size:0.9rem; margin-top:10px; }
+.header .badge { display:inline-block; background:var(--bg3); border:1px solid var(--accent); color:var(--accent); padding:4px 12px; border-radius:20px; font-size:0.8rem; margin-top:15px; }
+.canvas-container { background:var(--bg3); border-radius:8px; padding:15px; margin:15px 0; text-align:center; }
+.canvas-container canvas { background:#000; border:1px solid var(--accent); border-radius:4px; max-width:100%; }
+.canvas-container p { color:var(--accent); font-family:'Orbitron'; margin-bottom:10px; }
+.step-box { background:rgba(0,245,212,0.05); border-left:3px solid var(--green); padding:10px 15px; margin:8px 0; border-radius:0 6px 6px 0; }
+.step-box .step-num { color:var(--green); font-weight:bold; margin-right:8px; }
+.scene-card { background:var(--bg3); border:1px solid rgba(255,204,0,0.2); border-radius:8px; padding:15px; margin:15px 0; }
+.scene-card .scene-title { color:var(--yellow); font-family:'Orbitron'; font-size:1rem; margin-bottom:8px; }
+.scene-card .scene-why { color:var(--green); font-size:0.9rem; margin-top:8px; }
+.freq-table { width:100%; border-collapse:collapse; margin:15px 0; font-size:14px; }
+.freq-table th, .freq-table td { border:1px solid rgba(0,245,212,0.2); padding:8px 12px; text-align:center; }
+.freq-table th { background:rgba(0,245,212,0.1); color:var(--accent); font-family:'Orbitron'; }
+.freq-table td { color:var(--text); }
+.freq-table tr:nth-child(even) { background:rgba(0,245,212,0.03); }
+@media (max-width:800px) { .nav-panel { display:none; } }
+</style>
+</head>
+<body>
+
+<div class="progress-hud"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="nav-panel">
+<a href="#mod1">1. 任务简报</a>
+<a href="#mod2">2. 数据的整理与表示</a>
+<a href="#mod3">3. 平均数与加权平均数</a>
+<a href="#mod4">4. 中位数与众数</a>
+<a href="#mod5">5. 方差与标准差</a>
+<a href="#mod6">6. 统计量的选用</a>
+<a href="#mod7">7. 综合演练</a>
+</div>
+
+<div class="header">
+<h1>第28章 统计初步</h1>
+<div class="subtitle">代号：STATS · 部门：数据分析科</div>
+<div class="badge">九年级 · 下册</div>
+</div>
+
+<!-- 模块1: 任务简报 -->
+<div class="module" id="mod1">
+<div class="module-title">01 · 任务简报 — 统计学的力量</div>
+
+<div class="knowledge-card">
+<h4>【情报摘要】</h4>
+<p>统计学是收集、整理、描述和分析数据的科学。在这个信息爆炸的时代，数据无处不在——从考试成绩到股市走势，从气温变化到用户行为。</p>
+<p>本章核心任务：学会用数字说话，从原始数据中提炼出真正有价值的信息。</p>
+<p><strong>核心术语速查：</strong></p>
+<ul>
+<li><strong>总体</strong>：研究对象的全体</li>
+<li><strong>个体</strong>：总体中的每一个成员</li>
+<li><strong>样本</strong>：从总体中抽取的一部分个体</li>
+<li><strong>样本容量</strong>：样本中个体的数量（无单位）</li>
+<li><strong>频数</strong>：某个数据出现的次数</li>
+<li><strong>频率</strong>：频数与总数的比值，<span class="formula">频率 = 频数 / 总数</span></li>
+</ul>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题 — 基本概念辨析</div>
+<div class="example-answer">
+<p>为了解某校800名学生的视力情况，从中抽取50名学生进行视力测试。</p>
+<p><strong>总体</strong>：该校800名学生的视力情况</p>
+<p><strong>个体</strong>：每一名学生的视力情况</p>
+<p><strong>样本</strong>：被抽取的50名学生的视力情况</p>
+<p><strong>样本容量</strong>：50</p>
+<p><strong>注意：</strong>样本容量是纯数字，不带单位。"50名学生"不是样本容量，"50"才是。</p>
+</div>
+</div>
+
+<div class="quiz" data-answer="B">
+<div class="quiz-title">【小测验】某班40名学生中，身高在160～165cm的有8人。则这一组的频率是？</div>
+<div class="quiz-options">
+<label><input type="radio" name="q1" value="A"> A. 8</label>
+<label><input type="radio" name="q1" value="B"> B. 0.2</label>
+<label><input type="radio" name="q1" value="C"> C. 20%</label>
+<label><input type="radio" name="q1" value="D"> D. 5</label>
+</div>
+<button class="quiz-btn">提交答案</button>
+<div class="quiz-result"></div>
+</div>
+</div>
+
+<!-- 模块2: 数据的整理与表示 -->
+<div class="module" id="mod2">
+<div class="module-title">02 · 数据的整理与表示 — 频数分布表与直方图</div>
+
+<div class="knowledge-card">
+<h4>【核心流程】从原始数据到频数分布直方图</h4>
+<p class="highlight-formula">原始数据 → 确定组距与组数 → 列频数分布表 → 画频数分布直方图</p>
+<p><strong>步骤详解：</strong></p>
+<div class="step-box"><span class="step-num">Step 1</span>计算极差：最大值 − 最小值</div>
+<div class="step-box"><span class="step-num">Step 2</span>确定组距与组数：组数 = 极差 / 组距（通常取5～12组）</div>
+<div class="step-box"><span class="step-num">Step 3</span>列频数分布表：统计每组数据的个数（频数）</div>
+<div class="step-box"><span class="step-num">Step 4</span>画频数分布直方图：横轴为数据分组，纵轴为频数</div>
+<p><strong>注意：</strong>频数分布直方图中小长方形的高 = 频数，宽 = 组距。所有长方形面积之和反映总频数。</p>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题 — 制作频数分布表</div>
+<div class="example-answer">
+<p>某班30名学生数学测验成绩（分）如下：</p>
+<p style="font-size:13px;color:var(--text2);">78, 82, 65, 90, 88, 72, 95, 68, 85, 76, 92, 81, 73, 89, 84, 77, 91, 69, 86, 75, 94, 80, 71, 87, 83, 79, 93, 67, 74, 70</p>
+<p><strong>解：</strong></p>
+<p>极差 = 95 − 65 = 30。取组距 = 10，则组数 = 30/10 = 3组。分组：60～70, 70～80, 80～90, 90～100。</p>
+<table class="freq-table">
+<tr><th>成绩分组</th><th>频数</th><th>频率</th></tr>
+<tr><td>60 ～ 70</td><td>4</td><td>0.133</td></tr>
+<tr><td>70 ～ 80</td><td>9</td><td>0.300</td></tr>
+<tr><td>80 ～ 90</td><td>11</td><td>0.367</td></tr>
+<tr><td>90 ～ 100</td><td>6</td><td>0.200</td></tr>
+<tr><th>合计</th><th>30</th><th>1.000</th></tr>
+</table>
+</div>
+</div>
+
+<div class="canvas-container">
+<p>◈ 频数分布直方图 — 交互演示 ◈</p>
+<canvas id="histCanvas" width="600" height="340"></canvas>
+<div style="margin:10px 0; color:var(--text2); font-size:13px;">点击按钮重新生成随机数据并绘制直方图</div>
+<button class="quiz-btn" onclick="drawRandomHist()">重新生成数据</button>
+</div>
+
+<div class="quiz" data-answer="C">
+<div class="quiz-title">【小测验】某频数分布直方图中，组距为5，某长方形高为8。则该组的频数为？</div>
+<div class="quiz-options">
+<label><input type="radio" name="q2" value="A"> A. 1.6</label>
+<label><input type="radio" name="q2" value="B"> B. 5</label>
+<label><input type="radio" name="q2" value="C"> C. 8</label>
+<label><input type="radio" name="q2" value="D"> D. 40</label>
+</div>
+<button class="quiz-btn">提交答案</button>
+<div class="quiz-result"></div>
+</div>
+</div>
+
+<!-- 模块3: 平均数与加权平均数 -->
+<div class="module" id="mod3">
+<div class="module-title">03 · 平均数与加权平均数 — 数据的"重心"</div>
+
+<div class="knowledge-card">
+<h4>【核心公式】</h4>
+<p><strong>算术平均数：</strong></p>
+<p class="highlight-formula">x̄ = (x₁ + x₂ + ... + xₙ) / n</p>
+<p><strong>加权平均数：</strong></p>
+<p class="highlight-formula">x̄ = (w₁x₁ + w₂x₂ + ... + wₙxₙ) / (w₁ + w₂ + ... + wₙ)</p>
+<p>其中 <span class="formula">w₁, w₂, ..., wₙ</span> 为各数据的<strong>权重</strong>。</p>
+<p><strong>简记：</strong>加权平均数 = 总和 / 总权重 = Σ(wx) / Σw</p>
+<p><strong>加权平均数的本质：</strong>不同数据的重要性不同，权重大的数据对结果影响更大。</p>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题1 — 简单平均数</div>
+<div class="example-answer">
+<p>小明5次数学测验成绩分别为：82, 88, 79, 91, 85。求平均分。</p>
+<p><strong>解：</strong></p>
+<p>x̄ = <span class="formula">(82 + 88 + 79 + 91 + 85) / 5 = 425 / 5 = 85</span></p>
+<p>∴ 平均分为 <span class="formula">85</span> 分</p>
+</div>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题2 — 加权平均数（学期成绩）</div>
+<div class="example-answer">
+<p>某学生学期成绩由平时成绩（权重30%）、期中成绩（权重30%）、期末成绩（权重40%）组成。已知平时85分、期中90分、期末88分。求学期总评。</p>
+<p><strong>解：</strong></p>
+<p>x̄ = <span class="formula">(85×0.3 + 90×0.3 + 88×0.4) / (0.3+0.3+0.4)</span></p>
+<p>= <span class="formula">(25.5 + 27 + 35.2) / 1 = 87.7</span></p>
+<p>∴ 学期总评为 <span class="formula">87.7</span> 分</p>
+<p><strong>思考：</strong>若按简单平均：(85+90+88)/3 = 87.67。加权后期末权重更大，结果略高。</p>
+</div>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题3 — 加权平均数（招聘评分）</div>
+<div class="example-answer">
+<p>某公司招聘，笔试占60%、面试占30%、实操占10%。应聘者A三项得分分别为80、90、70。求A的综合得分。</p>
+<p><strong>解：</strong></p>
+<p>x̄ = <span class="formula">80×0.6 + 90×0.3 + 70×0.1 = 48 + 27 + 7 = 82</span></p>
+<p>∴ A 的综合得分为 <span class="formula">82</span> 分</p>
+<p><strong>对比：</strong>简单平均 = (80+90+70)/3 = 80。笔试权重高拉高了总分，这正是加权平均的意义。</p>
+</div>
+</div>
+
+<div class="quiz" data-answer="B">
+<div class="quiz-title">【小测验】某员工基本工资3000元（权重40%）、绩效奖金5000元（权重60%）。求月平均工资。</div>
+<div class="quiz-options">
+<label><input type="radio" name="q3" value="A"> A. 4000元</label>
+<label><input type="radio" name="q3" value="B"> B. 4200元</label>
+<label><input type="radio" name="q3" value="C"> C. 3800元</label>
+<label><input type="radio" name="q3" value="D"> D. 4500元</label>
+</div>
+<button class="quiz-btn">提交答案</button>
+<div class="quiz-result"></div>
+</div>
+</div>
+
+<!-- 模块4: 中位数与众数 -->
+<div class="module" id="mod4">
+<div class="module-title">04 · 中位数与众数 — 数据的"代表"</div>
+
+<div class="knowledge-card">
+<h4>【定义与求法】</h4>
+<p><strong>中位数：</strong>将一组数据按大小顺序排列后，处于<strong>中间位置</strong>的数。</p>
+<ul>
+<li>若数据个数 n 为奇数：中位数 = 第 <span class="formula">(n+1)/2</span> 个数</li>
+<li>若数据个数 n 为偶数：中位数 = 第 <span class="formula">n/2</span> 个数与第 <span class="formula">n/2 + 1</span> 个数的平均数</li>
+</ul>
+<p><strong>众数：</strong>一组数据中<strong>出现次数最多</strong>的数。一组数据可能没有众数，也可能有多个众数。</p>
+<p><strong>注意：</strong>中位数只与数据的排列位置有关，不受极端值影响。众数只与出现频率有关。</p>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题1 — 奇数个数据的中位数</div>
+<div class="example-answer">
+<p>求数据 12, 15, 9, 18, 11 的中位数。</p>
+<p><strong>解：</strong></p>
+<p>先排序：<span class="formula">9, 11, 12, 15, 18</span></p>
+<p>n = 5（奇数），中位数 = 第 <span class="formula">(5+1)/2 = 3</span> 个数</p>
+<p>∴ 中位数 = <span class="formula">12</span></p>
+</div>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题2 — 偶数个数据的中位数</div>
+<div class="example-answer">
+<p>求数据 23, 19, 28, 15, 30, 22 的中位数和众数。</p>
+<p><strong>解：</strong></p>
+<p>排序：<span class="formula">15, 19, 22, 23, 28, 30</span></p>
+<p>n = 6（偶数），中位数 = (第3个数 + 第4个数)/2 = <span class="formula">(22 + 23)/2 = 22.5</span></p>
+<p>每个数只出现1次，∴ <strong>没有众数</strong>。</p>
+</div>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题3 — 有众数的情况</div>
+<div class="example-answer">
+<p>某班10名学生鞋码：38, 39, 40, 39, 38, 41, 39, 40, 39, 38。求中位数和众数。</p>
+<p><strong>解：</strong></p>
+<p>排序：<span class="formula">38, 38, 38, 39, 39, 39, 39, 40, 40, 41</span></p>
+<p>n = 10（偶数），中位数 = <span class="formula">(39 + 39)/2 = 39</span></p>
+<p>39出现4次，出现次数最多，∴ 众数 = <span class="formula">39</span></p>
+<p><strong>实际意义：</strong>鞋厂进货时应多进39码，因为需求量最大。</p>
+</div>
+</div>
+
+<div class="quiz" data-answer="A">
+<div class="quiz-title">【小测验】数据 7, 3, 5, 9, 3, 8, 3 的中位数和众数分别是？</div>
+<div class="quiz-options">
+<label><input type="radio" name="q4" value="A"> A. 中位数5，众数3</label>
+<label><input type="radio" name="q4" value="B"> B. 中位数3，众数5</label>
+<label><input type="radio" name="q4" value="C"> C. 中位数3，众数3</label>
+<label><input type="radio" name="q4" value="D"> D. 中位数5，众数5</label>
+</div>
+<button class="quiz-btn">提交答案</button>
+<div class="quiz-result"></div>
+</div>
+</div>
+
+<!-- 模块5: 方差与标准差 -->
+<div class="module" id="mod5">
+<div class="module-title">05 · 方差与标准差 — 离散程度度量</div>
+
+<div class="knowledge-card">
+<h4>【核心概念】</h4>
+<p>平均数、中位数描述数据的<strong>集中趋势</strong>（中心位置），而<strong>方差</strong>和<strong>标准差</strong>描述数据的<strong>离散程度</strong>（波动大小）。</p>
+<p><strong>方差公式：</strong></p>
+<p class="highlight-formula">s² = [(x₁−x̄)² + (x₂−x̄)² + ... + (xₙ−x̄)²] / n</p>
+<p><strong>标准差：</strong>方差的算术平方根</p>
+<p class="highlight-formula">s = √s²</p>
+<p><strong>意义：</strong>方差/标准差越大，数据波动越大，越不稳定；反之越稳定。</p>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题 — 方差计算步骤化演示</div>
+<div class="example-answer">
+<p>计算数据 5, 7, 9, 11, 13 的方差和标准差。</p>
+<p><strong>Step 1 — 求平均数：</strong></p>
+<p>x̄ = <span class="formula">(5+7+9+11+13)/5 = 45/5 = 9</span></p>
+<p><strong>Step 2 — 求各数据与平均数的差：</strong></p>
+<table class="freq-table" style="max-width:400px;">
+<tr><th>xᵢ</th><th>xᵢ − x̄</th></tr>
+<tr><td>5</td><td>5 − 9 = −4</td></tr>
+<tr><td>7</td><td>7 − 9 = −2</td></tr>
+<tr><td>9</td><td>9 − 9 = 0</td></tr>
+<tr><td>11</td><td>11 − 9 = 2</td></tr>
+<tr><td>13</td><td>13 − 9 = 4</td></tr>
+</table>
+<p><strong>Step 3 — 求差的平方：</strong></p>
+<table class="freq-table" style="max-width:400px;">
+<tr><th>xᵢ − x̄</th><th>(xᵢ − x̄)²</th></tr>
+<tr><td>−4</td><td>16</td></tr>
+<tr><td>−2</td><td>4</td></tr>
+<tr><td>0</td><td>0</td></tr>
+<tr><td>2</td><td>4</td></tr>
+<tr><td>4</td><td>16</td></tr>
+</table>
+<p><strong>Step 4 — 求方差（平方的平均数）：</strong></p>
+<p>s² = <span class="formula">(16+4+0+4+16)/5 = 40/5 = 8</span></p>
+<p><strong>Step 5 — 求标准差：</strong></p>
+<p>s = <span class="formula">√8 = 2√2 ≈ 2.83</span></p>
+<p><strong>结论：</strong>这组数据的方差为 8，标准差约为 2.83。</p>
+</div>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 例题 — 方差比较（稳定性判断）</div>
+<div class="example-answer">
+<p>甲乙两名射击运动员各射击5次，成绩如下：</p>
+<p>甲：8, 9, 8, 9, 6 &nbsp;&nbsp;&nbsp; 乙：7, 8, 7, 8, 10</p>
+<p>谁的成绩更稳定？</p>
+<p><strong>解：</strong></p>
+<p><strong>甲：</strong>x̄ = <span class="formula">(8+9+8+9+6)/5 = 40/5 = 8</span></p>
+<p>s²<sub>甲</sub> = <span class="formula">[(0)²+(1)²+(0)²+(1)²+(−2)²]/5 = (0+1+0+1+4)/5 = 6/5 = 1.2</span></p>
+<p><strong>乙：</strong>x̄ = <span class="formula">(7+8+7+8+10)/5 = 40/5 = 8</span></p>
+<p>s²<sub>乙</sub> = <span class="formula">[(−1)²+(0)²+(−1)²+(0)²+(2)²]/5 = (1+0+1+0+4)/5 = 6/5 = 1.2</span></p>
+<p>两人平均成绩相同，方差也相同，稳定性一样。</p>
+<p><strong>变式：</strong>若甲：8, 8, 8, 8, 8（全8环），则 s²<sub>甲</sub> = 0，甲更稳定。</p>
+</div>
+</div>
+
+<div class="quiz" data-answer="B">
+<div class="quiz-title">【小测验】数据 A：1, 3, 5, 7, 9；数据 B：4, 5, 5, 5, 6。则？</div>
+<div class="quiz-options">
+<label><input type="radio" name="q5" value="A"> A. A的平均数大，A的方差也大</label>
+<label><input type="radio" name="q5" value="B"> B. 平均数相等，A的方差大</label>
+<label><input type="radio" name="q5" value="C"> C. B的平均数大，B的方差也大</label>
+<label><input type="radio" name="q5" value="D"> D. 平均数相等，方差也相等</label>
+</div>
+<button class="quiz-btn">提交答案</button>
+<div class="quiz-result"></div>
+</div>
+</div>
+
+<!-- 模块6: 统计量的选用 -->
+<div class="module" id="mod6">
+<div class="module-title">06 · 统计量的选用 — 什么场景用什么数</div>
+
+<div class="knowledge-card">
+<h4>【决策指南】</h4>
+<p>三个集中趋势度量各有适用场景，选错统计量可能得出荒谬的结论。</p>
+<table class="freq-table">
+<tr><th>统计量</th><th>优点</th><th>缺点</th><th>适用场景</th></tr>
+<tr><td>平均数</td><td>利用全部数据信息</td><td>易受极端值影响</td><td>成绩平均分、平均气温</td></tr>
+<tr><td>中位数</td><td>不受极端值影响</td><td>未利用全部信息</td><td>工资水平、房价中位数</td></tr>
+<tr><td>众数</td><td>反映最常见情况</td><td>可能不存在或不唯一</td><td>最受欢迎尺码、最畅销商品</td></tr>
+</table>
+</div>
+
+<div class="scene-card">
+<div class="scene-title">🏢 场景一：公司工资报告</div>
+<p>某公司20名员工工资：18人月薪5000元，1人月薪50000元（CEO），1人月薪80000元（创始人）。</p>
+<p><strong>平均数</strong> = <span class="formula">(18×5000 + 50000 + 80000)/20 = 108000</span> 元</p>
+<p>中位数 = <span class="formula">5000</span> 元，众数 = <span class="formula">5000</span> 元</p>
+<p><strong>问题：</strong>平均数108000元能代表普通员工工资吗？</p>
+<p class="scene-why">→ 不能！极端高收入拉高了平均数。此时应选用中位数或众数，更能反映普通员工的真实收入。</p>
+</div>
+
+<div class="scene-card">
+<div class="scene-title">🏅 场景二：歌唱比赛评分</div>
+<p>7位评委打分：9.5, 9.2, 9.8, 5.0, 9.6, 9.4, 9.5</p>
+<p><strong>问题：</strong>5.0分明显是恶意低分，如何计算公平得分？</p>
+<p><strong>标准做法：</strong>去掉一个最高分和一个最低分后取平均。</p>
+<p>去掉 9.8 和 5.0，剩余：9.5, 9.2, 9.6, 9.4, 9.5</p>
+<p>平均分 = <span class="formula">(9.5+9.2+9.6+9.4+9.5)/5 = 47.2/5 = 9.44</span></p>
+<p class="scene-why">→ 去掉极端值后的平均数更能反映选手真实水平。这是"截尾平均数"的实际应用。</p>
+</div>
+
+<div class="scene-card">
+<div class="scene-title">👟 场景三：鞋厂进货决策</div>
+<p>某鞋店一周销售记录：38码5双、39码12双、40码18双、41码8双、42码2双。</p>
+<p>平均数 = <span class="formula">(38×5+39×12+40×18+41×8+42×2)/45 ≈ 39.8</span> 码</p>
+<p>众数 = <span class="formula">40</span> 码</p>
+<p class="scene-why">→ 进货时应参考众数（40码），因为众数代表需求量最大的尺码。平均数39.8码没有实际对应商品。</p>
+</div>
+
+<div class="scene-card">
+<div class="scene-title">📊 场景四：班级成绩对比</div>
+<p>甲班平均分85分，乙班平均分83分。但甲班有方差16，乙班有方差4。</p>
+<p><strong>表面看：</strong>甲班平均分更高。</p>
+<p><strong>深入看：</strong>乙班方差小得多，说明乙班成绩更集中、更稳定；甲班分数波动大，两极分化严重。</p>
+<p class="scene-why">→ 描述成绩时，应同时报告平均数和方差，才能全面反映班级情况。</p>
+</div>
+
+<div class="quiz" data-answer="C">
+<div class="quiz-title">【小测验】想了解某城市居民的真实收入水平，最适合的统计量是？</div>
+<div class="quiz-options">
+<label><input type="radio" name="q6" value="A"> A. 平均数</label>
+<label><input type="radio" name="q6" value="B"> B. 众数</label>
+<label><input type="radio" name="q6" value="C"> C. 中位数</label>
+<label><input type="radio" name="q6" value="D"> D. 方差</label>
+</div>
+<button class="quiz-btn">提交答案</button>
+<div class="quiz-result"></div>
+</div>
+</div>
+
+<!-- 模块7: 综合演练 -->
+<div class="module" id="mod7">
+<div class="module-title">07 · 综合演练 — 数据分析实战</div>
+
+<div class="knowledge-card">
+<h4>【综合题】某校九年级50名学生1分钟跳绳测试成绩分析</h4>
+<p>原始数据（单位：次）：</p>
+<p style="font-size:13px;color:var(--text2);">85,92,78,105,88,95,110,82,90,98,115,75,102,89,94,108,77,100,93,87,112,80,96,103,91,86,99,109,84,97,106,79,101,92,88,104,81,95,107,90,83,100,94,111,76,98,102,89,105,93</p>
+<p><strong>任务：</strong></p>
+<ol>
+<li>制作频数分布表（组距10，分组70～80, 80～90, 90～100, 100～110, 110～120）</li>
+<li>计算平均数、中位数、众数</li>
+<li>判断哪个统计量最能代表学生的一般水平</li>
+</ol>
+</div>
+
+<div class="example">
+<div class="example-title">▸ 解答</div>
+<div class="example-answer">
+<p><strong>（1）频数分布表：</strong></p>
+<table class="freq-table">
+<tr><th>成绩分组</th><th>频数</th><th>频率</th></tr>
+<tr><td>70 ～ 80</td><td>4</td><td>0.08</td></tr>
+<tr><td>80 ～ 90</td><td>12</td><td>0.24</td></tr>
+<tr><td>90 ～ 100</td><td>18</td><td>0.36</td></tr>
+<tr><td>100 ～ 110</td><td>11</td><td>0.22</td></tr>
+<tr><td>110 ～ 120</td><td>5</td><td>0.10</td></tr>
+<tr><th>合计</th><th>50</th><th>1.00</th></tr>
+</table>
+<p><strong>（2）统计量计算：</strong></p>
+<p>平均数 x̄ = <span class="formula">(总和)/50 = 4740/50 = 94.8</span> 次</p>
+<p>排序后中位数：第25、26个数分别为94和95，中位数 = <span class="formula">(94+95)/2 = 94.5</span> 次</p>
+<p>众数：90～100组内，92出现2次、95出现2次、其他最多1次。整体看 92, 95, 100, 102, 105 均出现2次，为多众数。</p>
+<p>若取最集中的代表值，可选 <span class="formula">95</span> 次左右。</p>
+<p><strong>（3）判断：</strong></p>
+<p>平均数94.8、中位数94.5 非常接近，且数据分布较对称（无极端异常值），三者均可。但中位数不受极端值影响更稳健，推荐用 <span class="formula">中位数 94.5 次</span> 或 <span class="formula">平均数 94.8 次</span> 代表一般水平。</p>
+</div>
+</div>
+
+<div class="quiz" data-answer="B">
+<div class="quiz-title">【最终测验】一组数据方差为0，则这组数据？</div>
+<div class="quiz-options">
+<label><input type="radio" name="q7" value="A"> A. 全部为零</label>
+<label><input type="radio" name="q7" value="B"> B. 全部相等</label>
+<label><input type="radio" name="q7" value="C"> C. 平均数为零</label>
+<label><input type="radio" name="q7" value="D"> D. 无法确定</label>
+</div>
+<button class="quiz-btn">提交答案</button>
+<div class="quiz-result"></div>
+</div>
+
+<div style="text-align:center; margin:30px 0;">
+<a href="index.html" style="display:inline-block; background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff; padding:12px 32px; border-radius:8px; text-decoration:none; font-family:'Orbitron'; font-size:1rem;">→ 进入实战演练</a>
+</div>
+</div>
+
+<script>
+// Progress bar
+window.addEventListener('scroll', () => {
+  const h = document.documentElement.scrollHeight - window.innerHeight;
+  document.getElementById('progressFill').style.width = (window.scrollY/h*100)+'%';
+});
+
+// Example toggle
+ document.querySelectorAll('.example').forEach(el => {
+  el.addEventListener('click', e => {
+    if(e.target.closest('.example-answer')) return;
+    el.classList.toggle('open');
+  });
+});
+
+// Quiz logic
+ document.querySelectorAll('.quiz').forEach(q => {
+  const btn = q.querySelector('.quiz-btn');
+  const res = q.querySelector('.quiz-result');
+  btn.addEventListener('click', () => {
+    const ans = q.dataset.answer;
+    const sel = q.querySelector('input:checked');
+    if(!sel){ res.textContent='请先选择答案'; res.style.color='var(--yellow)'; return; }
+    if(sel.value === ans){ res.textContent='✓ 正确！'; res.style.color='var(--green)'; }
+    else { res.textContent='✗ 错误，正确答案是 '+ans; res.style.color='var(--red)'; }
+  });
+});
+
+// Histogram Canvas
+function drawHist(data, bins, labels) {
+  const c = document.getElementById('histCanvas');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  const W=c.width, H=c.height, pad=50, bw=(W-2*pad)/bins.length, max=Math.max(...bins);
+  // grid
+  ctx.strokeStyle='rgba(0,245,212,0.1)'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){ const y=H-pad-(H-2*pad)*i/5; ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke(); }
+  // bars
+  bins.forEach((n,i) => {
+    const h=(H-2*pad)*(n/max);
+    const x=pad+i*bw, y=H-pad-h;
+    ctx.fillStyle='rgba(0,245,212,0.6)';
+    ctx.fillRect(x+4,y,bw-8,h);
+    ctx.strokeStyle='var(--accent)'; ctx.lineWidth=1;
+    ctx.strokeRect(x+4,y,bw-8,h);
+    // freq label
+    ctx.fillStyle='var(--accent)'; ctx.font='12px "Share Tech Mono"'; ctx.textAlign='center';
+    ctx.fillText(n, x+bw/2, y-6);
+    // x label
+    ctx.fillStyle='var(--text2)'; ctx.fillText(labels[i], x+bw/2, H-pad+18);
+  });
+  // axes
+  ctx.strokeStyle='var(--accent)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad,pad); ctx.lineTo(pad,H-pad); ctx.lineTo(W-pad,H-pad); ctx.stroke();
+  ctx.fillStyle='var(--accent)'; ctx.font='12px "Share Tech Mono"'; ctx.textAlign='center';
+  ctx.fillText('成绩分组', W/2, H-10);
+  ctx.save(); ctx.translate(16, H/2); ctx.rotate(-Math.PI/2); ctx.fillText('频数', 0, 0); ctx.restore();
+}
+
+function drawRandomHist() {
+  const data = [];
+  for(let i=0;i<30;i++) data.push(Math.floor(Math.random()*40)+60);
+  const labels=['60~70','70~80','80~90','90~100'];
+  const bins=[0,0,0,0];
+  data.forEach(v=>{ if(v<70)bins[0]++; else if(v<80)bins[1]++; else if(v<90)bins[2]++; else bins[3]++; });
+  drawHist(data, bins, labels);
+}
+drawRandomHist();
+</script>
+</body>
+</html>

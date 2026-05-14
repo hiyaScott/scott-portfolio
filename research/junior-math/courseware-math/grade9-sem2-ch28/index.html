@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代号：STATS | 统计初步</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060f0e; --bg2: #0a1a18; --bg3: #0e2522;
+  --accent: #00f5d4; --accent2: #00c8a8; --accent-dim: rgba(0,245,212,0.15);
+  --text: #e0f0ee; --text2: #8ab0a8; --text3: #4a7068;
+  --border: rgba(0,245,212,0.2); --glass: rgba(10,26,24,0.85);
+  --glass-border: rgba(0,245,212,0.12); --green: #00ff88; --yellow: #ffcc00;
+  --red: #ff3366; --orange: #ff8844; --purple: #cc66ff;
+  --pink: #ff66cc;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Share Tech Mono', monospace; font-size: 15px; line-height: 1.7;
+  overflow-x: hidden; position: relative; min-height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0,245,212,0.03) 50%, transparent 51%);
+  background-size: 60px 60px; pointer-events: none; z-index: 1;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none; z-index: 2; animation: scanlines 8s linear infinite;
+}
+@keyframes scanlines { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+
+.hud-corners {
+  position: fixed; inset: 0; pointer-events: none; z-index: 100;
+}
+.hud-corners::before, .hud-corners::after,
+.hud-corners .corner-bl, .hud-corners .corner-br {
+  content: ''; position: absolute; width: 40px; height: 40px;
+  border-color: var(--accent); border-style: solid; opacity: 0.6;
+}
+.hud-corners::before { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.hud-corners::after { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.hud-corners .corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.hud-corners .corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 10; }
+
+/* Hero */
+.hero { text-align: center; padding: 60px 0 30px; position: relative; }
+.hero-badge {
+  display: inline-block; border: 1px solid var(--accent); padding: 4px 16px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px;
+  color: var(--accent); margin-bottom: 16px; text-transform: uppercase;
+  animation: badgePulse 3s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%,100% { box-shadow: 0 0 8px rgba(0,245,212,0.2); }
+  50% { box-shadow: 0 0 20px rgba(0,245,212,0.4); }
+}
+.hero h1 { font-family: 'Orbitron', sans-serif; font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 2px; text-shadow: 0 0 30px rgba(0,245,212,0.3); margin-bottom: 8px; }
+.hero-sub { font-size: 14px; color: var(--text2); letter-spacing: 3px; }
+.hero-line { width: 120px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); margin: 20px auto; }
+
+/* HUD Bar */
+.hud-bar {
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  padding: 14px 24px; margin-bottom: 24px;
+  background: var(--glass); border: 1px solid var(--glass-border); border-radius: 10px;
+  backdrop-filter: blur(12px); flex-wrap: wrap;
+}
+.hud-item { display: flex; align-items: center; gap: 8px; font-family: 'Orbitron', sans-serif; font-size: 13px; }
+.hud-item .label { color: var(--text3); font-size: 11px; letter-spacing: 1px; }
+.hud-item .value { color: var(--accent); font-weight: 700; }
+.hud-item .value.red { color: var(--red); }
+.hud-item .value.green { color: var(--green); }
+.hud-item .value.yellow { color: var(--yellow); }
+.hud-item .value.pink { color: var(--pink); }
+.hud-item .lives { display: flex; gap: 3px; }
+.hud-item .life { width: 14px; height: 14px; background: var(--red); clip-path: polygon(50% 0%, 100% 35%, 85% 100%, 50% 80%, 15% 100%, 0% 35%); opacity: 1; transition: opacity 0.3s; }
+.hud-item .life.lost { opacity: 0.15; }
+
+/* Stage Panel */
+.stage-panel {
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap;
+}
+.stage-btn {
+  padding: 8px 18px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.3s;
+}
+.stage-btn:hover { border-color: var(--border); color: var(--text); }
+.stage-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 12px rgba(0,245,212,0.15); }
+.stage-btn.locked { opacity: 0.4; cursor: not-allowed; }
+.stage-btn.cleared::after { content: ' ✓'; color: var(--green); }
+
+/* Game Card */
+.game-card {
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: var(--glass); backdrop-filter: blur(12px); overflow: hidden; margin-bottom: 24px;
+  position: relative;
+}
+.game-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5;
+}
+.game-header {
+  padding: 20px 28px 16px; border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.game-stage-num { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); opacity: 0.4; }
+.game-stage-title { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: 1px; }
+.game-progress { font-family: 'Orbitron', sans-serif; font-size: 13px; color: var(--text3); }
+
+.game-body { padding: 24px 28px 28px; }
+
+/* Canvas Area */
+.canvas-area {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 16px; margin-bottom: 20px; text-align: center; position: relative;
+}
+.canvas-area h4 {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--text2);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.canvas-area canvas {
+  background: var(--bg); border-radius: 6px; border: 1px solid var(--glass-border);
+  max-width: 100%;
+}
+
+/* Question */
+.question-box { margin-bottom: 20px; }
+.question-box .q-num {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  background: var(--accent-dim); padding: 2px 10px; border-radius: 3px; letter-spacing: 1px;
+  display: inline-block; margin-bottom: 10px;
+}
+.question-box .q-text { color: var(--text); font-size: 16px; margin-bottom: 16px; line-height: 1.8; }
+.question-box .q-text .math { color: var(--accent); }
+
+/* Options */
+.opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.opt {
+  padding: 12px 16px; border: 1px solid var(--glass-border); border-radius: 8px;
+  cursor: pointer; transition: all 0.2s; font-size: 15px; display: flex; align-items: center; gap: 10px;
+}
+.opt:hover { border-color: var(--border); background: var(--bg3); }
+.opt .opt-letter {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--text3); flex-shrink: 0;
+}
+.opt:hover .opt-letter { border-color: var(--accent); color: var(--accent); }
+.opt.correct { border-color: var(--green); background: rgba(0,255,136,0.08); color: var(--green); }
+.opt.correct .opt-letter { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.15); }
+.opt.wrong { border-color: var(--red); background: rgba(255,51,102,0.08); color: var(--red); }
+.opt.wrong .opt-letter { border-color: var(--red); color: var(--red); background: rgba(255,51,102,0.15); }
+.opt.disabled { pointer-events: none; opacity: 0.7; }
+
+/* Number input */
+.num-input-wrap { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.num-input {
+  background: var(--bg3); border: 1px solid var(--glass-border); border-radius: 6px;
+  padding: 10px 16px; color: var(--accent); font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; width: 180px; outline: none;
+}
+.num-input:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(0,245,212,0.15); }
+.submit-btn {
+  background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent);
+  padding: 10px 24px; border-radius: 6px; font-family: 'Orbitron', sans-serif; font-size: 13px;
+  letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.submit-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* Feedback */
+.feedback {
+  padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; display: none;
+  animation: feedbackIn 0.3s ease;
+}
+@keyframes feedbackIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+.feedback.show { display: block; }
+.feedback.correct { background: rgba(0,255,136,0.08); border-left: 3px solid var(--green); color: var(--green); }
+.feedback.wrong { background: rgba(255,51,102,0.08); border-left: 3px solid var(--red); color: var(--red); }
+.feedback.timeout { background: rgba(255,204,0,0.08); border-left: 3px solid var(--yellow); color: var(--yellow); }
+.feedback .fb-title { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.feedback .fb-text { font-size: 14px; color: var(--text2); }
+
+/* Timer bar */
+.timer-bar-wrap { height: 4px; background: var(--bg3); border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
+.timer-bar { height: 100%; background: linear-gradient(90deg, var(--green), var(--accent)); border-radius: 2px; transition: width 1s linear; }
+.timer-bar.warn { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+.timer-bar.danger { background: linear-gradient(90deg, var(--red), var(--orange)); }
+
+/* Big countdown for Stage 5 */
+.countdown-big {
+  font-family: 'Orbitron', sans-serif; font-size: 48px; font-weight: 900;
+  color: var(--accent); text-align: center; margin-bottom: 16px;
+  text-shadow: 0 0 20px rgba(0,245,212,0.4);
+  animation: countdownPulse 1s ease-in-out infinite;
+}
+.countdown-big.warn { color: var(--yellow); text-shadow: 0 0 20px rgba(255,204,0,0.4); }
+.countdown-big.danger { color: var(--red); text-shadow: 0 0 20px rgba(255,51,102,0.4); }
+@keyframes countdownPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+/* Step hint box */
+.step-hint {
+  background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 8px;
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.step-hint .sh-title {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+}
+.step-hint .sh-steps {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.step-hint .sh-step {
+  padding: 6px 12px; border-radius: 4px; border: 1px solid var(--glass-border);
+  font-size: 13px; color: var(--text2); background: var(--bg3);
+}
+.step-hint .sh-step.done { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.08); }
+.step-hint .sh-step.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* Controls */
+.controls { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.ctrl-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ctrl-btn.primary { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.ctrl-btn.primary:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 16px rgba(0,245,212,0.3); }
+
+/* Results */
+.results-screen { text-align: center; padding: 40px 28px; }
+.results-screen .result-grade {
+  font-family: 'Orbitron', sans-serif; font-size: 72px; font-weight: 900;
+  margin-bottom: 12px; text-shadow: 0 0 40px currentColor;
+}
+.results-screen .result-grade.S { color: var(--accent); text-shadow: 0 0 50px rgba(0,245,212,0.5); }
+.results-screen .result-grade.A { color: var(--green); }
+.results-screen .result-grade.B { color: var(--yellow); }
+.results-screen .result-grade.C { color: var(--orange); }
+.results-screen .result-grade.F { color: var(--red); }
+.results-screen .result-title { font-family: 'Orbitron', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 8px; }
+.results-screen .result-desc { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
+.result-stats { display: flex; justify-content: center; gap: 32px; margin-bottom: 32px; flex-wrap: wrap; }
+.result-stat { text-align: center; }
+.result-stat .stat-val { font-family: 'Orbitron', sans-serif; font-size: 28px; color: var(--accent); font-weight: 700; }
+.result-stat .stat-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* Badges */
+.badge-grid { display: flex; justify-content: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+.badge {
+  width: 80px; height: 80px; border-radius: 12px; border: 2px solid var(--glass-border);
+  background: var(--bg2); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all 0.3s; opacity: 0.4;
+}
+.badge.unlocked { opacity: 1; border-color: var(--accent); box-shadow: 0 0 20px rgba(0,245,212,0.2); }
+.badge .badge-icon { font-size: 32px; margin-bottom: 4px; }
+.badge .badge-name { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--text3); letter-spacing: 1px; text-align: center; }
+.badge.unlocked .badge-name { color: var(--accent); }
+
+/* Start screen */
+.start-screen { text-align: center; padding: 40px 28px 60px; }
+.start-screen p { color: var(--text2); max-width: 600px; margin: 0 auto 32px; line-height: 1.8; }
+.mission-list { text-align: left; max-width: 520px; margin: 0 auto 32px; }
+.mission-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--glass-border); color: var(--text2); font-size: 14px;
+}
+.mission-item:last-child { border-bottom: none; }
+.mission-item .mi-num {
+  width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--accent);
+  display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; color: var(--accent); flex-shrink: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* Nav */
+.chapter-nav {
+  display: flex; justify-content: space-between; padding: 20px 0 40px;
+  border-top: 1px solid var(--glass-border); margin-top: 8px;
+}
+.nav-btn {
+  padding: 10px 20px; border: 1px solid var(--glass-border); border-radius: 6px;
+  background: var(--bg2); color: var(--text2); font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; text-decoration: none;
+}
+.nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.nav-btn.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 26px; }
+  .hud-bar { gap: 12px; padding: 10px 14px; }
+  .game-header { flex-direction: column; align-items: flex-start; }
+  .game-stage-num { font-size: 22px; }
+  .game-stage-title { font-size: 15px; }
+  .countdown-big { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+<div class="hud-corners"><div class="corner-bl"></div><div class="corner-br"></div></div>
+
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">数据分析科 · 代号 STATS</div>
+  <h1>代号：STATS</h1>
+  <div class="hero-sub">统计初步 · 实战演练</div>
+  <div class="hero-line"></div>
+  <p style="color:var(--text3);font-size:14px;max-width:680px;margin:0 auto;">
+    五大战术模块，数据整理→统计量→方差→决策→综合挑战。<br>
+    你的任务：在限定时间内完成所有挑战，解锁「数据大师」徽章。
+  </p>
+</div>
+
+<!-- HUD -->
+<div class="hud-bar" id="hud-bar" style="display:none;">
+  <div class="hud-item"><span class="label">SCORE</span><span class="value" id="hud-score">0</span></div>
+  <div class="hud-item"><span class="label">LIVES</span><div class="lives" id="hud-lives"></div></div>
+  <div class="hud-item"><span class="label">COMBO</span><span class="value yellow" id="hud-combo">x1</span></div>
+  <div class="hud-item"><span class="label">TIME</span><span class="value" id="hud-time">30</span></div>
+  <div class="hud-item"><span class="label">STAGE</span><span class="value" id="hud-stage">1/5</span></div>
+</div>
+
+<!-- STAGE PANEL -->
+<div class="stage-panel" id="stage-panel" style="display:none;">
+  <button class="stage-btn active" data-stage="0" onclick="jumpToStage(0)">STAGE 1 · 数据整理</button>
+  <button class="stage-btn" data-stage="1" onclick="jumpToStage(1)">STAGE 2 · 统计量速算</button>
+  <button class="stage-btn" data-stage="2" onclick="jumpToStage(2)">STAGE 3 · 方差判定</button>
+  <button class="stage-btn" data-stage="3" onclick="jumpToStage(3)">STAGE 4 · 统计决策</button>
+  <button class="stage-btn" data-stage="4" onclick="jumpToStage(4)">STAGE 5 · 终极密码</button>
+</div>
+
+<!-- START SCREEN -->
+<div id="start-screen" class="game-card start-screen">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务简报</div>
+  </div>
+  <div class="game-body">
+    <p>欢迎来到数据分析科训练场。你将接受五个阶段的实战考核，每个阶段包含 5～7 道题目。答对可获得分数与连击加成，答错将扣除生命。完成所有阶段后，系统将根据准确率与速度给出 S/A/B/C 评级，并解锁「数据大师」徽章。</p>
+    <div class="mission-list">
+      <div class="mission-item"><div class="mi-num">01</div><div>数据整理：根据原始数据制作频数分布表（分组、频数、频率计算）</div></div>
+      <div class="mission-item"><div class="mi-num">02</div><div>统计量速算：平均数、中位数、众数的快速计算与判定</div></div>
+      <div class="mission-item"><div class="mi-num">03</div><div>方差判定：根据数据离散程度判断方差大小、稳定性分析</div></div>
+      <div class="mission-item"><div class="mi-num">04</div><div>统计决策：根据实际场景选择合适的统计量（工资/比赛/进货）</div></div>
+      <div class="mission-item"><div class="mi-num">05</div><div>终极密码：60秒综合挑战，频数+统计量+方差+决策混合题</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn primary" onclick="startGame()">开始任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME AREA -->
+<div id="game-area" style="display:none;">
+  <div class="game-card">
+    <div class="game-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="game-stage-num" id="stage-num">01</div>
+        <div class="game-stage-title" id="stage-title">数据整理</div>
+      </div>
+      <div class="game-progress" id="game-progress">题目 1 / 6</div>
+    </div>
+    <div class="game-body">
+      <!-- Big countdown for Stage 5 -->
+      <div class="countdown-big" id="countdown-big" style="display:none;">60</div>
+      <!-- Timer bar -->
+      <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar" style="width:100%;"></div></div>
+
+      <!-- Step hint (Stage 1) -->
+      <div class="step-hint" id="step-hint" style="display:none;">
+        <div class="sh-title" id="sh-title">解题步骤</div>
+        <div class="sh-steps" id="sh-steps"></div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-area">
+        <h4 id="canvas-title">▌ 数据可视化</h4>
+        <canvas id="game-canvas" width="700" height="360"></canvas>
+      </div>
+
+      <!-- Question -->
+      <div class="question-box">
+        <span class="q-num" id="q-num">Q1</span>
+        <div class="q-text" id="q-text"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="feedback" id="feedback"><div class="fb-title"></div><div class="fb-text"></div></div>
+
+      <!-- Options / Input -->
+      <div id="answer-area"></div>
+
+      <!-- Controls -->
+      <div class="controls" id="q-controls">
+        <button class="ctrl-btn primary" id="next-btn" onclick="nextQuestion()" style="display:none;">下一题 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="results-screen" class="game-card results-screen" style="display:none;">
+  <div class="game-header" style="justify-content:center;border-bottom:none;">
+    <div class="game-stage-title">任务完成</div>
+  </div>
+  <div class="game-body">
+    <div class="result-grade" id="result-grade">S</div>
+    <div class="result-title" id="result-title">完美执行</div>
+    <div class="result-desc" id="result-desc">所有阶段全部通关，统计知识体系已掌握。</div>
+
+    <!-- Badges -->
+    <div class="badge-grid" id="badge-grid">
+      <div class="badge unlocked" id="badge-master">
+        <div class="badge-icon">📊</div>
+        <div class="badge-name">数据大师</div>
+      </div>
+    </div>
+
+    <div class="result-stats">
+      <div class="result-stat"><div class="stat-val" id="res-score">0</div><div class="stat-label">总分</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-correct">0</div><div class="stat-label">正确</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-maxcombo">0</div><div class="stat-label">最高连击</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-time">0</div><div class="stat-label">用时(秒)</div></div>
+      <div class="result-stat"><div class="stat-val" id="res-accuracy">0%</div><div class="stat-label">准确率</div></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn" onclick="location.reload()">重新开始</button>
+      <a class="ctrl-btn primary" href="tutorial.html" style="text-decoration:none;">查看教案</a>
+    </div>
+  </div>
+</div>
+
+<!-- CHAPTER NAV -->
+<div class="chapter-nav" id="chapter-nav" style="display:none;">
+  <a class="nav-btn" href="../grade9-sem2-ch27/index.html">← 上一章</a>
+  <a class="nav-btn disabled" href="#">下一章 →</a>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ===================== GAME DATA =====================
+const STAGES = [
+  // ===== STAGE 1: 数据整理 =====
+  {
+    title: '数据整理',
+    questions: [
+      {
+        text: '某班 40 名学生的数学成绩（单位：分）如下，取组距为 10，则应分成几组？<br><span style="color:var(--text3)">数据范围：52 ～ 98 分</span>',
+        type: 'choice', options: ['A. 4组', 'B. 5组', 'C. 6组', 'D. 7组'],
+        correct: 1,
+        canvas: 'hist-group-count', canvasData: {min:52,max:98,interval:10},
+        steps: ['极差 = 最大值 − 最小值', '98 − 52 = 46', '组数 = 极差/组距 = 46/10 = 4.6', '向上取整，应分 5 组'],
+        feedbackCorrect: '正确！极差 = 98−52 = 46，组数 = 46/10 = 4.6，向上取整为 5 组。',
+        feedbackWrong: '错误。极差 = 98−52 = 46，组数 = 46÷10 = 4.6，向上取整应为 5 组。',
+        time: 35
+      },
+      {
+        text: '对 50 个数据分组，若第 3 组的频数为 12，则第 3 组的频率为 ?',
+        type: 'choice', options: ['A. 0.12', 'B. 0.24', 'C. 0.30', 'D. 0.48'],
+        correct: 1,
+        canvas: 'hist-frequency', canvasData: {total:50,freq:12},
+        steps: ['频率 = 频数 ÷ 总数', '12 ÷ 50', '化简 = 0.24'],
+        feedbackCorrect: '正确！频率 = 频数÷总数 = 12/50 = 0.24。',
+        feedbackWrong: '错误。频率 = 频数÷数据总数 = 12÷50 = 0.24。',
+        time: 25
+      },
+      {
+        text: '某频数分布表中，一组数据的频率为 0.2，数据总数为 80。则该组的频数为 ?',
+        type: 'input', answer: '16', altAnswers: ['16'],
+        canvas: 'hist-freq-calc', canvasData: {total:80,rate:0.2},
+        steps: ['频数 = 频率 × 总数', '0.2 × 80', '= 16'],
+        feedbackCorrect: '正确！频数 = 频率×总数 = 0.2×80 = 16。',
+        feedbackWrong: '错误。频数 = 频率×数据总数 = 0.2×80 = 16。',
+        time: 25
+      },
+      {
+        text: '如下是某班学生身高频数分布表的一部分，身高 160～170cm 这一组的频率为 0.35，全班共 40 人。请填写该组频数。',
+        type: 'input', answer: '14', altAnswers: ['14'],
+        canvas: 'hist-table', canvasData: {rows:[{range:'150~160',freq:8},{range:'160~170',freq:'?',rate:0.35},{range:'170~180',freq:10}],total:40},
+        steps: ['频数 = 频率 × 总数', '0.35 × 40', '= 14'],
+        feedbackCorrect: '正确！频数 = 0.35×40 = 14。',
+        feedbackWrong: '错误。频数 = 频率×总数 = 0.35×40 = 14。',
+        time: 30
+      },
+      {
+        text: '某班 50 名学生体育测试成绩频数分布如下：不及格 4 人，及格 16 人，良好 22 人，优秀 8 人。则良好这一组的频率为 ?',
+        type: 'choice', options: ['A. 0.22', 'B. 0.44', 'C. 0.50', 'D. 0.40'],
+        correct: 1,
+        canvas: 'hist-bar-chart', canvasData: {labels:['不及格','及格','良好','优秀'],freqs:[4,16,22,8],total:50},
+        steps: ['频率 = 频数 ÷ 总数', '22 ÷ 50', '= 0.44'],
+        feedbackCorrect: '正确！频率 = 22/50 = 0.44。',
+        feedbackWrong: '错误。良好频数为 22，总数 50，频率 = 22÷50 = 0.44。',
+        time: 25
+      },
+      {
+        text: '一组数据的最大值为 120，最小值为 60。若组距取 10，则第一组的起始值应取多少（取最小整数组界）？',
+        type: 'choice', options: ['A. 50', 'B. 55', 'C. 60', 'D. 65'],
+        correct: 1,
+        canvas: 'hist-boundary', canvasData: {min:60,max:120,interval:10},
+        steps: ['组界通常取比最小值小的整十/整五数', '最小值 60，向下取整五', '起始值 = 55'],
+        feedbackCorrect: '正确！为了使数据不落在边界上，通常起始值取比最小值略小的整五或整十数，取 55。',
+        feedbackWrong: '错误。为了避免数据恰好落在组界上，通常起始值取比最小值略小的整五/整十数，如 55。',
+        time: 30
+      }
+    ]
+  },
+  // ===== STAGE 2: 统计量速算 =====
+  {
+    title: '统计量速算',
+    questions: [
+      {
+        text: '数据：3, 5, 5, 7, 10。这组数据的平均数为 ?',
+        type: 'choice', options: ['A. 5', 'B. 5.5', 'C. 6', 'D. 7'],
+        correct: 2,
+        canvas: 'stat-mean', canvasData: {data:[3,5,5,7,10],mean:6},
+        feedbackCorrect: '正确！(3+5+5+7+10)/5 = 30/5 = 6。',
+        feedbackWrong: '错误。平均数 = (3+5+5+7+10)/5 = 30/5 = 6。',
+        time: 25
+      },
+      {
+        text: '数据：12, 15, 18, 20, 22, 25。这组数据的中位数为 ?',
+        type: 'choice', options: ['A. 18', 'B. 19', 'C. 20', 'D. 21'],
+        correct: 1,
+        canvas: 'stat-median', canvasData: {data:[12,15,18,20,22,25],median:19},
+        feedbackCorrect: '正确！偶数个数据，中位数 = (18+20)/2 = 19。',
+        feedbackWrong: '错误。数据个数为偶数，中位数取中间两个数的平均值：(18+20)/2 = 19。',
+        time: 25
+      },
+      {
+        text: '数据：2, 3, 3, 4, 5, 5, 5, 6。这组数据的众数为 ?',
+        type: 'choice', options: ['A. 3', 'B. 4', 'C. 5', 'D. 6'],
+        correct: 2,
+        canvas: 'stat-mode', canvasData: {data:[2,3,3,4,5,5,5,6],mode:5},
+        feedbackCorrect: '正确！5 出现了 3 次，出现次数最多，众数为 5。',
+        feedbackWrong: '错误。众数是出现次数最多的数据。5 出现 3 次，最多，所以众数是 5。',
+        time: 20
+      },
+      {
+        text: '已知 5 个数的平均数为 8，其中 4 个数分别是 6, 9, 10, 7。则第 5 个数为 ?',
+        type: 'input', answer: '8', altAnswers: ['8'],
+        canvas: 'stat-mean-reverse', canvasData: {known:[6,9,10,7],mean:8,total:5,missing:8},
+        feedbackCorrect: '正确！总和 = 8×5 = 40，已知和 = 6+9+10+7 = 32，第 5 个数 = 40−32 = 8。',
+        feedbackWrong: '错误。总和 = 平均数×个数 = 8×5 = 40。已知 4 个数和 = 32，第 5 个数 = 40−32 = 8。',
+        time: 35
+      },
+      {
+        text: '数据：8, 10, 10, 12, 15, 16, 20。中位数和众数分别是 ?',
+        type: 'choice', options: ['A. 12 和 10', 'B. 10 和 12', 'C. 12 和 15', 'D. 10 和 10'],
+        correct: 0,
+        canvas: 'stat-median-mode', canvasData: {data:[8,10,10,12,15,16,20],median:12,mode:10},
+        feedbackCorrect: '正确！中位数是第 4 个数 12，众数是出现 2 次的 10。',
+        feedbackWrong: '错误。中位数（第 4 位）= 12；众数（出现最多）= 10。',
+        time: 25
+      },
+      {
+        text: '若一组数据各加上 5，则新数据的平均数与原平均数相比 ?',
+        type: 'choice', options: ['A. 不变', 'B. 增加 5', 'C. 减少 5', 'D. 变为原来的 5 倍'],
+        correct: 1,
+        canvas: 'stat-transform', canvasData: {shift:5},
+        feedbackCorrect: '正确！每个数据加 5，平均数也增加 5。',
+        feedbackWrong: '错误。数据整体平移，平均数也平移相同数值。加 5，平均数增加 5。',
+        time: 20
+      }
+    ]
+  },
+  // ===== STAGE 3: 方差判定 =====
+  {
+    title: '方差判定',
+    questions: [
+      {
+        text: '甲、乙两组数据如下，哪一组方差更大？<br><span style="color:var(--text3)">甲：5, 5, 5, 5, 5 &nbsp;&nbsp; 乙：1, 3, 5, 7, 9</span>',
+        type: 'choice', options: ['A. 甲方差大', 'B. 乙方差大', 'C. 一样大', 'D. 无法判断'],
+        correct: 1,
+        canvas: 'var-compare', canvasData: {a:[5,5,5,5,5],b:[1,3,5,7,9]},
+        feedbackCorrect: '正确！甲数据全部相同，方差为 0；乙数据离散程度大，方差更大。',
+        feedbackWrong: '错误。方差反映离散程度。甲全部相等，方差=0；乙分布更散，方差更大。',
+        time: 25
+      },
+      {
+        text: '两名射击运动员 5 次成绩（环）：<br>甲：8, 8, 9, 9, 10 &nbsp;&nbsp; 乙：7, 9, 9, 9, 11<br>谁的发挥更稳定（方差更小）？',
+        type: 'choice', options: ['A. 甲', 'B. 乙', 'C. 一样稳定', 'D. 无法判断'],
+        correct: 0,
+        canvas: 'var-shooting', canvasData: {a:[8,8,9,9,10],b:[7,9,9,9,11]},
+        feedbackCorrect: '正确！甲的波动更小（集中在 8～10），乙有 7 和 11 的极端值，甲方差更小更稳定。',
+        feedbackWrong: '错误。稳定性看方差/波动。甲的数据更集中，乙方差更大，所以甲更稳定。',
+        time: 30
+      },
+      {
+        text: '如图，A、B 两条折线表示两名同学的 5 次数学成绩。折线波动更大的一方，方差更 ?',
+        type: 'choice', options: ['A. 小', 'B. 大', 'C. 不变', 'D. 为零'],
+        correct: 1,
+        canvas: 'var-line-chart', canvasData: {a:[75,80,78,82,80],b:[60,90,70,95,65]},
+        feedbackCorrect: '正确！波动越大，数据越分散，方差越大。',
+        feedbackWrong: '错误。方差是衡量数据离散程度的量，波动越大，方差越大。',
+        time: 20
+      },
+      {
+        text: '一组数据的方差为 0，则这组数据的特点是 ?',
+        type: 'choice', options: ['A. 数据全为 0', 'B. 所有数据相等', 'C. 数据个数为 0', 'D. 平均数为 0'],
+        correct: 1,
+        canvas: 'var-zero', canvasData: {},
+        feedbackCorrect: '正确！方差为 0 意味着每个数据与平均数的偏差都为 0，即所有数据相等。',
+        feedbackWrong: '错误。方差 = Σ(xi−x̄)²/n，方差为 0 说明每个 (xi−x̄)² = 0，即所有数据相等。',
+        time: 25
+      },
+      {
+        text: '甲、乙两班平均成绩相同，但甲方差为 36，乙方差为 16。从稳定性角度，应推荐哪个班代表学校参赛？',
+        type: 'choice', options: ['A. 甲班', 'B. 乙班', 'C. 都一样', 'D. 无法判断'],
+        correct: 1,
+        canvas: 'var-recommend', canvasData: {varA:36,varB:16},
+        feedbackCorrect: '正确！平均数相同的情况下，方差越小越稳定。乙方差 16 < 甲方差 36，选乙班。',
+        feedbackWrong: '错误。平均数相同时，方差越小表示成绩越稳定。乙方差更小，更稳定。',
+        time: 25
+      }
+    ]
+  },
+  // ===== STAGE 4: 统计决策 =====
+  {
+    title: '统计决策',
+    questions: [
+      {
+        text: '某公司经理宣称员工平均工资为 1 万元，但多数员工表示"被平均了"。为了反映大多数员工的实际收入水平，应选用 ?',
+        type: 'choice', options: ['A. 平均数', 'B. 中位数', 'C. 众数', 'D. 方差'],
+        correct: 1,
+        canvas: 'dec-wage', canvasData: {wages:[4000,4500,5000,5500,6000,6500,7000,8000,15000,50000]},
+        feedbackCorrect: '正确！少数高管高薪拉高了平均数，中位数更能代表大多数普通员工的水平。',
+        feedbackWrong: '错误。当数据存在极端值时，平均数会被拉高/拉低，中位数不受极端值影响，更能代表"大多数人"。',
+        time: 30
+      },
+      {
+        text: '歌手比赛中，评委打分后通常会去掉一个最高分和一个最低分，再计算平均分。这样做的目的是 ?',
+        type: 'choice', options: ['A. 提高分数', 'B. 减少极端值影响', 'C. 简化计算', 'D. 增加观赏性'],
+        correct: 1,
+        canvas: 'dec-singer', canvasData: {scores:[8.5,9.0,9.2,9.5,9.8,10.0,6.0]},
+        feedbackCorrect: '正确！去掉极端分数可以减少个别评委主观偏差或极端评分对最终结果的影响。',
+        feedbackWrong: '错误。极端值（过高或过低）会显著影响平均数，去掉它们能减少极端值的干扰，使评分更公平。',
+        time: 25
+      },
+      {
+        text: '某鞋店想了解哪种鞋码销量最好，以便确定进货量。鞋店应关注的数据统计量是 ?',
+        type: 'choice', options: ['A. 平均数', 'B. 中位数', 'C. 众数', 'D. 方差'],
+        correct: 2,
+        canvas: 'dec-shoes', canvasData: {sizes:[37,38,38,39,39,39,40,40,41,42]},
+        feedbackCorrect: '正确！销量最好即出现次数最多的尺码，应关注众数。',
+        feedbackWrong: '错误。进货要考虑"哪种卖得最多"，即出现频率最高的数据——众数。',
+        time: 20
+      },
+      {
+        text: '班主任想了解班级成绩处于中等水平的学生分数，应选用的统计量是 ?',
+        type: 'choice', options: ['A. 平均数', 'B. 中位数', 'C. 众数', 'D. 极差'],
+        correct: 1,
+        canvas: 'dec-class', canvasData: {scores:[55,68,72,75,78,80,82,85,90,95]},
+        feedbackCorrect: '正确！中位数将数据分为前后两半，正好反映"中等水平"。',
+        feedbackWrong: '错误。"中等水平"对应中间位置，即中位数。平均数可能受极端值影响。',
+        time: 20
+      },
+      {
+        text: '某社区要评选"最受欢迎的水果"进行采购，应选用的统计量是 ?',
+        type: 'choice', options: ['A. 平均数', 'B. 中位数', 'C. 众数', 'D. 标准差'],
+        correct: 2,
+        canvas: 'dec-vote', canvasData: {votes:{'苹果':45,'香蕉':30,'橙子':45,'葡萄':20,'西瓜':60}},
+        feedbackCorrect: '正确！"最受欢迎"即得票最多的水果，对应众数。',
+        feedbackWrong: '错误。最受欢迎 = 出现次数最多 = 众数。平均数和中位数不适用于分类数据的"最受欢迎"。',
+        time: 20
+      }
+    ]
+  },
+  // ===== STAGE 5: 终极密码 (60秒) =====
+  {
+    title: '终极密码',
+    timeLimit: 60,
+    questions: [
+      {
+        text: '数据：4, 6, 6, 8, 10, 12。中位数为 ?',
+        type: 'choice', options: ['A. 6', 'B. 7', 'C. 8', 'D. 9'],
+        correct: 1,
+        canvas: 'quick-median', canvasData: {data:[4,6,6,8,10,12]},
+        feedbackCorrect: '正确！(6+8)/2 = 7。',
+        feedbackWrong: '错误。偶数个，中位数 = (6+8)/2 = 7。',
+        time: 60
+      },
+      {
+        text: '一组数据频率为 0.25，总数 60 人。该组频数为 ?',
+        type: 'input', answer: '15', altAnswers: ['15'],
+        canvas: 'quick-freq', canvasData: {total:60,rate:0.25},
+        feedbackCorrect: '正确！0.25×60 = 15。',
+        feedbackWrong: '错误。频数 = 0.25×60 = 15。',
+        time: 60
+      },
+      {
+        text: '甲数据：3,3,3,3,3；乙数据：1,2,3,4,5。方差更大的是 ?',
+        type: 'choice', options: ['A. 甲', 'B. 乙', 'C. 一样', 'D. 无法判断'],
+        correct: 1,
+        canvas: 'quick-var', canvasData: {},
+        feedbackCorrect: '正确！甲方差为 0，乙方差更大。',
+        feedbackWrong: '错误。甲方差 = 0，乙方差 > 0。',
+        time: 60
+      },
+      {
+        text: '8 个数的平均数为 10，总和为 ?',
+        type: 'input', answer: '80', altAnswers: ['80'],
+        canvas: 'quick-sum', canvasData: {n:8,mean:10},
+        feedbackCorrect: '正确！8×10 = 80。',
+        feedbackWrong: '错误。总和 = 平均数×个数 = 8×10 = 80。',
+        time: 60
+      },
+      {
+        text: '比赛评分去掉最高最低后求平均，目的是 ?',
+        type: 'choice', options: ['A. 提高总分', 'B. 减少极端值影响', 'C. 方便计算', 'D. 增加评委'],
+        correct: 1,
+        canvas: 'quick-decision', canvasData: {},
+        feedbackCorrect: '正确！减少极端值对平均分的干扰。',
+        feedbackWrong: '错误。去掉极端值是为了减少其对平均数的影响。',
+        time: 60
+      },
+      {
+        text: '数据：2, 3, 5, 5, 7, 8, 9。众数为 ?',
+        type: 'input', answer: '5', altAnswers: ['5'],
+        canvas: 'quick-mode', canvasData: {data:[2,3,5,5,7,8,9]},
+        feedbackCorrect: '正确！5 出现 2 次，最多。',
+        feedbackWrong: '错误。众数是出现次数最多的数，5 出现 2 次。',
+        time: 60
+      },
+      {
+        text: '极差 50，组距 8，应分几组（向上取整）？',
+        type: 'input', answer: '7', altAnswers: ['7'],
+        canvas: 'quick-group', canvasData: {range:50,interval:8},
+        feedbackCorrect: '正确！50/8 = 6.25，向上取整为 7 组。',
+        feedbackWrong: '错误。50÷8 = 6.25，向上取整为 7 组。',
+        time: 60
+      }
+    ]
+  }
+];
+
+// ===================== GAME STATE =====================
+let state = {
+  stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+  correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+  stageCleared: [false, false, false, false, false], answered: false,
+  stageStartTime: 0, globalTimer: null
+};
+
+// ===================== INIT =====================
+function initLives() {
+  const el = document.getElementById('hud-lives');
+  el.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const heart = document.createElement('div');
+    heart.className = 'life' + (i >= state.lives ? ' lost' : '');
+    el.appendChild(heart);
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-combo').textContent = 'x' + (state.combo + 1);
+  document.getElementById('hud-time').textContent = state.timeLeft;
+  document.getElementById('hud-stage').textContent = (state.stage + 1) + '/5';
+  initLives();
+}
+
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('hud-bar').style.display = 'flex';
+  document.getElementById('stage-panel').style.display = 'flex';
+  document.getElementById('game-area').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  state = { stage: 0, question: 0, score: 0, lives: 3, combo: 0, maxCombo: 0,
+    correctCount: 0, totalTime: 0, timer: null, timeLeft: 0,
+    stageCleared: [false, false, false, false, false], answered: false,
+    stageStartTime: 0, globalTimer: null };
+  updateHUD();
+  loadQuestion();
+}
+
+function jumpToStage(s) {
+  if (s > 0 && !state.stageCleared[s-1] && s !== state.stage) return;
+  state.stage = s; state.question = 0; state.answered = false;
+  document.getElementById('results-screen').style.display = 'none';
+  document.getElementById('game-area').style.display = 'block';
+  updateStageButtons();
+  loadQuestion();
+}
+
+function updateStageButtons() {
+  document.querySelectorAll('.stage-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === state.stage);
+    btn.classList.toggle('cleared', state.stageCleared[i]);
+    btn.classList.toggle('locked', i > 0 && !state.stageCleared[i-1] && i !== state.stage);
+  });
+}
+
+// ===================== QUESTION LOADING =====================
+function loadQuestion() {
+  const stage = STAGES[state.stage];
+  const q = stage.questions[state.question];
+  state.answered = false;
+
+  if (state.stage === 4) {
+    if (state.question === 0) {
+      state.timeLeft = stage.timeLimit || 60;
+      state.stageStartTime = Date.now();
+    }
+  } else {
+    state.timeLeft = q.time;
+  }
+
+  document.getElementById('stage-num').textContent = String(state.stage + 1).padStart(2, '0');
+  document.getElementById('stage-title').textContent = stage.title;
+  document.getElementById('game-progress').textContent = '题目 ' + (state.question + 1) + ' / ' + stage.questions.length;
+  document.getElementById('q-num').textContent = 'Q' + (state.question + 1);
+  document.getElementById('q-text').innerHTML = q.text;
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '<div class="fb-title"></div><div class="fb-text"></div>';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('timer-bar').className = 'timer-bar';
+  document.getElementById('timer-bar').style.width = '100%';
+
+  const cd = document.getElementById('countdown-big');
+  if (state.stage === 4) {
+    cd.style.display = 'block';
+    cd.textContent = state.timeLeft;
+    cd.className = 'countdown-big';
+  } else {
+    cd.style.display = 'none';
+  }
+
+  const stepHint = document.getElementById('step-hint');
+  if (state.stage === 0 && q.steps) {
+    stepHint.style.display = 'block';
+    document.getElementById('sh-title').textContent = '数据整理 · 解题步骤';
+    const stepsEl = document.getElementById('sh-steps');
+    stepsEl.innerHTML = '';
+    q.steps.forEach((s, i) => {
+      const div = document.createElement('div');
+      div.className = 'sh-step' + (i === 0 ? ' active' : '');
+      div.textContent = (i + 1) + '. ' + s;
+      stepsEl.appendChild(div);
+    });
+  } else {
+    stepHint.style.display = 'none';
+  }
+
+  const area = document.getElementById('answer-area');
+  area.innerHTML = '';
+  if (q.type === 'choice') {
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    q.options.forEach((opt, i) => {
+      const div = document.createElement('div');
+      div.className = 'opt';
+      div.innerHTML = '<span class="opt-letter">' + String.fromCharCode(65 + i) + '</span><span>' + opt.substring(3) + '</span>';
+      div.onclick = () => checkAnswer(i);
+      opts.appendChild(div);
+    });
+    area.appendChild(opts);
+  } else {
+    const wrap = document.createElement('div');
+    wrap.className = 'num-input-wrap';
+    wrap.innerHTML = '<input type="text" class="num-input" id="num-answer" placeholder="输入答案..." onkeydown="if(event.key===\'Enter\')checkNumAnswer()">' +
+      '<button class="submit-btn" onclick="checkNumAnswer()">提交</button>';
+    area.appendChild(wrap);
+    setTimeout(() => document.getElementById('num-answer')?.focus(), 50);
+  }
+
+  drawCanvas(q.canvas, q.canvasData);
+
+  clearInterval(state.timer);
+  const totalTime = state.stage === 4 ? (stage.timeLimit || 60) : q.time;
+  state.timer = setInterval(() => {
+    state.timeLeft--;
+    state.totalTime++;
+    updateHUD();
+
+    const pct = (state.timeLeft / totalTime) * 100;
+    const bar = document.getElementById('timer-bar');
+    bar.style.width = pct + '%';
+    if (pct <= 20) { bar.className = 'timer-bar danger'; }
+    else if (pct <= 50) { bar.className = 'timer-bar warn'; }
+
+    if (state.stage === 4) {
+      const cdEl = document.getElementById('countdown-big');
+      cdEl.textContent = state.timeLeft;
+      if (state.timeLeft <= 10) { cdEl.className = 'countdown-big danger'; }
+      else if (state.timeLeft <= 20) { cdEl.className = 'countdown-big warn'; }
+    }
+
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timer);
+      if (state.stage === 4) {
+        handleStage5Timeout();
+      } else {
+        handleTimeout();
+      }
+    }
+  }, 1000);
+}
+
+// ===================== ANSWER CHECKING =====================
+function checkAnswer(idx) {
+  if (state.answered) return;
+  const q = STAGES[state.stage].questions[state.question];
+  const correct = idx === q.correct;
+  handleResult(correct, q);
+}
+
+function checkNumAnswer() {
+  if (state.answered) return;
+  const input = document.getElementById('num-answer');
+  if (!input) return;
+  const val = input.value.trim().toLowerCase().replace(/\s/g, '');
+  const q = STAGES[state.stage].questions[state.question];
+  let correct = val === q.answer.toLowerCase().replace(/\s/g, '');
+  if (!correct && q.altAnswers) {
+    correct = q.altAnswers.some(a => val === a.toLowerCase().replace(/\s/g, ''));
+  }
+  handleResult(correct, q);
+}
+
+function handleTimeout() {
+  const q = STAGES[state.stage].questions[state.question];
+  state.answered = true;
+  state.combo = 0;
+  state.lives--;
+
+  showFeedback('timeout', '时间到！', q.feedbackWrong);
+  disableOptions();
+  updateHUD();
+
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function handleStage5Timeout() {
+  const stage = STAGES[4];
+  const remaining = stage.questions.length - state.question;
+  state.lives -= remaining;
+  state.combo = 0;
+  updateHUD();
+
+  if (state.lives <= 0) {
+    gameOver();
+    return;
+  }
+
+  state.stageCleared[4] = true;
+  updateStageButtons();
+  showResults();
+}
+
+function handleResult(correct, q) {
+  state.answered = true;
+  clearInterval(state.timer);
+
+  if (correct) {
+    state.combo++;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+    state.correctCount++;
+    const timeBonus = Math.floor(state.timeLeft * 10);
+    const comboMult = Math.min(state.combo, 5);
+    const pts = 100 + timeBonus + comboMult * 20;
+    state.score += pts;
+    showFeedback('correct', '回答正确！+' + pts + '分', q.feedbackCorrect);
+  } else {
+    state.combo = 0;
+    state.lives--;
+    showFeedback('wrong', '回答错误', q.feedbackWrong);
+  }
+
+  disableOptions();
+  updateHUD();
+  if (state.lives <= 0) { gameOver(); return; }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function disableOptions() {
+  document.querySelectorAll('.opt').forEach(o => o.classList.add('disabled'));
+}
+
+function showFeedback(type, title, text) {
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback show ' + type;
+  fb.innerHTML = '<div class="fb-title">' + title + '</div><div class="fb-text">' + text + '</div>';
+}
+
+// ===================== NAVIGATION =====================
+function nextQuestion() {
+  state.question++;
+  const stage = STAGES[state.stage];
+  if (state.question >= stage.questions.length) {
+    state.stageCleared[state.stage] = true;
+    updateStageButtons();
+    if (state.stage < 4) {
+      state.stage++;
+      state.question = 0;
+      loadQuestion();
+    } else {
+      showResults();
+    }
+  } else {
+    loadQuestion();
+  }
+}
+
+function gameOver() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  document.getElementById('result-grade').textContent = 'F';
+  document.getElementById('result-grade').className = 'result-grade F';
+  document.getElementById('result-title').textContent = '任务失败';
+  document.getElementById('result-desc').textContent = '生命值耗尽。请重新挑战。';
+  document.getElementById('badge-master').classList.remove('unlocked');
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  document.getElementById('res-accuracy').textContent = Math.round(state.correctCount / totalQ * 100) + '%';
+}
+
+function showResults() {
+  clearInterval(state.timer);
+  document.getElementById('game-area').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  document.getElementById('chapter-nav').style.display = 'flex';
+  const totalQ = STAGES.reduce((a, s) => a + s.questions.length, 0);
+  const acc = state.correctCount / totalQ;
+  let grade, title, desc;
+  if (acc >= 0.95 && state.maxCombo >= 5) { grade = 'S'; title = '完美执行'; desc = '所有阶段全部通关，统计知识体系已完全掌握！「数据大师」徽章已解锁。'; }
+  else if (acc >= 0.85) { grade = 'A'; title = '优秀'; desc = '表现优异，大部分知识点已经掌握。'; }
+  else if (acc >= 0.7) { grade = 'B'; title = '良好'; desc = '基本掌握，但仍有提升空间。'; }
+  else if (acc >= 0.5) { grade = 'C'; title = '及格'; desc = '勉强过关，建议复习教案后重新挑战。'; }
+  else { grade = 'F'; title = '未通过'; desc = '需要更多练习，建议先学习 tutorial.html 教案。'; }
+
+  const gEl = document.getElementById('result-grade');
+  gEl.textContent = grade;
+  gEl.className = 'result-grade ' + grade;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-desc').textContent = desc;
+  document.getElementById('res-score').textContent = state.score;
+  document.getElementById('res-correct').textContent = state.correctCount + '/' + totalQ;
+  document.getElementById('res-maxcombo').textContent = state.maxCombo;
+  document.getElementById('res-time').textContent = state.totalTime;
+  document.getElementById('res-accuracy').textContent = Math.round(acc * 100) + '%';
+
+  const badge = document.getElementById('badge-master');
+  if (acc >= 0.7) {
+    badge.classList.add('unlocked');
+  } else {
+    badge.classList.remove('unlocked');
+  }
+}
+
+// ===================== CANVAS DRAWING =====================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+function clearCanvas() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(0,245,212,0.06)';
+  for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+}
+
+function drawLabel(text, x, y, color, fontSize) {
+  ctx.font = (fontSize || 12) + 'px "Share Tech Mono"';
+  ctx.fillStyle = color || '#00f5d4';
+  ctx.fillText(text, x, y);
+}
+
+function drawRect(x, y, w, h, color, fillColor) {
+  ctx.strokeStyle = color || '#00f5d4'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+  if (fillColor) { ctx.fillStyle = fillColor; ctx.fillRect(x, y, w, h); }
+}
+
+function drawLine(x1, y1, x2, y2, color, dashed) {
+  ctx.strokeStyle = color || 'rgba(0,245,212,0.5)'; ctx.lineWidth = 1.5;
+  if (dashed) { ctx.setLineDash([5, 4]); }
+  else { ctx.setLineDash([]); }
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawCanvas(type, data) {
+  clearCanvas();
+  switch (type) {
+    // Stage 1
+    case 'hist-group-count': drawHistGroupCount(data); break;
+    case 'hist-frequency': drawHistFrequency(data); break;
+    case 'hist-freq-calc': drawHistFreqCalc(data); break;
+    case 'hist-table': drawHistTable(data); break;
+    case 'hist-bar-chart': drawHistBarChart(data); break;
+    case 'hist-boundary': drawHistBoundary(data); break;
+    // Stage 2
+    case 'stat-mean': drawStatMean(data); break;
+    case 'stat-median': drawStatMedian(data); break;
+    case 'stat-mode': drawStatMode(data); break;
+    case 'stat-mean-reverse': drawStatMeanReverse(data); break;
+    case 'stat-median-mode': drawStatMedianMode(data); break;
+    case 'stat-transform': drawStatTransform(data); break;
+    // Stage 3
+    case 'var-compare': drawVarCompare(data); break;
+    case 'var-shooting': drawVarShooting(data); break;
+    case 'var-line-chart': drawVarLineChart(data); break;
+    case 'var-zero': drawVarZero(data); break;
+    case 'var-recommend': drawVarRecommend(data); break;
+    // Stage 4
+    case 'dec-wage': drawDecWage(data); break;
+    case 'dec-singer': drawDecSinger(data); break;
+    case 'dec-shoes': drawDecShoes(data); break;
+    case 'dec-class': drawDecClass(data); break;
+    case 'dec-vote': drawDecVote(data); break;
+    // Stage 5
+    case 'quick-median': drawQuickMedian(data); break;
+    case 'quick-freq': drawQuickFreq(data); break;
+    case 'quick-var': drawQuickVar(data); break;
+    case 'quick-sum': drawQuickSum(data); break;
+    case 'quick-decision': drawQuickDecision(data); break;
+    case 'quick-mode': drawQuickMode(data); break;
+    case 'quick-group': drawQuickGroup(data); break;
+  }
+}
+
+// ===== Stage 1: 数据整理 =====
+function drawHistGroupCount(d) {
+  drawLabel('数据分组计算', 20, 30, '#00f5d4', 14);
+  drawLabel('最小值 = ' + d.min, 40, 70, '#8ab0a8', 13);
+  drawLabel('最大值 = ' + d.max, 40, 100, '#8ab0a8', 13);
+  drawLabel('极差 = ' + (d.max-d.min), 40, 130, '#ffcc00', 13);
+  drawLabel('组距 = ' + d.interval, 40, 160, '#8ab0a8', 13);
+  drawLabel('组数 = 极差/组距 = ' + (d.max-d.min) + '/' + d.interval, 40, 200, '#00f5d4', 13);
+  drawLabel('= ' + ((d.max-d.min)/d.interval).toFixed(1) + ' → 向上取整', 40, 230, '#00ff88', 13);
+}
+
+function drawHistFrequency(d) {
+  drawLabel('频率计算', 20, 30, '#00f5d4', 14);
+  drawLabel('频数 = ' + d.freq, 80, 80, '#ffcc00', 16);
+  drawLabel('总数 = ' + d.total, 80, 120, '#ffcc00', 16);
+  drawLabel('频率 = 频数 ÷ 总数', 80, 170, '#00f5d4', 14);
+  drawLabel('= ' + d.freq + '/' + d.total + ' = ' + (d.freq/d.total).toFixed(2), 80, 210, '#00ff88', 16);
+}
+
+function drawHistFreqCalc(d) {
+  drawLabel('频数计算', 20, 30, '#00f5d4', 14);
+  drawLabel('频率 = ' + d.rate, 80, 80, '#ffcc00', 16);
+  drawLabel('总数 = ' + d.total, 80, 120, '#ffcc00', 16);
+  drawLabel('频数 = 频率 × 总数', 80, 170, '#00f5d4', 14);
+  drawLabel('= ' + d.rate + ' × ' + d.total + ' = ' + (d.rate*d.total), 80, 210, '#00ff88', 16);
+}
+
+function drawHistTable(d) {
+  drawLabel('频数分布表', 20, 30, '#00f5d4', 14);
+  const rows = d.rows;
+  const colW = [140, 80, 80];
+  const startX = 60, startY = 60, rowH = 36;
+  ctx.strokeStyle = 'rgba(0,245,212,0.4)'; ctx.lineWidth = 1;
+  // Header
+  drawLabel('身高范围', startX+10, startY+22, '#00f5d4', 12);
+  drawLabel('频数', startX+colW[0]+20, startY+22, '#00f5d4', 12);
+  drawLabel('频率', startX+colW[0]+colW[1]+20, startY+22, '#00f5d4', 12);
+  // Rows
+  rows.forEach((r, i) => {
+    const y = startY + (i+1)*rowH;
+    drawRect(startX, y, colW[0], rowH, 'rgba(0,245,212,0.2)');
+    drawRect(startX+colW[0], y, colW[1], rowH, 'rgba(0,245,212,0.2)');
+    drawRect(startX+colW[0]+colW[1], y, colW[2], rowH, 'rgba(0,245,212,0.2)');
+    drawLabel(r.range, startX+10, y+22, '#8ab0a8', 12);
+    drawLabel(String(r.freq), startX+colW[0]+25, y+22, r.freq==='?'?'#ffcc00':'#8ab0a8', 12);
+    drawLabel(String(r.rate||''), startX+colW[0]+colW[1]+15, y+22, '#8ab0a8', 12);
+  });
+  const totalY = startY + (rows.length+1)*rowH;
+  drawLabel('合计 = ' + d.total, startX+10, totalY+22, '#00f5d4', 12);
+}
+
+function drawHistBarChart(d) {
+  drawLabel('频数分布条形图', 20, 30, '#00f5d4', 14);
+  const barW = 50, gap = 40;
+  const startX = 80, baseY = 280;
+  const maxF = Math.max(...d.freqs);
+  const scale = 180 / maxF;
+  d.labels.forEach((lab, i) => {
+    const h = d.freqs[i] * scale;
+    const x = startX + i * (barW + gap);
+    const colors = ['#00f5d4','#ffcc00','#00ff88','#ff8844'];
+    ctx.fillStyle = colors[i % colors.length] + '40';
+    ctx.fillRect(x, baseY - h, barW, h);
+    ctx.strokeStyle = colors[i % colors.length];
+    ctx.strokeRect(x, baseY - h, barW, h);
+    drawLabel(lab, x + 5, baseY + 18, colors[i % colors.length], 10);
+    drawLabel(String(d.freqs[i]), x + 15, baseY - h - 8, '#e0f0ee', 11);
+  });
+  drawLine(startX-10, baseY, startX + d.labels.length*(barW+gap), baseY, '#4a7068');
+  drawLabel('总人数=' + d.total, 500, 40, '#8ab0a8', 11);
+}
+
+function drawHistBoundary(d) {
+  drawLabel('组界确定', 20, 30, '#00f5d4', 14);
+  drawLabel('最小值 = ' + d.min, 80, 80, '#ffcc00', 14);
+  drawLabel('组距 = ' + d.interval, 80, 120, '#8ab0a8', 14);
+  drawLabel('起始值应 ≤ ' + d.min, 80, 170, '#00f5d4', 13);
+  drawLabel('通常取整五/整十', 80, 200, '#8ab0a8', 12);
+  // ruler
+  const rx = 80, ry = 250;
+  for (let i = 0; i <= 8; i++) {
+    const x = rx + i * 50;
+    drawLine(x, ry, x, ry+15, '#4a7068');
+    drawLabel(String(50+i*10), x-10, ry+32, '#4a7068', 10);
+  }
+  drawLine(rx, ry, rx+400, ry, '#4a7068');
+  drawLabel('↓ 60在此', rx+60, ry-10, '#ffcc00', 11);
+  drawLabel('起始值选 55', rx+35, ry-30, '#00ff88', 12);
+}
+
+// ===== Stage 2: 统计量速算 =====
+function drawStatMean(d) {
+  drawLabel('平均数计算', 20, 30, '#00f5d4', 14);
+  const data = d.data;
+  const startX = 80, y = 120, gap = 50;
+  data.forEach((v, i) => {
+    drawRect(startX + i*gap, y, 36, 36, '#00f5d4', 'rgba(0,245,212,0.1)');
+    drawLabel(String(v), startX + i*gap + 10, y+24, '#00f5d4', 13);
+  });
+  drawLabel('+', startX + data.length*gap + 10, y+22, '#8ab0a8', 14);
+  drawLabel('÷' + data.length, startX + data.length*gap + 40, y+22, '#8ab0a8', 14);
+  drawLabel('x̄ = (' + data.join('+') + ')/' + data.length, 80, 200, '#00f5d4', 13);
+  drawLabel('= ' + d.mean, 80, 235, '#00ff88', 16);
+}
+
+function drawStatMedian(d) {
+  drawLabel('中位数计算', 20, 30, '#00f5d4', 14);
+  const data = d.data;
+  const startX = 50, y = 120, gap = 60;
+  data.forEach((v, i) => {
+    const color = (i === data.length/2 - 1 || i === data.length/2) ? '#ffcc00' : '#00f5d4';
+    drawRect(startX + i*gap, y, 46, 40, color, i===2||i===3 ? 'rgba(255,204,0,0.1)' : 'rgba(0,245,212,0.05)');
+    drawLabel(String(v), startX + i*gap + 12, y+26, color, 13);
+  });
+  drawLabel('偶数个：取中间两数平均', 80, 200, '#00f5d4', 13);
+  drawLabel('(' + data[data.length/2-1] + '+' + data[data.length/2] + ')/2 = ' + d.median, 80, 235, '#00ff88', 16);
+}
+
+function drawStatMode(d) {
+  drawLabel('众数判定', 20, 30, '#00f5d4', 14);
+  const data = d.data;
+  const counts = {};
+  data.forEach(v => counts[v] = (counts[v]||0)+1);
+  const startX = 60, y = 120, gap = 55;
+  Object.keys(counts).sort((a,b)=>a-b).forEach((v, i) => {
+    const c = counts[v];
+    const color = v == d.mode ? '#ffcc00' : '#00f5d4';
+    drawRect(startX + i*gap, y, 46, 50, color, v==d.mode ? 'rgba(255,204,0,0.1)' : 'rgba(0,245,212,0.05)');
+    drawLabel(String(v), startX + i*gap + 14, y+22, color, 13);
+    drawLabel('×' + c, startX + i*gap + 10, y+44, color, 11);
+  });
+  drawLabel('出现次数最多的数 = ' + d.mode, 80, 220, '#00ff88', 16);
+}
+
+function drawStatMeanReverse(d) {
+  drawLabel('反求数据', 20, 30, '#00f5d4', 14);
+  drawLabel('平均数 = ' + d.mean, 80, 80, '#ffcc00', 14);
+  drawLabel('个数 = ' + d.total, 80, 115, '#ffcc00', 14);
+  drawLabel('总和 = ' + d.mean + '×' + d.total + ' = ' + (d.mean*d.total), 80, 160, '#00f5d4', 14);
+  drawLabel('已知：' + d.known.join(','), 80, 200, '#8ab0a8', 12);
+  drawLabel('已知和 = ' + d.known.reduce((a,b)=>a+b,0), 80, 230, '#8ab0a8', 12);
+  drawLabel('第5个数 = ' + d.missing, 80, 270, '#00ff88', 16);
+}
+
+function drawStatMedianMode(d) {
+  drawLabel('中位数 & 众数', 20, 30, '#00f5d4', 14);
+  const data = d.data;
+  const startX = 50, y = 120, gap = 55;
+  data.forEach((v, i) => {
+    const isMedian = i === Math.floor(data.length/2);
+    const isMode = v === d.mode;
+    const color = isMedian ? '#ffcc00' : (isMode ? '#00ff88' : '#00f5d4');
+    drawRect(startX + i*gap, y, 46, 40, color, 'rgba(0,245,212,0.05)');
+    drawLabel(String(v), startX + i*gap + 12, y+26, color, 13);
+  });
+  drawLabel('中位数 = ' + d.median, 80, 200, '#ffcc00', 14);
+  drawLabel('众数 = ' + d.mode, 80, 235, '#00ff88', 14);
+}
+
+function drawStatTransform(d) {
+  drawLabel('数据平移性质', 20, 30, '#00f5d4', 14);
+  drawLabel('原数据：a, b, c, d, e', 80, 90, '#8ab0a8', 13);
+  drawLabel('原平均 = x̄', 80, 125, '#00f5d4', 13);
+  drawLabel('新数据：a+'+d.shift+', b+'+d.shift+', ...', 80, 165, '#8ab0a8', 13);
+  drawLabel('新平均 = x̄ + ' + d.shift, 80, 210, '#00ff88', 15);
+  drawLabel('平均数随数据同步平移', 80, 260, '#00f5d4', 13);
+}
+
+// ===== Stage 3: 方差判定 =====
+function drawVarCompare(d) {
+  drawLabel('方差比较', 20, 30, '#00f5d4', 14);
+  // 甲
+  drawLabel('甲', 60, 80, '#00f5d4', 14);
+  d.a.forEach((v, i) => {
+    const x = 60 + i*35;
+    drawRect(x, 100, 28, 28, '#00f5d4', 'rgba(0,245,212,0.15)');
+    drawLabel(String(v), x+6, 120, '#00f5d4', 11);
+  });
+  drawLabel('全部相同 → 方差 = 0', 60, 155, '#8ab0a8', 11);
+  // 乙
+  drawLabel('乙', 60, 200, '#ff8844', 14);
+  d.b.forEach((v, i) => {
+    const x = 60 + i*50;
+    const y = 230 + (v-5)*12;
+    drawRect(x, y, 36, 36, '#ff8844', 'rgba(255,136,68,0.15)');
+    drawLabel(String(v), x+8, y+24, '#ff8844', 12);
+  });
+  drawLabel('离散程度大 → 方差 > 0', 60, 310, '#ff8844', 11);
+}
+
+function drawVarShooting(d) {
+  drawLabel('射击成绩对比', 20, 30, '#00f5d4', 14);
+  // 甲
+  drawLabel('甲', 60, 80, '#00f5d4', 13);
+  d.a.forEach((v, i) => {
+    const x = 60 + i*55;
+    const h = v * 14;
+    ctx.fillStyle = 'rgba(0,245,212,0.25)';
+    ctx.fillRect(x, 260-h, 36, h);
+    ctx.strokeStyle = '#00f5d4'; ctx.strokeRect(x, 260-h, 36, h);
+    drawLabel(String(v), x+8, 260-h-6, '#00f5d4', 11);
+  });
+  // 乙
+  drawLabel('乙', 360, 80, '#ff8844', 13);
+  d.b.forEach((v, i) => {
+    const x = 360 + i*55;
+    const h = v * 14;
+    ctx.fillStyle = 'rgba(255,136,68,0.25)';
+    ctx.fillRect(x, 260-h, 36, h);
+    ctx.strokeStyle = '#ff8844'; ctx.strokeRect(x, 260-h, 36, h);
+    drawLabel(String(v), x+8, 260-h-6, '#ff8844', 11);
+  });
+  drawLabel('波动小 → 方差小 → 更稳定', 60, 300, '#00f5d4', 12);
+}
+
+function drawVarLineChart(d) {
+  drawLabel('折线图波动对比', 20, 30, '#00f5d4', 14);
+  const labels = ['第1次','第2次','第3次','第4次','第5次'];
+  const baseY = 260;
+  // A - stable
+  labels.forEach((lab, i) => {
+    const x = 80 + i*90;
+    const yA = baseY - (d.a[i] - 60) * 2.5;
+    drawLabel(lab, x-10, baseY+22, '#4a7068', 9);
+    if (i > 0) {
+      const prevX = 80 + (i-1)*90;
+      const prevY = baseY - (d.a[i-1]-60)*2.5;
+      drawLine(prevX, prevY, x, yA, '#00f5d4');
+    }
+    ctx.fillStyle = '#00f5d4'; ctx.beginPath(); ctx.arc(x, yA, 4, 0, Math.PI*2); ctx.fill();
+  });
+  drawLabel('A（波动小）', 80, 60, '#00f5d4', 11);
+  // B - volatile
+  labels.forEach((lab, i) => {
+    const x = 80 + i*90;
+    const yB = baseY - (d.b[i] - 60) * 2.5;
+    if (i > 0) {
+      const prevX = 80 + (i-1)*90;
+      const prevY = baseY - (d.b[i-1]-60)*2.5;
+      drawLine(prevX, prevY, x, yB, '#ff8844');
+    }
+    ctx.fillStyle = '#ff8844'; ctx.beginPath(); ctx.arc(x, yB, 4, 0, Math.PI*2); ctx.fill();
+  });
+  drawLabel('B（波动大）', 380, 60, '#ff8844', 11);
+  drawLabel('波动越大，方差越大', 80, 320, '#00f5d4', 12);
+}
+
+function drawVarZero(d) {
+  drawLabel('方差为零的含义', 20, 30, '#00f5d4', 14);
+  const vals = [8,8,8,8,8];
+  const startX = 100, y = 140, gap = 55;
+  vals.forEach((v, i) => {
+    drawRect(startX + i*gap, y, 40, 40, '#00f5d4', 'rgba(0,245,212,0.1)');
+    drawLabel(String(v), startX + i*gap + 12, y+26, '#00f5d4', 13);
+  });
+  drawLabel('每个数据 = 平均数 = 8', 80, 220, '#8ab0a8', 13);
+  drawLabel('Σ(xi − x̄)² = 0', 80, 260, '#00ff88', 15);
+  drawLabel('∴ 方差 = 0', 80, 300, '#00ff88', 15);
+}
+
+function drawVarRecommend(d) {
+  drawLabel('稳定性推荐', 20, 30, '#00f5d4', 14);
+  drawLabel('甲班方差 = ' + d.varA, 100, 100, '#ff8844', 15);
+  drawLabel('乙班方差 = ' + d.varB, 100, 150, '#00f5d4', 15);
+  drawLabel(d.varA + ' > ' + d.varB, 100, 200, '#ffcc00', 14);
+  drawLabel('方差小 → 更稳定 → 推荐乙班', 100, 260, '#00ff88', 14);
+}
+
+// ===== Stage 4: 统计决策 =====
+function drawDecWage(d) {
+  drawLabel('工资分布', 20, 30, '#00f5d4', 14);
+  const wages = d.wages;
+  const startX = 50, baseY = 260, gap = 55;
+  wages.forEach((w, i) => {
+    const x = startX + i*gap;
+    const h = (w / 1000) * 6;
+    const color = w > 10000 ? '#ff8844' : '#00f5d4';
+    ctx.fillStyle = (w > 10000 ? 'rgba(255,136,68,0.25)' : 'rgba(0,245,212,0.15)');
+    ctx.fillRect(x, baseY - h, 40, h);
+    ctx.strokeStyle = color; ctx.strokeRect(x, baseY - h, 40, h);
+    drawLabel(String(w/1000)+'k', x+2, baseY+16, color, 9);
+  });
+  drawLabel('少数高薪拉高平均数', 50, 60, '#ff8844', 12);
+  drawLabel('中位数更能代表大多数人', 50, 320, '#00ff88', 12);
+}
+
+function drawDecSinger(d) {
+  drawLabel('评委打分', 20, 30, '#00f5d4', 14);
+  const scores = d.scores;
+  const startX = 80, baseY = 220, gap = 70;
+  scores.forEach((s, i) => {
+    const x = startX + i*gap;
+    const h = s * 12;
+    const isExtreme = s === Math.min(...scores) || s === Math.max(...scores);
+    const color = isExtreme ? '#ff3366' : '#00f5d4';
+    ctx.fillStyle = isExtreme ? 'rgba(255,51,102,0.2)' : 'rgba(0,245,212,0.15)';
+    ctx.fillRect(x, baseY - h, 46, h);
+    ctx.strokeStyle = color; ctx.strokeRect(x, baseY - h, 46, h);
+    drawLabel(String(s), x+10, baseY - h - 8, color, 12);
+  });
+  drawLabel('去掉极端分（红色）再平均', 80, 300, '#00ff88', 12);
+  drawLabel('减少极端值影响', 80, 330, '#00f5d4', 12);
+}
+
+function drawDecShoes(d) {
+  drawLabel('鞋码销量', 20, 30, '#00f5d4', 14);
+  const sizes = d.sizes;
+  const counts = {};
+  sizes.forEach(s => counts[s] = (counts[s]||0)+1);
+  const startX = 80, baseY = 240, gap = 70;
+  Object.keys(counts).sort((a,b)=>a-b).forEach((s, i) => {
+    const x = startX + i*gap;
+    const c = counts[s];
+    const color = c > 2 ? '#ffcc00' : '#00f5d4';
+    const h = c * 35;
+    ctx.fillStyle = c > 2 ? 'rgba(255,204,0,0.2)' : 'rgba(0,245,212,0.15)';
+    ctx.fillRect(x, baseY - h, 50, h);
+    ctx.strokeStyle = color; ctx.strokeRect(x, baseY - h, 50, h);
+    drawLabel(s+'码', x+8, baseY+18, color, 11);
+    drawLabel('×'+c, x+12, baseY - h - 8, color, 11);
+  });
+  drawLabel('卖得最多 = 众数', 80, 70, '#00ff88', 13);
+}
+
+function drawDecClass(d) {
+  drawLabel('班级成绩', 20, 30, '#00f5d4', 14);
+  const scores = d.scores;
+  const startX = 50, y = 120, gap = 55;
+  scores.forEach((s, i) => {
+    const x = startX + i*gap;
+    const isMid = i === Math.floor(scores.length/2);
+    const color = isMid ? '#ffcc00' : '#00f5d4';
+    drawRect(x, y, 46, 40, color, isMid ? 'rgba(255,204,0,0.1)' : 'rgba(0,245,212,0.05)');
+    drawLabel(String(s), x+6, y+26, color, 12);
+  });
+  drawLabel('中间位置 = 中位数', 80, 200, '#ffcc00', 14);
+  drawLabel('反映中等水平', 80, 240, '#00ff88', 13);
+}
+
+function drawDecVote(d) {
+  drawLabel('水果投票', 20, 30, '#00f5d4', 14);
+  const votes = d.votes;
+  const items = Object.keys(votes);
+  const startX = 60, baseY = 240, gap = 100;
+  items.forEach((item, i) => {
+    const x = startX + i*gap;
+    const c = votes[item];
+    const color = c > 40 ? '#ffcc00' : '#00f5d4';
+    const h = c * 1.8;
+    ctx.fillStyle = c > 40 ? 'rgba(255,204,0,0.2)' : 'rgba(0,245,212,0.15)';
+    ctx.fillRect(x, baseY - h, 70, h);
+    ctx.strokeStyle = color; ctx.strokeRect(x, baseY - h, 70, h);
+    drawLabel(item, x+10, baseY+18, color, 11);
+    drawLabel(String(c)+'票', x+15, baseY - h - 8, color, 11);
+  });
+  drawLabel('票数最多 = 众数', 80, 70, '#00ff88', 13);
+}
+
+// ===== Stage 5: 终极密码 =====
+function drawQuickMedian(d) {
+  drawLabel('速算：中位数', 20, 30, '#00f5d4', 14);
+  const data = d.data;
+  const startX = 80, y = 130, gap = 60;
+  data.forEach((v, i) => {
+    const color = (i === 2 || i === 3) ? '#ffcc00' : '#00f5d4';
+    drawRect(startX + i*gap, y, 46, 40, color, (i===2||i===3) ? 'rgba(255,204,0,0.1)' : 'rgba(0,245,212,0.05)');
+    drawLabel(String(v), startX + i*gap + 10, y+26, color, 13);
+  });
+  drawLabel('中间两数平均', 80, 220, '#00f5d4', 13);
+}
+
+function drawQuickFreq(d) {
+  drawLabel('速算：频数', 20, 30, '#00f5d4', 14);
+  drawLabel('0.25 × 60 = ?', 120, 140, '#ffcc00', 20);
+}
+
+function drawQuickVar(d) {
+  drawLabel('速算：方差', 20, 30, '#00f5d4', 14);
+  drawLabel('甲：3,3,3,3,3 → 方差 = 0', 80, 100, '#00f5d4', 13);
+  drawLabel('乙：1,2,3,4,5 → 方差 > 0', 80, 140, '#ff8844', 13);
+  drawLabel('乙方差更大', 80, 200, '#00ff88', 16);
+}
+
+function drawQuickSum(d) {
+  drawLabel('速算：总和', 20, 30, '#00f5d4', 14);
+  drawLabel(d.n + ' × ' + d.mean + ' = ?', 120, 140, '#ffcc00', 20);
+}
+
+function drawQuickDecision(d) {
+  drawLabel('统计决策', 20, 30, '#00f5d4', 14);
+  drawLabel('去掉最高最低 → 减少极端值影响', 80, 120, '#00f5d4', 14);
+}
+
+function drawQuickMode(d) {
+  drawLabel('速算：众数', 20, 30, '#00f5d4', 14);
+  const data = d.data;
+  const startX = 80, y = 130, gap = 55;
+  data.forEach((v, i) => {
+    const color = v === 5 ? '#ffcc00' : '#00f5d4';
+    drawRect(startX + i*gap, y, 40, 40, color, v===5 ? 'rgba(255,204,0,0.1)' : 'rgba(0,245,212,0.05)');
+    drawLabel(String(v), startX + i*gap + 10, y+26, color, 13);
+  });
+}
+
+function drawQuickGroup(d) {
+  drawLabel('速算：分组', 20, 30, '#00f5d4', 14);
+  drawLabel('50 ÷ 8 = 6.25', 80, 100, '#ffcc00', 16);
+  drawLabel('向上取整 = 7', 80, 150, '#00ff88', 18);
+}
+</script>
+</body>
+</html>
