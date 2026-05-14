@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十七章 · ENERGY — 能源实验室</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+:root {
+  --primary: #9d00ff;
+  --primary-dim: rgba(157,0,255,0.15);
+  --primary-glow: rgba(157,0,255,0.4);
+  --dark: #0a0a0f;
+  --darker: #050508;
+  --panel: rgba(10,10,20,0.8);
+  --text: #e8e0f0;
+  --text-dim: #a090b0;
+  --border: rgba(157,0,255,0.25);
+  --alert: #ff3860;
+  --warn: #ffd700;
+  --ok: #00ff88;
+  --amber: #ffaa00;
+  --cyan: #00f0ff;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family:'Noto Sans SC', sans-serif;
+  background:var(--darker);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── Background canvas ── */
+#bg-canvas {
+  position:fixed; top:0; left:0;
+  width:100%; height:100%;
+  z-index:0; pointer-events:none;
+  opacity:0.35;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:var(--darker); }
+::-webkit-scrollbar-thumb { background:var(--primary); border-radius:3px; }
+
+/* ── Grid overlay ── */
+body::before {
+  content:''; position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(157,0,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(157,0,255,0.03) 1px, transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none; z-index:1;
+}
+
+/* ── Container ── */
+.container {
+  max-width:1100px; margin:0 auto; padding:30px 20px;
+  position:relative; z-index:2;
+}
+
+/* ── Header ── */
+.header {
+  text-align:center; padding:60px 20px 40px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:40px; position:relative;
+}
+
+.header::after {
+  content:''; position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+  width:200px; height:2px; background:var(--primary);
+  box-shadow:0 0 15px var(--primary-glow);
+}
+
+.dept-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--primary-dim);
+  border:1px solid var(--border);
+  border-radius:20px; padding:6px 18px;
+  font-family:'Share Tech Mono', monospace;
+  font-size:13px; color:var(--primary);
+  margin-bottom:16px; letter-spacing:1px;
+}
+
+.dept-badge i { font-size:12px; }
+
+h1 {
+  font-family:'Orbitron', sans-serif;
+  font-size:42px; font-weight:900;
+  letter-spacing:3px;
+  background:linear-gradient(135deg, var(--primary) 0%, #ff00ff 50%, var(--cyan) 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  margin-bottom:12px;
+}
+
+h1 .chapter-num {
+  font-family:'Share Tech Mono', monospace;
+  font-size:20px; font-weight:400;
+  color:var(--primary); display:block;
+  -webkit-text-fill-color:var(--primary);
+  margin-bottom:8px; letter-spacing:2px;
+}
+
+.subtitle {
+  font-family:'Orbitron', sans-serif;
+  font-size:16px; color:var(--text-dim);
+  letter-spacing:4px; text-transform:uppercase;
+}
+
+/* ── Navigation ── */
+.nav-pills {
+  display:flex; flex-wrap:wrap; justify-content:center;
+  gap:10px; margin:30px 0 40px;
+}
+
+.nav-pill {
+  font-family:'Share Tech Mono', monospace;
+  font-size:12px; padding:8px 16px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:6px; color:var(--text-dim);
+  cursor:pointer; transition:all 0.3s;
+  text-decoration:none; letter-spacing:1px;
+}
+
+.nav-pill:hover, .nav-pill.active {
+  border-color:var(--primary); color:var(--primary);
+  box-shadow:0 0 12px var(--primary-dim);
+}
+
+/* ── Section cards ── */
+.section {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  margin-bottom:30px;
+  overflow:hidden;
+  backdrop-filter:blur(10px);
+  transition:border-color 0.3s;
+}
+
+.section:hover { border-color:rgba(157,0,255,0.5); }
+
+.section-header {
+  display:flex; align-items:center; gap:14px;
+  padding:20px 24px;
+  background:linear-gradient(90deg, rgba(157,0,255,0.1), transparent);
+  border-bottom:1px solid var(--border);
+}
+
+.section-num {
+  font-family:'Share Tech Mono', monospace;
+  font-size:24px; font-weight:700;
+  color:var(--primary);
+  width:44px; height:44px;
+  display:flex; align-items:center; justify-content:center;
+  border:2px solid var(--primary);
+  border-radius:10px;
+  flex-shrink:0;
+}
+
+.section-title {
+  font-family:'Orbitron', sans-serif;
+  font-size:20px; font-weight:700;
+  letter-spacing:1px;
+}
+
+.section-subtitle {
+  font-size:13px; color:var(--text-dim);
+  margin-top:4px;
+}
+
+.section-body { padding:24px; }
+
+/* ── Info blocks ── */
+.info-block {
+  border-left:3px solid var(--primary);
+  background:rgba(157,0,255,0.05);
+  padding:14px 18px;
+  border-radius:0 8px 8px 0;
+  margin:16px 0;
+  font-size:14px; line-height:1.7;
+}
+
+.info-block.warn {
+  border-left-color:var(--warn);
+  background:rgba(255,215,0,0.05);
+}
+
+.info-block.alert {
+  border-left-color:var(--alert);
+  background:rgba(255,56,96,0.05);
+}
+
+.info-block.ok {
+  border-left-color:var(--ok);
+  background:rgba(0,255,136,0.05);
+}
+
+/* ── Key concept cards ── */
+.concept-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+  gap:16px; margin:20px 0;
+}
+
+.concept-card {
+  background:rgba(157,0,255,0.05);
+  border:1px solid var(--border);
+  border-radius:10px; padding:18px;
+  transition:all 0.3s;
+}
+
+.concept-card:hover {
+  border-color:var(--primary);
+  box-shadow:0 0 20px var(--primary-dim);
+  transform:translateY(-2px);
+}
+
+.concept-icon {
+  font-size:28px; color:var(--primary);
+  margin-bottom:10px;
+}
+
+.concept-title {
+  font-family:'Orbitron', sans-serif;
+  font-size:15px; font-weight:700;
+  margin-bottom:8px; letter-spacing:1px;
+}
+
+.concept-card p {
+  font-size:13px; color:var(--text-dim);
+  line-height:1.6;
+}
+
+/* ── Energy chain diagram ── */
+.energy-chain {
+  display:flex; align-items:center; justify-content:center;
+  gap:8px; flex-wrap:wrap;
+  margin:30px 0; padding:24px;
+  background:linear-gradient(135deg, rgba(157,0,255,0.08), rgba(0,240,255,0.05));
+  border-radius:12px; border:1px solid var(--border);
+}
+
+.chain-node {
+  display:flex; flex-direction:column; align-items:center;
+  padding:14px 18px; min-width:120px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-family:'Share Tech Mono', monospace;
+  font-size:13px; text-align:center;
+}
+
+.chain-node .node-icon {
+  font-size:24px; margin-bottom:6px;
+}
+
+.chain-node.sun .node-icon { color:#ffd700; }
+.chain-node.plant .node-icon { color:#00ff88; }
+.chain-node.animal .node-icon { color:var(--warn); }
+.chain-node.heat .node-icon { color:var(--alert); }
+
+.chain-arrow {
+  font-size:20px; color:var(--primary);
+  font-family:'Share Tech Mono', monospace;
+}
+
+.chain-label {
+  font-size:10px; color:var(--text-dim);
+  font-family:'Share Tech Mono', monospace;
+  margin-top:4px;
+}
+
+/* ── Engine cycle diagram ── */
+.engine-cycle {
+  display:grid; grid-template-columns:repeat(4, 1fr);
+  gap:16px; margin:24px 0;
+}
+
+@media (max-width:768px) {
+  .engine-cycle { grid-template-columns:repeat(2, 1fr); }
+}
+
+.cycle-stage {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px; padding:16px;
+  text-align:center;
+  transition:all 0.3s;
+}
+
+.cycle-stage:hover { border-color:var(--primary); }
+
+.cycle-stage .stage-num {
+  font-family:'Share Tech Mono', monospace;
+  font-size:28px; font-weight:700; color:var(--primary);
+  margin-bottom:10px;
+}
+
+.cycle-stage .stage-name {
+  font-family:'Orbitron', sans-serif;
+  font-size:14px; font-weight:700;
+  margin-bottom:8px;
+  letter-spacing:1px;
+}
+
+.cycle-stage .stage-desc {
+  font-size:12px; color:var(--text-dim);
+  line-height:1.5;
+}
+
+.cycle-stage .valve-status {
+  display:inline-flex; gap:8px;
+  margin-top:10px; font-size:11px;
+  font-family:'Share Tech Mono', monospace;
+}
+
+.valve-in { color:var(--ok); }
+.valve-out { color:var(--alert); }
+.valve-closed { color:var(--text-dim); }
+
+/* ── Efficiency table ── */
+.eff-table {
+  width:100%; border-collapse:collapse;
+  margin:20px 0; font-size:14px;
+}
+
+.eff-table th {
+  font-family:'Orbitron', sans-serif;
+  font-size:13px; font-weight:700;
+  text-align:left; padding:12px 14px;
+  background:rgba(157,0,255,0.15);
+  border-bottom:2px solid var(--primary);
+  letter-spacing:1px;
+}
+
+.eff-table td {
+  padding:12px 14px;
+  border-bottom:1px solid var(--border);
+  font-family:'Share Tech Mono', monospace;
+}
+
+.eff-table tr:hover td {
+  background:rgba(157,0,255,0.05);
+}
+
+/* ── Energy classification matrix ── */
+.energy-matrix {
+  display:grid;
+  grid-template-columns:1fr repeat(2, 1fr);
+  gap:1px;
+  background:var(--border);
+  border-radius:10px; overflow:hidden;
+  margin:20px 0;
+}
+
+.matrix-header {
+  background:rgba(157,0,255,0.25);
+  padding:12px 14px;
+  font-family:'Orbitron', sans-serif;
+  font-size:13px; font-weight:700;
+  text-align:center; letter-spacing:1px;
+}
+
+.matrix-cell {
+  background:var(--panel);
+  padding:12px 14px;
+  font-size:13px; line-height:1.6;
+}
+
+.matrix-cell.label {
+  font-family:'Share Tech Mono', monospace;
+  font-weight:700; color:var(--primary);
+}
+
+.matrix-cell ul { list-style:none; padding:0; }
+.matrix-cell ul li { padding:3px 0; }
+.matrix-cell ul li::before {
+  content:'> '; color:var(--primary);
+  font-family:'Share Tech Mono', monospace;
+}
+
+/* ── Carbon calc ── */
+.carbon-calc {
+  background:linear-gradient(135deg, rgba(157,0,255,0.08), rgba(255,0,255,0.05));
+  border:1px solid var(--border);
+  border-radius:12px; padding:24px;
+  margin:20px 0;
+}
+
+.calc-title {
+  font-family:'Orbitron', sans-serif;
+  font-size:16px; font-weight:700;
+  margin-bottom:16px; letter-spacing:1px;
+}
+
+.calc-formula {
+  font-family:'Share Tech Mono', monospace;
+  font-size:15px; padding:16px;
+  background:rgba(0,0,0,0.3);
+  border-radius:8px; border:1px dashed var(--primary);
+  margin:12px 0; text-align:center;
+  color:var(--primary);
+}
+
+.calc-steps {
+  display:flex; flex-direction:column; gap:10px;
+  margin-top:16px;
+}
+
+.calc-step {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px;
+  background:var(--panel);
+  border-radius:8px; border:1px solid var(--border);
+}
+
+.calc-step .step-num {
+  font-family:'Share Tech Mono', monospace;
+  font-size:18px; font-weight:700;
+  color:var(--primary); min-width:32px;
+}
+
+.calc-step .step-text {
+  font-size:14px; line-height:1.5;
+}
+
+/* ── Quiz section ── */
+.quiz-item {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  margin:16px 0; overflow:hidden;
+}
+
+.quiz-header {
+  display:flex; align-items:center; gap:12px;
+  padding:16px 20px;
+  background:rgba(157,0,255,0.08);
+  border-bottom:1px solid var(--border);
+  cursor:pointer; transition:background 0.3s;
+}
+
+.quiz-header:hover {
+  background:rgba(157,0,255,0.15);
+}
+
+.quiz-num {
+  font-family:'Share Tech Mono', monospace;
+  font-size:22px; font-weight:700; color:var(--primary);
+}
+
+.quiz-title {
+  font-size:15px; font-weight:700;
+  flex:1;
+}
+
+.quiz-expand {
+  font-family:'Share Tech Mono', monospace;
+  font-size:18px; color:var(--primary);
+  transition:transform 0.3s;
+}
+
+.quiz-item.open .quiz-expand {
+  transform:rotate(90deg);
+}
+
+.quiz-body {
+  max-height:0; overflow:hidden;
+  transition:max-height 0.4s ease;
+}
+
+.quiz-item.open .quiz-body {
+  max-height:800px;
+}
+
+.quiz-content {
+  padding:20px 24px;
+}
+
+.quiz-options {
+  display:grid; gap:10px; margin:16px 0;
+}
+
+.quiz-option {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px;
+  background:rgba(157,0,255,0.05);
+  border:1px solid var(--border);
+  border-radius:8px;
+  font-size:14px;
+  transition:all 0.3s;
+}
+
+.quiz-option:hover {
+  border-color:var(--primary);
+  background:rgba(157,0,255,0.1);
+}
+
+.option-letter {
+  font-family:'Share Tech Mono', monospace;
+  font-size:16px; font-weight:700;
+  color:var(--primary); min-width:28px;
+}
+
+.quiz-answer {
+  margin-top:16px; padding:14px 18px;
+  background:rgba(0,255,136,0.08);
+  border:1px solid var(--ok);
+  border-radius:8px;
+  font-size:14px; line-height:1.7;
+}
+
+.quiz-answer .answer-label {
+  font-family:'Share Tech Mono', monospace;
+  font-size:13px; color:var(--ok);
+  margin-bottom:6px; display:block;
+}
+
+/* ── Formula highlight ── */
+.formula-box {
+  display:inline-block;
+  font-family:'Share Tech Mono', monospace;
+  font-size:16px;
+  padding:6px 16px;
+  background:rgba(157,0,255,0.1);
+  border:1px solid var(--primary);
+  border-radius:6px;
+  color:var(--primary);
+  margin:4px 0;
+}
+
+/* ── Highlight text ── */
+.hl { color:var(--primary); font-weight:700; }
+.hl-warn { color:var(--warn); font-weight:700; }
+.hl-ok { color:var(--ok); font-weight:700; }
+
+/* ── Divider ── */
+.divider {
+  height:1px;
+  background:linear-gradient(90deg, transparent, var(--primary), transparent);
+  margin:30px 0;
+}
+
+/* ── List styling ── */
+ul.styled { list-style:none; padding:0; }
+ul.styled li {
+  padding:8px 0 8px 24px; position:relative;
+  font-size:14px; line-height:1.7;
+}
+ul.styled li::before {
+  content:'>>'; position:absolute; left:0;
+  color:var(--primary); font-family:'Share Tech Mono', monospace;
+  font-size:11px;
+}
+
+/* ── Animations ── */
+@keyframes pulse-glow {
+  0%,100% { box-shadow:0 0 5px var(--primary-dim); }
+  50% { box-shadow:0 0 20px var(--primary-glow); }
+}
+
+.glow { animation:pulse-glow 2s infinite; }
+
+@keyframes scan-line {
+  0% { transform:translateY(-100%); }
+  100% { transform:translateY(100vh); }
+}
+
+/* ── Responsive ── */
+@media (max-width:600px) {
+  h1 { font-size:28px; }
+  .section-header { flex-direction:column; text-align:center; }
+  .energy-chain { flex-direction:column; }
+  .chain-arrow { transform:rotate(90deg); }
+  .energy-matrix { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════ -->
+<!-- HEADER -->
+<!-- ═══════════════════════════════════════ -->
+<header class="header">
+  <div class="dept-badge">
+    <i class="fas fa-bolt"></i> DEPT. ENERGY LAB · 代号: ENERGY
+  </div>
+  <h1>
+    <span class="chapter-num">CHAPTER 17</span>
+    能量的转移和转化、能源
+  </h1>
+  <p class="subtitle">Energy Transfer · Transformation · Sources</p>
+</header>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- NAVIGATION -->
+<!-- ═══════════════════════════════════════ -->
+<nav class="nav-pills">
+  <a class="nav-pill" href="#briefing"><i class="fas fa-clipboard-list"></i> 实验简报</a>
+  <a class="nav-pill" href="#transfer"><i class="fas fa-exchange-alt"></i> 转移与转化</a>
+  <a class="nav-pill" href="#engine"><i class="fas fa-cog"></i> 热机</a>
+  <a class="nav-pill" href="#classification"><i class="fas fa-th"></i> 能源分类</a>
+  <a class="nav-pill" href="#newenergy"><i class="fas fa-solar-panel"></i> 新能源</a>
+  <a class="nav-pill" href="#environment"><i class="fas fa-globe"></i> 能源与环境</a>
+  <a class="nav-pill" href="#quiz"><i class="fas fa-vial"></i> 综合实验</a>
+</nav>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 1. 实验简报 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="section" id="briefing">
+  <div class="section-header">
+    <div class="section-num">01</div>
+    <div>
+      <div class="section-title">实验简报 / BRIEFING</div>
+      <div class="section-subtitle">本章核心目标 · 实验安全等级 · 预期产出</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="info-block">
+      <strong style="font-family:'Share Tech Mono',monospace; color:var(--primary);">[MISSION]</strong>
+      理解能量如何在不同形式间转移与转化，掌握热机工作原理与效率计算，认识各类能源的特点、分类及对环境的影响，建立可持续能源观。
+    </div>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-bullseye"></i></div>
+        <div class="concept-title">核心目标</div>
+        <p>掌握能量守恒定律，能分析实际情境中的能量转化链条，理解能量转化的方向性。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-cogs"></i></div>
+        <div class="concept-title">关键技能</div>
+        <p>内燃机四冲程分析、热机效率计算 η=W/Q₁、能源分类判断、碳排放估算。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-flask"></i></div>
+        <div class="concept-title">实验项目</div>
+        <p>能量转化链条推演、内燃机模型拆解、一度电碳排放计算、新能源案例调研。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-clock"></i></div>
+        <div class="concept-title">预计课时</div>
+        <p>理论 4 课时 + 实验/讨论 2 课时，共计约 6 课时完成本章内容。</p>
+      </div>
+    </div>
+
+    <div class="info-block warn">
+      <strong style="font-family:'Share Tech Mono',monospace; color:var(--warn);">[WARNING]</strong>
+      能量守恒 ≠ 能量可被完全利用。任何能量转化过程中总有部分能量以热的形式散失到环境中（热力学第二定律）。这是理解能源危机的关键。
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 2. 能量的转移和转化 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="section" id="transfer">
+  <div class="section-header">
+    <div class="section-num">02</div>
+    <div>
+      <div class="section-title">能量的转移和转化 / TRANSFER &amp; TRANSFORM</div>
+      <div class="section-subtitle">动能 · 势能 · 内能 · 电能 · 光能 · 能量守恒</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-project-diagram" style="color:var(--primary); margin-right:8px;"></i>
+      能量转化链条
+    </h3>
+
+    <div class="energy-chain">
+      <div class="chain-node sun">
+        <span class="node-icon"><i class="fas fa-sun"></i></span>
+        <span>太阳能</span>
+        <span class="chain-label">Solar</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-node plant">
+        <span class="node-icon"><i class="fas fa-seedling"></i></span>
+        <span>植物化学能</span>
+        <span class="chain-label">Photosynthesis</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-node animal">
+        <span class="node-icon"><i class="fas fa-horse"></i></span>
+        <span>动物动能</span>
+        <span class="chain-label">Kinetic</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-node heat">
+        <span class="node-icon"><i class="fas fa-fire-alt"></i></span>
+        <span>热能散失</span>
+        <span class="chain-label">Dissipated</span>
+      </div>
+    </div>
+
+    <p style="font-size:14px; color:var(--text-dim); text-align:center; margin-top:-10px; margin-bottom:20px;">
+      上图展示了能量从太阳辐射出发，经光合作用转化为化学能储存，再经代谢转化为动能，最终全部散失为环境热能的完整链条。
+    </p>
+
+    <div class="divider"></div>
+
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-sync-alt" style="color:var(--primary); margin-right:8px;"></i>
+      常见能量转化形式
+    </h3>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-bolt"></i></div>
+        <div class="concept-title">电能 → 光能</div>
+        <p>白炽灯发光：电流通过灯丝 → 灯丝发热升温 → 发出可见光。伴随大量热能损耗。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-fire"></i></div>
+        <div class="concept-title">化学能 → 内能</div>
+        <p>燃料燃烧：汽油中的化学键断裂 → 释放热量 → 加热工质（空气或水）。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-wind"></i></div>
+        <div class="concept-title">动能 → 电能</div>
+        <p>风力发电：风推动叶片旋转 → 驱动发电机转子 → 切割磁感线产生感应电流。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-mountain"></i></div>
+        <div class="concept-title">势能 ↔ 动能</div>
+        <p>单摆运动：最高点势能最大、动能为零；最低点动能最大、势能最小。不计空气阻力时总量守恒。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-plug"></i></div>
+        <div class="concept-title">电能 → 机械能</div>
+        <p>电动机工作：通电线圈在磁场中受力 → 转子旋转 → 输出机械功。反过程即为发电机。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-atom"></i></div>
+        <div class="concept-title">核能 → 内能 → 电能</div>
+        <p>核电站：核裂变释放巨大内能 → 加热水产生蒸汽 → 驱动汽轮机 → 带动发电机。</p>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-shield-alt" style="color:var(--primary); margin-right:8px;"></i>
+      能量守恒定律
+    </h3>
+
+    <div class="info-block ok">
+      <strong style="font-family:'Share Tech Mono',monospace; color:var(--ok);">[LAW]</strong>
+      能量既不会凭空产生，也不会凭空消失，它只会从一种形式转化为另一种形式，或者从一个物体转移到另一个物体，而在转化和转移的过程中，能量的总量保持不变。
+    </div>
+
+    <p style="font-size:14px; line-height:1.8; margin:16px 0;">
+      用公式表达：在一个孤立系统中，总能量 <span class="formula-box">E<sub>total</sub> = E<sub>k</sub> + E<sub>p</sub> + E<sub>内</sub> + E<sub>电</sub> + E<sub>光</sub> + ... = 常量</span>
+    </p>
+
+    <div class="info-block alert">
+      <strong style="font-family:'Share Tech Mono',monospace; color:var(--alert);">[CRITICAL]</strong>
+      能量守恒 ≠ 能量可被反复利用。热力学第二定律指出：能量的转化具有方向性。热能一旦散失到环境中，便无法被"收集回来重新利用"（除非消耗更多能量）。这就是为什么尽管总能量守恒，我们仍面临"能源危机"。
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 3. 热机 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="section" id="engine">
+  <div class="section-header">
+    <div class="section-num">03</div>
+    <div>
+      <div class="section-title">热机 / HEAT ENGINE</div>
+      <div class="section-subtitle">内燃机四冲程 · 热机效率 · 能量转化</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-cog" style="color:var(--primary); margin-right:8px;"></i>
+      内燃机四冲程循环
+    </h3>
+
+    <div class="engine-cycle">
+      <div class="cycle-stage">
+        <div class="stage-num">01</div>
+        <div class="stage-name">吸气冲程</div>
+        <div class="stage-desc">
+          进气门<span class="valve-in">开启</span>，排气门<span class="valve-closed">关闭</span><br>
+          活塞<span class="hl">向下运动</span>，气缸容积增大<br>
+          汽油和空气的混合气体被吸入气缸
+        </div>
+      </div>
+      <div class="cycle-stage">
+        <div class="stage-num">02</div>
+        <div class="stage-name">压缩冲程</div>
+        <div class="stage-desc">
+          进气门<span class="valve-closed">关闭</span>，排气门<span class="valve-closed">关闭</span><br>
+          活塞<span class="hl-warn">向上运动</span>，压缩混合气体<br>
+          机械能 → 内能（温度和压强升高）
+        </div>
+      </div>
+      <div class="cycle-stage">
+        <div class="stage-num">03</div>
+        <div class="stage-name">做功冲程</div>
+        <div class="stage-desc">
+          火花塞点火，混合气体剧烈燃烧<br>
+          高温高压燃气推动活塞<span class="hl">向下运动</span><br>
+          <span class="hl-ok">内能 → 机械能</span>（唯一对外做功的冲程）
+        </div>
+      </div>
+      <div class="cycle-stage">
+        <div class="stage-num">04</div>
+        <div class="stage-name">排气冲程</div>
+        <div class="stage-desc">
+          进气门<span class="valve-closed">关闭</span>，排气门<span class="valve-out">开启</span><br>
+          活塞<span class="hl-warn">向上运动</span>，排出废气<br>
+          为下一个循环做准备
+        </div>
+      </div>
+    </div>
+
+    <div class="info-block">
+      <strong style="font-family:'Share Tech Mono',monospace; color:var(--primary);">[NOTE]</strong>
+      四冲程中，只有 <span class="hl">做功冲程</span> 对外输出机械能，其余三个冲程靠飞轮惯性完成。曲轴每转两圈（720°），完成一个工作循环，做功一次。
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-calculator" style="color:var(--primary); margin-right:8px;"></i>
+      热机效率
+    </h3>
+
+    <p style="font-size:14px; line-height:1.8; margin-bottom:16px;">
+      热机效率 η 定义为热机对外做的有用功 W 与燃料完全燃烧放出的热量 Q<sub>1</sub> 之比：
+    </p>
+
+    <p style="text-align:center; margin:20px 0;">
+      <span class="formula-box">η = W / Q<sub>1</sub> × 100%</span>
+    </p>
+
+    <p style="font-size:14px; line-height:1.8; margin:16px 0;">
+      其中 Q<sub>2</sub> 为废气带走的热量，满足 <span class="formula-box">Q<sub>1</sub> = W + Q<sub>2</sub></span>。因此 η <span class="hl-warn">永远小于 100%</span>。
+    </p>
+
+    <table class="eff-table">
+      <thead>
+        <tr>
+          <th>热机类型</th>
+          <th>典型效率</th>
+          <th>主要损耗</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>蒸汽机</td>
+          <td>6% ~ 15%</td>
+          <td>散热、摩擦、废气</td>
+        </tr>
+        <tr>
+          <td>汽油机</td>
+          <td>25% ~ 30%</td>
+          <td>废气带走热量、不完全燃烧、摩擦</td>
+        </tr>
+        <tr>
+          <td>柴油机</td>
+          <td>30% ~ 45%</td>
+          <td>废气带走热量（压缩比更高）</td>
+        </tr>
+        <tr>
+          <td>燃气轮机</td>
+          <td>35% ~ 42%</td>
+          <td>高温排气、叶片冷却</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-block warn">
+      <strong style="font-family:'Share Tech Mono',monospace; color:var(--warn);">[REALITY CHECK]</strong>
+      假设汽油机效率为 30%，那么燃烧 1kg 汽油（热值约 4.6×10⁷ J/kg）只能获得约 1.4×10⁷ J 的有用功，其余 3.2×10⁷ J 的热量全部以废气、散热、摩擦等形式散失。提高热机效率是节约能源的核心途径之一。
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 4. 能源的分类 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="section" id="classification">
+  <div class="section-header">
+    <div class="section-num">04</div>
+    <div>
+      <div class="section-title">能源的分类 / CLASSIFICATION</div>
+      <div class="section-subtitle">可再生能源 · 不可再生能源 · 一次能源 · 二次能源</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-th" style="color:var(--primary); margin-right:8px;"></i>
+      能源分类对照矩阵
+    </h3>
+
+    <div class="energy-matrix">
+      <div class="matrix-header"></div>
+      <div class="matrix-header">一次能源</div>
+      <div class="matrix-header">二次能源</div>
+
+      <div class="matrix-cell label">可再生能源</div>
+      <div class="matrix-cell">
+        <ul>
+          <li>太阳能</li>
+          <li>风能</li>
+          <li>水能</li>
+          <li>地热能</li>
+          <li>潮汐能</li>
+          <li>生物质能</li>
+        </ul>
+      </div>
+      <div class="matrix-cell">
+        <ul>
+          <li>电能（水电/风电产生）</li>
+          <li>沼气</li>
+          <li>氢能</li>
+          <li>乙醇汽油</li>
+        </ul>
+      </div>
+
+      <div class="matrix-cell label">不可再生能源</div>
+      <div class="matrix-cell">
+        <ul>
+          <li>煤</li>
+          <li>石油</li>
+          <li>天然气</li>
+          <li>核燃料（铀）</li>
+        </ul>
+      </div>
+      <div class="matrix-cell">
+        <ul>
+          <li>电能（火电产生）</li>
+          <li>汽油/柴油</li>
+          <li>焦炭</li>
+          <li>煤气</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-book-open" style="color:var(--primary); margin-right:8px;"></i>
+      关键定义
+    </h3>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-infinity"></i></div>
+        <div class="concept-title">可再生能源</div>
+        <p>可以从自然界源源不断地得到补充的能源。其本质来自太阳辐射或地球内部热能的持续补充。关键特征：<span class="hl">取之不尽</span>。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-hourglass-end"></i></div>
+        <div class="concept-title">不可再生能源</div>
+        <p>短期内无法从自然界得到补充，用一点就少一点的能源。化石燃料是远古生物遗体经亿万年地质作用形成。关键特征：<span class="hl-warn">储量有限</span>。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-hand-holding"></i></div>
+        <div class="concept-title">一次能源</div>
+        <p>直接从自然界获取、未经加工转换的能源。如原煤、原油、天然气、太阳能、风能、水能等。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-industry"></i></div>
+        <div class="concept-title">二次能源</div>
+        <p>由一次能源经过加工转换得到的能源。如电能、汽油、柴油、沼气、氢气等。电能是最重要的二次能源。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 5. 新能源 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="section" id="newenergy">
+  <div class="section-header">
+    <div class="section-num">05</div>
+    <div>
+      <div class="section-title">新能源 / NEW ENERGY</div>
+      <div class="section-subtitle">太阳能 · 风能 · 水能 · 地热能 · 潮汐能 · 生物质能</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-sun"></i></div>
+        <div class="concept-title">太阳能</div>
+        <p>
+          <strong>原理：</strong>利用光伏效应将太阳光直接转化为电能，或用集热器将光能转化为热能。<br>
+          <strong>优势：</strong>分布广泛、清洁无污染、取之不尽。<br>
+          <strong>局限：</strong>受天气/昼夜影响、能量密度低、储能成本高。
+        </p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-wind"></i></div>
+        <div class="concept-title">风能</div>
+        <p>
+          <strong>原理：</strong>风力推动叶片旋转 → 驱动发电机 → 产生电能。<br>
+          <strong>优势：</strong>技术成熟、成本下降快、海上风能潜力巨大。<br>
+          <strong>局限：</strong>间歇性、对选址要求高、可能影响鸟类迁徙。
+        </p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-water"></i></div>
+        <div class="concept-title">水能</div>
+        <p>
+          <strong>原理：</strong>利用水位差的水流势能推动水轮机发电。<br>
+          <strong>优势：</strong>技术最成熟、效率最高（可达 90%+）、可快速调峰。<br>
+          <strong>局限：</strong>依赖特定地理条件、大型水电站生态影响大。
+        </p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-volcano"></i></div>
+        <div class="concept-title">地热能</div>
+        <p>
+          <strong>原理：</strong>利用地球内部的热能，通过地热蒸汽或热水驱动汽轮机发电。<br>
+          <strong>优势：</strong>稳定可靠、不受天气影响、占地面积小。<br>
+          <strong>局限：</strong>仅分布在地质活跃区（如西藏羊八井）、初期投资高。
+        </p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-water"></i></div>
+        <div class="concept-title">潮汐能</div>
+        <p>
+          <strong>原理：</strong>利用海水涨潮和落潮时的水位差驱动水轮机。<br>
+          <strong>优势：</strong>可预测性强（受月球引力规律支配）、清洁。<br>
+          <strong>局限：</strong>能量密度较低、选址极度受限、设备腐蚀问题。
+        </p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-leaf"></i></div>
+        <div class="concept-title">生物质能</div>
+        <p>
+          <strong>原理：</strong>利用有机物（秸秆、木材、藻类等）中的化学能，通过燃烧或发酵产生能量。<br>
+          <strong>优势：</strong>碳中性（CO₂循环）、可转化为多种燃料形式。<br>
+          <strong>局限：</strong>与粮食竞争土地、收集和运输成本高。
+        </p>
+      </div>
+    </div>
+
+    <div class="info-block ok">
+      <strong style="font-family:'Share Tech Mono',monospace; color:var(--ok);">[TREND]</strong>
+      中国新能源装机容量持续全球领先：截至2024年底，风电+光伏装机总量已超过 12 亿千瓦，占全国发电装机总量的 40% 以上。光伏发电成本在过去十年下降了约 90%。
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 6. 能源与环境 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="section" id="environment">
+  <div class="section-header">
+    <div class="section-num">06</div>
+    <div>
+      <div class="section-title">能源与环境 / ENERGY &amp; ENVIRONMENT</div>
+      <div class="section-subtitle">化石燃料污染 · 温室效应 · 节能减排 · 碳中和</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-smog" style="color:var(--primary); margin-right:8px;"></i>
+      化石燃料的环境代价
+    </h3>
+
+    <ul class="styled">
+      <li><span class="hl">大气污染：</span>SO₂ 和 NOₓ 排放 → 酸雨（pH<5.6）→ 腐蚀建筑、酸化土壤和水体。</li>
+      <li><span class="hl">颗粒物：</span>PM2.5/PM10 → 呼吸系统疾病，与肺癌和心血管疾病密切相关。</li>
+      <li><span class="hl">温室效应：</span>CO₂、CH₄ 等温室气体 → 全球平均气温上升 → 冰川融化、海平面上升、极端天气。</li>
+      <li><span class="hl">热污染：</span>火电站冷却水排放 → 水体温度升高 → 溶解氧降低 → 水生生态系统破坏。</li>
+      <li><span class="hl">固体废弃物：</span>煤燃烧后的粉煤灰、炉渣 → 重金属污染、占用土地。</li>
+    </ul>
+
+    <div class="divider"></div>
+
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-calculator" style="color:var(--primary); margin-right:8px;"></i>
+      碳排放计算：一度电产生多少 CO₂？
+    </h3>
+
+    <div class="carbon-calc">
+      <div class="calc-title"><i class="fas fa-bolt" style="margin-right:8px;"></i>案例：中国电网平均碳排放因子</div>
+
+      <div class="calc-formula">
+        CO₂ 排放量 = 用电量(kWh) × 电网平均排放因子(kgCO₂/kWh)
+      </div>
+
+      <div class="calc-steps">
+        <div class="calc-step">
+          <span class="step-num">1</span>
+          <span class="step-text">
+            中国电网平均排放因子约为 <strong>0.5703 kgCO₂/kWh</strong>（2023年数据）<br>
+            <span style="color:var(--text-dim); font-size:12px;">即每消耗 1 度电，平均排放约 0.57 kg 二氧化碳</span>
+          </span>
+        </div>
+        <div class="calc-step">
+          <span class="step-num">2</span>
+          <span class="step-text">
+            一台功率 1000W 的空调连续运行 8 小时：<br>
+            <span class="formula-box">8 kWh × 0.5703 = 4.56 kg CO₂</span>
+          </span>
+        </div>
+        <div class="calc-step">
+          <span class="step-num">3</span>
+          <span class="step-text">
+            换算为体积：标准状态下 CO₂ 密度约 1.977 g/L<br>
+            <span class="formula-box">4.56 kg ÷ 1.977 g/L ≈ 2306 L ≈ 2.3 m³</span><br>
+            <span style="color:var(--text-dim); font-size:12px;">8 小时空调 = 约 2.3 立方米 CO₂</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="info-block" style="margin-top:16px;">
+        <strong style="font-family:'Share Tech Mono',monospace; color:var(--primary);">[COMPARE]</strong>
+        若使用纯光伏发电，一度电的碳排放接近 <span class="hl-ok">零</span>（仅需考虑光伏板制造过程的碳足迹，约 0.04 kgCO₂/kWh）。清洁能源的意义在此。
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:1px; margin-bottom:14px;">
+      <i class="fas fa-globe-americas" style="color:var(--primary); margin-right:8px;"></i>
+      节能减排与碳中和
+    </h3>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-lightbulb"></i></div>
+        <div class="concept-title">节能</div>
+        <p>通过提高能源利用效率、减少浪费来降低能源消耗。如：LED 灯替代白炽灯（效率提升 80%+）、变频空调、建筑保温隔热。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-leaf"></i></div>
+        <div class="concept-title">减排</div>
+        <p>减少污染物排放，特别是 CO₂。措施包括：发展新能源、提高热机效率、碳捕集与封存（CCS）、工业流程优化。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-balance-scale"></i></div>
+        <div class="concept-title">碳中和</div>
+        <p>排放的 CO₂ 与吸收的 CO₂ 达到平衡（净排放为零）。中国承诺 2030 年碳达峰、2060 年碳中和（"双碳"目标）。</p>
+      </div>
+      <div class="concept-card">
+        <div class="concept-icon"><i class="fas fa-recycle"></i></div>
+        <div class="concept-title">个人行动</div>
+        <p>随手关灯、减少一次性用品、选择公共交通、空调温度夏季 26°C / 冬季 20°C、选购节能标识家电。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 7. 综合实验 -->
+<!-- ═══════════════════════════════════════ -->
+<section class="section" id="quiz">
+  <div class="section-header">
+    <div class="section-num">07</div>
+    <div>
+      <div class="section-title">综合实验 / COMPREHENSIVE LAB</div>
+      <div class="section-subtitle">3 道综合测试题 · 覆盖全章核心知识点</div>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <!-- Q1 -->
+    <div class="quiz-item open">
+      <div class="quiz-header">
+        <span class="quiz-num">Q1</span>
+        <span class="quiz-title">一台汽油机飞轮转速为 1800 r/min，则它每秒完成多少个做功冲程？</span>
+        <span class="quiz-expand">▶</span>
+      </div>
+      <div class="quiz-body">
+        <div class="quiz-content">
+          <div class="quiz-options">
+            <div class="quiz-option">
+              <span class="option-letter">A</span>
+              <span>15 个</span>
+            </div>
+            <div class="quiz-option">
+              <span class="option-letter">B</span>
+              <span>30 个</span>
+            </div>
+            <div class="quiz-option">
+              <span class="option-letter">C</span>
+              <span>60 个</span>
+            </div>
+            <div class="quiz-option">
+              <span class="option-letter">D</span>
+              <span>1800 个</span>
+            </div>
+          </div>
+          <div class="quiz-answer">
+            <span class="answer-label">[ANSWER] 正确答案：A · 15 个</span>
+            <p>
+              <strong>解析：</strong>飞轮转速 1800 r/min = 30 r/s。四冲程汽油机每 <span class="hl">2 圈</span> 完成 1 个工作循环、做功 <span class="hl">1 次</span>。因此每秒完成的工作循环数为 30 ÷ 2 = <span class="hl-ok">15 个</span>，即每秒做功 15 次。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz-item open">
+      <div class="quiz-header">
+        <span class="quiz-num">Q2</span>
+        <span class="quiz-title">关于能源和能量转化，以下说法正确的是？</span>
+        <span class="quiz-expand">▶</span>
+      </div>
+      <div class="quiz-body">
+        <div class="quiz-content">
+          <div class="quiz-options">
+            <div class="quiz-option">
+              <span class="option-letter">A</span>
+              <span>既然能量守恒，人类就不会面临能源危机</span>
+            </div>
+            <div class="quiz-option">
+              <span class="option-letter">B</span>
+              <span>核电站利用核聚变释放能量发电</span>
+            </div>
+            <div class="quiz-option">
+              <span class="option-letter">C</span>
+              <span>太阳能电池板是将太阳能直接转化为电能</span>
+            </div>
+            <div class="quiz-option">
+              <span class="option-letter">D</span>
+              <span>煤炭属于可再生能源</span>
+            </div>
+          </div>
+          <div class="quiz-answer">
+            <span class="answer-label">[ANSWER] 正确答案：C</span>
+            <p>
+              <strong>逐项分析：</strong><br>
+              A. <span class="hl-warn">错误</span>。能量守恒但转化有方向性，散失的热能无法回收，可利用能源会枯竭。<br>
+              B. <span class="hl-warn">错误</span>。目前商用核电站均为核<span class="hl">裂变</span>，核聚变仍处于实验阶段（如 ITER）。<br>
+              C. <span class="hl-ok">正确</span>。光伏效应直接将光能转化为电能，是最清洁的发电方式之一。<br>
+              D. <span class="hl-warn">错误</span>。煤炭是古代植物遗体经亿万年形成，属于<span class="hl">不可再生能源</span>。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz-item open">
+      <div class="quiz-header">
+        <span class="quiz-num">Q3</span>
+        <span class="quiz-title">某热机效率为 30%，当燃料完全燃烧释放热量 Q₁ = 2×10⁷ J 时，求有用功 W 和废气带走热量 Q₂。</span>
+        <span class="quiz-expand">▶</span>
+      </div>
+      <div class="quiz-body">
+        <div class="quiz-content">
+          <p style="font-size:14px; line-height:1.8; margin-bottom:16px;">
+            请根据热机效率公式逐步计算，写出完整推导过程。
+          </p>
+          <div class="quiz-answer">
+            <span class="answer-label">[ANSWER] 完整解答</span>
+            <p style="line-height:1.8;">
+              <strong>已知：</strong>η = 30% = 0.3，Q₁ = 2×10⁷ J<br><br>
+
+              <strong>Step 1 — 求有用功 W：</strong><br>
+              由效率定义 <span class="formula-box">η = W / Q₁</span><br>
+              得 <span class="formula-box">W = η × Q₁ = 0.3 × 2×10⁷ J = 6×10⁶ J</span><br><br>
+
+              <strong>Step 2 — 求废气热量 Q₂：</strong><br>
+              由能量守恒 <span class="formula-box">Q₁ = W + Q₂</span><br>
+              得 <span class="formula-box">Q₂ = Q₁ - W = 2×10⁷ J - 6×10⁶ J = 1.4×10⁷ J</span><br><br>
+
+              <strong>Step 3 — 结果分析：</strong><br>
+              燃料释放的总能量中，<span class="hl-ok">30%</span> 转化为有用功，<span class="hl-warn">70%</span> 以废气热量、散热和摩擦等形式散失。这也是内燃机效率始终不高的根本原因。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ═══════════════════════════════════════ -->
+<div style="text-align:center; padding:40px 20px; border-top:1px solid var(--border);">
+  <div class="dept-badge" style="margin-bottom:12px;">
+    <i class="fas fa-bolt"></i> DEPT. ENERGY LAB · 代号: ENERGY · 九年级物理
+  </div>
+  <p style="font-family:'Share Tech Mono', monospace; font-size:12px; color:var(--text-dim); letter-spacing:2px;">
+    CHAPTER 17 COMPLETE · ENERGY TRANSFER · TRANSFORMATION · SOURCES
+  </p>
+  <p style="font-size:11px; color:var(--text-dim); margin-top:8px;">
+    课件系统 v2.0 · 能源实验室 · 初中物理课程ware
+  </p>
+</div>
+
+</div><!-- /.container -->
+
+<!-- ═══════════════════════════════════════ -->
+<!-- SCRIPTS -->
+<!-- ═══════════════════════════════════════ -->
+<script>
+// ── Background particle canvas ──
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const particles = [];
+const PARTICLE_COUNT = 60;
+
+class Particle {
+  constructor() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+    this.size = Math.random() * 2 + 0.5;
+    this.alpha = Math.random() * 0.5 + 0.1;
+    this.type = Math.random() > 0.6 ? 'bolt' : 'dot';
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    if (this.x < 0) this.x = W;
+    if (this.x > W) this.x = 0;
+    if (this.y < 0) this.y = H;
+    if (this.y > H) this.y = 0;
+  }
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    if (this.type === 'bolt') {
+      // Lightning shape
+      ctx.strokeStyle = '#9d00ff';
+      ctx.lineWidth = this.size * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x + (Math.random()-0.5)*8, this.y + 6);
+      ctx.lineTo(this.x + (Math.random()-0.5)*6, this.y + 14);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#9d00ff';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+for (let i=0; i<PARTICLE_COUNT; i++) particles.push(new Particle());
+
+function drawConnections() {
+  for (let i=0; i<particles.length; i++) {
+    for (let j=i+1; j<particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 120) {
+        ctx.save();
+        ctx.globalAlpha = (1 - dist/120) * 0.12;
+        ctx.strokeStyle = '#9d00ff';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+}
+
+function animate() {
+  ctx.clearRect(0, 0, W, H);
+  particles.forEach(p => { p.update(); p.draw(); });
+  drawConnections();
+  requestAnimationFrame(animate);
+}
+animate();
+
+// ── Quiz toggle ──
+document.querySelectorAll('.quiz-header').forEach(header => {
+  header.addEventListener('click', () => {
+    const item = header.closest('.quiz-item');
+    item.classList.toggle('open');
+  });
+});
+
+// ── Nav pill scroll active ──
+const sections = document.querySelectorAll('.section[id]');
+const navPills = document.querySelectorAll('.nav-pill');
+
+function onScroll() {
+  let current = '';
+  sections.forEach(sec => {
+    const top = sec.getBoundingClientRect().top;
+    if (top <= 100) current = sec.id;
+  });
+  navPills.forEach(pill => {
+    pill.classList.toggle('active', pill.getAttribute('href') === '#'+current);
+  });
+}
+window.addEventListener('scroll', onScroll);
+onScroll();
+
+// ── Smooth scroll for nav ──
+document.querySelectorAll('.nav-pill').forEach(pill => {
+  pill.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(pill.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+
+</body>
+</html>
