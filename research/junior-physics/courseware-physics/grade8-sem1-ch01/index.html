@@ -1198,6 +1198,9 @@ let rulerX = 50, rulerY = 200;
 const RULER_PX_PER_CM = 50; // 1cm = 50px on screen
 const RULER_WIDTH_CM = 10;
 
+// Ruler drag state (global to avoid duplicate listeners)
+let rulerDragging = false, rulerDx = 0, rulerDy = 0;
+
 function buildRuler() {
   const r = document.createElement('div');
   r.className = 'ruler';
@@ -1222,28 +1225,33 @@ function buildRuler() {
     }
   }
   r.appendChild(sc);
-  // drag
-  let dragging=false, dx=0, dy=0;
-  r.addEventListener('mousedown', e=>{ dragging=true; dx=e.clientX-r.offsetLeft; dy=e.clientY-r.offsetTop; });
-  r.addEventListener('touchstart', e=>{ dragging=true; const t=e.touches[0]; dx=t.clientX-r.offsetLeft; dy=t.clientY-r.offsetTop; e.preventDefault(); }, {passive:false});
-  window.addEventListener('mousemove', e=>{
-    if (!dragging) return;
-    rulerX = Math.max(0, Math.min(e.clientX - dx, 600 - RULER_WIDTH_CM*RULER_PX_PER_CM));
-    rulerY = Math.max(0, Math.min(e.clientY - dy, 280));
-    r.style.left = rulerX+'px'; r.style.top = rulerY+'px';
-  });
-  window.addEventListener('touchmove', e=>{
-    if (!dragging) return;
-    const t=e.touches[0];
-    rulerX = Math.max(0, Math.min(t.clientX - dx, 600 - RULER_WIDTH_CM*RULER_PX_PER_CM));
-    rulerY = Math.max(0, Math.min(t.clientY - dy, 280));
-    r.style.left = rulerX+'px'; r.style.top = rulerY+'px';
-    e.preventDefault();
-  }, {passive:false});
-  window.addEventListener('mouseup', ()=>dragging=false);
-  window.addEventListener('touchend', ()=>dragging=false);
+  // drag handlers update global state
+  r.addEventListener('mousedown', e=>{ rulerDragging=true; rulerDx=e.clientX-r.offsetLeft; rulerDy=e.clientY-r.offsetTop; });
+  r.addEventListener('touchstart', e=>{ rulerDragging=true; const t=e.touches[0]; rulerDx=t.clientX-r.offsetLeft; rulerDy=t.clientY-r.offsetTop; e.preventDefault(); }, {passive:false});
   return r;
 }
+
+// Single global ruler drag listeners
+window.addEventListener('mousemove', e=>{
+  if (!rulerDragging) return;
+  const r = document.getElementById('ruler');
+  if (!r) return;
+  rulerX = Math.max(0, Math.min(e.clientX - rulerDx, 600 - RULER_WIDTH_CM*RULER_PX_PER_CM));
+  rulerY = Math.max(0, Math.min(e.clientY - rulerDy, 280));
+  r.style.left = rulerX+'px'; r.style.top = rulerY+'px';
+});
+window.addEventListener('touchmove', e=>{
+  if (!rulerDragging) return;
+  const r = document.getElementById('ruler');
+  if (!r) return;
+  const t=e.touches[0];
+  rulerX = Math.max(0, Math.min(t.clientX - rulerDx, 600 - RULER_WIDTH_CM*RULER_PX_PER_CM));
+  rulerY = Math.max(0, Math.min(t.clientY - rulerDy, 280));
+  r.style.left = rulerX+'px'; r.style.top = rulerY+'px';
+  e.preventDefault();
+}, {passive:false});
+window.addEventListener('mouseup', ()=>rulerDragging=false);
+window.addEventListener('touchend', ()=>rulerDragging=false);
 
 function initS1() {
   s1idx = 0; rulerX = 50; rulerY = 200; score = 0;
@@ -1420,16 +1428,8 @@ function updateBeam() {
 
 function s2reset() {
   rightMass = 0;
-  // Move all pan weights back to pool so they get cleaned up
-  const pool = document.getElementById('weight-pool');
-  panWeights.forEach(pw => {
-    const w = pw.el;
-    w.classList.remove('on-pan');
-    w.style.position = ''; w.style.left = ''; w.style.top = ''; w.style.zIndex = '';
-    pool.appendChild(w);
-  });
   panWeights = [];
-  // Now clear everything and recreate
+  const pool = document.getElementById('weight-pool');
   pool.innerHTML = '';
   WEIGHTS.forEach(v => pool.appendChild(makeWeight(v)));
   updateBeam();
@@ -1556,6 +1556,12 @@ function initS4() {
   ['d-l','d-w','d-h','d-m','d-v','d-rho'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('rho-m').textContent = '--';
   document.getElementById('rho-v').textContent = '--';
+
+  // Set box sizes proportional to actual dimensions (so visual measurement matches expected answer)
+  const boxShape = document.querySelector('.s4-box-shape');
+  if (boxShape) { boxShape.style.width = (S4_L / 6 * 200).toFixed(1) + 'px'; boxShape.style.height = (S4_H / 3 * 70).toFixed(1) + 'px'; }
+  const boxShapeTop = document.querySelector('.s4-box-shape-top');
+  if (boxShapeTop) { boxShapeTop.style.width = (S4_W / 6 * 200).toFixed(1) + 'px'; }
 
   // Draw horizontal ruler (length: 0-6 cm, box is 5.20)
   const rulerH = document.getElementById('s4-ruler-h');
@@ -1733,7 +1739,7 @@ function navigateToStage(n) {
 }
 function updateStageNav() {
   document.querySelectorAll('.stage-nav-panel div').forEach(d => {
-    d.classList.toggle('current', d.dataset.stage == currentStage);
+    d.classList.toggle('current', d.dataset.stage == stage);
   });
 }
 // Close nav when clicking outside
