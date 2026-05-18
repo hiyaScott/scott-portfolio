@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -5,6 +6,320 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>声波分析中心 · 学习手册 — 声</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* App container */
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Title */
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+/* Progress bar */
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 60px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+/* Card */
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,245,212,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+/* Concept box */
+.concept-box {
+  background: rgba(0,245,212,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+/* Animation area */
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Example list */
+.example-list { margin: 16px 0; }
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.example-item:hover {
+  border-color: rgba(0,245,212,0.3);
+  background: rgba(0,245,212,0.03);
+}
+.example-item .q { font-size: 16px; margin-bottom: 8px; }
+.example-item .a {
+  font-size: 14px; color: var(--success);
+  display: none;
+  border-top: 1px dashed rgba(0,245,212,0.2);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.example-item.expanded .a { display: block; }
+.example-item .a .step {
+  color: var(--text-dim); font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Quiz */
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-box .quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--warning);
+  margin-bottom: 16px;
+}
+.quiz-question { font-size: 16px; margin-bottom: 14px; }
+.quiz-options { display: flex; flex-direction: column; gap: 10px; }
+.quiz-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit; font-size: 15px;
+  text-align: left;
+  transition: all 0.2s;
+}
+.quiz-btn:hover {
+  background: rgba(0,187,249,0.15);
+  border-color: var(--accent2);
+}
+.quiz-btn.correct {
+  background: rgba(6,214,160,0.15);
+  border-color: var(--success);
+  color: var(--success);
+  animation: flashGreen 0.5s ease;
+}
+.quiz-btn.wrong {
+  background: rgba(239,71,111,0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: shake 0.4s ease;
+}
+.quiz-feedback { margin-top: 12px; font-size: 14px; min-height: 20px; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 16px; justify-content: center; margin-top: 24px; }
+.btn {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 14px 36px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 20px var(--accent);
+}
+.btn.btn-ghost {
+  background: transparent;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.btn.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Hide/show */
+.hidden { display: none !important; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 30px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .title-bar h1 { font-size: 22px; }
+  #app { padding: 20px 12px; }
+  .card { padding: 18px; }
+}
+@media (max-width: 480px) {
+  .title-bar h1 { font-size: 18px; letter-spacing: 2px; }
+  .title-bar .subtitle { font-size: 12px; }
+  #app { padding: 16px 10px; }
+  .card { padding: 14px; }
+  .card-header h2 { font-size: 18px; }
+  .concept-box { padding: 12px 14px; }
+  .concept-box .formula { font-size: 16px; }
+  .btn-row { flex-direction: column; gap: 10px; }
+  .btn { padding: 12px 24px; font-size: 14px; width: 100%; text-align: center; }
+  .quiz-btn { padding: 10px 14px; font-size: 14px; }
+  .example-item { padding: 12px 14px; }
+  .progress-seg { width: 40px; }
+}
+@media (max-width: 360px) {
+  .title-bar h1 { font-size: 16px; }
+  #app { padding: 12px 8px; }
+  .card { padding: 12px; }
+  .card-header h2 { font-size: 16px; }
+  .concept-box { padding: 10px 12px; }
+  .concept-box p { font-size: 14px; }
+  .btn { padding: 10px 20px; font-size: 13px; }
+  .quiz-options { gap: 8px; }
+  .quiz-btn { padding: 8px 12px; font-size: 13px; }
+  .example-item { padding: 10px 12px; }
+  .example-item .q { font-size: 14px; }
+  .anim-area { padding: 16px; min-height: 80px; }
+}
+
+
+/* === Physics Chapter CSS === */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
 
 :root {
@@ -535,21 +850,29 @@ body {
   .sound-group { padding: 8px; }
   .anim-area { padding: 16px; }
 }
-</style>
-</head>
-<body>
+</style><body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
 <div id="app">
 
+<!-- ========== HEADER ========== -->
 <div class="title-bar">
-  <h1>声学实验室</h1>
-  <div class="subtitle">沪科版八年级第一学期 · 第三章 · 学习手册<div style="text-align:center;margin-top:16px;"><a class="challenge-btn" href="index.html">🎮 去挑战模式</a></div></div>
+  <h1>📐 物理特工局</h1>
+  <div class="subtitle">沪科版八年级第一学期 · 第三章 · 学习手册</div>
+  <div style="margin-top:12px;">
+    <a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a>
+  </div>
 </div>
 
-<div class="progress-bar"><div class="progress-seg active"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div></div>
+<div class="progress-bar" id="progress-bar">
+  <div class="progress-seg active"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg active"></div>
+  </div>
 
-<!-- ========== CHAPTER 1: 声音的产生与传播 ========== -->
 <div class="card" id="ch1">
   <div class="card-header">
     <h2>声音的产生与传播</h2>
@@ -799,7 +1122,6 @@ function checkQ0_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 2: 声音的三要素 ========== -->
 <div class="card hidden" id="ch2">
   <div class="card-header">
     <h2>声音的三要素</h2>
@@ -928,7 +1250,6 @@ function checkQ0_5(btn, ans) {
   </div>
 </div>
 
-<!-- ========== CHAPTER 3: 回声与声速计算 ========== -->
 <div class="card hidden" id="ch3">
   <div class="card-header">
     <h2>回声与声速计算</h2>
@@ -1030,525 +1351,122 @@ function checkQ0_5(btn, ans) {
   </div>
 </div>
 
-<!-- ========== FOOTER ========== -->
-<div class="footer-note">
-  声学实验室 · 沪科版八年级第一学期 · 第三章 声现象 · 物理学习空间
 </div>
-
-<!-- ========== CHALLENGE MODE BAR ========== -->
-<div class="challenge-bar">
-  
-</div>
-
-</div><!-- /app -->
 
 <script>
-let audioCtx;
-function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-}
+let currentCh = 0;
+const totalCh = 3;
 
-/* ====== SOUND GENERATION ENGINE ====== */
-
-// Play a pure tone with given frequency, duration, waveform, and amplitude
-function playTone(freq, duration, type, amp) {
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  
-  osc.type = type || 'sine';
-  osc.frequency.setValueAtTime(freq, t);
-  
-  const amplitude = amp || 0.15;
-  gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(amplitude, t + 0.02);
-  gain.gain.setValueAtTime(amplitude, t + duration - 0.05);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-  
-  osc.start(t);
-  osc.stop(t + duration);
-  return { osc, gain };
-}
-
-// Play a two-tone chord (for harmony demos)
-function playChord(freq1, freq2, duration) {
-  ensureAudio();
-  playTone(freq1, duration, 'sine', 0.1);
-  playTone(freq2, duration, 'sine', 0.1);
-}
-
-// Play a frequency sweep (for continuous slide)
-function playSweep(startFreq, endFreq, duration, type) {
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  
-  osc.type = type || 'sine';
-  osc.frequency.setValueAtTime(startFreq, t);
-  osc.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
-  
-  gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(0.15, t + 0.05);
-  gain.gain.setValueAtTime(0.15, t + duration - 0.05);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-  
-  osc.start(t);
-  osc.stop(t + duration);
-}
-
-// Play echo effect (ping + delayed ping)
-function playEcho(delaySec) {
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  // Original ping
-  playTone(800, 0.15, 'sine', 0.2);
-  // Echo
-  setTimeout(() => playTone(800, 0.15, 'sine', 0.1), delaySec * 1000);
-}
-
-// Play ultrasonic/inaudible demo (with visual cue beep)
-function playInaudible(label) {
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  // Play a notification beep + text explanation
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  
-  osc.type = 'square';
-  osc.frequency.setValueAtTime(600, t);
-  osc.frequency.exponentialRampToValueAtTime(300, t + 0.3);
-  
-  gain.gain.setValueAtTime(0.08, t);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-  
-  osc.start(t);
-  osc.stop(t + 0.4);
-}
-
-// Button click feedback
-function sfx(type) {
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  if (type === 'ok') {
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(523, t);
-    osc.frequency.setValueAtTime(659, t + 0.1);
-    gain.gain.setValueAtTime(0.15, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-    osc.start(t);
-    osc.stop(t + 0.3);
-  } else if (type === 'err') {
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(150, t);
-    gain.gain.setValueAtTime(0.1, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-    osc.start(t);
-    osc.stop(t + 0.3);
-  } else if (type === 'click') {
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(800, t);
-    gain.gain.setValueAtTime(0.05, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-    osc.start(t);
-    osc.stop(t + 0.05);
-  }
-}
-
-// Visual feedback for playing buttons
-function setPlaying(btn, duration) {
-  btn.classList.add('playing');
-  btn.textContent = '🔊 播放中...';
-  setTimeout(() => {
-    btn.classList.remove('playing');
-    btn.textContent = btn.dataset.label || '🔊 试听';
-  }, duration * 1000 + 100);
-}
-
-// Medium demonstration - interactive sound propagation
-demoMedium.currentMedium = null;
-function demoMedium(medium, btn) {
-  ensureAudio();
-  
-  // Reset all buttons
-  document.querySelectorAll('[onclick^="demoMedium"]').forEach(b => {
-    b.style.borderColor = 'rgba(0,240,200,0.3)';
-    b.style.background = 'rgba(0,240,200,0.08)';
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((seg, i) => {
+    seg.className = 'progress-seg';
+    if (i < currentCh) seg.classList.add('done');
+    if (i === currentCh) seg.classList.add('active');
   });
-  
-  // Highlight active button
-  btn.style.borderColor = 'var(--accent)';
-  btn.style.background = 'rgba(0,240,200,0.2)';
-  
-  const viz = document.getElementById('medium-viz');
-  const wave = document.getElementById('medium-wave');
-  const result = document.getElementById('medium-result');
-  const desc = document.getElementById('medium-desc');
-  const source = document.getElementById('medium-source');
-  
-  // Clear previous animation
-  if (demoMedium.animId) cancelAnimationFrame(demoMedium.animId);
-  wave.style.opacity = '0';
-  wave.style.width = '0';
-  
-  const mediumData = {
-    air: {
-      speed: 2000,    // 2 seconds to cross
-      speedText: '340 m/s',
-      color: '#00f0c8',
-      sound: () => { playTone(440, 0.8, 'sine', 0.12); },
-      desc: '<strong>🌫️ 空气</strong>（气体）<br>声速约 <strong>340 m/s</strong>。气体分子间距大，碰撞传递振动较慢。日常对话、听音乐都靠空气传声。',
-      resultIcon: '✓',
-      resultColor: 'var(--success)'
-    },
-    water: {
-      speed: 800,     // 0.8 seconds
-      speedText: '1500 m/s',
-      color: '#00bbf9',
-      sound: () => { playTone(440, 0.6, 'sine', 0.18); playTone(880, 0.6, 'sine', 0.08); },
-      desc: '<strong>💧 水</strong>（液体）<br>声速约 <strong>1500 m/s</strong>，是空气中的 4.4 倍！液体分子更密集，振动传递更快。潜水时能听到水面上的声音。',
-      resultIcon: '✓',
-      resultColor: 'var(--success)'
-    },
-    steel: {
-      speed: 300,     // 0.3 seconds - fastest
-      speedText: '5200 m/s',
-      color: '#ffd166',
-      sound: () => { playTone(440, 0.4, 'square', 0.15); playTone(660, 0.4, 'square', 0.1); },
-      desc: '<strong>🔩 钢铁</strong>（固体）<br>声速约 <strong>5200 m/s</strong>，是空气中的 15 倍！固体分子排列紧密且有序，振动传递最快。把耳朵贴在铁轨上，能提前听到远处火车。',
-      resultIcon: '✓',
-      resultColor: 'var(--success)'
-    },
-    vacuum: {
-      speed: 0,       // no propagation
-      speedText: '0 m/s',
-      color: '#ef476f',
-      sound: () => { sfx('err'); },
-      desc: '<strong>🌌 真空</strong><br>声速 <strong>0 m/s</strong>。太空中没有介质，声音完全无法传播！宇航员在太空中必须通过无线电交流。',
-      resultIcon: '✗',
-      resultColor: 'var(--danger)'
-    }
-  };
-  
-  const data = mediumData[medium];
-  if (!data) return;
-  
-  // Update description
-  desc.innerHTML = data.desc;
-  
-  // Play sound
-  data.sound();
-  
-  // Visual animation
-  const vizWidth = viz.offsetWidth || 400;
-  const travelDistance = vizWidth - 100; // from source to result
-  
-  if (medium === 'vacuum') {
-    // No wave animation for vacuum
-    result.style.borderColor = data.resultColor;
-    result.style.color = data.resultColor;
-    result.textContent = data.resultIcon;
-    source.style.boxShadow = '0 0 15px var(--danger)';
-    setTimeout(() => {
-      source.style.boxShadow = '0 0 15px var(--accent)';
-    }, 500);
-    return;
-  }
-  
-  // Animate wave propagation
-  let startTime = null;
-  result.style.borderColor = 'var(--text-dim)';
-  result.style.color = 'var(--text-dim)';
-  result.textContent = '...';
-  
-  function animateWave(timestamp) {
-    if (!startTime) startTime = timestamp;
-    const elapsed = timestamp - startTime;
-    const progress = Math.min(elapsed / data.speed, 1);
-    
-    wave.style.opacity = '1';
-    wave.style.width = (progress * travelDistance) + 'px';
-    wave.style.background = `linear-gradient(90deg, ${data.color}, transparent)`;
-    
-    // Add particle effect
-    if (progress < 1 && elapsed % 100 < 20) {
-      createParticle(viz, data.color);
-    }
-    
-    if (progress < 1) {
-      demoMedium.animId = requestAnimationFrame(animateWave);
-    } else {
-      // Arrived
-      result.style.borderColor = data.resultColor;
-      result.style.color = data.resultColor;
-      result.textContent = data.resultIcon;
-      
-      // Success sound
-      if (medium !== 'vacuum') {
-        sfx('ok');
-        setTimeout(() => playTone(880, 0.2, 'sine', 0.1), 100);
-      }
-    }
-  }
-  
-  demoMedium.animId = requestAnimationFrame(animateWave);
 }
 
-function createParticle(container, color) {
-  const p = document.createElement('div');
-  p.style.cssText = `
-    position: absolute;
-    width: 4px; height: 4px;
-    background: ${color};
-    border-radius: 50%;
-    left: ${30 + Math.random() * 60}px;
-    top: ${20 + Math.random() * 60}px;
-    opacity: 0.6;
-    pointer-events: none;
-    transition: all 0.5s ease-out;
-  `;
-  container.appendChild(p);
-  requestAnimationFrame(() => {
-    p.style.transform = `translate(${(Math.random()-0.5)*40}px, ${(Math.random()-0.5)*40}px)`;
-    p.style.opacity = '0';
-  });
-  setTimeout(() => p.remove(), 600);
-}
-
-// ===================== MOLECULAR PROPAGATION DEMO =====================
-let molAnimId = null, molMode = 'solid';
-const molCanvas = document.getElementById('molCanvas');
-
-function startMolecularDemo(mode) {
-  molMode = mode;
-  if (molAnimId) cancelAnimationFrame(molAnimId);
-  const canvas = document.getElementById('molCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-
-  // Configuration for each medium
-  const configs = {
-    gas:    { spacing: 45, radius: 6, speed: 0.8, color: '#00f0c8', label: '🌫️ 空气（气体）：分子稀疏，间距大，振动传递最慢', y: H/2 },
-    liquid: { spacing: 28, radius: 8, speed: 2.0, color: '#00bbf9', label: '💧 水（液体）：分子较密，间距中等，传递较快', y: H/2 },
-    solid:  { spacing: 16, radius: 9, speed: 4.0, color: '#ffd166', label: '🔩 钢铁（固体）：分子紧密排列，间距最小，传递最快', y: H/2 }
-  };
-  const cfg = configs[mode];
-
-  // Build molecules
-  const molecules = [];
-  for (let x = cfg.spacing; x < W - cfg.spacing; x += cfg.spacing) {
-    molecules.push({ x: x, baseX: x, y: cfg.y, vx: 0, excited: 0 });
-  }
-
-  // Sound wave: a traveling "push" that moves from left to right
-  let waveX = 0;
-  const waveSpeed = cfg.speed;
-
-  // Update description
-  document.getElementById('molDesc').innerHTML = `<strong style="color:${cfg.color}">${cfg.label}</strong><br>观察：声波撞击左侧分子 → 分子振动 → 传递给相邻分子。分子越紧密，传递越快！`;
-
-  function drawMolecule(m, ctx) {
-    // Base position
-    const x = m.baseX + m.vx;
-    const y = m.y;
-
-    // Draw connection to next molecule (bond)
-    const next = molecules[molecules.indexOf(m) + 1];
-    if (next) {
-      const nx = next.baseX + next.vx;
-      ctx.strokeStyle = 'rgba(0,240,200,0.15)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, y); ctx.stroke();
-    }
-
-    // Draw molecule
-    ctx.fillStyle = cfg.color;
-    ctx.beginPath(); ctx.arc(x, y, cfg.radius, 0, Math.PI*2); ctx.fill();
-
-    // Glow when excited
-    if (m.excited > 0) {
-      ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},${m.excited * 0.4})`;
-      ctx.beginPath(); ctx.arc(x, y, cfg.radius + 4 + m.excited * 4, 0, Math.PI*2); ctx.fill();
-      m.excited -= 0.02;
-      if (m.excited < 0) m.excited = 0;
-    }
-
-    // Vibration blur
-    if (Math.abs(m.vx) > 0.5) {
-      ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},0.2)`;
-      ctx.beginPath(); ctx.arc(x + m.vx * 0.5, y, cfg.radius * 0.7, 0, Math.PI*2); ctx.fill();
-    }
-  }
-
-  let frame = 0;
-  function animate() {
-    ctx.clearRect(0, 0, W, H);
-
-    // Draw speed indicator bar at top
-    const speedNames = { gas: '340 m/s', liquid: '1500 m/s', solid: '5200 m/s' };
-    ctx.fillStyle = 'rgba(0,240,200,0.1)';
-    ctx.fillRect(0, 0, W, 20);
-    ctx.fillStyle = cfg.color;
-    const barWidth = mode === 'gas' ? W * 0.15 : mode === 'liquid' ? W * 0.5 : W * 0.9;
-    ctx.fillRect(2, 2, barWidth - 4, 16);
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 11px "Share Tech Mono", monospace';
-    ctx.fillText(speedNames[mode], 8, 15);
-
-    // Draw sound source on the left
-    ctx.fillStyle = 'var(--accent)';
-    ctx.shadowColor = cfg.color; ctx.shadowBlur = 15;
-    ctx.beginPath(); ctx.arc(20, cfg.y, 10, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#000';
-    ctx.font = '10px "Share Tech Mono", monospace';
-    ctx.fillText('🔊', 14, cfg.y + 3);
-
-    // Update wave position
-    waveX += waveSpeed;
-    if (waveX > W + 50) waveX = -30;
-
-    // Wave indicator (traveling pulse)
-    ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},0.3)`;
-    ctx.beginPath(); ctx.arc(waveX, cfg.y - 30, 6, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = cfg.color;
-    ctx.font = '10px "Share Tech Mono", monospace';
-    ctx.fillText('声波', waveX - 10, cfg.y - 40);
-
-    // Update molecules
-    molecules.forEach((m, i) => {
-      // Damping
-      m.vx *= 0.92;
-      // Spring force back to base
-      m.vx += (m.baseX - (m.baseX + m.vx)) * 0.05;
-
-      // Wave collision
-      if (Math.abs(waveX - m.baseX) < cfg.spacing / 2 && frame % 3 === 0) {
-        m.vx += (mode === 'gas' ? 2.5 : mode === 'liquid' ? 4 : 6);
-        m.excited = 1;
-      }
-
-      // Propagate to neighbors (this is the key physics!)
-      const prev = molecules[i - 1];
-      const next = molecules[i + 1];
-      if (prev && Math.abs(prev.vx) > 1.5) {
-        // Previous molecule pushes this one
-        m.vx += prev.vx * (mode === 'gas' ? 0.15 : mode === 'liquid' ? 0.35 : 0.6);
-        if (Math.abs(prev.vx) > 2) m.excited = Math.max(m.excited, 0.6);
-      }
-      if (next && Math.abs(next.vx) > 1.5) {
-        m.vx += next.vx * (mode === 'gas' ? 0.08 : mode === 'liquid' ? 0.2 : 0.4);
-      }
-    });
-
-    // Draw all molecules
-    molecules.forEach(m => drawMolecule(m, ctx));
-
-    // Draw labels
-    ctx.fillStyle = 'var(--text2)';
-    ctx.font = '11px "Share Tech Mono", monospace';
-    ctx.fillText('声源', 8, cfg.y + 30);
-    ctx.fillText('分子振动传递方向 →', W/2 - 50, cfg.y + 35);
-
-    frame++;
-    molAnimId = requestAnimationFrame(animate);
-  }
-
-  animate();
-}
-
-let currentCh = 1;
 function goTo(n) {
-  sfx('click');
   document.getElementById('ch' + currentCh).classList.add('hidden');
   document.getElementById('ch' + n).classList.remove('hidden');
   currentCh = n;
   updateProgress();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-function updateProgress() {
-  const segs = document.querySelectorAll('.progress-seg');
-  segs.forEach((s, i) => {
-    s.classList.remove('active', 'done');
-    if (i + 1 < currentCh) s.classList.add('done');
-    else if (i + 1 === currentCh) s.classList.add('active');
-  });
-}
 
 function checkQuiz(btn, isCorrect, msg) {
-  sfx(isCorrect ? 'ok' : 'err');
-  const fb = btn.closest('.quiz-box').querySelector('.quiz-feedback');
-  fb.textContent = msg;
-  fb.style.color = isCorrect ? 'var(--success)' : 'var(--danger)';
-  btn.parentElement.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
-  btn.classList.add(isCorrect ? 'correct' : 'wrong');
-  if (!isCorrect) {
-    btn.parentElement.querySelectorAll('.quiz-btn').forEach(b => {
-      if (b.onclick && b.onclick.toString().includes('true')) b.classList.add('correct');
-    });
+  const card = btn.closest('.quiz-box');
+  const fb = card.querySelector('.quiz-feedback');
+  const allBtns = card.querySelectorAll('.quiz-btn');
+  
+  allBtns.forEach(b => b.style.pointerEvents = 'none');
+  
+  if (isCorrect) {
+    btn.classList.add('correct');
+    fb.innerHTML = '<span style="color:var(--success)">✅ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong');
+    fb.innerHTML = '<span style="color:var(--danger)">❌ ' + msg + '</span>';
   }
 }
 
-let quiz2State = {};
-function checkQuiz2(btn, key, isCorrect, msg) {
-  sfx(isCorrect ? 'ok' : 'err');
-  // Find the feedback element as the next sibling of quiz-options
-  const options = btn.parentElement;
-  const fb = options.nextElementSibling;
-  if (fb && fb.classList.contains('quiz-feedback')) {
-    fb.textContent = msg;
-    fb.style.color = isCorrect ? 'var(--success)' : 'var(--danger)';
-  }
-  options.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
-  btn.classList.add(isCorrect ? 'correct' : 'wrong');
-  if (!isCorrect) {
-    options.querySelectorAll('.quiz-btn').forEach(b => {
-      if (b.onclick && b.onclick.toString().includes('true')) b.classList.add('correct');
-    });
+updateProgress();
+
+
+/* === Chapter JS === */
+function checkQ0_1(btn, ans) {
+  const fb = document.getElementById('fb-0_1');
+  const opts = document.querySelectorAll('#q0_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
   }
 }
 
-// Wave canvas animation
-const waveCanvas = document.getElementById('waveCanvas');
-if (waveCanvas) {
-  const ctx = waveCanvas.getContext('2d');
-  let frame = 0;
-  function drawWaves() {
-    ctx.clearRect(0, 0, 400, 120);
-    ctx.strokeStyle = 'rgba(0, 240, 200, 0.8)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let x = 0; x < 400; x++) {
-      const y = 40 + Math.sin((x + frame) * 0.08) * 20;
-      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(0, 187, 249, 0.8)';
-    ctx.beginPath();
-    for (let x = 0; x < 400; x++) {
-      const y = 80 + Math.sin((x + frame * 0.5) * 0.04) * 25;
-      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-
-    frame += 2;
-    requestAnimationFrame(drawWaves);
+function checkQ0_2(btn, ans) {
+  const fb = document.getElementById('fb-0_2');
+  const opts = document.querySelectorAll('#q0_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
   }
-  drawWaves();
+}
+
+function checkQ0_3(btn, ans) {
+  const fb = document.getElementById('fb-0_3');
+  const opts = document.querySelectorAll('#q0_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ0_4(btn, ans) {
+  const fb = document.getElementById('fb-0_4');
+  const opts = document.querySelectorAll('#q0_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ0_5(btn, ans) {
+  const fb = document.getElementById('fb-0_5');
+  const opts = document.querySelectorAll('#q0_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
 }
 </script>
 </body>

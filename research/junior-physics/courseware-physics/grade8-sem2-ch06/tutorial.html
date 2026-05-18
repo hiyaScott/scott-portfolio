@@ -1,10 +1,325 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>材料与压强实验室 · 学习手册 — 第六章 密度与压强</title>
+<title>第六章 密度与压强 · 流体力学实验室</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* App container */
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Title */
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+/* Progress bar */
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 60px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+/* Card */
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,245,212,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+/* Concept box */
+.concept-box {
+  background: rgba(0,245,212,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+/* Animation area */
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Example list */
+.example-list { margin: 16px 0; }
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.example-item:hover {
+  border-color: rgba(0,245,212,0.3);
+  background: rgba(0,245,212,0.03);
+}
+.example-item .q { font-size: 16px; margin-bottom: 8px; }
+.example-item .a {
+  font-size: 14px; color: var(--success);
+  display: none;
+  border-top: 1px dashed rgba(0,245,212,0.2);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.example-item.expanded .a { display: block; }
+.example-item .a .step {
+  color: var(--text-dim); font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Quiz */
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-box .quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--warning);
+  margin-bottom: 16px;
+}
+.quiz-question { font-size: 16px; margin-bottom: 14px; }
+.quiz-options { display: flex; flex-direction: column; gap: 10px; }
+.quiz-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit; font-size: 15px;
+  text-align: left;
+  transition: all 0.2s;
+}
+.quiz-btn:hover {
+  background: rgba(0,187,249,0.15);
+  border-color: var(--accent2);
+}
+.quiz-btn.correct {
+  background: rgba(6,214,160,0.15);
+  border-color: var(--success);
+  color: var(--success);
+  animation: flashGreen 0.5s ease;
+}
+.quiz-btn.wrong {
+  background: rgba(239,71,111,0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: shake 0.4s ease;
+}
+.quiz-feedback { margin-top: 12px; font-size: 14px; min-height: 20px; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 16px; justify-content: center; margin-top: 24px; }
+.btn {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 14px 36px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 20px var(--accent);
+}
+.btn.btn-ghost {
+  background: transparent;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.btn.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Hide/show */
+.hidden { display: none !important; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 30px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .title-bar h1 { font-size: 22px; }
+  #app { padding: 20px 12px; }
+  .card { padding: 18px; }
+}
+@media (max-width: 480px) {
+  .title-bar h1 { font-size: 18px; letter-spacing: 2px; }
+  .title-bar .subtitle { font-size: 12px; }
+  #app { padding: 16px 10px; }
+  .card { padding: 14px; }
+  .card-header h2 { font-size: 18px; }
+  .concept-box { padding: 12px 14px; }
+  .concept-box .formula { font-size: 16px; }
+  .btn-row { flex-direction: column; gap: 10px; }
+  .btn { padding: 12px 24px; font-size: 14px; width: 100%; text-align: center; }
+  .quiz-btn { padding: 10px 14px; font-size: 14px; }
+  .example-item { padding: 12px 14px; }
+  .progress-seg { width: 40px; }
+}
+@media (max-width: 360px) {
+  .title-bar h1 { font-size: 16px; }
+  #app { padding: 12px 8px; }
+  .card { padding: 12px; }
+  .card-header h2 { font-size: 16px; }
+  .concept-box { padding: 10px 12px; }
+  .concept-box p { font-size: 14px; }
+  .btn { padding: 10px 20px; font-size: 13px; }
+  .quiz-options { gap: 8px; }
+  .quiz-btn { padding: 8px 12px; font-size: 13px; }
+  .example-item { padding: 10px 12px; }
+  .example-item .q { font-size: 14px; }
+  .anim-area { padding: 16px; min-height: 80px; }
+}
+
+
+/* === Physics Chapter CSS === */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Zhi+Mang+Xing&family=Ma+Shan+Zheng&display=swap');
 
 :root {
@@ -920,41 +1235,33 @@ body {
   .lab-table { font-size: 12px; }
   .quiz-btn { padding: 8px 12px; font-size: 13px; width: 100%; }
 }
-</style>
-</head>
-<body>
-<div class="beaker-deco top-left"></div>
-<div class="beaker-deco top-right"></div>
-<div class="beaker-deco bottom-left"></div>
-<div class="beaker-deco bottom-right"></div>
-<div id="main-wrap">
+</style><body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
 
 <div id="app">
 
 <!-- ========== HEADER ========== -->
 <div class="title-bar">
-  <h1>🧪 材料与压强实验室</h1>
-  <div class="subtitle">学习手册 — 第六章 密度与压强 · 面向八年级<div style="text-align:center;margin-top:16px;"><a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a></div></div>
-  <div class="meta">代号：DENSITY · 部门：材料与压强实验室 · 机密等级 B</div>
-  <div class="dept-badge">材料与压强实验室 · 物理实验室</div>
-<div style="margin-top:12px;"></div></div>
-
-<div class="progress-bar" id="progress-bar"><div class="progress-seg active"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
+  <h1>📐 物理特工局</h1>
+  <div class="subtitle">沪科版八年级第二学期 · 第六章 · 学习手册</div>
+  <div style="margin-top:12px;">
+    <a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a>
+  </div>
 </div>
 
-<!-- ========== CHAPTER 0: 实验简报 ========== -->
+<div class="progress-bar" id="progress-bar">
+  <div class="progress-seg active"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg active"></div>
+  </div>
+
 <div class="card" id="ch0">
   <div class="card-header">
     <h2>实验简报</h2>
@@ -1202,7 +1509,6 @@ function checkQ0_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 1: 密度 ========== -->
 <div class="card hidden" id="ch1">
   <div class="card-header">
     <h2>密度</h2>
@@ -1579,7 +1885,6 @@ function checkQ1_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 2: 压强 ========== -->
 <div class="card hidden" id="ch2">
   <div class="card-header">
     <h2>压强</h2>
@@ -1906,7 +2211,6 @@ function checkQ2_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 3: 液体压强 ========== -->
 <div class="card hidden" id="ch3">
   <div class="card-header">
     <h2>液体压强</h2>
@@ -2238,7 +2542,6 @@ function checkQ3_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 4: 大气压强 ========== -->
 <div class="card hidden" id="ch4">
   <div class="card-header">
     <h2>大气压强</h2>
@@ -2557,7 +2860,6 @@ function checkQ4_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 5: 浮力与压强的关系 ========== -->
 <div class="card hidden" id="ch5">
   <div class="card-header">
     <h2>浮力与压强的关系</h2>
@@ -2887,7 +3189,6 @@ function checkQ5_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 6: 综合实验 ========== -->
 <div class="card hidden" id="ch6">
   <div class="card-header">
     <h2>综合实验</h2>
@@ -2995,43 +3296,49 @@ function checkQ5_5(btn, ans) {
   </div>
 </div>
 
-<!-- ========== FOOTER ========== -->
-<div style="text-align:center;padding:20px 0;color:var(--text-dim);font-size:12px;letter-spacing:1px;">
-  材料与压强实验室 · 沪教版八年级下学期 · 第六章 密度与压强<br>
-  代号：DENSITY · 部门：材料与压强实验室 · 机密等级 B
 </div>
 
-</div><!-- /app -->
-
-<!-- ========== SIDE NAV ========== -->
-<div id="side-nav">
-  <div class="nav-panel">
-    <h3>导航面板</h3>
-    <div class="nav-item active" onclick="goTo(0)" id="nav-0"><span class="step-num">00</span>实验简报</div>
-    <div class="nav-item" onclick="goTo(1)" id="nav-1"><span class="step-num">01</span>密度</div>
-    <div class="nav-item" onclick="goTo(2)" id="nav-2"><span class="step-num">02</span>压强</div>
-    <div class="nav-item" onclick="goTo(3)" id="nav-3"><span class="step-num">03</span>液体压强</div>
-    <div class="nav-item" onclick="goTo(4)" id="nav-4"><span class="step-num">04</span>大气压强</div>
-    <div class="nav-item" onclick="goTo(5)" id="nav-5"><span class="step-num">05</span>浮力与压强</div>
-    <div class="nav-item" onclick="goTo(6)" id="nav-6"><span class="step-num">06</span>综合实验</div>
-  </div>
-</div>
-
-
-<h3>🧪 实验 1：密度测量模拟</h3>
-<div class="demo-box">
-  <canvas id="densityCanvas" width="500" height="250"></canvas>
-  <div class="slider-control">
-    <label>物质选择</label>
-    <select id="substance" style="background:var(--panel);color:var(--text);border:1px solid var(--accent);padding:4px 8px;border-radius:4px;">
-      <option value="1000">水 (1000 kg/m³)</option>
-      <option value="2700">铝 (2700 kg/m³)</option>
-      <option value="7800">铁 (7800 kg/m³)</option>
-    </select>
-  </div>
-  <p style="font-size:12px;color:var(--text-dim);margin-top:8px">选择不同物质，观察同体积下的质量差异。ρ = m/V</p>
-</div>
 <script>
+let currentCh = 0;
+const totalCh = 7;
+
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((seg, i) => {
+    seg.className = 'progress-seg';
+    if (i < currentCh) seg.classList.add('done');
+    if (i === currentCh) seg.classList.add('active');
+  });
+}
+
+function goTo(n) {
+  document.getElementById('ch' + currentCh).classList.add('hidden');
+  document.getElementById('ch' + n).classList.remove('hidden');
+  currentCh = n;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function checkQuiz(btn, isCorrect, msg) {
+  const card = btn.closest('.quiz-box');
+  const fb = card.querySelector('.quiz-feedback');
+  const allBtns = card.querySelectorAll('.quiz-btn');
+  
+  allBtns.forEach(b => b.style.pointerEvents = 'none');
+  
+  if (isCorrect) {
+    btn.classList.add('correct');
+    fb.innerHTML = '<span style="color:var(--success)">✅ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong');
+    fb.innerHTML = '<span style="color:var(--danger)">❌ ' + msg + '</span>';
+  }
+}
+
+updateProgress();
+
+
+/* === Chapter JS === */
 (function(){
   const c = document.getElementById('densityCanvas'); if(!c) return;
   const ctx = c.getContext('2d');
@@ -3050,18 +3357,7 @@ function checkQ5_5(btn, ans) {
   }
   draw();
 })();
-</script>
-<h3>🧪 实验 2：液体压强与深度</h3>
-<div class="demo-box">
-  <canvas id="pressureCanvas" width="500" height="250"></canvas>
-  <div class="slider-control">
-    <label>深度 h</label>
-    <input type="range" id="depth" min="0" max="100" value="30">
-    <span class="value" id="depthVal">30 cm</span>
-  </div>
-  <p style="font-size:12px;color:var(--text-dim);margin-top:8px">拖动滑块改变深度，观察压强变化。p = ρgh</p>
-</div>
-<script>
+
 (function(){
   const c = document.getElementById('pressureCanvas'); if(!c) return;
   const ctx = c.getContext('2d');
@@ -3081,93 +3377,690 @@ function checkQ5_5(btn, ans) {
   }
   draw();
 })();
-</script>
-</div><!-- /main-wrap -->
 
-<script>
-// ========== AUDIO ==========
-let audioCtx;
-function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-}
-function sfx(type) {
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  if (type === 'ok') {
-    osc.type = 'sine'; osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t+0.1);
-    gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
-    osc.start(t); osc.stop(t+0.3);
-  } else if (type === 'err') {
-    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, t);
-    gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
-    osc.start(t); osc.stop(t+0.3);
-  } else if (type === 'click') {
-    osc.type = 'square'; osc.frequency.setValueAtTime(800, t);
-    gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.05);
-    osc.start(t); osc.stop(t+0.05);
-  }
-}
-
-// ========== NAVIGATION ==========
-let currentCh = 0;
-const totalCh = 7;
-function goTo(n) {
-  if (n < 0 || n >= totalCh) return;
-  sfx('click');
-  document.getElementById('ch' + currentCh).classList.add('hidden');
-  document.getElementById('ch' + n).classList.remove('hidden');
-  // update nav
-  document.getElementById('nav-' + currentCh).classList.remove('active');
-  document.getElementById('nav-' + n).classList.add('active');
-  currentCh = n;
-  updateProgress();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-function updateProgress() {
-  const segs = document.querySelectorAll('.progress-seg');
-  segs.forEach((s, i) => {
-    s.classList.remove('active', 'done');
-    if (i < currentCh) s.classList.add('done');
-    else if (i === currentCh) s.classList.add('active');
-  });
-}
-
-// ========== QUIZ ==========
-function checkQuiz(btn, correct, msg) {
-  ensureAudio();
-  const opts = btn.closest('.quiz-options');
-  const fb = opts.parentElement.querySelector('.quiz-feedback');
-  opts.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
-  if (correct) {
-    btn.classList.add('correct'); sfx('ok');
-    fb.innerHTML = '<span style="color:var(--success)">✓ ' + msg + '</span>';
+function checkQ0_1(btn, ans) {
+  const fb = document.getElementById('fb-0_1');
+  const opts = document.querySelectorAll('#q0_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
   } else {
-    btn.classList.add('wrong'); sfx('err');
-    fb.innerHTML = '<span style="color:var(--danger)">✗ ' + msg + '</span>';
-    const correctBtn = Array.from(opts.querySelectorAll('.quiz-btn')).find(b => b.getAttribute('onclick').includes('true'));
-    if (correctBtn) correctBtn.classList.add('correct');
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
   }
 }
 
-function checkQuiz2(btn, key, correct, msg) {
-  ensureAudio();
-  const opts = btn.closest('.quiz-options');
-  const fb = opts.parentElement.querySelector('.quiz-feedback');
-  opts.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
-  if (correct) {
-    btn.classList.add('correct'); sfx('ok');
-    fb.innerHTML = '<span style="color:var(--success)">✓ ' + msg + '</span>';
+function checkQ0_2(btn, ans) {
+  const fb = document.getElementById('fb-0_2');
+  const opts = document.querySelectorAll('#q0_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
   } else {
-    btn.classList.add('wrong'); sfx('err');
-    fb.innerHTML = '<span style="color:var(--danger)">✗ ' + msg + '</span>';
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
   }
 }
 
-// ========== INIT ==========
-updateProgress();
+function checkQ0_3(btn, ans) {
+  const fb = document.getElementById('fb-0_3');
+  const opts = document.querySelectorAll('#q0_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ0_4(btn, ans) {
+  const fb = document.getElementById('fb-0_4');
+  const opts = document.querySelectorAll('#q0_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ0_5(btn, ans) {
+  const fb = document.getElementById('fb-0_5');
+  const opts = document.querySelectorAll('#q0_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+(function(){
+  const c = document.getElementById('densityCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const sel = document.getElementById('substance');
+  function draw() {
+    let rho = sel ? parseInt(sel.value) : 1000;
+    let V = 0.001;
+    let m = rho * V;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(50,50,400,150);
+    ctx.fillStyle = 'rgba(0,200,255,' + (rho/8000) + ')'; ctx.fillRect(100,80,300,80);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('V = 0.001 m³, m = ' + m.toFixed(1) + ' kg', 100, 200);
+    ctx.fillText('ρ = ' + rho + ' kg/m³', 100, 225);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('pressureCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const depthInput = document.getElementById('depth');
+  const depthVal = document.getElementById('depthVal');
+  function draw() {
+    let h = depthInput ? parseInt(depthInput.value) : 30;
+    if(depthVal) depthVal.textContent = h + ' cm';
+    let p = 1000 * 9.8 * h/100 / 1000;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'rgba(0,200,255,0.3)'; ctx.fillRect(50,50,200,150);
+    ctx.fillStyle = 'rgba(0,200,255,0.6)'; ctx.fillRect(50,50+150-h*1.5,200,h*1.5);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('p = ' + p.toFixed(1) + ' kPa', 280, 100);
+    ctx.fillText('h = ' + h + ' cm', 280, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+function checkQ1_1(btn, ans) {
+  const fb = document.getElementById('fb-1_1');
+  const opts = document.querySelectorAll('#q1_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_2(btn, ans) {
+  const fb = document.getElementById('fb-1_2');
+  const opts = document.querySelectorAll('#q1_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_3(btn, ans) {
+  const fb = document.getElementById('fb-1_3');
+  const opts = document.querySelectorAll('#q1_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_4(btn, ans) {
+  const fb = document.getElementById('fb-1_4');
+  const opts = document.querySelectorAll('#q1_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_5(btn, ans) {
+  const fb = document.getElementById('fb-1_5');
+  const opts = document.querySelectorAll('#q1_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+(function(){
+  const c = document.getElementById('densityCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const sel = document.getElementById('substance');
+  function draw() {
+    let rho = sel ? parseInt(sel.value) : 1000;
+    let V = 0.001;
+    let m = rho * V;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(50,50,400,150);
+    ctx.fillStyle = 'rgba(0,200,255,' + (rho/8000) + ')'; ctx.fillRect(100,80,300,80);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('V = 0.001 m³, m = ' + m.toFixed(1) + ' kg', 100, 200);
+    ctx.fillText('ρ = ' + rho + ' kg/m³', 100, 225);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('pressureCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const depthInput = document.getElementById('depth');
+  const depthVal = document.getElementById('depthVal');
+  function draw() {
+    let h = depthInput ? parseInt(depthInput.value) : 30;
+    if(depthVal) depthVal.textContent = h + ' cm';
+    let p = 1000 * 9.8 * h/100 / 1000;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'rgba(0,200,255,0.3)'; ctx.fillRect(50,50,200,150);
+    ctx.fillStyle = 'rgba(0,200,255,0.6)'; ctx.fillRect(50,50+150-h*1.5,200,h*1.5);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('p = ' + p.toFixed(1) + ' kPa', 280, 100);
+    ctx.fillText('h = ' + h + ' cm', 280, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+function checkQ2_1(btn, ans) {
+  const fb = document.getElementById('fb-2_1');
+  const opts = document.querySelectorAll('#q2_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_2(btn, ans) {
+  const fb = document.getElementById('fb-2_2');
+  const opts = document.querySelectorAll('#q2_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_3(btn, ans) {
+  const fb = document.getElementById('fb-2_3');
+  const opts = document.querySelectorAll('#q2_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_4(btn, ans) {
+  const fb = document.getElementById('fb-2_4');
+  const opts = document.querySelectorAll('#q2_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_5(btn, ans) {
+  const fb = document.getElementById('fb-2_5');
+  const opts = document.querySelectorAll('#q2_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+(function(){
+  const c = document.getElementById('densityCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const sel = document.getElementById('substance');
+  function draw() {
+    let rho = sel ? parseInt(sel.value) : 1000;
+    let V = 0.001;
+    let m = rho * V;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(50,50,400,150);
+    ctx.fillStyle = 'rgba(0,200,255,' + (rho/8000) + ')'; ctx.fillRect(100,80,300,80);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('V = 0.001 m³, m = ' + m.toFixed(1) + ' kg', 100, 200);
+    ctx.fillText('ρ = ' + rho + ' kg/m³', 100, 225);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('pressureCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const depthInput = document.getElementById('depth');
+  const depthVal = document.getElementById('depthVal');
+  function draw() {
+    let h = depthInput ? parseInt(depthInput.value) : 30;
+    if(depthVal) depthVal.textContent = h + ' cm';
+    let p = 1000 * 9.8 * h/100 / 1000;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'rgba(0,200,255,0.3)'; ctx.fillRect(50,50,200,150);
+    ctx.fillStyle = 'rgba(0,200,255,0.6)'; ctx.fillRect(50,50+150-h*1.5,200,h*1.5);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('p = ' + p.toFixed(1) + ' kPa', 280, 100);
+    ctx.fillText('h = ' + h + ' cm', 280, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+function checkQ3_1(btn, ans) {
+  const fb = document.getElementById('fb-3_1');
+  const opts = document.querySelectorAll('#q3_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ3_2(btn, ans) {
+  const fb = document.getElementById('fb-3_2');
+  const opts = document.querySelectorAll('#q3_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ3_3(btn, ans) {
+  const fb = document.getElementById('fb-3_3');
+  const opts = document.querySelectorAll('#q3_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ3_4(btn, ans) {
+  const fb = document.getElementById('fb-3_4');
+  const opts = document.querySelectorAll('#q3_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ3_5(btn, ans) {
+  const fb = document.getElementById('fb-3_5');
+  const opts = document.querySelectorAll('#q3_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+(function(){
+  const c = document.getElementById('densityCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const sel = document.getElementById('substance');
+  function draw() {
+    let rho = sel ? parseInt(sel.value) : 1000;
+    let V = 0.001;
+    let m = rho * V;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(50,50,400,150);
+    ctx.fillStyle = 'rgba(0,200,255,' + (rho/8000) + ')'; ctx.fillRect(100,80,300,80);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('V = 0.001 m³, m = ' + m.toFixed(1) + ' kg', 100, 200);
+    ctx.fillText('ρ = ' + rho + ' kg/m³', 100, 225);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('pressureCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const depthInput = document.getElementById('depth');
+  const depthVal = document.getElementById('depthVal');
+  function draw() {
+    let h = depthInput ? parseInt(depthInput.value) : 30;
+    if(depthVal) depthVal.textContent = h + ' cm';
+    let p = 1000 * 9.8 * h/100 / 1000;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'rgba(0,200,255,0.3)'; ctx.fillRect(50,50,200,150);
+    ctx.fillStyle = 'rgba(0,200,255,0.6)'; ctx.fillRect(50,50+150-h*1.5,200,h*1.5);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('p = ' + p.toFixed(1) + ' kPa', 280, 100);
+    ctx.fillText('h = ' + h + ' cm', 280, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+function checkQ4_1(btn, ans) {
+  const fb = document.getElementById('fb-4_1');
+  const opts = document.querySelectorAll('#q4_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ4_2(btn, ans) {
+  const fb = document.getElementById('fb-4_2');
+  const opts = document.querySelectorAll('#q4_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ4_3(btn, ans) {
+  const fb = document.getElementById('fb-4_3');
+  const opts = document.querySelectorAll('#q4_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ4_4(btn, ans) {
+  const fb = document.getElementById('fb-4_4');
+  const opts = document.querySelectorAll('#q4_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ4_5(btn, ans) {
+  const fb = document.getElementById('fb-4_5');
+  const opts = document.querySelectorAll('#q4_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+(function(){
+  const c = document.getElementById('densityCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const sel = document.getElementById('substance');
+  function draw() {
+    let rho = sel ? parseInt(sel.value) : 1000;
+    let V = 0.001;
+    let m = rho * V;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(50,50,400,150);
+    ctx.fillStyle = 'rgba(0,200,255,' + (rho/8000) + ')'; ctx.fillRect(100,80,300,80);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('V = 0.001 m³, m = ' + m.toFixed(1) + ' kg', 100, 200);
+    ctx.fillText('ρ = ' + rho + ' kg/m³', 100, 225);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('pressureCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const depthInput = document.getElementById('depth');
+  const depthVal = document.getElementById('depthVal');
+  function draw() {
+    let h = depthInput ? parseInt(depthInput.value) : 30;
+    if(depthVal) depthVal.textContent = h + ' cm';
+    let p = 1000 * 9.8 * h/100 / 1000;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'rgba(0,200,255,0.3)'; ctx.fillRect(50,50,200,150);
+    ctx.fillStyle = 'rgba(0,200,255,0.6)'; ctx.fillRect(50,50+150-h*1.5,200,h*1.5);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('p = ' + p.toFixed(1) + ' kPa', 280, 100);
+    ctx.fillText('h = ' + h + ' cm', 280, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+function checkQ5_1(btn, ans) {
+  const fb = document.getElementById('fb-5_1');
+  const opts = document.querySelectorAll('#q5_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ5_2(btn, ans) {
+  const fb = document.getElementById('fb-5_2');
+  const opts = document.querySelectorAll('#q5_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ5_3(btn, ans) {
+  const fb = document.getElementById('fb-5_3');
+  const opts = document.querySelectorAll('#q5_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ5_4(btn, ans) {
+  const fb = document.getElementById('fb-5_4');
+  const opts = document.querySelectorAll('#q5_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ5_5(btn, ans) {
+  const fb = document.getElementById('fb-5_5');
+  const opts = document.querySelectorAll('#q5_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+(function(){
+  const c = document.getElementById('densityCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const sel = document.getElementById('substance');
+  function draw() {
+    let rho = sel ? parseInt(sel.value) : 1000;
+    let V = 0.001;
+    let m = rho * V;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(50,50,400,150);
+    ctx.fillStyle = 'rgba(0,200,255,' + (rho/8000) + ')'; ctx.fillRect(100,80,300,80);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('V = 0.001 m³, m = ' + m.toFixed(1) + ' kg', 100, 200);
+    ctx.fillText('ρ = ' + rho + ' kg/m³', 100, 225);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('pressureCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const depthInput = document.getElementById('depth');
+  const depthVal = document.getElementById('depthVal');
+  function draw() {
+    let h = depthInput ? parseInt(depthInput.value) : 30;
+    if(depthVal) depthVal.textContent = h + ' cm';
+    let p = 1000 * 9.8 * h/100 / 1000;
+    ctx.clearRect(0,0,500,250);
+    ctx.fillStyle = 'rgba(0,200,255,0.3)'; ctx.fillRect(50,50,200,150);
+    ctx.fillStyle = 'rgba(0,200,255,0.6)'; ctx.fillRect(50,50+150-h*1.5,200,h*1.5);
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '16px monospace';
+    ctx.fillText('p = ' + p.toFixed(1) + ' kPa', 280, 100);
+    ctx.fillText('h = ' + h + ' cm', 280, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
 </script>
 </body>
 </html>

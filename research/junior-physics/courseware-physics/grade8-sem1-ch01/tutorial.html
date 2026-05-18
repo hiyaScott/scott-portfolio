@@ -1,10 +1,325 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>物理实验室 · 学习手册 — 测量的初步</title>
+<title>第一章 测量 · 物理基础实验室</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* App container */
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Title */
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+/* Progress bar */
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 60px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+/* Card */
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,245,212,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+/* Concept box */
+.concept-box {
+  background: rgba(0,245,212,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+/* Animation area */
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Example list */
+.example-list { margin: 16px 0; }
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.example-item:hover {
+  border-color: rgba(0,245,212,0.3);
+  background: rgba(0,245,212,0.03);
+}
+.example-item .q { font-size: 16px; margin-bottom: 8px; }
+.example-item .a {
+  font-size: 14px; color: var(--success);
+  display: none;
+  border-top: 1px dashed rgba(0,245,212,0.2);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.example-item.expanded .a { display: block; }
+.example-item .a .step {
+  color: var(--text-dim); font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Quiz */
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-box .quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--warning);
+  margin-bottom: 16px;
+}
+.quiz-question { font-size: 16px; margin-bottom: 14px; }
+.quiz-options { display: flex; flex-direction: column; gap: 10px; }
+.quiz-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit; font-size: 15px;
+  text-align: left;
+  transition: all 0.2s;
+}
+.quiz-btn:hover {
+  background: rgba(0,187,249,0.15);
+  border-color: var(--accent2);
+}
+.quiz-btn.correct {
+  background: rgba(6,214,160,0.15);
+  border-color: var(--success);
+  color: var(--success);
+  animation: flashGreen 0.5s ease;
+}
+.quiz-btn.wrong {
+  background: rgba(239,71,111,0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: shake 0.4s ease;
+}
+.quiz-feedback { margin-top: 12px; font-size: 14px; min-height: 20px; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 16px; justify-content: center; margin-top: 24px; }
+.btn {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 14px 36px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 20px var(--accent);
+}
+.btn.btn-ghost {
+  background: transparent;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.btn.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Hide/show */
+.hidden { display: none !important; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 30px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .title-bar h1 { font-size: 22px; }
+  #app { padding: 20px 12px; }
+  .card { padding: 18px; }
+}
+@media (max-width: 480px) {
+  .title-bar h1 { font-size: 18px; letter-spacing: 2px; }
+  .title-bar .subtitle { font-size: 12px; }
+  #app { padding: 16px 10px; }
+  .card { padding: 14px; }
+  .card-header h2 { font-size: 18px; }
+  .concept-box { padding: 12px 14px; }
+  .concept-box .formula { font-size: 16px; }
+  .btn-row { flex-direction: column; gap: 10px; }
+  .btn { padding: 12px 24px; font-size: 14px; width: 100%; text-align: center; }
+  .quiz-btn { padding: 10px 14px; font-size: 14px; }
+  .example-item { padding: 12px 14px; }
+  .progress-seg { width: 40px; }
+}
+@media (max-width: 360px) {
+  .title-bar h1 { font-size: 16px; }
+  #app { padding: 12px 8px; }
+  .card { padding: 12px; }
+  .card-header h2 { font-size: 16px; }
+  .concept-box { padding: 10px 12px; }
+  .concept-box p { font-size: 14px; }
+  .btn { padding: 10px 20px; font-size: 13px; }
+  .quiz-options { gap: 8px; }
+  .quiz-btn { padding: 8px 12px; font-size: 13px; }
+  .example-item { padding: 10px 12px; }
+  .example-item .q { font-size: 14px; }
+  .anim-area { padding: 16px; min-height: 80px; }
+}
+
+
+/* === Physics Chapter CSS === */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
 
 :root {
@@ -600,30 +915,30 @@ body {
   .chapter-title { font-size: 16px; }
   .section-card { padding: 14px; }
 }
-</style>
-</head>
-<body>
+</style><body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
+
 <div id="app">
 
 <!-- ========== HEADER ========== -->
 <div class="title-bar">
-  <h1>📏 物理实验室</h1>
-  <div class="subtitle">学习手册 — 测量的初步 · 面向六年级<div style="text-align:center;margin-top:16px;"><a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a></div></div>
+  <h1>📐 物理特工局</h1>
+  <div class="subtitle">沪科版八年级第一学期 · 第一章 · 学习手册</div>
   <div style="margin-top:12px;">
-    
+    <a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a>
   </div>
 </div>
 
-<div class="progress-bar" id="progress-bar"><div class="progress-seg active"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div></div>
+<div class="progress-bar" id="progress-bar">
+  <div class="progress-seg active"></div>
   <div class="progress-seg"></div>
   <div class="progress-seg"></div>
   <div class="progress-seg"></div>
-</div>
+  <div class="progress-seg active"></div>
+  </div>
 
-<!-- ========== CHAPTER 1: 长度的测量 ========== -->
 <div class="card" id="ch1">
   <div class="card-header">
     <h2>长度的测量</h2>
@@ -772,7 +1087,6 @@ body {
 </script>
 </div>
 
-<!-- ========== CHAPTER 2: 质量的测量 ========== -->
 <div class="card hidden" id="ch2">
   <div class="card-header">
     <h2>质量的测量</h2>
@@ -1047,7 +1361,6 @@ function checkQ1_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 3: 体积的测量 ========== -->
 <div class="card hidden" id="ch3">
   <div class="card-header">
     <h2>体积的测量</h2>
@@ -1244,7 +1557,6 @@ function checkQ1_5(btn, ans) {
 </script>
 </div>
 
-<!-- ========== CHAPTER 4: 密度的计算 ========== -->
 <div class="card hidden" id="ch4">
   <div class="card-header">
     <h2>密度的计算</h2>
@@ -1336,23 +1648,49 @@ function checkQ1_5(btn, ans) {
   </div>
 </div>
 
-<!-- ========== FOOTER ========== -->
-<div style="text-align:center;padding:20px 0;color:var(--text-dim);font-size:12px;letter-spacing:1px;">
-  物理实验室 · 沪教版六年级上册 · 测量的初步
 </div>
 
-
-<h3>🧪 实验 1：刻度尺读数练习</h3>
-<div class="demo-box">
-  <canvas id="rulerCanvas" width="600" height="120"></canvas>
-  <div class="slider-control">
-    <label>物体位置</label>
-    <input type="range" id="rulerPos" min="0" max="400" value="150">
-    <span class="value" id="rulerPosVal">1.50 cm</span>
-  </div>
-  <p style="font-size:12px;color:var(--text-dim);margin-top:8px">拖动滑块移动物体，练习读数并注意估读位。</p>
-</div>
 <script>
+let currentCh = 0;
+const totalCh = 4;
+
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((seg, i) => {
+    seg.className = 'progress-seg';
+    if (i < currentCh) seg.classList.add('done');
+    if (i === currentCh) seg.classList.add('active');
+  });
+}
+
+function goTo(n) {
+  document.getElementById('ch' + currentCh).classList.add('hidden');
+  document.getElementById('ch' + n).classList.remove('hidden');
+  currentCh = n;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function checkQuiz(btn, isCorrect, msg) {
+  const card = btn.closest('.quiz-box');
+  const fb = card.querySelector('.quiz-feedback');
+  const allBtns = card.querySelectorAll('.quiz-btn');
+  
+  allBtns.forEach(b => b.style.pointerEvents = 'none');
+  
+  if (isCorrect) {
+    btn.classList.add('correct');
+    fb.innerHTML = '<span style="color:var(--success)">✅ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong');
+    fb.innerHTML = '<span style="color:var(--danger)">❌ ' + msg + '</span>';
+  }
+}
+
+updateProgress();
+
+
+/* === Chapter JS === */
 (function(){
   const c = document.getElementById('rulerCanvas'); if(!c) return;
   const ctx = c.getContext('2d');
@@ -1375,18 +1713,7 @@ function checkQ1_5(btn, ans) {
   }
   draw();
 })();
-</script>
-<h3>🧪 实验 2：游标卡尺读数</h3>
-<div class="demo-box">
-  <canvas id="vernierCanvas" width="600" height="150"></canvas>
-  <div style="margin-top:10px">
-    <button class="btn" onclick="setVernier(0)">0.00 mm</button>
-    <button class="btn btn-ghost" onclick="setVernier(1)">2.34 mm</button>
-    <button class="btn btn-ghost" onclick="setVernier(2)">5.67 mm</button>
-  </div>
-  <p style="font-size:12px;color:var(--text-dim);margin-top:8px">点击按钮切换不同读数，观察主尺与游标对齐情况。</p>
-</div>
-<script>
+
 (function(){
   const c = document.getElementById('vernierCanvas'); if(!c) return;
   const ctx = c.getContext('2d');
@@ -1406,116 +1733,210 @@ function checkQ1_5(btn, ans) {
   }
   draw();
 })();
-</script>
-</div><!-- /app -->
 
-<script>
-// ========== AUDIO ==========
-let audioCtx;
-function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-}
-function sfx(type) {
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  if (type === 'ok') {
-    osc.type = 'sine'; osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t+0.1);
-    gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
-    osc.start(t); osc.stop(t+0.3);
-  } else if (type === 'err') {
-    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, t);
-    gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
-    osc.start(t); osc.stop(t+0.3);
-  } else if (type === 'click') {
-    osc.type = 'square'; osc.frequency.setValueAtTime(800, t);
-    gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.05);
-    osc.start(t); osc.stop(t+0.05);
-  }
-}
-
-// ========== NAVIGATION ==========
-let currentCh = 1;
-function goTo(n) {
-  sfx('click');
-  document.getElementById('ch' + currentCh).classList.add('hidden');
-  document.getElementById('ch' + n).classList.remove('hidden');
-  currentCh = n;
-  updateProgress();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-function updateProgress() {
-  const segs = document.querySelectorAll('.progress-seg');
-  segs.forEach((s, i) => {
-    s.classList.remove('active', 'done');
-    if (i + 1 < currentCh) s.classList.add('done');
-    else if (i + 1 === currentCh) s.classList.add('active');
-  });
-}
-
-// ========== QUIZ ==========
-function checkQuiz(btn, correct, msg) {
-  ensureAudio();
-  const opts = btn.closest('.quiz-options');
-  const fb = opts.parentElement.querySelector('.quiz-feedback');
-  opts.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
-  if (correct) {
-    btn.classList.add('correct'); sfx('ok');
-    fb.innerHTML = '<span style="color:var(--success)">✓ ' + msg + '</span>';
-  } else {
-    btn.classList.add('wrong'); sfx('err');
-    fb.innerHTML = '<span style="color:var(--danger)">✗ ' + msg + '</span>';
-    const correctBtn = Array.from(opts.querySelectorAll('.quiz-btn')).find(b => b.getAttribute('onclick').includes('true'));
-    if (correctBtn) correctBtn.classList.add('correct');
-  }
-}
-
-function checkQuiz2(btn, key, correct, msg) {
-  ensureAudio();
-  const opts = btn.closest('.quiz-options');
-  const fb = opts.parentElement.querySelector('.quiz-feedback');
-  opts.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
-  if (correct) {
-    btn.classList.add('correct'); sfx('ok');
-    fb.innerHTML = '<span style="color:var(--success)">✓ ' + msg + '</span>';
-  } else {
-    btn.classList.add('wrong'); sfx('err');
-    fb.innerHTML = '<span style="color:var(--danger)">✗ ' + msg + '</span>';
-  }
-}
-
-// ========== RULER ANIMATION ==========
-function buildRuler() {
-  const scale = document.getElementById('ruler-scale');
-  if (!scale) return;
-  for (let i = 0; i <= 10; i++) {
-    const tick = document.createElement('div');
-    tick.className = 'ruler-tick' + (i % 5 === 0 ? ' major' : '');
-    scale.appendChild(tick);
-    if (i % 5 === 0) {
-      const num = document.createElement('div');
-      num.className = 'ruler-num';
-      num.textContent = i;
-      num.style.left = (20 + i * 28) + 'px';
-      scale.appendChild(num);
+(function(){
+  const c = document.getElementById('rulerCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const posInput = document.getElementById('rulerPos');
+  const posVal = document.getElementById('rulerPosVal');
+  function draw() {
+    let pos = posInput ? parseInt(posInput.value) : 150;
+    if(posVal) posVal.textContent = (pos/100).toFixed(2) + ' cm';
+    ctx.clearRect(0,0,600,120);
+    ctx.fillStyle = '#1a1a2e'; ctx.fillRect(20,40,560,40);
+    ctx.strokeStyle = 'var(--text)'; ctx.lineWidth = 1;
+    for(let i=0; i<=560; i+=10) {
+      let h = (i%50===0) ? 25 : (i%20===0) ? 15 : 8;
+      ctx.beginPath(); ctx.moveTo(20+i,40); ctx.lineTo(20+i,40+h); ctx.stroke();
     }
+    ctx.fillStyle = 'var(--accent)'; ctx.fillRect(20+pos,30,40,60);
+    ctx.fillStyle = 'var(--text)'; ctx.font = '12px monospace';
+    ctx.fillText('0', 18, 95); ctx.fillText('5', 268, 95); ctx.fillText('10', 518, 95);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('vernierCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  let offset = 0;
+  window.setVernier = function(n) { offset = [0, 23.4, 56.7][n] || 0; };
+  function draw() {
+    ctx.clearRect(0,0,600,150);
+    ctx.fillStyle = '#2a2a3e'; ctx.fillRect(20,60,560,30);
+    ctx.fillStyle = '#3a3a5e'; ctx.fillRect(20+offset,40,200,70);
+    ctx.strokeStyle = 'var(--text)'; ctx.lineWidth = 1;
+    for(let i=0; i<=560; i+=10) {
+      ctx.beginPath(); ctx.moveTo(20+i,60); ctx.lineTo(20+i,75); ctx.stroke();
+    }
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '14px monospace';
+    ctx.fillText('主尺 + 游标 = ' + offset.toFixed(2) + ' mm', 20, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+function checkQ1_1(btn, ans) {
+  const fb = document.getElementById('fb-1_1');
+  const opts = document.querySelectorAll('#q1_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
   }
 }
 
-// ========== MYSTERY BOX ==========
-function revealDensity() {
-  sfx('click');
-  const el = document.getElementById('mystery-reveal');
-  const res = document.getElementById('mystery-result');
-  if (el) el.style.opacity = '1';
-  if (res) res.innerHTML = 'ρ ≈ <span style="color:var(--success)">2.33</span>';
+function checkQ1_2(btn, ans) {
+  const fb = document.getElementById('fb-1_2');
+  const opts = document.querySelectorAll('#q1_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
 }
 
-// ========== INIT ==========
-buildRuler();
-updateProgress();
+function checkQ1_3(btn, ans) {
+  const fb = document.getElementById('fb-1_3');
+  const opts = document.querySelectorAll('#q1_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_4(btn, ans) {
+  const fb = document.getElementById('fb-1_4');
+  const opts = document.querySelectorAll('#q1_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_5(btn, ans) {
+  const fb = document.getElementById('fb-1_5');
+  const opts = document.querySelectorAll('#q1_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+(function(){
+  const c = document.getElementById('rulerCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const posInput = document.getElementById('rulerPos');
+  const posVal = document.getElementById('rulerPosVal');
+  function draw() {
+    let pos = posInput ? parseInt(posInput.value) : 150;
+    if(posVal) posVal.textContent = (pos/100).toFixed(2) + ' cm';
+    ctx.clearRect(0,0,600,120);
+    ctx.fillStyle = '#1a1a2e'; ctx.fillRect(20,40,560,40);
+    ctx.strokeStyle = 'var(--text)'; ctx.lineWidth = 1;
+    for(let i=0; i<=560; i+=10) {
+      let h = (i%50===0) ? 25 : (i%20===0) ? 15 : 8;
+      ctx.beginPath(); ctx.moveTo(20+i,40); ctx.lineTo(20+i,40+h); ctx.stroke();
+    }
+    ctx.fillStyle = 'var(--accent)'; ctx.fillRect(20+pos,30,40,60);
+    ctx.fillStyle = 'var(--text)'; ctx.font = '12px monospace';
+    ctx.fillText('0', 18, 95); ctx.fillText('5', 268, 95); ctx.fillText('10', 518, 95);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('vernierCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  let offset = 0;
+  window.setVernier = function(n) { offset = [0, 23.4, 56.7][n] || 0; };
+  function draw() {
+    ctx.clearRect(0,0,600,150);
+    ctx.fillStyle = '#2a2a3e'; ctx.fillRect(20,60,560,30);
+    ctx.fillStyle = '#3a3a5e'; ctx.fillRect(20+offset,40,200,70);
+    ctx.strokeStyle = 'var(--text)'; ctx.lineWidth = 1;
+    for(let i=0; i<=560; i+=10) {
+      ctx.beginPath(); ctx.moveTo(20+i,60); ctx.lineTo(20+i,75); ctx.stroke();
+    }
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '14px monospace';
+    ctx.fillText('主尺 + 游标 = ' + offset.toFixed(2) + ' mm', 20, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('rulerCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const posInput = document.getElementById('rulerPos');
+  const posVal = document.getElementById('rulerPosVal');
+  function draw() {
+    let pos = posInput ? parseInt(posInput.value) : 150;
+    if(posVal) posVal.textContent = (pos/100).toFixed(2) + ' cm';
+    ctx.clearRect(0,0,600,120);
+    ctx.fillStyle = '#1a1a2e'; ctx.fillRect(20,40,560,40);
+    ctx.strokeStyle = 'var(--text)'; ctx.lineWidth = 1;
+    for(let i=0; i<=560; i+=10) {
+      let h = (i%50===0) ? 25 : (i%20===0) ? 15 : 8;
+      ctx.beginPath(); ctx.moveTo(20+i,40); ctx.lineTo(20+i,40+h); ctx.stroke();
+    }
+    ctx.fillStyle = 'var(--accent)'; ctx.fillRect(20+pos,30,40,60);
+    ctx.fillStyle = 'var(--text)'; ctx.font = '12px monospace';
+    ctx.fillText('0', 18, 95); ctx.fillText('5', 268, 95); ctx.fillText('10', 518, 95);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('vernierCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  let offset = 0;
+  window.setVernier = function(n) { offset = [0, 23.4, 56.7][n] || 0; };
+  function draw() {
+    ctx.clearRect(0,0,600,150);
+    ctx.fillStyle = '#2a2a3e'; ctx.fillRect(20,60,560,30);
+    ctx.fillStyle = '#3a3a5e'; ctx.fillRect(20+offset,40,200,70);
+    ctx.strokeStyle = 'var(--text)'; ctx.lineWidth = 1;
+    for(let i=0; i<=560; i+=10) {
+      ctx.beginPath(); ctx.moveTo(20+i,60); ctx.lineTo(20+i,75); ctx.stroke();
+    }
+    ctx.fillStyle = 'var(--accent)'; ctx.font = '14px monospace';
+    ctx.fillText('主尺 + 游标 = ' + offset.toFixed(2) + ' mm', 20, 130);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
 </script>
 </body>
 </html>

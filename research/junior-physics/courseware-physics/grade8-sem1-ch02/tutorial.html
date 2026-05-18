@@ -1,10 +1,325 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>运动学实验室 · 学习手册 — 机械运动</title>
+<title>第二章 机械运动 · 物理基础实验室</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f5d4;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* HUD Grid */
+#hud-grid {
+  position: fixed; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Corners */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+/* App container */
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Title */
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+/* Progress bar */
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 60px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+/* Card */
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,245,212,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+/* Concept box */
+.concept-box {
+  background: rgba(0,245,212,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+/* Animation area */
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Example list */
+.example-list { margin: 16px 0; }
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.1);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.example-item:hover {
+  border-color: rgba(0,245,212,0.3);
+  background: rgba(0,245,212,0.03);
+}
+.example-item .q { font-size: 16px; margin-bottom: 8px; }
+.example-item .a {
+  font-size: 14px; color: var(--success);
+  display: none;
+  border-top: 1px dashed rgba(0,245,212,0.2);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.example-item.expanded .a { display: block; }
+.example-item .a .step {
+  color: var(--text-dim); font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Quiz */
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-box .quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; color: var(--warning);
+  margin-bottom: 16px;
+}
+.quiz-question { font-size: 16px; margin-bottom: 14px; }
+.quiz-options { display: flex; flex-direction: column; gap: 10px; }
+.quiz-btn {
+  background: rgba(0,187,249,0.08);
+  border: 1px solid rgba(0,187,249,0.3);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit; font-size: 15px;
+  text-align: left;
+  transition: all 0.2s;
+}
+.quiz-btn:hover {
+  background: rgba(0,187,249,0.15);
+  border-color: var(--accent2);
+}
+.quiz-btn.correct {
+  background: rgba(6,214,160,0.15);
+  border-color: var(--success);
+  color: var(--success);
+  animation: flashGreen 0.5s ease;
+}
+.quiz-btn.wrong {
+  background: rgba(239,71,111,0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: shake 0.4s ease;
+}
+.quiz-feedback { margin-top: 12px; font-size: 14px; min-height: 20px; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 16px; justify-content: center; margin-top: 24px; }
+.btn {
+  background: rgba(0,245,212,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 14px 36px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px; letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover {
+  background: rgba(0,245,212,0.2);
+  box-shadow: 0 0 20px var(--accent);
+}
+.btn.btn-ghost {
+  background: transparent;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.btn.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Hide/show */
+.hidden { display: none !important; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes flashGreen {
+  0% { box-shadow: 0 0 0 var(--success); }
+  50% { box-shadow: 0 0 30px var(--success); }
+  100% { box-shadow: 0 0 0 var(--success); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .title-bar h1 { font-size: 22px; }
+  #app { padding: 20px 12px; }
+  .card { padding: 18px; }
+}
+@media (max-width: 480px) {
+  .title-bar h1 { font-size: 18px; letter-spacing: 2px; }
+  .title-bar .subtitle { font-size: 12px; }
+  #app { padding: 16px 10px; }
+  .card { padding: 14px; }
+  .card-header h2 { font-size: 18px; }
+  .concept-box { padding: 12px 14px; }
+  .concept-box .formula { font-size: 16px; }
+  .btn-row { flex-direction: column; gap: 10px; }
+  .btn { padding: 12px 24px; font-size: 14px; width: 100%; text-align: center; }
+  .quiz-btn { padding: 10px 14px; font-size: 14px; }
+  .example-item { padding: 12px 14px; }
+  .progress-seg { width: 40px; }
+}
+@media (max-width: 360px) {
+  .title-bar h1 { font-size: 16px; }
+  #app { padding: 12px 8px; }
+  .card { padding: 12px; }
+  .card-header h2 { font-size: 16px; }
+  .concept-box { padding: 10px 12px; }
+  .concept-box p { font-size: 14px; }
+  .btn { padding: 10px 20px; font-size: 13px; }
+  .quiz-options { gap: 8px; }
+  .quiz-btn { padding: 8px 12px; font-size: 13px; }
+  .example-item { padding: 10px 12px; }
+  .example-item .q { font-size: 14px; }
+  .anim-area { padding: 16px; min-height: 80px; }
+}
+
+
+/* === Physics Chapter CSS === */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
 
 :root {
@@ -268,144 +583,31 @@ body {
       .card { padding: 10px; }
       .challenge-btn { padding: 5px 8px; font-size: 9px; }
     }
-</style>
-</head>
-<body>
-<a href="index.html" class="challenge-btn">🎮 去挑战模式</a>
+</style><body>
+<div id="hud-grid"></div>
+<div class="corner-tl"></div><div class="corner-tr"></div>
+<div class="corner-bl"></div><div class="corner-br"></div>
 
 <div id="app">
-  <div class="title-bar">
-    <h1>运动学实验室</h1>
-    <div class="subtitle">CHRONOS TRACKING DIVISION · 学习手册</div>
+
+<!-- ========== HEADER ========== -->
+<div class="title-bar">
+  <h1>📐 物理特工局</h1>
+  <div class="subtitle">沪科版八年级第一学期 · 第二章 · 学习手册</div>
+  <div style="margin-top:12px;">
+    <a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a>
   </div>
-
-  <div class="progress-bar"><div class="progress-seg active"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div>
-<div class="progress-seg"></div></div>
-    <div class="progress-seg" data-ch="2"></div>
-    <div class="progress-seg" data-ch="3"></div>
-    <div class="progress-seg" data-ch="4"></div>
-    <div class="progress-seg" data-ch="5"></div>
-  </div>
-
-  <!-- ========== CHAPTER 1: 机械运动与参照物 ========== -->
-  <div class="card active" id="ch1">
-    <div class="card-header">
-      <h2>机械运动与参照物</h2>
-      <span class="chapter-num">第 1 / 5 节</span>
-    
-
-<h3>🧪 实验 1：匀速直线运动模拟</h3>
-<div class="demo-box">
-  <canvas id="motionCanvas" width="500" height="150"></canvas>
-  <div class="slider-control">
-    <label>速度 v</label>
-    <input type="range" id="motionSpeed" min="0" max="100" value="50">
-    <span class="value" id="motionSpeedVal">50 m/s</span>
-  </div>
-  <p style="font-size:12px;color:var(--text-dim);margin-top:8px">拖动滑块改变速度，观察物体匀速运动。v = s/t</p>
-</div>
-<script>
-(function(){
-  const c = document.getElementById('motionCanvas'); if(!c) return;
-  const ctx = c.getContext('2d');
-  const sInput = document.getElementById('motionSpeed');
-  const sVal = document.getElementById('motionSpeedVal');
-  let x = 0, t = 0;
-  function draw() {
-    let v = sInput ? parseInt(sInput.value) : 50;
-    if(sVal) sVal.textContent = v + ' m/s';
-    t++;
-    x = (v * t / 10) % 460;
-    ctx.clearRect(0,0,500,150);
-    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(0,100,500,40);
-    ctx.fillStyle = 'var(--accent)'; ctx.fillRect(x, 80, 40, 30);
-    ctx.fillStyle = 'var(--text)'; ctx.font = '12px monospace';
-    ctx.fillText('s=' + (v*t/10).toFixed(0) + 'm', x, 70);
-    requestAnimationFrame(draw);
-  }
-  draw();
-})();
-</script>
-
-<h3>🧪 实验 2：相对运动观察</h3>
-<div class="demo-box">
-  <canvas id="relativeCanvas" width="500" height="200"></canvas>
-  <div style="margin-top:10px">
-    <button class="btn" onclick="setRef('ground')">🌍 地面参照</button>
-    <button class="btn btn-ghost" onclick="setRef('car')">🚗 汽车参照</button>
-  </div>
-  <p style="font-size:12px;color:var(--text-dim);margin-top:8px">切换参照物，观察同一物体运动状态的变化。</p>
-</div>
-<script>
-(function(){
-  const c = document.getElementById('relativeCanvas'); if(!c) return;
-  const ctx = c.getContext('2d');
-  let ref = 'ground';
-  window.setRef = function(r) { ref = r; };
-  let t = 0;
-  function draw() {
-    t++;
-    ctx.clearRect(0,0,500,200);
-    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(0,150,500,40);
-    let carX = (t * 2) % 440;
-    let ballX = carX + 50 + Math.sin(t/20) * 30;
-    if(ref === 'car') {
-      ctx.fillStyle = 'var(--accent)'; ctx.fillRect(230, 100, 40, 30);
-      ctx.fillStyle = 'var(--danger)'; ctx.beginPath(); ctx.arc(250 + Math.sin(t/20)*30, 90, 10, 0, Math.PI*2); ctx.fill();
-    } else {
-      ctx.fillStyle = 'var(--accent)'; ctx.fillRect(carX, 120, 40, 30);
-      ctx.fillStyle = 'var(--danger)'; ctx.beginPath(); ctx.arc(ballX, 90, 10, 0, Math.PI*2); ctx.fill();
-    }
-    requestAnimationFrame(draw);
-  }
-  draw();
-})();
-</script>
-
 </div>
 
-    <div class="concept-box">
-      <div class="label">核心概念</div>
-      <p><strong>机械运动</strong>：在物理学中，把一个物体相对于另一个物体<strong>位置的改变</strong>称为机械运动。</p>
-      <p><strong>参照物</strong>：研究一个物体的运动时，被选作标准的物体叫做参照物。参照物被假定为静止不动。</p>
-    </div>
-
-    <p style="margin: 16px 0; line-height: 1.8;">
-      欢迎来到运动学实验室！作为物理探索者，你的任务是判断目标是否在运动。但首先你需要明白：<strong>运动是相对的</strong>。
-    </p>
-
-    <div class="ref-scene">
-      <div class="ref-scene-title">🚗 互动实验：选择参照物，判断运动状态</div>
-      <div style="font-size: 13px; color: var(--text2); margin-bottom: 12px;">
-        场景：小明坐在行驶的公交车里，路边站着小红。
-      </div>
-      <div class="ref-controls">
-        <button class="ref-btn active" onclick="setRef('ground', this)">以地面为参照物</button>
-        <button class="ref-btn" onclick="setRef('bus', this)">以公交车为参照物</button>
-        <button class="ref-btn" onclick="setRef('xiaoming', this)">以小明为参照物</button>
-      </div>
-      <div class="ref-result" id="ref-result">
-        <strong style="color: var(--accent);">以地面为参照物：</strong><br>
-        公交车是 <span style="color: var(--success);">运动</span> 的（位置在改变）<br>
-        小红是 <span style="color: var(--danger);">静止</span> 的（位置不变）<br>
-        小明是 <span style="color: var(--success);">运动</span> 的（随公交车一起移动）
-      </div>
-    </div>
-
-    <div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 12px; line-height: 1.6;">
-      💡 <strong>关键理解</strong>：同一个物体，选择不同的参照物，运动状态的判断可能不同。运动和静止是<strong>相对</strong>的，不是绝对的。
-    </div>
-
-    <div class="formula-box">
-      <div class="formula">运动 ↔ 静止 = 相对</div>
-      <div class="explain">没有绝对的静止，也没有绝对的运动。一切取决于你站在哪里看。</div>
-    </div>
+<div class="progress-bar" id="progress-bar">
+  <div class="progress-seg active"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg"></div>
+  <div class="progress-seg active"></div>
   </div>
 
-  <!-- ========== CHAPTER 2: 运动与静止的相对性 ========== -->
-  <div class="card" id="ch2">
+<div class="card" id="ch2">
     <div class="card-header">
       <h2>运动与静止的相对性</h2>
       <span class="chapter-num">第 2 / 5 节</span>
@@ -610,8 +812,7 @@ function checkQ0_5(btn, ans) {
 </script>
 </div>
 
-  <!-- ========== CHAPTER 3: 速度 ========== -->
-  <div class="card" id="ch3">
+<div class="card" id="ch3">
     <div class="card-header">
       <h2>速度 — 运动快慢的量度</h2>
       <span class="chapter-num">第 3 / 5 节</span>
@@ -809,8 +1010,7 @@ function checkQ1_5(btn, ans) {
 </script>
 </div>
 
-  <!-- ========== CHAPTER 4: 匀速与变速运动 ========== -->
-  <div class="card" id="ch4">
+<div class="card" id="ch4">
     <div class="card-header">
       <h2>匀速直线运动与变速运动</h2>
       <span class="chapter-num">第 4 / 5 节</span>
@@ -1018,8 +1218,7 @@ function checkQ2_5(btn, ans) {
 </script>
 </div>
 
-  <!-- ========== CHAPTER 5: 例题与测试 ========== -->
-  <div class="card" id="ch5">
+<div class="card" id="ch5">
     <div class="card-header">
       <h2>实战演练</h2>
       <span class="chapter-num">第 5 / 5 节</span>
@@ -1075,128 +1274,318 @@ function checkQ2_5(btn, ans) {
     </div>
   </div>
 
-  <div class="nav-btns">
-    <button class="nav-btn" id="prevBtn" onclick="goTo(currentCh - 1)" disabled>← 上一单元</button>
-    <button class="nav-btn" id="nextBtn" onclick="goTo(currentCh + 1)">下一单元 →</button>
-  </div>
 </div>
 
 <script>
-let currentCh = 1;
-const totalCh = 5;
-
-function goTo(n) {
-  if (n < 1 || n > totalCh) return;
-  document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-  document.getElementById('ch' + n).classList.add('active');
-  currentCh = n;
-  updateProgress();
-  document.getElementById('prevBtn').disabled = n === 1;
-  document.getElementById('nextBtn').disabled = n === totalCh;
-  if (n === totalCh) document.getElementById('nextBtn').textContent = '已完成 ✓';
-  else document.getElementById('nextBtn').textContent = '下一单元 →';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+let currentCh = 0;
+const totalCh = 4;
 
 function updateProgress() {
   const segs = document.querySelectorAll('.progress-seg');
-  segs.forEach((s, i) => {
-    s.classList.remove('active', 'done');
-    if (i + 1 < currentCh) s.classList.add('done');
-    else if (i + 1 === currentCh) s.classList.add('active');
+  segs.forEach((seg, i) => {
+    seg.className = 'progress-seg';
+    if (i < currentCh) seg.classList.add('done');
+    if (i === currentCh) seg.classList.add('active');
   });
 }
 
-// Reference frame interactive
-function setRef(ref, btn) {
-  document.querySelectorAll('.ref-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  const result = document.getElementById('ref-result');
-  const scenarios = {
-    ground: `<strong style="color: var(--accent);">以地面为参照物：</strong><br>
-      公交车是 <span style="color: var(--success);">运动</span> 的（位置在改变）<br>
-      小红是 <span style="color: var(--danger);">静止</span> 的（位置不变）<br>
-      小明是 <span style="color: var(--success);">运动</span> 的（随公交车一起移动）`,
-    bus: `<strong style="color: var(--accent);">以公交车为参照物：</strong><br>
-      公交车是 <span style="color: var(--danger);">静止</span> 的（参照物本身）<br>
-      小红是 <span style="color: var(--success);">运动</span> 的（向后退）<br>
-      小明是 <span style="color: var(--danger);">静止</span> 的（坐在座位上不动）`,
-    xiaoming: `<strong style="color: var(--accent);">以小明为参照物：</strong><br>
-      公交车是 <span style="color: var(--danger);">静止</span> 的（小明在车里）<br>
-      小红是 <span style="color: var(--success);">运动</span> 的（向后退）<br>
-      小明自己是 <span style="color: var(--danger);">静止</span> 的（不能选自己为参照物研究自己！）`
-  };
-  result.innerHTML = scenarios[ref];
+function goTo(n) {
+  document.getElementById('ch' + currentCh).classList.add('hidden');
+  document.getElementById('ch' + n).classList.remove('hidden');
+  currentCh = n;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Speed calculator
-function calcSpeed() {
-  const s = parseFloat(document.getElementById('speed-s').value) || 0;
-  const t = parseFloat(document.getElementById('speed-t').value) || 1;
-  const v = s / t;
-  const kmh = v * 3.6;
-  document.getElementById('speed-result').textContent =
-    `v = ${v.toFixed(2)} m/s = ${kmh.toFixed(1)} km/h`;
-}
-
-// Motion graph canvas
-function drawMotionGraph() {
-  const canvas = document.getElementById('motionGraph');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
-
-  ctx.clearRect(0, 0, w, h);
-
-  // Grid
-  ctx.strokeStyle = 'rgba(0,240,200,0.1)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= w; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke(); }
-  for (let i = 0; i <= h; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke(); }
-
-  // Axes
-  ctx.strokeStyle = 'rgba(0,240,200,0.4)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(40, h - 30); ctx.lineTo(w - 20, h - 30); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(40, h - 30); ctx.lineTo(40, 20); ctx.stroke();
-
-  // Labels
-  ctx.fillStyle = '#8b8b9a'; ctx.font = '10px "Share Tech Mono"';
-  ctx.fillText('s', 20, 20); ctx.fillText('t', w - 20, h - 15);
-  ctx.fillText('0', 30, h - 15);
-
-  // Uniform motion (left half) - straight line
-  ctx.strokeStyle = '#00f0c8'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(40, h - 30);
-  for (let x = 0; x <= 160; x += 2) {
-    const y = (h - 30) - x * 0.8;
-    ctx.lineTo(40 + x, y);
+function checkQuiz(btn, isCorrect, msg) {
+  const card = btn.closest('.quiz-box');
+  const fb = card.querySelector('.quiz-feedback');
+  const allBtns = card.querySelectorAll('.quiz-btn');
+  
+  allBtns.forEach(b => b.style.pointerEvents = 'none');
+  
+  if (isCorrect) {
+    btn.classList.add('correct');
+    fb.innerHTML = '<span style="color:var(--success)">✅ ' + msg + '</span>';
+  } else {
+    btn.classList.add('wrong');
+    fb.innerHTML = '<span style="color:var(--danger)">❌ ' + msg + '</span>';
   }
-  ctx.stroke();
-  ctx.fillStyle = '#00f0c8'; ctx.font = '11px "Share Tech Mono"';
-  ctx.fillText('匀速直线运动', 50, h - 80);
-
-  // Variable motion (right half) - curve
-  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(40 + 180, h - 30);
-  for (let x = 0; x <= 160; x += 2) {
-    const y = (h - 30) - (x * x / 200 + x * 0.3);
-    ctx.lineTo(40 + 180 + x, y);
-  }
-  ctx.stroke();
-  ctx.fillStyle = '#ffd166';
-  ctx.fillText('变速运动', 230, h - 100);
 }
 
-document.querySelectorAll('.progress-seg').forEach((s, i) => {
-  s.addEventListener('click', () => goTo(i + 1));
-});
-
-// Initialize
-calcSpeed();
-setTimeout(drawMotionGraph, 500);
 updateProgress();
+
+
+/* === Chapter JS === */
+(function(){
+  const c = document.getElementById('motionCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const sInput = document.getElementById('motionSpeed');
+  const sVal = document.getElementById('motionSpeedVal');
+  let x = 0, t = 0;
+  function draw() {
+    let v = sInput ? parseInt(sInput.value) : 50;
+    if(sVal) sVal.textContent = v + ' m/s';
+    t++;
+    x = (v * t / 10) % 460;
+    ctx.clearRect(0,0,500,150);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(0,100,500,40);
+    ctx.fillStyle = 'var(--accent)'; ctx.fillRect(x, 80, 40, 30);
+    ctx.fillStyle = 'var(--text)'; ctx.font = '12px monospace';
+    ctx.fillText('s=' + (v*t/10).toFixed(0) + 'm', x, 70);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function(){
+  const c = document.getElementById('relativeCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  let ref = 'ground';
+  window.setRef = function(r) { ref = r; };
+  let t = 0;
+  function draw() {
+    t++;
+    ctx.clearRect(0,0,500,200);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(0,150,500,40);
+    let carX = (t * 2) % 440;
+    let ballX = carX + 50 + Math.sin(t/20) * 30;
+    if(ref === 'car') {
+      ctx.fillStyle = 'var(--accent)'; ctx.fillRect(230, 100, 40, 30);
+      ctx.fillStyle = 'var(--danger)'; ctx.beginPath(); ctx.arc(250 + Math.sin(t/20)*30, 90, 10, 0, Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle = 'var(--accent)'; ctx.fillRect(carX, 120, 40, 30);
+      ctx.fillStyle = 'var(--danger)'; ctx.beginPath(); ctx.arc(ballX, 90, 10, 0, Math.PI*2); ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+function checkQ0_1(btn, ans) {
+  const fb = document.getElementById('fb-0_1');
+  const opts = document.querySelectorAll('#q0_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ0_2(btn, ans) {
+  const fb = document.getElementById('fb-0_2');
+  const opts = document.querySelectorAll('#q0_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ0_3(btn, ans) {
+  const fb = document.getElementById('fb-0_3');
+  const opts = document.querySelectorAll('#q0_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ0_4(btn, ans) {
+  const fb = document.getElementById('fb-0_4');
+  const opts = document.querySelectorAll('#q0_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ0_5(btn, ans) {
+  const fb = document.getElementById('fb-0_5');
+  const opts = document.querySelectorAll('#q0_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_1(btn, ans) {
+  const fb = document.getElementById('fb-1_1');
+  const opts = document.querySelectorAll('#q1_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_2(btn, ans) {
+  const fb = document.getElementById('fb-1_2');
+  const opts = document.querySelectorAll('#q1_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_3(btn, ans) {
+  const fb = document.getElementById('fb-1_3');
+  const opts = document.querySelectorAll('#q1_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_4(btn, ans) {
+  const fb = document.getElementById('fb-1_4');
+  const opts = document.querySelectorAll('#q1_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ1_5(btn, ans) {
+  const fb = document.getElementById('fb-1_5');
+  const opts = document.querySelectorAll('#q1_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_1(btn, ans) {
+  const fb = document.getElementById('fb-2_1');
+  const opts = document.querySelectorAll('#q2_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_2(btn, ans) {
+  const fb = document.getElementById('fb-2_2');
+  const opts = document.querySelectorAll('#q2_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_3(btn, ans) {
+  const fb = document.getElementById('fb-2_3');
+  const opts = document.querySelectorAll('#q2_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_4(btn, ans) {
+  const fb = document.getElementById('fb-2_4');
+  const opts = document.querySelectorAll('#q2_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+
+function checkQ2_5(btn, ans) {
+  const fb = document.getElementById('fb-2_5');
+  const opts = document.querySelectorAll('#q2_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
 </script>
 </body>
 </html>
