@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>运动学实验室 · 学习手册 — 机械运动</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #ff6b35;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warn: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 245, 212, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+.progress-bar {
+  display: flex; gap: 8px; margin-bottom: 24px;
+}
+.progress-seg {
+  flex: 1; height: 4px; background: rgba(0,245,212,0.15); border-radius: 2px; cursor: pointer; transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  display: none;
+}
+
+.card.hidden { display: none; }
+.card.active { display: block; animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px; padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0,245,212,0.15);
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.chapter-num { font-size: 13px; color: var(--text-dim); }
+
+.concept-box {
+  background: rgba(0,245,212,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  border-radius: 0 8px 8px 0;
+  margin: 16px 0;
+}
+.concept-box .label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px; color: var(--accent);
+  margin-bottom: 8px; letter-spacing: 2px;
+}
+.concept-box p { line-height: 1.8; margin-bottom: 8px; }
+
+/* Reference frame interactive */
+.ref-scene {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 10px;
+  padding: 20px;
+  margin: 16px 0;
+}
+.ref-scene-title { font-size: 14px; color: var(--accent); margin-bottom: 12px; }
+.ref-controls {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.ref-btn {
+  background: rgba(0,245,212,0.1); border: 1px solid rgba(0,245,212,0.3);
+  color: var(--accent); padding: 8px 16px; border-radius: 6px;
+  cursor: pointer; font-family: inherit; font-size: 12px;
+  transition: all 0.3s;
+}
+.ref-btn:hover, .ref-btn.active {
+  background: rgba(0,245,212,0.2); border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(0,245,212,0.2);
+}
+.ref-result {
+  font-size: 13px; line-height: 1.8; min-height: 40px;
+  padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;
+}
+
+/* Speed calc interactive */
+.speed-calc {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 10px; padding: 20px; margin: 16px 0;
+}
+.speed-inputs {
+  display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+  margin-bottom: 12px;
+}
+.speed-input-group { display: flex; align-items: center; gap: 8px; }
+.speed-input-group label { font-size: 12px; color: var(--text2); }
+.speed-input-group input {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(0,245,212,0.3);
+  color: var(--accent); padding: 6px 10px; border-radius: 4px;
+  font-family: inherit; width: 80px;
+}
+.speed-result {
+  font-family: 'Orbitron'; font-size: 20px; color: var(--accent);
+  margin-top: 8px;
+}
+
+/* Formula highlight */
+.formula-box {
+  background: linear-gradient(90deg, rgba(0,245,212,0.08), transparent);
+  border: 1px solid rgba(0,245,212,0.2);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  text-align: center;
+}
+.formula-box .formula {
+  font-family: 'Orbitron'; font-size: 24px; color: var(--accent);
+  letter-spacing: 2px;
+}
+.formula-box .explain {
+  font-size: 12px; color: var(--text2); margin-top: 8px;
+}
+
+/* Comparison table */
+.compare-table {
+  width: 100%; border-collapse: collapse; margin: 16px 0;
+}
+.compare-table th {
+  background: rgba(0,245,212,0.1); color: var(--accent);
+  padding: 10px; font-family: 'Orbitron'; font-size: 12px;
+  border: 1px solid rgba(0,245,212,0.2);
+}
+.compare-table td {
+  padding: 10px; font-size: 13px; line-height: 1.6;
+  border: 1px solid rgba(0,245,212,0.1); color: var(--text);
+}
+
+.nav-btns {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 24px;
+}
+.nav-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+.nav-btn:hover { background: rgba(0,245,212,0.1); box-shadow: 0 0 12px rgba(0,245,212,0.2); }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.challenge-btn {
+  position: fixed; top: 20px; right: 20px; z-index: 100;
+  background: linear-gradient(135deg, var(--danger), #ff6b6b);
+  color: #fff; border: none;
+  padding: 10px 20px; border-radius: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px; letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(239,71,111,0.3);
+  transition: all 0.3s;
+}
+.challenge-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(239,71,111,0.4); }
+
+/* s-t graph visualization */
+.graph-viz {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(0,245,212,0.15);
+  border-radius: 10px; padding: 16px; margin: 16px 0;
+  text-align: center;
+}
+.graph-viz canvas {
+  max-width: 100%; height: auto;
+}
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 768px) {
+      #app { padding: 28px 16px; }
+      .title-bar h1 { font-size: 24px; letter-spacing: 2px; }
+      .card { padding: 16px; }
+      .card-header h2 { font-size: 18px; }
+      .challenge-btn { top: 12px; right: 12px; padding: 8px 14px; font-size: 11px; }
+      .nav-btns { gap: 12px; }
+      .nav-btn { padding: 8px 16px; font-size: 13px; }
+      .ref-controls { gap: 6px; }
+      .ref-btn { padding: 6px 12px; font-size: 11px; }
+      .speed-inputs { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .speed-input-group input { width: 100px; }
+      .compare-table th, .compare-table td { padding: 6px; font-size: 11px; }
+      .formula-box .formula { font-size: 18px; }
+    }
+    @media (max-width: 480px) {
+      #app { padding: 20px 12px; }
+      .title-bar h1 { font-size: 18px; letter-spacing: 1px; }
+      .title-bar .subtitle { font-size: 11px; letter-spacing: 1px; }
+      .card { padding: 12px; }
+      .card-header h2 { font-size: 16px; }
+      .chapter-num { font-size: 11px; }
+      .concept-box { padding: 12px 14px; }
+      .challenge-btn { top: 8px; right: 8px; padding: 6px 10px; font-size: 10px; }
+      .nav-btns { flex-direction: column; gap: 10px; }
+      .nav-btn { width: 100%; text-align: center; padding: 10px; font-size: 13px; }
+      .ref-controls { flex-direction: column; gap: 6px; }
+      .ref-btn { width: 100%; text-align: center; padding: 8px; }
+      .speed-inputs { flex-direction: column; gap: 8px; }
+      .speed-input-group { width: 100%; }
+      .speed-input-group input { width: 100%; }
+      .speed-result { font-size: 16px; }
+      .formula-box { padding: 12px 14px; }
+      .formula-box .formula { font-size: 16px; }
+      .compare-table { display: block; overflow-x: auto; white-space: nowrap; }
+      .compare-table th, .compare-table td { padding: 6px 8px; font-size: 11px; }
+      .progress-bar { gap: 4px; }
+      .progress-seg { height: 3px; }
+    }
+    @media (max-width: 360px) {
+      #app { padding: 16px 8px; }
+      .title-bar h1 { font-size: 16px; }
+      .card { padding: 10px; }
+      .challenge-btn { padding: 5px 8px; font-size: 9px; }
+    }
+</style>
+</head>
+<body>
+<a href="index.html" class="challenge-btn">🎮 去挑战模式</a>
+
+<div id="app">
+  <div class="title-bar">
+    <h1>运动学实验室</h1>
+    <div class="subtitle">CHRONOS TRACKING DIVISION · 学习手册</div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-seg active"></div>
+<div class="progress-seg"></div>
+<div class="progress-seg"></div>
+<div class="progress-seg"></div></div>
+    <div class="progress-seg" data-ch="2"></div>
+    <div class="progress-seg" data-ch="3"></div>
+    <div class="progress-seg" data-ch="4"></div>
+    <div class="progress-seg" data-ch="5"></div>
+  </div>
+
+  <!-- ========== CHAPTER 1: 机械运动与参照物 ========== -->
+  <div class="card active" id="ch1">
+    <div class="card-header">
+      <h2>机械运动与参照物</h2>
+      <span class="chapter-num">第 1 / 5 节</span>
+    
+
+<h3>🧪 实验 1：匀速直线运动模拟</h3>
+<div class="demo-box">
+  <canvas id="motionCanvas" width="500" height="150"></canvas>
+  <div class="slider-control">
+    <label>速度 v</label>
+    <input type="range" id="motionSpeed" min="0" max="100" value="50">
+    <span class="value" id="motionSpeedVal">50 m/s</span>
+  </div>
+  <p style="font-size:12px;color:var(--text-dim);margin-top:8px">拖动滑块改变速度，观察物体匀速运动。v = s/t</p>
+</div>
+<script>
+(function(){
+  const c = document.getElementById('motionCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const sInput = document.getElementById('motionSpeed');
+  const sVal = document.getElementById('motionSpeedVal');
+  let x = 0, t = 0;
+  function draw() {
+    let v = sInput ? parseInt(sInput.value) : 50;
+    if(sVal) sVal.textContent = v + ' m/s';
+    t++;
+    x = (v * t / 10) % 460;
+    ctx.clearRect(0,0,500,150);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(0,100,500,40);
+    ctx.fillStyle = 'var(--accent)'; ctx.fillRect(x, 80, 40, 30);
+    ctx.fillStyle = 'var(--text)'; ctx.font = '12px monospace';
+    ctx.fillText('s=' + (v*t/10).toFixed(0) + 'm', x, 70);
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+
+<h3>🧪 实验 2：相对运动观察</h3>
+<div class="demo-box">
+  <canvas id="relativeCanvas" width="500" height="200"></canvas>
+  <div style="margin-top:10px">
+    <button class="btn" onclick="setRef('ground')">🌍 地面参照</button>
+    <button class="btn btn-ghost" onclick="setRef('car')">🚗 汽车参照</button>
+  </div>
+  <p style="font-size:12px;color:var(--text-dim);margin-top:8px">切换参照物，观察同一物体运动状态的变化。</p>
+</div>
+<script>
+(function(){
+  const c = document.getElementById('relativeCanvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  let ref = 'ground';
+  window.setRef = function(r) { ref = r; };
+  let t = 0;
+  function draw() {
+    t++;
+    ctx.clearRect(0,0,500,200);
+    ctx.fillStyle = 'var(--panel)'; ctx.fillRect(0,150,500,40);
+    let carX = (t * 2) % 440;
+    let ballX = carX + 50 + Math.sin(t/20) * 30;
+    if(ref === 'car') {
+      ctx.fillStyle = 'var(--accent)'; ctx.fillRect(230, 100, 40, 30);
+      ctx.fillStyle = 'var(--danger)'; ctx.beginPath(); ctx.arc(250 + Math.sin(t/20)*30, 90, 10, 0, Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle = 'var(--accent)'; ctx.fillRect(carX, 120, 40, 30);
+      ctx.fillStyle = 'var(--danger)'; ctx.beginPath(); ctx.arc(ballX, 90, 10, 0, Math.PI*2); ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+
+</div>
+
+    <div class="concept-box">
+      <div class="label">核心概念</div>
+      <p><strong>机械运动</strong>：在物理学中，把一个物体相对于另一个物体<strong>位置的改变</strong>称为机械运动。</p>
+      <p><strong>参照物</strong>：研究一个物体的运动时，被选作标准的物体叫做参照物。参照物被假定为静止不动。</p>
+    </div>
+
+    <p style="margin: 16px 0; line-height: 1.8;">
+      欢迎来到运动学实验室！作为物理探索者，你的任务是判断目标是否在运动。但首先你需要明白：<strong>运动是相对的</strong>。
+    </p>
+
+    <div class="ref-scene">
+      <div class="ref-scene-title">🚗 互动实验：选择参照物，判断运动状态</div>
+      <div style="font-size: 13px; color: var(--text2); margin-bottom: 12px;">
+        场景：小明坐在行驶的公交车里，路边站着小红。
+      </div>
+      <div class="ref-controls">
+        <button class="ref-btn active" onclick="setRef('ground', this)">以地面为参照物</button>
+        <button class="ref-btn" onclick="setRef('bus', this)">以公交车为参照物</button>
+        <button class="ref-btn" onclick="setRef('xiaoming', this)">以小明为参照物</button>
+      </div>
+      <div class="ref-result" id="ref-result">
+        <strong style="color: var(--accent);">以地面为参照物：</strong><br>
+        公交车是 <span style="color: var(--success);">运动</span> 的（位置在改变）<br>
+        小红是 <span style="color: var(--danger);">静止</span> 的（位置不变）<br>
+        小明是 <span style="color: var(--success);">运动</span> 的（随公交车一起移动）
+      </div>
+    </div>
+
+    <div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 12px; line-height: 1.6;">
+      💡 <strong>关键理解</strong>：同一个物体，选择不同的参照物，运动状态的判断可能不同。运动和静止是<strong>相对</strong>的，不是绝对的。
+    </div>
+
+    <div class="formula-box">
+      <div class="formula">运动 ↔ 静止 = 相对</div>
+      <div class="explain">没有绝对的静止，也没有绝对的运动。一切取决于你站在哪里看。</div>
+    </div>
+  </div>
+
+  <!-- ========== CHAPTER 2: 运动与静止的相对性 ========== -->
+  <div class="card" id="ch2">
+    <div class="card-header">
+      <h2>运动与静止的相对性</h2>
+      <span class="chapter-num">第 2 / 5 节</span>
+    </div>
+
+    <div class="concept-box">
+      <div class="label">核心概念</div>
+      <p><strong>运动和静止的相对性</strong>：判断同一个物体的运动状态时，选取不同的参照物，结论一般不同。</p>
+      <p>运动是<strong>绝对</strong>的（宇宙中一切物体都在运动），静止是<strong>相对</strong>的（相对于某个参照物）。</p>
+    </div>
+
+    <p style="margin: 16px 0; line-height: 1.8;">
+      作为物理探索者，你必须掌握"换位思考"的能力。从不同的视角观察，同一个目标可能是运动的，也可能是静止的。
+    </p>
+
+    <table class="compare-table">
+      <tr>
+        <th>场景</th>
+        <th>参照物</th>
+        <th>判断结果</th>
+      </tr>
+      <tr>
+        <td>坐在飞机里的乘客</td>
+        <td>飞机座椅</td>
+        <td>乘客是 <span style="color: var(--danger);">静止</span> 的</td>
+      </tr>
+      <tr>
+        <td>坐在飞机里的乘客</td>
+        <td>地面</td>
+        <td>乘客是 <span style="color: var(--success);">运动</span> 的（速度900km/h）</td>
+      </tr>
+      <tr>
+        <td>并排行驶的两辆车</td>
+        <td>其中一辆车</td>
+        <td>另一辆车可能是 <span style="color: var(--warn);">静止</span> 的（如果速度相同）</td>
+      </tr>
+      <tr>
+        <td>并排行驶的两辆车</td>
+        <td>地面</td>
+        <td>两辆车都是 <span style="color: var(--success);">运动</span> 的</td>
+      </tr>
+      <tr>
+        <td>同步卫星</td>
+        <td>地球表面</td>
+        <td>卫星是 <span style="color: var(--danger);">静止</span> 的（相对地面不动）</td>
+      </tr>
+      <tr>
+        <td>同步卫星</td>
+        <td>地心</td>
+        <td>卫星是 <span style="color: var(--success);">运动</span> 的（绕地球转动）</td>
+      </tr>
+    </table>
+
+    <div style="background: rgba(255,209,102,0.05); border-left: 3px solid var(--warn); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; line-height: 1.8;">
+      <strong style="color: var(--warn);">⚠️ 探索者注意</strong><br>
+      不能选择<strong>被研究物体本身</strong>作为参照物！如果以自己为参照物，你永远是静止的，这没有意义。
+    </div>
+  
+<h3>✏️ 例题 1</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 1：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>✏️ 例题 2</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 2：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>✏️ 例题 3</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 3：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q0_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_1"></div>
+</div>
+<script>
+function checkQ0_1(btn, ans) {
+  const fb = document.getElementById('fb-0_1');
+  const opts = document.querySelectorAll('#q0_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q0_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_2"></div>
+</div>
+<script>
+function checkQ0_2(btn, ans) {
+  const fb = document.getElementById('fb-0_2');
+  const opts = document.querySelectorAll('#q0_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q0_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_3"></div>
+</div>
+<script>
+function checkQ0_3(btn, ans) {
+  const fb = document.getElementById('fb-0_3');
+  const opts = document.querySelectorAll('#q0_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q0_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_4"></div>
+</div>
+<script>
+function checkQ0_4(btn, ans) {
+  const fb = document.getElementById('fb-0_4');
+  const opts = document.querySelectorAll('#q0_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q0_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_5"></div>
+</div>
+<script>
+function checkQ0_5(btn, ans) {
+  const fb = document.getElementById('fb-0_5');
+  const opts = document.querySelectorAll('#q0_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+</div>
+
+  <!-- ========== CHAPTER 3: 速度 ========== -->
+  <div class="card" id="ch3">
+    <div class="card-header">
+      <h2>速度 — 运动快慢的量度</h2>
+      <span class="chapter-num">第 3 / 5 节</span>
+    </div>
+
+    <div class="concept-box">
+      <div class="label">核心概念</div>
+      <p><strong>速度</strong>：表示物体运动快慢的物理量，等于路程与时间的比值。</p>
+      <p><strong>公式</strong>：v = s / t （速度 = 路程 ÷ 时间）</p>
+      <p><strong>单位</strong>：米/秒（m/s）或 千米/时（km/h）；换算：1 m/s = 3.6 km/h</p>
+    </div>
+
+    <div class="formula-box">
+      <div class="formula">v = s / t</div>
+      <div class="explain">v = 速度（velocity）· s = 路程（distance）· t = 时间（time）</div>
+    </div>
+
+    <div class="speed-calc">
+      <div style="font-size: 14px; color: var(--accent); margin-bottom: 12px;">🧮 速度计算器</div>
+      <div class="speed-inputs">
+        <div class="speed-input-group">
+          <label>路程 s =</label>
+          <input type="number" id="speed-s" value="100" oninput="calcSpeed()">
+          <span style="font-size: 12px; color: var(--text2);">m</span>
+        </div>
+        <div class="speed-input-group">
+          <label>时间 t =</label>
+          <input type="number" id="speed-t" value="10" oninput="calcSpeed()">
+          <span style="font-size: 12px; color: var(--text2);">s</span>
+        </div>
+      </div>
+      <div class="speed-result" id="speed-result">v = 10.00 m/s = 36.0 km/h</div>
+    </div>
+
+    <div style="margin: 16px 0; font-size: 13px; line-height: 1.8;">
+      <strong style="color: var(--accent);">常见速度参考：</strong><br>
+      🚶 人步行：约 1.1 m/s（4 km/h）<br>
+      🚴 自行车：约 5 m/s（18 km/h）<br>
+      🚗 市区汽车：约 15 m/s（54 km/h）<br>
+      🚄 高铁：约 80 m/s（288 km/h）<br>
+      ✈️ 民航客机：约 250 m/s（900 km/h）<br>
+      🚀 声音在空气中：约 340 m/s<br>
+      ⚡ 光在真空中：3 × 10⁸ m/s
+    </div>
+
+    <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 14px 16px; margin: 12px 0; font-size: 13px; line-height: 1.8;">
+      <strong style="color: var(--accent);">例题</strong>：小明骑车上学，家到学校距离 3.6 km，用时 12 分钟。求骑车的速度。<br><br>
+      <strong>解</strong>：s = 3.6 km = 3600 m，t = 12 min = 720 s<br>
+      v = s / t = 3600 / 720 = <strong style="color: var(--accent);">5 m/s</strong> = 18 km/h
+    </div>
+  
+<h3>✏️ 例题 1</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 1：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>✏️ 例题 2</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 2：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>✏️ 例题 3</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 3：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q1_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_1"></div>
+</div>
+<script>
+function checkQ1_1(btn, ans) {
+  const fb = document.getElementById('fb-1_1');
+  const opts = document.querySelectorAll('#q1_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q1_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_2"></div>
+</div>
+<script>
+function checkQ1_2(btn, ans) {
+  const fb = document.getElementById('fb-1_2');
+  const opts = document.querySelectorAll('#q1_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q1_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_3"></div>
+</div>
+<script>
+function checkQ1_3(btn, ans) {
+  const fb = document.getElementById('fb-1_3');
+  const opts = document.querySelectorAll('#q1_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q1_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_4"></div>
+</div>
+<script>
+function checkQ1_4(btn, ans) {
+  const fb = document.getElementById('fb-1_4');
+  const opts = document.querySelectorAll('#q1_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q1_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_5"></div>
+</div>
+<script>
+function checkQ1_5(btn, ans) {
+  const fb = document.getElementById('fb-1_5');
+  const opts = document.querySelectorAll('#q1_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+</div>
+
+  <!-- ========== CHAPTER 4: 匀速与变速运动 ========== -->
+  <div class="card" id="ch4">
+    <div class="card-header">
+      <h2>匀速直线运动与变速运动</h2>
+      <span class="chapter-num">第 4 / 5 节</span>
+    </div>
+
+    <div class="concept-box">
+      <div class="label">核心概念</div>
+      <p><strong>匀速直线运动</strong>：物体沿直线运动，且速度大小保持不变。任意相等时间内通过的路程相等。</p>
+      <p><strong>变速直线运动</strong>：物体沿直线运动，但速度大小发生变化。相等时间内通过的路程不相等。</p>
+      <p><strong>平均速度</strong>：反映物体在整个运动过程中的平均快慢程度。v̄ = 总路程 / 总时间</p>
+    </div>
+
+    <table class="compare-table">
+      <tr>
+        <th>比较</th>
+        <th>匀速直线运动</th>
+        <th>变速直线运动</th>
+      </tr>
+      <tr>
+        <td>速度</td>
+        <td>保持不变</td>
+        <td>不断变化</td>
+      </tr>
+      <tr>
+        <td>路程-时间关系</td>
+        <td>s = v·t（成正比）</td>
+        <td>不成正比</td>
+      </tr>
+      <tr>
+        <td>s-t 图像</td>
+        <td>过原点的直线</td>
+        <td>曲线或折线</td>
+      </tr>
+      <tr>
+        <td>v-t 图像</td>
+        <td>水平直线</td>
+        <td>倾斜或波动的线</td>
+      </tr>
+      <tr>
+        <td>例子</td>
+        <td>传送带上的物体、近似匀速行驶的高铁</td>
+        <td>百米赛跑、汽车起步加速</td>
+      </tr>
+    </table>
+
+    <div class="graph-viz">
+      <div style="font-size: 14px; color: var(--accent); margin-bottom: 8px;">📈 图像对比</div>
+      <canvas id="motionGraph" width="400" height="200" style="border: 1px solid rgba(0,245,212,0.2); border-radius: 6px;"></canvas>
+      <div style="font-size: 11px; color: var(--text2); margin-top: 8px;">
+        左：匀速直线运动的 s-t 图像（直线）<br>
+        右：变速运动的 s-t 图像（曲线）
+      </div>
+    </div>
+
+    <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 14px 16px; margin: 12px 0; font-size: 13px; line-height: 1.8;">
+      <strong style="color: var(--accent);">平均速度例题</strong>：小刚从家到学校，前一半路程步行（速度 1 m/s），后一半路程骑车（速度 5 m/s）。求全程平均速度。<br><br>
+      <strong>易错提醒</strong>：不能简单地把两个速度相加除以2！<br><br>
+      <strong>正确解法</strong>：设总路程为 2s，则 t₁ = s/1，t₂ = s/5<br>
+      v̄ = 2s / (s/1 + s/5) = 2 / (1 + 0.2) = <strong style="color: var(--accent);">1.67 m/s</strong>
+    </div>
+  
+<h3>✏️ 例题 1</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 1：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>✏️ 例题 2</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 2：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>✏️ 例题 3</h3>
+<div class="example-item" onclick="this.classList.toggle('expanded')">
+  <div class="q">📌 例题 3：（补充例题，请根据本单元内容设计）</div>
+  <div class="a">
+    <strong>解：</strong>待补充
+    <div class="step">💡 请根据课堂内容补充详细解答</div>
+  </div>
+</div>
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q2_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_1"></div>
+</div>
+<script>
+function checkQ2_1(btn, ans) {
+  const fb = document.getElementById('fb-2_1');
+  const opts = document.querySelectorAll('#q2_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q2_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_2"></div>
+</div>
+<script>
+function checkQ2_2(btn, ans) {
+  const fb = document.getElementById('fb-2_2');
+  const opts = document.querySelectorAll('#q2_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q2_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_3"></div>
+</div>
+<script>
+function checkQ2_3(btn, ans) {
+  const fb = document.getElementById('fb-2_3');
+  const opts = document.querySelectorAll('#q2_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q2_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_4"></div>
+</div>
+<script>
+function checkQ2_4(btn, ans) {
+  const fb = document.getElementById('fb-2_4');
+  const opts = document.querySelectorAll('#q2_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q2_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_5"></div>
+</div>
+<script>
+function checkQ2_5(btn, ans) {
+  const fb = document.getElementById('fb-2_5');
+  const opts = document.querySelectorAll('#q2_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+</div>
+
+  <!-- ========== CHAPTER 5: 例题与测试 ========== -->
+  <div class="card" id="ch5">
+    <div class="card-header">
+      <h2>实战演练</h2>
+      <span class="chapter-num">第 5 / 5 节</span>
+    </div>
+
+    <div style="margin: 16px 0;">
+      <div style="font-size: 15px; color: var(--accent); margin-bottom: 12px;">📝 例题 1：参照物判断</div>
+      <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.8;">
+        "小小竹排江中游，巍巍青山两岸走" 这句歌词中，"青山两岸走"选择的参照物是什么？<br><br>
+        <strong>答案</strong>：竹排。以竹排为参照物，青山的位置在改变，所以青山是"运动"的。
+      </div>
+    </div>
+
+    <div style="margin: 16px 0;">
+      <div style="font-size: 15px; color: var(--accent); margin-bottom: 12px;">📝 例题 2：速度计算</div>
+      <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.8;">
+        一辆汽车在高速公路上行驶，看到路牌显示前方 120 km 到达上海。汽车以 100 km/h 的速度匀速行驶，需要多少时间到达？<br><br>
+        <strong>解</strong>：t = s / v = 120 / 100 = <strong style="color: var(--accent);">1.2 h</strong> = 1小时12分钟
+      </div>
+    </div>
+
+    <div style="margin: 16px 0;">
+      <div style="font-size: 15px; color: var(--accent); margin-bottom: 12px;">📝 例题 3：平均速度</div>
+      <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.8;">
+        某同学参加百米赛跑，前 50 m 用了 8 s，后 50 m 用了 6 s。求全程平均速度。<br><br>
+        <strong>解</strong>：总路程 = 100 m，总时间 = 8 + 6 = 14 s<br>
+        v̄ = 100 / 14 = <strong style="color: var(--accent);">7.14 m/s</strong>
+      </div>
+    </div>
+
+    <div style="margin: 20px 0;">
+      <div style="font-size: 15px; color: var(--accent); margin-bottom: 12px;">✅ 快速测试</div>
+      <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; font-size: 13px; line-height: 2;">
+        1. 机械运动是指物体 ______ 的变化。<br>
+        2. 研究物体运动时，被选作标准的物体叫 ______。<br>
+        3. 速度公式：v = ______。<br>
+        4. 1 m/s = ______ km/h。<br>
+        5. 匀速直线运动的速度大小 ______（填"变"或"不变"）。<br><br>
+        <div style="color: var(--text2); font-size: 11px;">
+          答案：1.位置 2.参照物 3.s/t 4.3.6 5.不变
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 24px; padding: 20px; background: linear-gradient(135deg, rgba(0,245,212,0.1), rgba(0,187,249,0.1)); border-radius: 12px; border: 1px solid rgba(0,245,212,0.3);">
+      <div style="font-family: 'Orbitron'; font-size: 20px; color: var(--accent); margin-bottom: 8px;">
+        🏅 理论训练完成！
+      </div>
+      <div style="font-size: 14px; color: var(--text); line-height: 1.8;">
+        你已掌握机械运动、参照物、速度计算、匀速与变速运动的核心知识。<br>
+        现在，点击右上角的 <strong style="color: var(--danger);">🎮 去挑战模式</strong>，进入运动学实验室的实战演练！
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-btns">
+    <button class="nav-btn" id="prevBtn" onclick="goTo(currentCh - 1)" disabled>← 上一单元</button>
+    <button class="nav-btn" id="nextBtn" onclick="goTo(currentCh + 1)">下一单元 →</button>
+  </div>
+</div>
+
+<script>
+let currentCh = 1;
+const totalCh = 5;
+
+function goTo(n) {
+  if (n < 1 || n > totalCh) return;
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+  document.getElementById('ch' + n).classList.add('active');
+  currentCh = n;
+  updateProgress();
+  document.getElementById('prevBtn').disabled = n === 1;
+  document.getElementById('nextBtn').disabled = n === totalCh;
+  if (n === totalCh) document.getElementById('nextBtn').textContent = '已完成 ✓';
+  else document.getElementById('nextBtn').textContent = '下一单元 →';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < currentCh) s.classList.add('done');
+    else if (i + 1 === currentCh) s.classList.add('active');
+  });
+}
+
+// Reference frame interactive
+function setRef(ref, btn) {
+  document.querySelectorAll('.ref-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const result = document.getElementById('ref-result');
+  const scenarios = {
+    ground: `<strong style="color: var(--accent);">以地面为参照物：</strong><br>
+      公交车是 <span style="color: var(--success);">运动</span> 的（位置在改变）<br>
+      小红是 <span style="color: var(--danger);">静止</span> 的（位置不变）<br>
+      小明是 <span style="color: var(--success);">运动</span> 的（随公交车一起移动）`,
+    bus: `<strong style="color: var(--accent);">以公交车为参照物：</strong><br>
+      公交车是 <span style="color: var(--danger);">静止</span> 的（参照物本身）<br>
+      小红是 <span style="color: var(--success);">运动</span> 的（向后退）<br>
+      小明是 <span style="color: var(--danger);">静止</span> 的（坐在座位上不动）`,
+    xiaoming: `<strong style="color: var(--accent);">以小明为参照物：</strong><br>
+      公交车是 <span style="color: var(--danger);">静止</span> 的（小明在车里）<br>
+      小红是 <span style="color: var(--success);">运动</span> 的（向后退）<br>
+      小明自己是 <span style="color: var(--danger);">静止</span> 的（不能选自己为参照物研究自己！）`
+  };
+  result.innerHTML = scenarios[ref];
+}
+
+// Speed calculator
+function calcSpeed() {
+  const s = parseFloat(document.getElementById('speed-s').value) || 0;
+  const t = parseFloat(document.getElementById('speed-t').value) || 1;
+  const v = s / t;
+  const kmh = v * 3.6;
+  document.getElementById('speed-result').textContent =
+    `v = ${v.toFixed(2)} m/s = ${kmh.toFixed(1)} km/h`;
+}
+
+// Motion graph canvas
+function drawMotionGraph() {
+  const canvas = document.getElementById('motionGraph');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,240,200,0.1)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= w; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke(); }
+  for (let i = 0; i <= h; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke(); }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(0,240,200,0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(40, h - 30); ctx.lineTo(w - 20, h - 30); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(40, h - 30); ctx.lineTo(40, 20); ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#8b8b9a'; ctx.font = '10px "Share Tech Mono"';
+  ctx.fillText('s', 20, 20); ctx.fillText('t', w - 20, h - 15);
+  ctx.fillText('0', 30, h - 15);
+
+  // Uniform motion (left half) - straight line
+  ctx.strokeStyle = '#00f0c8'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(40, h - 30);
+  for (let x = 0; x <= 160; x += 2) {
+    const y = (h - 30) - x * 0.8;
+    ctx.lineTo(40 + x, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#00f0c8'; ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('匀速直线运动', 50, h - 80);
+
+  // Variable motion (right half) - curve
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(40 + 180, h - 30);
+  for (let x = 0; x <= 160; x += 2) {
+    const y = (h - 30) - (x * x / 200 + x * 0.3);
+    ctx.lineTo(40 + 180 + x, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText('变速运动', 230, h - 100);
+}
+
+document.querySelectorAll('.progress-seg').forEach((s, i) => {
+  s.addEventListener('click', () => goTo(i + 1));
+});
+
+// Initialize
+calcSpeed();
+setTimeout(drawMotionGraph, 500);
+updateProgress();
+</script>
+</body>
+</html>

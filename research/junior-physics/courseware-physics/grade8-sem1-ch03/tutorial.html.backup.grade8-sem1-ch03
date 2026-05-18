@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>声波分析中心 · 学习手册 — 声</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #06080f;
+  --panel: rgba(10, 14, 26, 0.9);
+  --accent: #00f0c8;
+  --accent2: #00bbf9;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --success: #06d6a0;
+  --grid: rgba(0, 240, 200, 0.08);
+  --text: #c0c8d8;
+  --text-dim: #586070;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+#app {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.title-bar {
+  text-align: center;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.title-bar h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
+}
+.title-bar .subtitle {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; letter-spacing: 2px;
+}
+
+.progress-bar {
+  display: flex; gap: 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+.progress-seg {
+  width: 80px; height: 4px;
+  background: rgba(88,96,112,0.3);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.progress-seg.done { background: var(--success); }
+
+.card {
+  background: var(--panel);
+  border: 1px solid rgba(0,240,200,0.2);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease;
+}
+
+.card.hidden { display: none; }
+.card-header {
+  display: flex; justify-content: center; align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,240,200,0.15);
+  padding-bottom: 12px;
+}
+.card-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px; color: var(--accent);
+}
+.card-header .chapter-num {
+  font-size: 12px; color: var(--text-dim);
+  border: 1px solid var(--text-dim); padding: 2px 10px;
+  border-radius: 3px;
+}
+
+.concept-box {
+  background: rgba(0,240,200,0.05);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 6px 6px 0;
+}
+.concept-box .label {
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.concept-box p { font-size: 16px; line-height: 1.7; }
+.concept-box .formula {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px; color: var(--warning);
+  margin: 8px 0;
+}
+
+/* Sound demo buttons */
+.sound-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(0,240,200,0.08);
+  border: 1px solid rgba(0,240,200,0.3);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin: 4px 4px 4px 0;
+  font-family: inherit;
+}
+.sound-btn:hover {
+  background: rgba(0,240,200,0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(0,240,200,0.15);
+}
+.sound-btn.playing {
+  background: rgba(0,240,200,0.25);
+  border-color: var(--accent);
+  animation: soundPulse 0.5s ease infinite alternate;
+}
+@keyframes soundPulse {
+  from { box-shadow: 0 0 5px rgba(0,240,200,0.2); }
+  to { box-shadow: 0 0 15px rgba(0,240,200,0.4); }
+}
+
+.sound-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  border: 1px solid rgba(0,240,200,0.1);
+}
+.sound-group-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  width: 100%;
+  letter-spacing: 1px;
+}
+
+/* Challenge mode button - unified style */
+.challenge-bar {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0,240,200,0.15);
+}
+.challenge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 36px;
+  background: linear-gradient(135deg, var(--warning), #e6a817);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(255,209,102,0.25);
+}
+.challenge-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(255,209,102,0.4);
+}
+
+/* Footer update */
+.footer-note {
+  text-align: center;
+  padding: 20px 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.anim-area {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Wave animation */
+.wave-viz {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 120px;
+  background: rgba(0,240,200,0.03);
+  border: 1px solid rgba(0,240,200,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.wave-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Tuning fork animation */
+.tfork-viz {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+}
+.tfork {
+  width: 60px;
+  height: 80px;
+  position: relative;
+}
+.tfork-prong {
+  position: absolute;
+  width: 8px;
+  height: 60px;
+  background: linear-gradient(180deg, var(--accent), var(--accent2));
+  border-radius: 4px 4px 0 0;
+  top: 0;
+}
+.tfork-prong.left { left: 8px; animation: tforkVibrate 0.1s ease-in-out infinite alternate; }
+.tfork-prong.right { right: 8px; animation: tforkVibrate 0.1s ease-in-out infinite alternate-reverse; }
+.tfork-base {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 20px;
+  background: var(--text-dim);
+  border-radius: 0 0 4px 4px;
+}
+.tfork-label {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+@keyframes tforkVibrate {
+  from { transform: translateX(0); }
+  to { transform: translateX(2px); }
+}
+
+/* Sound propagation */
+.prop-viz {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 100px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,240,200,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.prop-source {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: var(--warning);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--warning);
+  animation: propPulse 1s ease-out infinite;
+}
+.prop-ring {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: propRing 2s ease-out infinite;
+}
+.prop-ring:nth-child(2) { animation-delay: 0.5s; }
+.prop-ring:nth-child(3) { animation-delay: 1s; }
+.prop-medium {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--text-dim);
+}
+@keyframes propPulse {
+  0%, 100% { transform: translateY(-50%) scale(1); }
+  50% { transform: translateY(-50%) scale(1.2); }
+}
+@keyframes propRing {
+  0% { width: 20px; height: 20px; margin-left: -10px; margin-top: -10px; opacity: 1; }
+  100% { width: 300px; height: 300px; margin-left: -150px; margin-top: -150px; opacity: 0; }
+}
+
+/* Echo animation */
+.echo-viz {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 100px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,240,200,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.echo-source {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: var(--warning);
+  border-radius: 50%;
+}
+.echo-wall {
+  position: absolute;
+  right: 20px;
+  top: 10px;
+  bottom: 10px;
+  width: 6px;
+  background: var(--text-dim);
+  border-radius: 2px;
+}
+.echo-pulse-out {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  animation: echoOut 3s ease-out infinite;
+}
+.echo-pulse-back {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  margin-right: -8px;
+  margin-top: -8px;
+  border: 2px solid var(--accent2);
+  border-radius: 50%;
+  animation: echoBack 3s ease-out infinite;
+  animation-delay: 1.5s;
+  opacity: 0;
+}
+@keyframes echoOut {
+  0% { width: 16px; height: 16px; opacity: 1; }
+  50% { width: 200px; height: 200px; margin-left: -100px; margin-top: -100px; opacity: 0.5; }
+  100% { width: 200px; height: 200px; opacity: 0; }
+}
+@keyframes echoBack {
+  0% { width: 16px; height: 16px; opacity: 0.5; right: 20px; }
+  50% { width: 200px; height: 200px; margin-right: -100px; margin-top: -100px; opacity: 0.5; right: 120px; }
+  100% { width: 16px; height: 16px; opacity: 0; right: 220px; }
+}
+
+.example-list { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+.example-item {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,240,200,0.1);
+  border-radius: 6px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.example-item:hover { border-color: rgba(0,240,200,0.3); }
+.example-item .q { font-size: 15px; color: var(--text); }
+.example-item .a {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,240,200,0.1);
+  display: none;
+  line-height: 1.8;
+}
+.example-item.expanded .a { display: block; }
+.example-item .step {
+  font-size: 13px;
+  color: var(--warning);
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.quiz-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,240,200,0.15);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.quiz-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.quiz-question {
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.quiz-btn {
+  background: rgba(0,240,200,0.05);
+  border: 1px solid rgba(0,240,200,0.2);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.quiz-btn:hover { background: rgba(0,240,200,0.1); border-color: var(--accent); }
+.quiz-btn.correct { background: rgba(6,214,160,0.15); border-color: var(--success); color: var(--success); }
+.quiz-btn.wrong { background: rgba(239,71,111,0.15); border-color: var(--danger); color: var(--danger); }
+.quiz-feedback {
+  margin-top: 10px;
+  font-size: 14px;
+  min-height: 20px;
+}
+
+.btn-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+  gap: 16px;
+}
+.btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s;
+}
+.btn:hover { box-shadow: 0 0 15px var(--accent); }
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.btn-ghost:hover { background: rgba(0,240,200,0.1); }
+.btn-warn {
+  background: var(--warning);
+  color: #000;
+}
+
+.hidden { display: none !important; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .title-bar h1 { font-size: 22px; }
+  .card { padding: 18px; }
+  .progress-seg { width: 50px; }
+  .btn-row { flex-direction: column; gap: 12px; }
+  .btn-row .btn { width: 100%; text-align: center; }
+  .challenge-bar { flex-direction: column; gap: 12px; text-align: center; }
+  .challenge-btn { width: 100%; justify-content: center; }
+}
+@media (max-width: 480px) {
+  .title-bar h1 { font-size: 18px; letter-spacing: 2px; }
+  .card { padding: 14px; }
+  .card-header h2 { font-size: 18px; }
+  .concept-box { padding: 12px 14px; }
+  .concept-box p { font-size: 14px; }
+  .sound-btn { font-size: 12px; padding: 5px 10px; }
+  .quiz-btn { padding: 8px 12px; font-size: 13px; }
+  .example-item { padding: 12px; }
+  .example-item .q { font-size: 14px; }
+  .footer-note { font-size: 11px; }
+}
+@media (max-width: 360px) {
+  #app { padding: 20px 12px; }
+  .title-bar h1 { font-size: 16px; }
+  .card { padding: 12px; }
+  .sound-group { padding: 8px; }
+  .anim-area { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div class="title-bar">
+  <h1>声学实验室</h1>
+  <div class="subtitle">沪科版八年级第一学期 · 第三章 · 学习手册<div style="text-align:center;margin-top:16px;"><a class="challenge-btn" href="index.html">🎮 去挑战模式</a></div></div>
+</div>
+
+<div class="progress-bar"><div class="progress-seg active"></div>
+<div class="progress-seg"></div>
+<div class="progress-seg"></div></div>
+
+<!-- ========== CHAPTER 1: 声音的产生与传播 ========== -->
+<div class="card" id="ch1">
+  <div class="card-header">
+    <h2>声音的产生与传播</h2>
+    <span class="chapter-num">第 1 / 3 单元</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心概念</div>
+    <p><strong>声音是由物体的振动产生的。</strong>一切发声的物体都在振动，振动停止，发声也停止。</p>
+    <p>声音的传播需要<strong>介质</strong>（固体、液体、气体）。<strong>真空不能传声。</strong></p>
+    <p>声速：空气中约 <strong>340 m/s</strong>（15°C）。固体中声速 > 液体中声速 > 气体中声速。</p>
+    
+    <div class="sound-group">
+      <div class="sound-group-label">🔊 声音实验室 — 点击试听</div>
+      <button class="sound-btn" data-label="🔊 音叉 440Hz" onclick="playTone(440, 1.5, 'sine', 0.15); setPlaying(this, 1.5)">🔊 音叉 440Hz</button>
+      <button class="sound-btn" data-label="🔊 音叉 880Hz" onclick="playTone(880, 1.2, 'sine', 0.12); setPlaying(this, 1.2)">🔊 音叉 880Hz</button>
+      <button class="sound-btn" data-label="🔊 固体传声" onclick="playTone(500, 0.8, 'square', 0.18); setTimeout(()=>playTone(700, 0.6, 'square', 0.18), 400); setPlaying(this, 1.2)">🔊 固体传声（清脆）</button>
+      <button class="sound-btn" data-label="🔊 气体传声" onclick="playTone(500, 1.5, 'sine', 0.1); setPlaying(this, 1.5)">🔊 气体传声（柔和）</button>
+      <button class="sound-btn" data-label="🔊 真空（无声）" onclick="playInaudible(); setPlaying(this, 0.5)">🔊 真空（无声提示）</button>
+    </div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">音叉振动发声</div>
+    <div class="tfork-viz">
+      <div class="tfork">
+        <div class="tfork-prong left"></div>
+        <div class="tfork-prong right"></div>
+        <div class="tfork-base"></div>
+      </div>
+      <div class="tfork-label">音叉振动 → 产生声波</div>
+    </div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">声波在介质中传播</div>
+    <div class="prop-viz">
+      <div class="prop-source"></div>
+      <div class="prop-ring" style="width:20px;height:20px;"></div>
+      <div class="prop-ring" style="width:20px;height:20px;"></div>
+      <div class="prop-ring" style="width:20px;height:20px;"></div>
+      <div class="prop-medium">空气 / 水 / 固体</div>
+    </div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">🔬 分子视角：为什么不同介质声速不同？</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">
+      声音是分子振动的"接力赛"。分子越紧密，振动传递越快。
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center;">
+      <button class="sound-btn" onclick="startMolecularDemo('gas')">🌫️ 空气（慢）</button>
+      <button class="sound-btn" onclick="startMolecularDemo('liquid')">💧 水（中）</button>
+      <button class="sound-btn" onclick="startMolecularDemo('solid')">🔩 钢铁（快）</button>
+    </div>
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(0,240,200,0.15);border-radius:8px;padding:12px;">
+      <canvas id="molCanvas" width="560" height="140" style="width:100%;max-width:560px;height:auto;display:block;margin:0 auto;"></canvas>
+      <div id="molDesc" style="font-size:0.8rem;color:var(--text2);text-align:center;margin-top:8px;min-height:36px;">
+        👆 点击上方按钮，从分子层面观察声波传播差异
+      </div>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：宇航员在月球上面对面交谈，为什么听不见对方说话？</div>
+      <div class="a">
+        月球表面是<strong>真空</strong>环境，没有空气作为传播声音的介质。<br>
+        声音不能在真空中传播，所以听不见。<br>
+        宇航员需要使用<strong>无线电</strong>（电磁波可以在真空中传播）进行交流。
+        <div class="step">（真空不能传声 —— 声音需要介质）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：把耳朵贴在桌面上，能更清楚地听到远处的敲击声，为什么？</div>
+      <div class="a">
+        固体（桌面）传声效果比空气好。<br>
+        声音在固体中的传播速度比在气体中快，能量损失也小。<br>
+        所以通过桌面传声，能听得更清楚。
+        <div class="step">（固体传声效果 > 气体）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：在 15°C 的空气中，声音传播 340 m 需要多少时间？</div>
+      <div class="a">
+        已知：v = 340 m/s，s = 340 m<br>
+        t = s / v = 340 / 340 = <strong style="color:var(--success)">1 s</strong>
+        <div class="step">（t = s ÷ v，注意单位统一）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch1-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">下列哪种环境中声音无法传播？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。水可以传声，而且效果比空气还好。')">深水中</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！真空没有介质，声音无法传播。')">真空中</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。钢管是固体，传声效果很好。')">钢管中</button>
+    </div>
+    <div class="quiz-feedback" id="ch1-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">🔬 介质传声实验 — 分别点击四种介质，观察传播差异</div>
+      <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(0,240,200,0.15);border-radius:8px;padding:16px;margin:12px 0;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="sound-btn" data-label="🔊 空气" onclick="demoMedium('air', this)" style="flex:1;min-width:80px;justify-content:center;">🌫️ 空气</button>
+          <button class="sound-btn" data-label="🔊 水" onclick="demoMedium('water', this)" style="flex:1;min-width:80px;justify-content:center;">💧 水</button>
+          <button class="sound-btn" data-label="🔊 钢铁" onclick="demoMedium('steel', this)" style="flex:1;min-width:80px;justify-content:center;">🔩 钢铁</button>
+          <button class="sound-btn" data-label="🔊 真空" onclick="demoMedium('vacuum', this)" style="flex:1;min-width:80px;justify-content:center;">🌌 真空</button>
+        </div>
+        <div id="medium-viz" style="height:100px;background:rgba(0,0,0,0.2);border-radius:6px;position:relative;overflow:hidden;margin-bottom:10px;">
+          <div id="medium-source" style="position:absolute;left:20px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:var(--accent);border-radius:50%;box-shadow:0 0 15px var(--accent);z-index:2;">🔊</div>
+          <div id="medium-wave" style="position:absolute;left:35px;top:50%;transform:translateY(-50%);height:2px;background:linear-gradient(90deg, var(--accent), transparent);border-radius:1px;opacity:0;transition:none;"></div>
+          <div id="medium-particles" style="position:absolute;left:0;right:0;top:0;bottom:0;"></div>
+          <div id="medium-result" style="position:absolute;right:20px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:2px solid var(--text-dim);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim);">?</div>
+        </div>
+        <div id="medium-desc" style="font-size:13px;color:var(--text-dim);line-height:1.6;min-height:60px;">
+          👆 点击上方按钮，分别体验声音在四种介质中的传播效果。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="goTo(2)">下一单元 →</button>
+  </div>
+
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q0_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_1"></div>
+</div>
+<script>
+function checkQ0_1(btn, ans) {
+  const fb = document.getElementById('fb-0_1');
+  const opts = document.querySelectorAll('#q0_1 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q0_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_2"></div>
+</div>
+<script>
+function checkQ0_2(btn, ans) {
+  const fb = document.getElementById('fb-0_2');
+  const opts = document.querySelectorAll('#q0_2 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q0_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_3"></div>
+</div>
+<script>
+function checkQ0_3(btn, ans) {
+  const fb = document.getElementById('fb-0_3');
+  const opts = document.querySelectorAll('#q0_3 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q0_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_4"></div>
+</div>
+<script>
+function checkQ0_4(btn, ans) {
+  const fb = document.getElementById('fb-0_4');
+  const opts = document.querySelectorAll('#q0_4 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q0_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_5"></div>
+</div>
+<script>
+function checkQ0_5(btn, ans) {
+  const fb = document.getElementById('fb-0_5');
+  const opts = document.querySelectorAll('#q0_5 .quiz-option');
+  opts.forEach(o => { o.classList.remove('correct','wrong'); });
+  if(ans === 'A') {
+    btn.classList.add('correct');
+    fb.className = 'feedback ok';
+    fb.textContent = '正确！';
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = ' + ("常见错误：这是陷阱选项！" if is_trap else "不对，再想想。") + ';
+  }
+}
+</script>
+</div>
+
+<!-- ========== CHAPTER 2: 声音的三要素 ========== -->
+<div class="card hidden" id="ch2">
+  <div class="card-header">
+    <h2>声音的三要素</h2>
+    <span class="chapter-num">第 2 / 3 单元</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心概念</div>
+    <p>声音有三个基本特征：<strong>响度、音调、音色</strong>。</p>
+    <div class="formula" style="font-size:16px;">
+      🔊 响度 —— 由<strong>振幅</strong>决定。振幅越大，响度越大。<br>
+      🎵 音调 —— 由<strong>频率</strong>决定。频率越高，音调越高。<br>
+      🎸 音色 —— 由发声体的<strong>材料与结构</strong>决定。不同乐器音色不同。
+    </div>
+    
+    <div class="sound-group">
+      <div class="sound-group-label">🔊 三要素体验 — 点击试听</div>
+      <button class="sound-btn" data-label="🔊 响度：轻" onclick="playTone(440, 1.5, 'sine', 0.05); setPlaying(this, 1.5)">🔊 响度：轻（小振幅）</button>
+      <button class="sound-btn" data-label="🔊 响度：响" onclick="playTone(440, 1.5, 'sine', 0.3); setPlaying(this, 1.5)">🔊 响度：响（大振幅）</button>
+      <button class="sound-btn" data-label="🔊 音调：低音" onclick="playTone(150, 1.5, 'sine', 0.15); setPlaying(this, 1.5)">🔊 音调：低音（150Hz）</button>
+      <button class="sound-btn" data-label="🔊 音调：高音" onclick="playTone(800, 1.5, 'sine', 0.15); setPlaying(this, 1.5)">🔊 音调：高音（800Hz）</button>
+      <button class="sound-btn" data-label="🔊 频率滑动" onclick="playSweep(200, 1000, 2, 'sine'); setPlaying(this, 2)">🔊 频率滑动（200→1000Hz）</button>
+      <button class="sound-btn" data-label="🔊 音色：纯音" onclick="playTone(440, 1.2, 'sine', 0.15); setPlaying(this, 1.2)">🔊 音色：纯音（正弦波）</button>
+      <button class="sound-btn" data-label="🔊 音色：明亮" onclick="playTone(440, 1.2, 'sawtooth', 0.12); setPlaying(this, 1.2)">🔊 音色：明亮（锯齿波）</button>
+      <button class="sound-btn" data-label="🔊 音色：电子" onclick="playTone(440, 1.2, 'square', 0.12); setPlaying(this, 1.2)">🔊 音色：电子（方波）</button>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">响度与振幅</div>
+    <p>振幅是物体振动时离开平衡位置的<strong>最大距离</strong>。</p>
+    <p>用力敲鼓 → 鼓面振幅大 → 声音<strong>响</strong></p>
+    <p>轻轻敲鼓 → 鼓面振幅小 → 声音<strong>轻</strong></p>
+    <p>单位：<strong>分贝（dB）</strong>。0 dB 是人耳能听到的最微弱声音。</p>
+    
+    <div class="sound-group">
+      <div class="sound-group-label">🔊 响度对比 — 同频率不同振幅</div>
+      <button class="sound-btn" data-label="🔊 30% 振幅" onclick="playTone(440, 1.5, 'sine', 0.05); setPlaying(this, 1.5)">🔊 30% 振幅（轻）</button>
+      <button class="sound-btn" data-label="🔊 60% 振幅" onclick="playTone(440, 1.5, 'sine', 0.15); setPlaying(this, 1.5)">🔊 60% 振幅（中）</button>
+      <button class="sound-btn" data-label="🔊 100% 振幅" onclick="playTone(440, 1.5, 'sine', 0.3); setPlaying(this, 1.5)">🔊 100% 振幅（响）</button>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">音调与频率</div>
+    <p>频率是物体每秒振动的<strong>次数</strong>，单位 <strong>赫兹（Hz）</strong>。</p>
+    <p>人耳能听到的范围：约 <strong>20 Hz ~ 20000 Hz</strong></p>
+    <p>低于 20 Hz：<strong>次声波</strong>；高于 20000 Hz：<strong>超声波</strong></p>
+    <p>女高音频率高 → 音调高；男低音频率低 → 音调低</p>
+    
+    <div class="sound-group">
+      <div class="sound-group-label">🔊 频率对比 — 人耳可听范围</div>
+      <button class="sound-btn" data-label="🔊 100Hz 低音" onclick="playTone(100, 1.5, 'sine', 0.2); setPlaying(this, 1.5)">🔊 100Hz 低音</button>
+      <button class="sound-btn" data-label="🔊 261Hz 中音C" onclick="playTone(261.6, 1.5, 'sine', 0.15); setPlaying(this, 1.5)">🔊 261.6Hz 中音C</button>
+      <button class="sound-btn" data-label="🔊 523Hz 高音C" onclick="playTone(523.2, 1.5, 'sine', 0.15); setPlaying(this, 1.5)">🔊 523.2Hz 高音C</button>
+      <button class="sound-btn" data-label="🔊 1000Hz 尖锐" onclick="playTone(1000, 1.2, 'sine', 0.12); setPlaying(this, 1.2)">🔊 1000Hz 尖锐</button>
+      <button class="sound-btn" data-label="🔊 次声波" onclick="playInaudible(); setPlaying(this, 0.5)">🔊 次声波（不可听）</button>
+      <button class="sound-btn" data-label="🔊 超声波" onclick="playInaudible(); setPlaying(this, 0.5)">🔊 超声波（不可听）</button>
+    </div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">波形对比</div>
+    <div class="wave-viz">
+      <canvas class="wave-canvas" id="waveCanvas" width="400" height="120"></canvas>
+    </div>
+    <div style="display:flex;gap:20px;font-size:13px;color:var(--text-dim);margin-top:8px;">
+      <span style="color:var(--accent)">── 高频率（音调高）</span>
+      <span style="color:var(--accent2)">── 低频率（音调低）</span>
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：用大小不同的力敲同一个音叉，声音有什么不同？</div>
+      <div class="a">
+        大力敲 → 音叉振幅大 → <strong style="color:var(--success)">响度大</strong>（声音更响）<br>
+        小力敲 → 音叉振幅小 → <strong>响度小</strong>（声音更轻）<br>
+        音调不变，因为音叉的振动频率不变。
+        <div class="step">（力的大小改变振幅，从而改变响度）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：钢琴和小提琴演奏同一个音符（如中央C，约262Hz），为什么我们能分辨出是哪种乐器？</div>
+      <div class="a">
+        虽然音调（频率）相同，响度也可以相同，<br>
+        但钢琴和小提琴的<strong style="color:var(--success)">音色不同</strong>。<br>
+        音色由发声体的材料、结构决定，是声音的"指纹"。
+        <div class="step">（音色是辨别不同声源的关键）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：蚊子翅膀振动频率约 500 Hz，蜜蜂约 250 Hz，哪个音调更高？</div>
+      <div class="a">
+        蚊子 500 Hz > 蜜蜂 250 Hz<br>
+        频率越高，音调越高。<br>
+        <strong style="color:var(--success)">蚊子的音调更高</strong>，所以蚊子飞起来声音更尖。
+        <div class="step">（频率决定音调：f 越高 → 音调越高）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch2-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">"引吭高歌"中的"高"指的是声音的哪个特征？</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。音调高是指频率高，像女高音。')">音调高</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！"引吭高歌"指大声唱歌，是响度大。')">响度大</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。音色是声音的特色，如不同人的嗓音。')">音色好</button>
+    </div>
+    <div class="quiz-feedback" id="ch2-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">人能分辨出钢琴和吉他演奏同一音符，主要依靠的是？</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'a', false, '不对。音调相同的话频率也相同。')">音调不同</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'b', false, '不对。如果演奏同样响，响度也相同。')">响度不同</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'c', true, '正确！不同乐器的材料结构不同，音色不同。')">音色不同</button>
+      </div>
+      <div class="quiz-feedback" id="ch2-fb2"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(1)">← 上一单元</button>
+    <button class="btn" onclick="goTo(3)">下一单元 →</button>
+  </div>
+</div>
+
+<!-- ========== CHAPTER 3: 回声与声速计算 ========== -->
+<div class="card hidden" id="ch3">
+  <div class="card-header">
+    <h2>回声与声速计算</h2>
+    <span class="chapter-num">第 3 / 3 单元</span>
+  </div>
+
+  <div class="concept-box">
+    <div class="label">核心概念</div>
+    <p><strong>回声</strong>是声音遇到障碍物被<strong>反射</strong>回来形成的。</p>
+    <p>人耳能区分原声和回声的最小时间间隔约 <strong>0.1 秒</strong>。</p>
+    <p>回声测距：声音从发出到返回走了<strong>两倍距离</strong>。</p>
+    <div class="formula">s = v × t ÷ 2</div>
+    <p>s = 距离，v = 声速，t = 从发声到听到回声的总时间</p>
+    
+    <div class="sound-group">
+      <div class="sound-group-label">🔊 回声演示 — 点击体验</div>
+      <button class="sound-btn" data-label="🔊 近距离回声" onclick="playEcho(0.3); setPlaying(this, 0.6)">🔊 近距离回声（0.3s）</button>
+      <button class="sound-btn" data-label="🔊 远距离回声" onclick="playEcho(1.0); setPlaying(this, 1.3)">🔊 远距离回声（1.0s）</button>
+      <button class="sound-btn" data-label="🔊 声呐脉冲" onclick="playTone(1200, 0.1, 'square', 0.2); setTimeout(()=>playTone(1200, 0.08, 'square', 0.1), 600); setPlaying(this, 0.8)">🔊 声呐脉冲</button>
+    </div>
+  </div>
+
+  <div class="anim-area">
+    <div style="font-size:16px;margin-bottom:12px;">回声原理</div>
+    <div class="echo-viz">
+      <div class="echo-source"></div>
+      <div class="echo-pulse-out"></div>
+      <div class="echo-pulse-back"></div>
+      <div class="echo-wall"></div>
+    </div>
+    <div style="font-size:13px;color:var(--text-dim);margin-top:8px;">
+      声波发出 → 遇到墙壁反射 → 返回人耳（走了 2s 的距离）
+    </div>
+  </div>
+
+  <div class="example-list">
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 1：对着山崖大喊，2 秒后听到回声，求人与山崖的距离。（声速 340 m/s）</div>
+      <div class="a">
+        声音走了来回，总路程 = 2 × 距离<br>
+        2s = v × t = 340 × 2 = 680 m<br>
+        s = 680 ÷ 2 = <strong style="color:var(--success)">340 m</strong>
+        <div class="step">（注意：t 是往返总时间，求单程距离要除以 2）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 2：汽车以 20 m/s 的速度向峭壁行驶，鸣笛 3 秒后听到回声，求鸣笛时汽车与峭壁的距离。</div>
+      <div class="a">
+        设鸣笛时距离为 s。<br>
+        3 秒内：声音走了 s + (s − 20×3) = 2s − 60<br>
+        声音路程 = 340 × 3 = 1020 m<br>
+        2s − 60 = 1020 → 2s = 1080 → s = <strong style="color:var(--success)">540 m</strong>
+        <div class="step">（进阶题：考虑汽车运动，声音走的路程 = 去程 + 返程）</div>
+      </div>
+    </div>
+    <div class="example-item" onclick="this.classList.toggle('expanded')">
+      <div class="q">📌 例题 3：超声波测海深，从发出到接收用时 4 秒，声速 1500 m/s，求海深。</div>
+      <div class="a">
+        超声波在水中传播，声速 1500 m/s。<br>
+        总路程 = 1500 × 4 = 6000 m<br>
+        海深 = 6000 ÷ 2 = <strong style="color:var(--success)">3000 m</strong>
+        <div class="step">（超声波测距 = 声呐原理，常用于测海深和鱼群）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz-box" id="ch3-quiz">
+    <div class="quiz-title">🎯 小测试</div>
+    <div class="quiz-question">人对着高墙喊话，0.5 秒后听到回声，人与墙的距离是多少？（声速 340 m/s）</div>
+    <div class="quiz-options">
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。340 × 0.5 = 170 是来回总路程。')">170 m</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, true, '正确！s = 340 × 0.5 ÷ 2 = 85 m。')">85 m</button>
+      <button class="quiz-btn" onclick="checkQuiz(this, false, '不对。340 × 0.5 ÷ 2 = 85 m。')">340 m</button>
+    </div>
+    <div class="quiz-feedback" id="ch3-fb"></div>
+    <div style="margin-top:16px;">
+      <div class="quiz-question">下列应用中，与回声无关的是？</div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'a', false, '不对。声呐就是利用超声波回声测距。')">声呐测海深</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'b', true, '正确！B超是利用超声波穿透人体后的反射成像，虽然也涉及反射，但题目通常认为声呐/雷达是典型的回声应用。如果按严格定义，B超也涉及反射。但此题答案通常设计为B超属于医学成像，与"回声定位"概念区分。')">B超检查</button>
+        <button class="quiz-btn" onclick="checkQuiz2(this, 'c', false, '不对。蝙蝠靠超声波回声定位飞行和捕食。')">蝙蝠导航</button>
+      </div>
+      <div class="quiz-feedback" id="ch3-fb2"></div>
+    </div>
+  </div>
+
+  <div class="concept-box" style="border-left-color:var(--warning);">
+    <div class="label" style="color:var(--warning);">公式总结</div>
+    <div class="formula">声速公式：v = s / t</div>
+    <div class="formula">回声测距：s = v × t / 2</div>
+    <p style="font-size:14px;color:var(--text-dim);margin-top:8px;">
+      v = 声速（m/s）| s = 距离（m）| t = 时间（s）<br>
+      空气中 15°C 时 v ≈ 340 m/s
+    </p>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="goTo(2)">← 上一单元</button>
+  </div>
+</div>
+
+<!-- ========== FOOTER ========== -->
+<div class="footer-note">
+  声学实验室 · 沪科版八年级第一学期 · 第三章 声现象 · 物理学习空间
+</div>
+
+<!-- ========== CHALLENGE MODE BAR ========== -->
+<div class="challenge-bar">
+  
+</div>
+
+</div><!-- /app -->
+
+<script>
+let audioCtx;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+/* ====== SOUND GENERATION ENGINE ====== */
+
+// Play a pure tone with given frequency, duration, waveform, and amplitude
+function playTone(freq, duration, type, amp) {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(freq, t);
+  
+  const amplitude = amp || 0.15;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(amplitude, t + 0.02);
+  gain.gain.setValueAtTime(amplitude, t + duration - 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  
+  osc.start(t);
+  osc.stop(t + duration);
+  return { osc, gain };
+}
+
+// Play a two-tone chord (for harmony demos)
+function playChord(freq1, freq2, duration) {
+  ensureAudio();
+  playTone(freq1, duration, 'sine', 0.1);
+  playTone(freq2, duration, 'sine', 0.1);
+}
+
+// Play a frequency sweep (for continuous slide)
+function playSweep(startFreq, endFreq, duration, type) {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(startFreq, t);
+  osc.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
+  
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(0.15, t + 0.05);
+  gain.gain.setValueAtTime(0.15, t + duration - 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  
+  osc.start(t);
+  osc.stop(t + duration);
+}
+
+// Play echo effect (ping + delayed ping)
+function playEcho(delaySec) {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  // Original ping
+  playTone(800, 0.15, 'sine', 0.2);
+  // Echo
+  setTimeout(() => playTone(800, 0.15, 'sine', 0.1), delaySec * 1000);
+}
+
+// Play ultrasonic/inaudible demo (with visual cue beep)
+function playInaudible(label) {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  // Play a notification beep + text explanation
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(600, t);
+  osc.frequency.exponentialRampToValueAtTime(300, t + 0.3);
+  
+  gain.gain.setValueAtTime(0.08, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  
+  osc.start(t);
+  osc.stop(t + 0.4);
+}
+
+// Button click feedback
+function sfx(type) {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  if (type === 'ok') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523, t);
+    osc.frequency.setValueAtTime(659, t + 0.1);
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    osc.start(t);
+    osc.stop(t + 0.3);
+  } else if (type === 'err') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, t);
+    gain.gain.setValueAtTime(0.1, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    osc.start(t);
+    osc.stop(t + 0.3);
+  } else if (type === 'click') {
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(800, t);
+    gain.gain.setValueAtTime(0.05, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+}
+
+// Visual feedback for playing buttons
+function setPlaying(btn, duration) {
+  btn.classList.add('playing');
+  btn.textContent = '🔊 播放中...';
+  setTimeout(() => {
+    btn.classList.remove('playing');
+    btn.textContent = btn.dataset.label || '🔊 试听';
+  }, duration * 1000 + 100);
+}
+
+// Medium demonstration - interactive sound propagation
+demoMedium.currentMedium = null;
+function demoMedium(medium, btn) {
+  ensureAudio();
+  
+  // Reset all buttons
+  document.querySelectorAll('[onclick^="demoMedium"]').forEach(b => {
+    b.style.borderColor = 'rgba(0,240,200,0.3)';
+    b.style.background = 'rgba(0,240,200,0.08)';
+  });
+  
+  // Highlight active button
+  btn.style.borderColor = 'var(--accent)';
+  btn.style.background = 'rgba(0,240,200,0.2)';
+  
+  const viz = document.getElementById('medium-viz');
+  const wave = document.getElementById('medium-wave');
+  const result = document.getElementById('medium-result');
+  const desc = document.getElementById('medium-desc');
+  const source = document.getElementById('medium-source');
+  
+  // Clear previous animation
+  if (demoMedium.animId) cancelAnimationFrame(demoMedium.animId);
+  wave.style.opacity = '0';
+  wave.style.width = '0';
+  
+  const mediumData = {
+    air: {
+      speed: 2000,    // 2 seconds to cross
+      speedText: '340 m/s',
+      color: '#00f0c8',
+      sound: () => { playTone(440, 0.8, 'sine', 0.12); },
+      desc: '<strong>🌫️ 空气</strong>（气体）<br>声速约 <strong>340 m/s</strong>。气体分子间距大，碰撞传递振动较慢。日常对话、听音乐都靠空气传声。',
+      resultIcon: '✓',
+      resultColor: 'var(--success)'
+    },
+    water: {
+      speed: 800,     // 0.8 seconds
+      speedText: '1500 m/s',
+      color: '#00bbf9',
+      sound: () => { playTone(440, 0.6, 'sine', 0.18); playTone(880, 0.6, 'sine', 0.08); },
+      desc: '<strong>💧 水</strong>（液体）<br>声速约 <strong>1500 m/s</strong>，是空气中的 4.4 倍！液体分子更密集，振动传递更快。潜水时能听到水面上的声音。',
+      resultIcon: '✓',
+      resultColor: 'var(--success)'
+    },
+    steel: {
+      speed: 300,     // 0.3 seconds - fastest
+      speedText: '5200 m/s',
+      color: '#ffd166',
+      sound: () => { playTone(440, 0.4, 'square', 0.15); playTone(660, 0.4, 'square', 0.1); },
+      desc: '<strong>🔩 钢铁</strong>（固体）<br>声速约 <strong>5200 m/s</strong>，是空气中的 15 倍！固体分子排列紧密且有序，振动传递最快。把耳朵贴在铁轨上，能提前听到远处火车。',
+      resultIcon: '✓',
+      resultColor: 'var(--success)'
+    },
+    vacuum: {
+      speed: 0,       // no propagation
+      speedText: '0 m/s',
+      color: '#ef476f',
+      sound: () => { sfx('err'); },
+      desc: '<strong>🌌 真空</strong><br>声速 <strong>0 m/s</strong>。太空中没有介质，声音完全无法传播！宇航员在太空中必须通过无线电交流。',
+      resultIcon: '✗',
+      resultColor: 'var(--danger)'
+    }
+  };
+  
+  const data = mediumData[medium];
+  if (!data) return;
+  
+  // Update description
+  desc.innerHTML = data.desc;
+  
+  // Play sound
+  data.sound();
+  
+  // Visual animation
+  const vizWidth = viz.offsetWidth || 400;
+  const travelDistance = vizWidth - 100; // from source to result
+  
+  if (medium === 'vacuum') {
+    // No wave animation for vacuum
+    result.style.borderColor = data.resultColor;
+    result.style.color = data.resultColor;
+    result.textContent = data.resultIcon;
+    source.style.boxShadow = '0 0 15px var(--danger)';
+    setTimeout(() => {
+      source.style.boxShadow = '0 0 15px var(--accent)';
+    }, 500);
+    return;
+  }
+  
+  // Animate wave propagation
+  let startTime = null;
+  result.style.borderColor = 'var(--text-dim)';
+  result.style.color = 'var(--text-dim)';
+  result.textContent = '...';
+  
+  function animateWave(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+    const progress = Math.min(elapsed / data.speed, 1);
+    
+    wave.style.opacity = '1';
+    wave.style.width = (progress * travelDistance) + 'px';
+    wave.style.background = `linear-gradient(90deg, ${data.color}, transparent)`;
+    
+    // Add particle effect
+    if (progress < 1 && elapsed % 100 < 20) {
+      createParticle(viz, data.color);
+    }
+    
+    if (progress < 1) {
+      demoMedium.animId = requestAnimationFrame(animateWave);
+    } else {
+      // Arrived
+      result.style.borderColor = data.resultColor;
+      result.style.color = data.resultColor;
+      result.textContent = data.resultIcon;
+      
+      // Success sound
+      if (medium !== 'vacuum') {
+        sfx('ok');
+        setTimeout(() => playTone(880, 0.2, 'sine', 0.1), 100);
+      }
+    }
+  }
+  
+  demoMedium.animId = requestAnimationFrame(animateWave);
+}
+
+function createParticle(container, color) {
+  const p = document.createElement('div');
+  p.style.cssText = `
+    position: absolute;
+    width: 4px; height: 4px;
+    background: ${color};
+    border-radius: 50%;
+    left: ${30 + Math.random() * 60}px;
+    top: ${20 + Math.random() * 60}px;
+    opacity: 0.6;
+    pointer-events: none;
+    transition: all 0.5s ease-out;
+  `;
+  container.appendChild(p);
+  requestAnimationFrame(() => {
+    p.style.transform = `translate(${(Math.random()-0.5)*40}px, ${(Math.random()-0.5)*40}px)`;
+    p.style.opacity = '0';
+  });
+  setTimeout(() => p.remove(), 600);
+}
+
+// ===================== MOLECULAR PROPAGATION DEMO =====================
+let molAnimId = null, molMode = 'solid';
+const molCanvas = document.getElementById('molCanvas');
+
+function startMolecularDemo(mode) {
+  molMode = mode;
+  if (molAnimId) cancelAnimationFrame(molAnimId);
+  const canvas = document.getElementById('molCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Configuration for each medium
+  const configs = {
+    gas:    { spacing: 45, radius: 6, speed: 0.8, color: '#00f0c8', label: '🌫️ 空气（气体）：分子稀疏，间距大，振动传递最慢', y: H/2 },
+    liquid: { spacing: 28, radius: 8, speed: 2.0, color: '#00bbf9', label: '💧 水（液体）：分子较密，间距中等，传递较快', y: H/2 },
+    solid:  { spacing: 16, radius: 9, speed: 4.0, color: '#ffd166', label: '🔩 钢铁（固体）：分子紧密排列，间距最小，传递最快', y: H/2 }
+  };
+  const cfg = configs[mode];
+
+  // Build molecules
+  const molecules = [];
+  for (let x = cfg.spacing; x < W - cfg.spacing; x += cfg.spacing) {
+    molecules.push({ x: x, baseX: x, y: cfg.y, vx: 0, excited: 0 });
+  }
+
+  // Sound wave: a traveling "push" that moves from left to right
+  let waveX = 0;
+  const waveSpeed = cfg.speed;
+
+  // Update description
+  document.getElementById('molDesc').innerHTML = `<strong style="color:${cfg.color}">${cfg.label}</strong><br>观察：声波撞击左侧分子 → 分子振动 → 传递给相邻分子。分子越紧密，传递越快！`;
+
+  function drawMolecule(m, ctx) {
+    // Base position
+    const x = m.baseX + m.vx;
+    const y = m.y;
+
+    // Draw connection to next molecule (bond)
+    const next = molecules[molecules.indexOf(m) + 1];
+    if (next) {
+      const nx = next.baseX + next.vx;
+      ctx.strokeStyle = 'rgba(0,240,200,0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, y); ctx.stroke();
+    }
+
+    // Draw molecule
+    ctx.fillStyle = cfg.color;
+    ctx.beginPath(); ctx.arc(x, y, cfg.radius, 0, Math.PI*2); ctx.fill();
+
+    // Glow when excited
+    if (m.excited > 0) {
+      ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},${m.excited * 0.4})`;
+      ctx.beginPath(); ctx.arc(x, y, cfg.radius + 4 + m.excited * 4, 0, Math.PI*2); ctx.fill();
+      m.excited -= 0.02;
+      if (m.excited < 0) m.excited = 0;
+    }
+
+    // Vibration blur
+    if (Math.abs(m.vx) > 0.5) {
+      ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},0.2)`;
+      ctx.beginPath(); ctx.arc(x + m.vx * 0.5, y, cfg.radius * 0.7, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw speed indicator bar at top
+    const speedNames = { gas: '340 m/s', liquid: '1500 m/s', solid: '5200 m/s' };
+    ctx.fillStyle = 'rgba(0,240,200,0.1)';
+    ctx.fillRect(0, 0, W, 20);
+    ctx.fillStyle = cfg.color;
+    const barWidth = mode === 'gas' ? W * 0.15 : mode === 'liquid' ? W * 0.5 : W * 0.9;
+    ctx.fillRect(2, 2, barWidth - 4, 16);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 11px "Share Tech Mono", monospace';
+    ctx.fillText(speedNames[mode], 8, 15);
+
+    // Draw sound source on the left
+    ctx.fillStyle = 'var(--accent)';
+    ctx.shadowColor = cfg.color; ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.arc(20, cfg.y, 10, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#000';
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillText('🔊', 14, cfg.y + 3);
+
+    // Update wave position
+    waveX += waveSpeed;
+    if (waveX > W + 50) waveX = -30;
+
+    // Wave indicator (traveling pulse)
+    ctx.fillStyle = `rgba(${mode==='gas'?'0,240,200':mode==='liquid'?'0,187,249':'255,209,102'},0.3)`;
+    ctx.beginPath(); ctx.arc(waveX, cfg.y - 30, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = cfg.color;
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillText('声波', waveX - 10, cfg.y - 40);
+
+    // Update molecules
+    molecules.forEach((m, i) => {
+      // Damping
+      m.vx *= 0.92;
+      // Spring force back to base
+      m.vx += (m.baseX - (m.baseX + m.vx)) * 0.05;
+
+      // Wave collision
+      if (Math.abs(waveX - m.baseX) < cfg.spacing / 2 && frame % 3 === 0) {
+        m.vx += (mode === 'gas' ? 2.5 : mode === 'liquid' ? 4 : 6);
+        m.excited = 1;
+      }
+
+      // Propagate to neighbors (this is the key physics!)
+      const prev = molecules[i - 1];
+      const next = molecules[i + 1];
+      if (prev && Math.abs(prev.vx) > 1.5) {
+        // Previous molecule pushes this one
+        m.vx += prev.vx * (mode === 'gas' ? 0.15 : mode === 'liquid' ? 0.35 : 0.6);
+        if (Math.abs(prev.vx) > 2) m.excited = Math.max(m.excited, 0.6);
+      }
+      if (next && Math.abs(next.vx) > 1.5) {
+        m.vx += next.vx * (mode === 'gas' ? 0.08 : mode === 'liquid' ? 0.2 : 0.4);
+      }
+    });
+
+    // Draw all molecules
+    molecules.forEach(m => drawMolecule(m, ctx));
+
+    // Draw labels
+    ctx.fillStyle = 'var(--text2)';
+    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.fillText('声源', 8, cfg.y + 30);
+    ctx.fillText('分子振动传递方向 →', W/2 - 50, cfg.y + 35);
+
+    frame++;
+    molAnimId = requestAnimationFrame(animate);
+  }
+
+  animate();
+}
+
+let currentCh = 1;
+function goTo(n) {
+  sfx('click');
+  document.getElementById('ch' + currentCh).classList.add('hidden');
+  document.getElementById('ch' + n).classList.remove('hidden');
+  currentCh = n;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function updateProgress() {
+  const segs = document.querySelectorAll('.progress-seg');
+  segs.forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < currentCh) s.classList.add('done');
+    else if (i + 1 === currentCh) s.classList.add('active');
+  });
+}
+
+function checkQuiz(btn, isCorrect, msg) {
+  sfx(isCorrect ? 'ok' : 'err');
+  const fb = btn.closest('.quiz-box').querySelector('.quiz-feedback');
+  fb.textContent = msg;
+  fb.style.color = isCorrect ? 'var(--success)' : 'var(--danger)';
+  btn.parentElement.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    btn.parentElement.querySelectorAll('.quiz-btn').forEach(b => {
+      if (b.onclick && b.onclick.toString().includes('true')) b.classList.add('correct');
+    });
+  }
+}
+
+let quiz2State = {};
+function checkQuiz2(btn, key, isCorrect, msg) {
+  sfx(isCorrect ? 'ok' : 'err');
+  // Find the feedback element as the next sibling of quiz-options
+  const options = btn.parentElement;
+  const fb = options.nextElementSibling;
+  if (fb && fb.classList.contains('quiz-feedback')) {
+    fb.textContent = msg;
+    fb.style.color = isCorrect ? 'var(--success)' : 'var(--danger)';
+  }
+  options.querySelectorAll('.quiz-btn').forEach(b => b.disabled = true);
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    options.querySelectorAll('.quiz-btn').forEach(b => {
+      if (b.onclick && b.onclick.toString().includes('true')) b.classList.add('correct');
+    });
+  }
+}
+
+// Wave canvas animation
+const waveCanvas = document.getElementById('waveCanvas');
+if (waveCanvas) {
+  const ctx = waveCanvas.getContext('2d');
+  let frame = 0;
+  function drawWaves() {
+    ctx.clearRect(0, 0, 400, 120);
+    ctx.strokeStyle = 'rgba(0, 240, 200, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = 0; x < 400; x++) {
+      const y = 40 + Math.sin((x + frame) * 0.08) * 20;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0, 187, 249, 0.8)';
+    ctx.beginPath();
+    for (let x = 0; x < 400; x++) {
+      const y = 80 + Math.sin((x + frame * 0.5) * 0.04) * 25;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    frame += 2;
+    requestAnimationFrame(drawWaves);
+  }
+  drawWaves();
+}
+</script>
+</body>
+</html>
