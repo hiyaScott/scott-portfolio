@@ -1,1274 +1,6 @@
-
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>第六章 密度与压强 · DENSITY · 流体力学实验室</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
-
-:root {
-  --bg: #06080f;
-  --panel: rgba(10, 14, 26, 0.9);
-  --accent: #00f5d4;
-  --accent2: #00bbf9;
-  --danger: #ef476f;
-  --warning: #ffd166;
-  --success: #06d6a0;
-  --grid: rgba(0, 245, 212, 0.08);
-  --text: #c0c8d8;
-  --text-dim: #586070;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  min-height: 100vh;
-  position: relative;
-  overflow-x: hidden;
-}
-
-/* Scanlines */
-body::before {
-  content: '';
-  position: fixed; inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
-  pointer-events: none;
-  z-index: 9999;
-}
-
-/* HUD Grid */
-#hud-grid {
-  position: fixed; inset: 0;
-  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 60px 60px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Corners */
-.corner-tl, .corner-tr, .corner-bl, .corner-br {
-  position: fixed; width: 80px; height: 80px; z-index: 2; pointer-events: none;
-}
-.corner-tl { top: 10px; left: 10px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
-.corner-tr { top: 10px; right: 10px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
-.corner-bl { bottom: 10px; left: 10px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
-.corner-br { bottom: 10px; right: 10px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
-
-/* App container */
-#app {
-  position: relative; z-index: 10;
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 40px 20px;
-}
-
-/* Title */
-.title-bar {
-  text-align: center;
-  border-bottom: 1px solid var(--accent);
-  padding-bottom: 16px;
-  margin-bottom: 24px;
-}
-.title-bar h1 {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 32px; letter-spacing: 4px;
-  color: var(--accent);
-  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
-}
-.title-bar .subtitle {
-  font-size: 14px; color: var(--text-dim);
-  margin-top: 8px; letter-spacing: 2px;
-}
-
-/* Progress bar */
-.progress-bar {
-  display: flex; gap: 8px;
-  margin-bottom: 32px;
-  justify-content: center;
-}
-.progress-seg {
-  width: 60px; height: 4px;
-  background: rgba(88,96,112,0.3);
-  border-radius: 2px;
-  transition: all 0.3s;
-}
-.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.progress-seg.done { background: var(--success); }
-
-/* Card */
-.card {
-  background: var(--panel);
-  border: 1px solid rgba(0,245,212,0.2);
-  border-radius: 8px;
-  padding: 28px;
-  margin-bottom: 24px;
-  animation: fadeIn 0.5s ease;
-}
-.card-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(0,245,212,0.15);
-  padding-bottom: 12px;
-}
-.card-header h2 {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 22px; color: var(--accent);
-}
-.card-header .chapter-num {
-  font-size: 12px; color: var(--text-dim);
-  border: 1px solid var(--text-dim); padding: 2px 10px;
-  border-radius: 3px;
-}
-
-/* Concept box */
-.concept-box {
-  background: rgba(0,245,212,0.05);
-  border-left: 3px solid var(--accent);
-  padding: 16px 20px;
-  margin: 16px 0;
-  border-radius: 0 6px 6px 0;
-}
-.concept-box .label {
-  font-size: 11px; color: var(--accent);
-  letter-spacing: 2px; text-transform: uppercase;
-  margin-bottom: 8px;
-}
-.concept-box p { font-size: 16px; line-height: 1.7; }
-.concept-box .formula {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 20px; color: var(--warning);
-  margin: 8px 0;
-}
-
-/* Animation area */
-.anim-area {
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(0,245,212,0.15);
-  border-radius: 8px;
-  padding: 24px;
-  margin: 20px 0;
-  min-height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Example list */
-.example-list { margin: 16px 0; }
-.example-item {
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(0,245,212,0.1);
-  border-radius: 6px;
-  padding: 14px 18px;
-  margin-bottom: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.example-item:hover {
-  border-color: rgba(0,245,212,0.3);
-  background: rgba(0,245,212,0.03);
-}
-.example-item .q { font-size: 16px; margin-bottom: 8px; }
-.example-item .a {
-  font-size: 14px; color: var(--success);
-  display: none;
-  border-top: 1px dashed rgba(0,245,212,0.2);
-  padding-top: 8px;
-  margin-top: 8px;
-}
-.example-item.expanded .a { display: block; }
-.example-item .a .step {
-  color: var(--text-dim); font-size: 12px;
-  margin-top: 4px;
-}
-
-/* Quiz */
-.quiz-box {
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(0,245,212,0.15);
-  border-radius: 8px;
-  padding: 20px;
-  margin: 20px 0;
-}
-.quiz-box .quiz-title {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 16px; color: var(--warning);
-  margin-bottom: 16px;
-}
-.quiz-question { font-size: 16px; margin-bottom: 14px; }
-.quiz-options { display: flex; flex-direction: column; gap: 10px; }
-.quiz-btn {
-  background: rgba(0,187,249,0.08);
-  border: 1px solid rgba(0,187,249,0.3);
-  color: var(--text);
-  padding: 12px 18px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: inherit; font-size: 15px;
-  text-align: left;
-  transition: all 0.2s;
-}
-.quiz-btn:hover {
-  background: rgba(0,187,249,0.15);
-  border-color: var(--accent2);
-}
-.quiz-btn.correct {
-  background: rgba(6,214,160,0.15);
-  border-color: var(--success);
-  color: var(--success);
-  animation: flashGreen 0.5s ease;
-}
-.quiz-btn.wrong {
-  background: rgba(239,71,111,0.15);
-  border-color: var(--danger);
-  color: var(--danger);
-  animation: shake 0.4s ease;
-}
-.quiz-feedback { margin-top: 12px; font-size: 14px; min-height: 20px; }
-
-/* Buttons */
-.btn-row { display: flex; gap: 16px; justify-content: center; margin-top: 24px; }
-.btn {
-  background: rgba(0,245,212,0.1);
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  padding: 14px 36px;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 16px; letter-spacing: 2px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
-  text-decoration: none;
-  display: inline-block;
-}
-.btn:hover {
-  background: rgba(0,245,212,0.2);
-  box-shadow: 0 0 20px var(--accent);
-}
-.btn.btn-ghost {
-  background: transparent;
-  border-color: var(--text-dim);
-  color: var(--text-dim);
-}
-.btn.btn-ghost:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-/* Hide/show */
-.hidden { display: none !important; }
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes flashGreen {
-  0% { box-shadow: 0 0 0 var(--success); }
-  50% { box-shadow: 0 0 30px var(--success); }
-  100% { box-shadow: 0 0 0 var(--success); }
-}
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
-}
-
-/* Mobile */
-@media (max-width: 600px) {
-  .title-bar h1 { font-size: 22px; }
-  #app { padding: 20px 12px; }
-  .card { padding: 18px; }
-}
-@media (max-width: 480px) {
-  .title-bar h1 { font-size: 18px; letter-spacing: 2px; }
-  .title-bar .subtitle { font-size: 12px; }
-  #app { padding: 16px 10px; }
-  .card { padding: 14px; }
-  .card-header h2 { font-size: 18px; }
-  .concept-box { padding: 12px 14px; }
-  .concept-box .formula { font-size: 16px; }
-  .btn-row { flex-direction: column; gap: 10px; }
-  .btn { padding: 12px 24px; font-size: 14px; width: 100%; text-align: center; }
-  .quiz-btn { padding: 10px 14px; font-size: 14px; }
-  .example-item { padding: 12px 14px; }
-  .progress-seg { width: 40px; }
-}
-@media (max-width: 360px) {
-  .title-bar h1 { font-size: 16px; }
-  #app { padding: 12px 8px; }
-  .card { padding: 12px; }
-  .card-header h2 { font-size: 16px; }
-  .concept-box { padding: 10px 12px; }
-  .concept-box p { font-size: 14px; }
-  .btn { padding: 10px 20px; font-size: 13px; }
-  .quiz-options { gap: 8px; }
-  .quiz-btn { padding: 8px 12px; font-size: 13px; }
-  .example-item { padding: 10px 12px; }
-  .example-item .q { font-size: 14px; }
-  .anim-area { padding: 16px; min-height: 80px; }
-}
-
-
-/* === Physics Chapter CSS === */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Zhi+Mang+Xing&family=Ma+Shan+Zheng&display=swap');
-
-:root {
-  --bg: #0a0814;
-  --panel: rgba(14, 10, 28, 0.92);
-  --accent: #9d00ff;
-  --accent2: #c084fc;
-  --accent3: #7c3aed;
-  --danger: #ef476f;
-  --warning: #ffd166;
-  --success: #06d6a0;
-  --grid: rgba(157, 0, 255, 0.08);
-  --text: #c8c0d8;
-  --text-dim: #706080;
-  --lab-glass: rgba(157, 0, 255, 0.06);
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  min-height: 100vh;
-  position: relative;
-  overflow-x: hidden;
-}
-
-/* Beaker decorations */
-.beaker-deco {
-  position: fixed;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0.12;
-}
-.beaker-deco.top-left {
-  top: 20px; left: 20px;
-  width: 40px; height: 50px;
-  border: 2px solid var(--accent);
-  border-radius: 0 0 20px 20px;
-  border-top: none;
-}
-.beaker-deco.top-left::after {
-  content: '';
-  position: absolute;
-  bottom: 8px; left: 4px; right: 4px;
-  height: 20px;
-  background: var(--accent);
-  border-radius: 0 0 16px 16px;
-  opacity: 0.3;
-}
-.beaker-deco.top-right {
-  top: 20px; right: 20px;
-  width: 30px; height: 60px;
-  border: 2px solid var(--accent);
-  border-radius: 0 0 15px 15px;
-  border-top: none;
-}
-.beaker-deco.bottom-left {
-  bottom: 20px; left: 20px;
-  width: 50px; height: 6px;
-  background: var(--accent);
-  border-radius: 3px;
-  opacity: 0.2;
-}
-.beaker-deco.bottom-right {
-  bottom: 20px; right: 20px;
-  width: 50px; height: 6px;
-  background: var(--accent);
-  border-radius: 3px;
-  opacity: 0.2;
-}
-
-/* Corners with lab style */
-/* Main layout */
-#main-wrap {
-  display: flex;
-  position: relative; z-index: 10;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 20px;
-  gap: 24px;
-}
-
-#app {
-  flex: 1;
-  max-width: 900px;
-}
-
-/* Side nav panel */
-#side-nav {
-  width: 220px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 40px;
-  align-self: flex-start;
-  max-height: calc(100vh - 80px);
-  overflow-y: auto;
-}
-#side-nav::-webkit-scrollbar { width: 4px; }
-#side-nav::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
-.nav-panel {
-  background: var(--panel);
-  border: 1px solid rgba(157, 0, 255, 0.2);
-  border-radius: 8px;
-  padding: 20px;
-}
-.nav-panel h3 {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 32px;
-  color: var(--accent);
-  margin-bottom: 12px;
-  letter-spacing: 2px;
-}
-.nav-panel .nav-item {
-  display: block;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--text-dim);
-  text-decoration: none;
-  border-radius: 4px;
-  margin-bottom: 4px;
-  transition: all 0.2s;
-  cursor: pointer;
-  border-left: 2px solid transparent;
-}
-.nav-panel .nav-item:hover {
-  background: rgba(157, 0, 255, 0.08);
-  color: var(--accent2);
-}
-.nav-panel .nav-item.active {
-  background: rgba(157, 0, 255, 0.12);
-  color: var(--accent);
-  border-left: 2px solid var(--accent);
-}
-.nav-panel .nav-item .step-num {
-  display: inline-block;
-  width: 20px;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 11px;
-  opacity: 0.6;
-}
-
-/* Title */
-.title-bar {
-  text-align: center;
-  border-bottom: 1px solid var(--accent);
-  padding-bottom: 16px;
-  margin-bottom: 24px;
-}
-.title-bar h1 {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 32px; letter-spacing: 4px;
-  color: var(--accent);
-  text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent);
-}
-.title-bar .subtitle {
-  font-size: 13px; color: var(--text-dim);
-  margin-top: 8px; letter-spacing: 2px;
-}
-.title-bar .meta {
-  font-size: 12px; color: var(--text-dim);
-  margin-top: 4px;
-}
-.title-bar .dept-badge {
-  display: inline-block;
-  margin-top: 10px;
-  padding: 4px 16px;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--accent);
-  letter-spacing: 2px;
-}
-
-/* Progress bar */
-.progress-bar {
-  display: flex; gap: 6px;
-  margin-bottom: 32px;
-  justify-content: center;
-}
-.progress-seg {
-  width: 40px; height: 4px;
-  background: rgba(112,96,128,0.3);
-  border-radius: 2px;
-  transition: all 0.3s;
-}
-.progress-seg.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.progress-seg.done { background: var(--success); }
-
-/* Card */
-.card {
-  background: var(--panel);
-  border: 1px solid rgba(157, 0, 255, 0.2);
-  border-radius: 8px;
-  padding: 28px;
-  margin-bottom: 24px;
-  animation: fadeIn 0.5s ease;
-}
-
-.card.hidden { display: none; }
-.card-header {
-  display: flex; justify-content: center; align-items: center;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(157, 0, 255, 0.15);
-  padding-bottom: 12px;
-}
-.card-header h2 {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 22px; color: var(--accent);
-}
-.card-header .chapter-num {
-  font-size: 12px; color: var(--text-dim);
-  border: 1px solid var(--text-dim); padding: 2px 10px;
-  border-radius: 3px;
-}
-.card-header .class-level {
-  font-size: 11px; color: var(--warning);
-  border: 1px solid var(--warning); padding: 2px 8px;
-  border-radius: 3px;
-  margin-left: 8px;
-}
-
-/* Concept box / Principle card */
-.concept-box {
-  background: rgba(157, 0, 255, 0.05);
-  border-left: 3px solid var(--accent);
-  padding: 16px 20px;
-  margin: 16px 0;
-  border-radius: 0 6px 6px 0;
-}
-.concept-box .label {
-  font-size: 11px; color: var(--accent);
-  letter-spacing: 2px; text-transform: uppercase;
-  margin-bottom: 8px;
-}
-.concept-box p { font-size: 16px; line-height: 1.7; }
-.concept-box .formula {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 20px; color: var(--warning);
-  margin: 8px 0;
-}
-.concept-box .formula-note {
-  font-size: 13px; color: var(--text-dim);
-  margin-top: 4px;
-}
-
-/* Animation / Viz area */
-.anim-area {
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(157, 0, 255, 0.15);
-  border-radius: 8px;
-  padding: 24px;
-  margin: 20px 0;
-  min-height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* ========== LAB NOTEBOOK TABLE ========== */
-.lab-table-wrap {
-  margin: 20px 0;
-}
-.lab-table-title {
-  font-family: 'Ma Shan Zheng', cursive;
-  font-size: 18px;
-  color: var(--accent2);
-  margin-bottom: 8px;
-}
-.lab-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: 'Ma Shan Zheng', 'Zhi Mang Xing', cursive;
-  font-size: 16px;
-}
-.lab-table th, .lab-table td {
-  border: 1px solid rgba(157, 0, 255, 0.25);
-  padding: 10px 14px;
-  text-align: center;
-}
-.lab-table th {
-  background: rgba(157, 0, 255, 0.08);
-  color: var(--accent);
-  font-family: 'Orbitron', sans-serif;
-  font-size: 12px;
-  letter-spacing: 1px;
-}
-.lab-table td {
-  color: var(--text);
-  background: rgba(157, 0, 255, 0.02);
-}
-.lab-table td.input-cell {
-  background: rgba(255,255,255,0.03);
-  font-style: italic;
-  color: var(--text-dim);
-}
-.lab-table tr:hover td {
-  background: rgba(157, 0, 255, 0.04);
-}
-
-/* ========== ERROR ANALYSIS (YELLOW WARNING) ========== */
-.error-box {
-  background: rgba(255, 209, 102, 0.06);
-  border: 1px solid rgba(255, 209, 102, 0.3);
-  border-left: 3px solid var(--warning);
-  border-radius: 0 6px 6px 0;
-  padding: 16px 20px;
-  margin: 16px 0;
-}
-.error-box .error-title {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 12px;
-  color: var(--warning);
-  letter-spacing: 2px;
-  margin-bottom: 8px;
-}
-.error-box p, .error-box li {
-  font-size: 14px;
-  color: var(--text);
-  line-height: 1.6;
-}
-.error-box ul {
-  margin-left: 18px;
-}
-
-/* ========== EXAMPLE LIST ========== */
-.example-list { margin: 16px 0; }
-.example-item {
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(157, 0, 255, 0.1);
-  border-radius: 6px;
-  padding: 14px 18px;
-  margin-bottom: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.example-item:hover {
-  border-color: rgba(157, 0, 255, 0.3);
-  background: rgba(157, 0, 255, 0.03);
-}
-.example-item .q {
-  font-size: 16px; margin-bottom: 8px;
-}
-.example-item .a {
-  font-size: 14px; color: var(--success);
-  display: none;
-  border-top: 1px dashed rgba(157, 0, 255, 0.2);
-  padding-top: 8px;
-  margin-top: 8px;
-}
-.example-item.expanded .a { display: block; }
-.example-item .a .step {
-  color: var(--text-dim); font-size: 12px;
-  margin-top: 4px;
-}
-
-/* ========== QUIZ ========== */
-.quiz-box {
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(157, 0, 255, 0.15);
-  border-radius: 8px;
-  padding: 20px;
-  margin: 20px 0;
-}
-.quiz-box .quiz-title {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 16px; color: var(--warning);
-  margin-bottom: 16px;
-}
-.quiz-question {
-  font-size: 16px; margin-bottom: 14px;
-}
-.quiz-options {
-  display: flex; flex-direction: column; gap: 10px;
-}
-.quiz-btn {
-  background: rgba(157, 0, 255, 0.08);
-  border: 1px solid rgba(157, 0, 255, 0.3);
-  color: var(--text);
-  padding: 12px 18px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: inherit; font-size: 15px;
-  text-align: left;
-  transition: all 0.2s;
-}
-.quiz-btn:hover {
-  background: rgba(157, 0, 255, 0.15);
-  border-color: var(--accent2);
-}
-.quiz-btn.correct {
-  background: rgba(6,214,160,0.15);
-  border-color: var(--success);
-  color: var(--success);
-  animation: flashGreen 0.5s ease;
-}
-.quiz-btn.wrong {
-  background: rgba(239,71,111,0.15);
-  border-color: var(--danger);
-  color: var(--danger);
-  animation: shake 0.4s ease;
-}
-.quiz-feedback {
-  margin-top: 12px; font-size: 14px;
-  min-height: 20px;
-}
-
-/* Buttons */
-.btn-row {
-  display: flex; gap: 16px;
-  justify-content: center;
-  margin-top: 24px;
-}
-.btn {
-  background: rgba(157, 0, 255, 0.1);
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  padding: 14px 36px;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 16px; letter-spacing: 2px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
-  text-decoration: none;
-  display: inline-block;
-}
-.btn:hover {
-  background: rgba(157, 0, 255, 0.2);
-  box-shadow: 0 0 20px var(--accent);
-}
-.btn.btn-ghost {
-  background: transparent;
-  border-color: var(--text-dim);
-  color: var(--text-dim);
-}
-.btn.btn-ghost:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.btn.btn-warn {
-  background: rgba(255,209,102,0.1);
-  border-color: var(--warning);
-  color: var(--warning);
-}
-.btn.btn-warn:hover {
-  background: rgba(255,209,102,0.2);
-  box-shadow: 0 0 20px var(--warning);
-}
-
-/* Hide/show */
-.hidden { display: none !important; }
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes flashGreen {
-  0% { box-shadow: 0 0 0 var(--success); }
-  50% { box-shadow: 0 0 30px var(--success); }
-  100% { box-shadow: 0 0 0 var(--success); }
-}
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
-}
-
-/* ====== VISUALIZATIONS ====== */
-
-/* Density measurement viz */
-.density-viz {
-  display: flex;
-  gap: 32px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.balance-mini {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-.balance-mini .beam {
-  width: 160px;
-  height: 3px;
-  background: var(--accent);
-  position: relative;
-  border-radius: 2px;
-}
-.balance-mini .pan {
-  position: absolute;
-  top: -18px;
-  width: 50px;
-  height: 3px;
-  background: var(--accent);
-  border-radius: 2px;
-}
-.balance-mini .pan::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0; height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 12px solid var(--accent);
-}
-.balance-mini .pan.left { left: 10px; }
-.balance-mini .pan.right { right: 10px; }
-.balance-mini .center-dot {
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 10px;
-  height: 10px;
-  background: var(--warning);
-  border-radius: 50%;
-}
-.balance-mini .stand { width: 3px; height: 30px; background: var(--text-dim); }
-.balance-mini .base { width: 40px; height: 4px; background: var(--text-dim); border-radius: 2px; }
-.balance-mini .readout {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 14px;
-  color: var(--success);
-  margin-top: 4px;
-}
-
-/* Cylinder mini */
-.cylinder-mini {
-  position: relative;
-  width: 80px;
-  height: 130px;
-  border-left: 2px solid var(--accent);
-  border-right: 2px solid var(--accent);
-  border-bottom: 2px solid var(--accent);
-  border-radius: 0 0 8px 8px;
-  overflow: hidden;
-}
-.cylinder-mini .liquid {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  background: rgba(157, 0, 255, 0.15);
-  border-top: 2px solid var(--accent2);
-}
-.cylinder-mini .meniscus {
-  position: absolute;
-  top: -6px; left: 0; right: 0;
-  height: 12px;
-  background: rgba(157, 0, 255, 0.25);
-  border-radius: 50%;
-  transform: scaleY(0.4);
-}
-.cylinder-mini .scale {
-  position: absolute;
-  right: 0; top: 0; bottom: 0;
-  width: 16px;
-  display: flex;
-  flex-direction: column-reverse;
-  justify-content: space-between;
-  padding: 4px 0;
-}
-.cylinder-mini .tick {
-  width: 6px; height: 1px;
-  background: var(--accent);
-  margin-left: auto;
-}
-.cylinder-mini .tick.major { width: 12px; }
-.cylinder-mini .read-line {
-  position: absolute;
-  left: 0; right: 16px;
-  height: 1px;
-  background: var(--warning);
-  box-shadow: 0 0 6px var(--warning);
-}
-.cylinder-mini .read-label {
-  position: absolute;
-  right: 20px;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 9px;
-  color: var(--warning);
-  transform: translateY(-50%);
-}
-
-/* U-tube manometer */
-.utube-viz {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-.utube-container {
-  position: relative;
-  width: 180px;
-  height: 160px;
-}
-.utube-arm {
-  position: absolute;
-  bottom: 0;
-  width: 40px;
-  border: 2px solid var(--accent);
-  border-bottom: none;
-  border-radius: 20px 20px 0 0;
-  overflow: hidden;
-}
-.utube-arm.left { left: 20px; height: 140px; }
-.utube-arm.right { right: 20px; height: 140px; }
-.utube-liquid {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  background: rgba(157, 0, 255, 0.15);
-  border-top: 2px solid var(--accent2);
-}
-.utube-connect {
-  position: absolute;
-  bottom: 0;
-  left: 60px;
-  right: 60px;
-  height: 20px;
-  border-bottom: 2px solid var(--accent);
-}
-.utube-label {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 10px;
-  color: var(--text-dim);
-}
-.utube-delta {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 14px;
-  color: var(--warning);
-}
-
-/* Torricelli viz */
-.torricelli-viz {
-  display: flex;
-  gap: 40px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.torricelli-tube {
-  position: relative;
-  width: 60px;
-  height: 200px;
-  border: 2px solid var(--accent);
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-  overflow: hidden;
-}
-.torricelli-mercury {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  background: rgba(192, 192, 192, 0.3);
-  border-top: 2px solid #c0c0c0;
-}
-.torricelli-mercury::after {
-  content: '';
-  position: absolute;
-  top: -8px; left: 0; right: 0;
-  height: 16px;
-  background: rgba(192, 192, 192, 0.4);
-  border-radius: 50%;
-  transform: scaleY(0.4);
-}
-.torricelli-scale {
-  position: absolute;
-  left: -30px;
-  top: 0; bottom: 0;
-  width: 24px;
-  display: flex;
-  flex-direction: column-reverse;
-  justify-content: space-between;
-  padding: 4px 0;
-}
-.torricelli-tick {
-  width: 10px; height: 1px;
-  background: var(--accent);
-}
-.torricelli-tick.major { width: 18px; }
-.torricelli-read-line {
-  position: absolute;
-  left: 0; right: 0;
-  height: 1px;
-  background: var(--warning);
-  box-shadow: 0 0 6px var(--warning);
-}
-.torricelli-read-label {
-  position: absolute;
-  left: -60px;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 11px;
-  color: var(--warning);
-  transform: translateY(-50%);
-}
-.torricelli-dish {
-  width: 100px;
-  height: 20px;
-  border: 2px solid var(--accent);
-  border-radius: 0 0 50px 50px;
-  border-top: none;
-  margin-top: -2px;
-  position: relative;
-  overflow: hidden;
-}
-.torricelli-dish-liquid {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 10px;
-  background: rgba(192, 192, 192, 0.25);
-}
-
-/* Pressure formula viz */
-.pressure-viz {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-.pressure-block {
-  position: relative;
-  width: 120px;
-  height: 60px;
-  background: rgba(157, 0, 255, 0.15);
-  border: 2px solid var(--accent);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 14px;
-  color: var(--accent2);
-}
-.pressure-arrows {
-  display: flex;
-  gap: 20px;
-}
-.pressure-arrow-down {
-  width: 2px;
-  height: 30px;
-  background: var(--warning);
-  position: relative;
-}
-.pressure-arrow-down::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: -4px;
-  width: 0; height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 8px solid var(--warning);
-}
-.pressure-surface {
-  width: 200px;
-  height: 4px;
-  background: var(--accent);
-  border-radius: 2px;
-}
-
-/* Buoyancy viz */
-.buoyancy-viz {
-  display: flex;
-  gap: 40px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.buoyancy-box {
-  position: relative;
-  width: 140px;
-  height: 160px;
-  border: 2px solid var(--accent);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.buoyancy-liquid {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 70%;
-  background: rgba(157, 0, 255, 0.1);
-  border-top: 2px solid var(--accent2);
-}
-.buoyancy-object {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 80px;
-  background: rgba(255, 209, 102, 0.2);
-  border: 2px solid var(--warning);
-  border-radius: 4px;
-}
-.buoyancy-arrow {
-  position: absolute;
-  width: 2px;
-  background: var(--success);
-}
-.buoyancy-arrow.up {
-  bottom: 50%;
-}
-.buoyancy-arrow.up::after {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: -4px;
-  width: 0; height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-bottom: 8px solid var(--success);
-}
-.buoyancy-arrow.down {
-  top: 0;
-  background: var(--danger);
-}
-.buoyancy-arrow.down::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: -4px;
-  width: 0; height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 8px solid var(--danger);
-}
-
-/* ====== REFERENCE TABLE ====== */
-.ref-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 14px;
-}
-.ref-table th, .ref-table td {
-  border: 1px solid rgba(157, 0, 255, 0.2);
-  padding: 10px 14px;
-  text-align: center;
-}
-.ref-table th {
-  background: rgba(157, 0, 255, 0.08);
-  color: var(--accent);
-  font-family: 'Orbitron', sans-serif;
-  font-size: 13px;
-}
-.ref-table td {
-  color: var(--text);
-}
-.ref-table tr:hover td {
-  background: rgba(157, 0, 255, 0.04);
-}
-
-/* Briefing card */
-.briefing-card {
-  background: rgba(157, 0, 255, 0.04);
-  border: 1px dashed rgba(157, 0, 255, 0.3);
-  border-radius: 8px;
-  padding: 20px;
-  margin: 16px 0;
-}
-.briefing-card .briefing-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(157, 0, 255, 0.15);
-}
-.briefing-card .briefing-title {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 14px;
-  color: var(--accent);
-  letter-spacing: 2px;
-}
-.briefing-card .class-badge {
-  font-size: 11px;
-  color: var(--warning);
-  border: 1px solid var(--warning);
-  padding: 2px 8px;
-  border-radius: 3px;
-}
-.briefing-card p {
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--text);
-}
-
-/* ====== RESPONSIVE ====== */
-@media (max-width: 1024px) {
-  #side-nav { display: none; }
-  #main-wrap { padding: 40px 30px; }
-  .title-bar h1 { font-size: 24px; }
-  .card { padding: 24px; }
-}
-@media (max-width: 768px) {
-  #main-wrap { padding: 24px 20px; }
-  .title-bar h1 { font-size: 20px; }
-  .card { padding: 20px; }
-  .density-viz, .torricelli-viz, .buoyancy-viz { gap: 20px; }
-  .lab-table { font-size: 14px; }
-  .lab-table th, .lab-table td { padding: 6px 8px; }
-}
-@media (max-width: 480px) {
-  #main-wrap { padding: 16px 12px; }
-  .title-bar h1 { font-size: 18px; }
-  .card { padding: 16px; border-radius: 10px; }
-  .lab-table { font-size: 12px; }
-  .quiz-btn { padding: 8px 12px; font-size: 13px; width: 100%; }
-}
-</style><body>
-<div id="hud-grid"></div>
-<div class="corner-tl"></div><div class="corner-tr"></div>
-<div class="corner-bl"></div><div class="corner-br"></div>
-
-<div id="app">
-
-<!-- ========== HEADER ========== -->
-<div class="title-bar">
-  <h1>第六章 密度与压强</h1>
-  <div class="subtitle">DENSITY · 流体力学实验室 · 第 6 / 18 章</div>
-  <div style="margin-top:12px;">
-    <a class="btn btn-warn" href="index.html" style="padding:10px 28px;font-size:14px;">🎮 去挑战模式</a>
-  </div>
-</div>
-
-<div class="progress-bar" id="progress-bar">
-  <div class="progress-seg active"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg"></div>
-  <div class="progress-seg active"></div>
-  </div>
-
-<div>
-<div>
-<div>
-<div class="card" id="ch0">
-  <div class="card-header">
-    <h2>实验简报</h2>
-    <span class="chapter-num">第 0 / 6 单元</span>
+# -*- coding: utf-8 -*-
+units = [
+    {"title": "实验简报", "body": "<span class="chapter-num">第 0 / 6 单元</span>
     <span class="class-level">机密等级 B</span>
   </div>
 
@@ -1396,7 +128,14 @@ body {
         <div class="step">液体压强公式 p = ρgh，深度从液面算起</div>
       </div>
     </div>
-
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q0_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_1"></div>
+</div>
 <script>
 function checkQ0_1(btn, ans) {
   const fb = document.getElementById('fb-0_1');
@@ -1413,7 +152,14 @@ function checkQ0_1(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q0_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_2"></div>
+</div>
 <script>
 function checkQ0_2(btn, ans) {
   const fb = document.getElementById('fb-0_2');
@@ -1430,7 +176,14 @@ function checkQ0_2(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q0_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_3"></div>
+</div>
 <script>
 function checkQ0_3(btn, ans) {
   const fb = document.getElementById('fb-0_3');
@@ -1447,7 +200,14 @@ function checkQ0_3(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q0_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_4"></div>
+</div>
 <script>
 function checkQ0_4(btn, ans) {
   const fb = document.getElementById('fb-0_4');
@@ -1464,7 +224,14 @@ function checkQ0_4(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q0_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ0_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ0_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ0_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-0_5"></div>
+</div>
 <script>
 function checkQ0_5(btn, ans) {
   const fb = document.getElementById('fb-0_5');
@@ -1484,9 +251,8 @@ function checkQ0_5(btn, ans) {
 </div>
 
 <div class="card hidden" id="ch1">
-  <div class="card-header">
-    <h2>密度</h2>
-    <span class="chapter-num">第 1 / 6 单元</span>
+  <div class="card-header">"},
+    {"title": "密度", "body": "<span class="chapter-num">第 1 / 6 单元</span>
   </div>
 
   <div class="concept-box">
@@ -1737,7 +503,14 @@ function checkQ0_5(btn, ans) {
   draw();
 })();
 </script>
-
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q1_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_1"></div>
+</div>
 <script>
 function checkQ1_1(btn, ans) {
   const fb = document.getElementById('fb-1_1');
@@ -1754,7 +527,14 @@ function checkQ1_1(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q1_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_2"></div>
+</div>
 <script>
 function checkQ1_2(btn, ans) {
   const fb = document.getElementById('fb-1_2');
@@ -1771,7 +551,14 @@ function checkQ1_2(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q1_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_3"></div>
+</div>
 <script>
 function checkQ1_3(btn, ans) {
   const fb = document.getElementById('fb-1_3');
@@ -1788,7 +575,14 @@ function checkQ1_3(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q1_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_4"></div>
+</div>
 <script>
 function checkQ1_4(btn, ans) {
   const fb = document.getElementById('fb-1_4');
@@ -1805,7 +599,14 @@ function checkQ1_4(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q1_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ1_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ1_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ1_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-1_5"></div>
+</div>
 <script>
 function checkQ1_5(btn, ans) {
   const fb = document.getElementById('fb-1_5');
@@ -1825,9 +626,8 @@ function checkQ1_5(btn, ans) {
 </div>
 
 <div class="card hidden" id="ch2">
-  <div class="card-header">
-    <h2>压强</h2>
-    <span class="chapter-num">第 2 / 6 单元</span>
+  <div class="card-header">"},
+    {"title": "压强", "body": "<span class="chapter-num">第 2 / 6 单元</span>
   </div>
 
   <div class="concept-box">
@@ -2028,7 +828,14 @@ function checkQ1_5(btn, ans) {
   draw();
 })();
 </script>
-
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q2_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_1"></div>
+</div>
 <script>
 function checkQ2_1(btn, ans) {
   const fb = document.getElementById('fb-2_1');
@@ -2045,7 +852,14 @@ function checkQ2_1(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q2_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_2"></div>
+</div>
 <script>
 function checkQ2_2(btn, ans) {
   const fb = document.getElementById('fb-2_2');
@@ -2062,7 +876,14 @@ function checkQ2_2(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q2_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_3"></div>
+</div>
 <script>
 function checkQ2_3(btn, ans) {
   const fb = document.getElementById('fb-2_3');
@@ -2079,7 +900,14 @@ function checkQ2_3(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q2_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_4"></div>
+</div>
 <script>
 function checkQ2_4(btn, ans) {
   const fb = document.getElementById('fb-2_4');
@@ -2096,7 +924,14 @@ function checkQ2_4(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q2_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ2_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ2_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ2_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-2_5"></div>
+</div>
 <script>
 function checkQ2_5(btn, ans) {
   const fb = document.getElementById('fb-2_5');
@@ -2116,9 +951,8 @@ function checkQ2_5(btn, ans) {
 </div>
 
 <div class="card hidden" id="ch3">
-  <div class="card-header">
-    <h2>液体压强</h2>
-    <span class="chapter-num">第 3 / 6 单元</span>
+  <div class="card-header">"},
+    {"title": "液体压强", "body": "<span class="chapter-num">第 3 / 6 单元</span>
   </div>
 
   <div class="concept-box">
@@ -2324,7 +1158,14 @@ function checkQ2_5(btn, ans) {
   draw();
 })();
 </script>
-
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q3_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ3_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ3_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ3_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-3_1"></div>
+</div>
 <script>
 function checkQ3_1(btn, ans) {
   const fb = document.getElementById('fb-3_1');
@@ -2341,7 +1182,14 @@ function checkQ3_1(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q3_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ3_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ3_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ3_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-3_2"></div>
+</div>
 <script>
 function checkQ3_2(btn, ans) {
   const fb = document.getElementById('fb-3_2');
@@ -2358,7 +1206,14 @@ function checkQ3_2(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q3_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ3_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ3_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ3_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-3_3"></div>
+</div>
 <script>
 function checkQ3_3(btn, ans) {
   const fb = document.getElementById('fb-3_3');
@@ -2375,7 +1230,14 @@ function checkQ3_3(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q3_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ3_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ3_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ3_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-3_4"></div>
+</div>
 <script>
 function checkQ3_4(btn, ans) {
   const fb = document.getElementById('fb-3_4');
@@ -2392,7 +1254,14 @@ function checkQ3_4(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q3_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ3_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ3_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ3_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-3_5"></div>
+</div>
 <script>
 function checkQ3_5(btn, ans) {
   const fb = document.getElementById('fb-3_5');
@@ -2412,9 +1281,8 @@ function checkQ3_5(btn, ans) {
 </div>
 
 <div class="card hidden" id="ch4">
-  <div class="card-header">
-    <h2>大气压强</h2>
-    <span class="chapter-num">第 4 / 6 单元</span>
+  <div class="card-header">"},
+    {"title": "大气压强", "body": "<span class="chapter-num">第 4 / 6 单元</span>
   </div>
 
   <div class="concept-box">
@@ -2607,7 +1475,14 @@ function checkQ3_5(btn, ans) {
   draw();
 })();
 </script>
-
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q4_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ4_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ4_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ4_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-4_1"></div>
+</div>
 <script>
 function checkQ4_1(btn, ans) {
   const fb = document.getElementById('fb-4_1');
@@ -2624,7 +1499,14 @@ function checkQ4_1(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q4_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ4_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ4_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ4_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-4_2"></div>
+</div>
 <script>
 function checkQ4_2(btn, ans) {
   const fb = document.getElementById('fb-4_2');
@@ -2641,7 +1523,14 @@ function checkQ4_2(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q4_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ4_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ4_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ4_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-4_3"></div>
+</div>
 <script>
 function checkQ4_3(btn, ans) {
   const fb = document.getElementById('fb-4_3');
@@ -2658,7 +1547,14 @@ function checkQ4_3(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q4_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ4_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ4_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ4_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-4_4"></div>
+</div>
 <script>
 function checkQ4_4(btn, ans) {
   const fb = document.getElementById('fb-4_4');
@@ -2675,7 +1571,14 @@ function checkQ4_4(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q4_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ4_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ4_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ4_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-4_5"></div>
+</div>
 <script>
 function checkQ4_5(btn, ans) {
   const fb = document.getElementById('fb-4_5');
@@ -2695,9 +1598,8 @@ function checkQ4_5(btn, ans) {
 </div>
 
 <div class="card hidden" id="ch5">
-  <div class="card-header">
-    <h2>浮力与压强的关系</h2>
-    <span class="chapter-num">第 5 / 6 单元</span>
+  <div class="card-header">"},
+    {"title": "浮力与压强的关系", "body": "<span class="chapter-num">第 5 / 6 单元</span>
   </div>
 
   <div class="concept-box">
@@ -2901,7 +1803,14 @@ function checkQ4_5(btn, ans) {
   draw();
 })();
 </script>
-
+<h3>🎯 随堂测验 Q1</h3>
+<div id="q5_1">
+  <p><strong>Q1.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ5_1(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ5_1(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ5_1(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-5_1"></div>
+</div>
 <script>
 function checkQ5_1(btn, ans) {
   const fb = document.getElementById('fb-5_1');
@@ -2918,7 +1827,14 @@ function checkQ5_1(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q2</h3>
+<div id="q5_2">
+  <p><strong>Q2.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ5_2(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ5_2(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ5_2(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-5_2"></div>
+</div>
 <script>
 function checkQ5_2(btn, ans) {
   const fb = document.getElementById('fb-5_2');
@@ -2935,7 +1851,14 @@ function checkQ5_2(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q3</h3>
+<div id="q5_3">
+  <p><strong>Q3.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ5_3(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ5_3(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ5_3(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-5_3"></div>
+</div>
 <script>
 function checkQ5_3(btn, ans) {
   const fb = document.getElementById('fb-5_3');
@@ -2952,7 +1875,14 @@ function checkQ5_3(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q4</h3>
+<div id="q5_4">
+  <p><strong>Q4.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ5_4(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ5_4(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ5_4(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-5_4"></div>
+</div>
 <script>
 function checkQ5_4(btn, ans) {
   const fb = document.getElementById('fb-5_4');
@@ -2969,7 +1899,14 @@ function checkQ5_4(btn, ans) {
   }
 }
 </script>
-
+<h3>🎯 随堂测验 Q5</h3>
+<div id="q5_5">
+  <p><strong>Q5.</strong> （请根据本单元内容设计测试题）</p>
+  <button class="quiz-option" onclick="checkQ5_5(this,'A')">A. 选项A</button>
+  <button class="quiz-option" onclick="checkQ5_5(this,'B')">B. 选项B</button>
+  <button class="quiz-option" onclick="checkQ5_5(this,'C')">C. 选项C</button>
+  <div class="feedback" id="fb-5_5"></div>
+</div>
 <script>
 function checkQ5_5(btn, ans) {
   const fb = document.getElementById('fb-5_5');
@@ -2989,9 +1926,8 @@ function checkQ5_5(btn, ans) {
 </div>
 
 <div class="card hidden" id="ch6">
-  <div class="card-header">
-    <h2>综合实验</h2>
-    <span class="chapter-num">第 6 / 6 单元</span>
+  <div class="card-header">"},
+    {"title": "综合实验", "body": "<span class="chapter-num">第 6 / 6 单元</span>
     <span class="class-level">综合测试</span>
   </div>
 
@@ -3860,9 +2796,5 @@ function checkQ5_5(btn, ans) {
   }
   draw();
 })();
-</script>
-</div>
-</div>
-</div>
-</body>
-</html>
+</script>"},
+]
