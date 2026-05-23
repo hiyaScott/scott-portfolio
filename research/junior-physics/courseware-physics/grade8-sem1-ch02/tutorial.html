@@ -1025,28 +1025,72 @@ function drawPathCanvas() {
   ctx.fillText('起点', startX-15, startY+25);
   ctx.fillText('终点', endX-15, endY-15);
 
-  // Draw displacement arrow (dashed)
+  // Draw displacement arrow (dashed, cyan)
   ctx.strokeStyle = '#00f5d4';
   ctx.setLineDash([8,4]);
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(startX,startY); ctx.lineTo(endX,endY); ctx.stroke();
   ctx.setLineDash([]);
 
+  // Arrowhead for displacement
+  const angle = Math.atan2(endY-startY, endX-startX);
+  ctx.fillStyle = '#00f5d4';
+  ctx.beginPath();
+  ctx.moveTo(endX, endY);
+  ctx.lineTo(endX-10*Math.cos(angle-0.4), endY-10*Math.sin(angle-0.4));
+  ctx.lineTo(endX-10*Math.cos(angle+0.4), endY-10*Math.sin(angle+0.4));
+  ctx.closePath(); ctx.fill();
+
   // Draw path based on type
-  ctx.strokeStyle = '#00bbf9';
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(startX,startY);
+  const pathColor = '#00bbf9';
+  const backColor = '#ff9f1c'; // orange for return path
 
   if(pathType === 'straight') {
-    ctx.lineTo(endX,endY);
+    // Outbound path
+    ctx.strokeStyle = pathColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(startX,startY); ctx.lineTo(endX,endY); ctx.stroke();
+    // Direction arrow
+    drawArrow(ctx, startX, startY, endX, endY, pathColor);
   } else if(pathType === 'curve') {
-    ctx.bezierCurveTo(150,50,350,200,endX,endY);
+    // Outbound curve
+    ctx.strokeStyle = pathColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(startX,startY);
+    ctx.bezierCurveTo(150,50,350,200,endX,endY); ctx.stroke();
+    // Guide points (faint)
+    ctx.strokeStyle = 'rgba(0,187,249,0.2)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(startX,startY); ctx.lineTo(150,50); ctx.lineTo(350,200); ctx.lineTo(endX,endY); ctx.stroke();
+    ctx.setLineDash([]);
+    // Label
+    ctx.fillStyle = 'rgba(0,187,249,0.6)'; ctx.font = '11px Share Tech Mono';
+    ctx.fillText('↷ 曲线轨迹', 200, 30);
   } else if(pathType === 'back') {
-    ctx.lineTo(endX,endY);
-    ctx.lineTo(endX,180);
-    ctx.lineTo(startX,180);
+    // Outbound: start → end (blue solid)
+    ctx.strokeStyle = pathColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(startX,startY); ctx.lineTo(endX,endY); ctx.stroke();
+    drawArrow(ctx, startX, startY, endX, endY, pathColor);
+    ctx.fillStyle = pathColor; ctx.font = '11px Share Tech Mono';
+    ctx.fillText('去程 →', (startX+endX)/2 - 20, (startY+endY)/2 - 10);
+
+    // Return: end → start (orange dashed)
+    ctx.strokeStyle = backColor;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(endX,endY); ctx.lineTo(startX,startY); ctx.stroke();
+    ctx.setLineDash([]);
+    drawArrow(ctx, endX, endY, startX, startY, backColor);
+    ctx.fillStyle = backColor; ctx.font = '11px Share Tech Mono';
+    ctx.fillText('← 回程', (startX+endX)/2 - 20, (startY+endY)/2 + 20);
+
+    // Turn-around markers
+    ctx.fillStyle = '#fff'; ctx.font = '14px Share Tech Mono';
+    ctx.fillText('⟲', endX+10, endY);
+    ctx.fillText('⟲', startX-15, startY);
   }
-  ctx.stroke();
 
   // Animate a dot along the path
   const t = (Date.now() % 3000) / 3000;
@@ -1055,24 +1099,41 @@ function drawPathCanvas() {
     dotX = startX + (endX-startX)*t;
     dotY = startY + (endY-startY)*t;
   } else if(pathType === 'curve') {
-    // Bezier approximation
     const t2 = t*t, t3 = t2*t;
     const mt = 1-t, mt2 = mt*mt, mt3 = mt2*mt;
     dotX = mt3*startX + 3*mt2*t*150 + 3*mt*t2*350 + t3*endX;
     dotY = mt3*startY + 3*mt2*t*50 + 3*mt*t2*200 + t3*endY;
   } else {
-    // Back and forth
-    const segment = Math.floor(t*3);
-    const localT = (t*3)%1;
-    if(segment===0) { dotX=startX+(endX-startX)*localT; dotY=startY+(endY-startY)*localT; }
-    else if(segment===1) { dotX=endX; dotY=endY+(180-endY)*localT; }
-    else { dotX=endX-(endX-startX)*localT; dotY=180; }
+    // Back and forth: 0-0.5 outbound, 0.5-1.0 return
+    if(t < 0.5) {
+      const localT = t * 2;
+      dotX = startX + (endX-startX)*localT;
+      dotY = startY + (endY-startY)*localT;
+    } else {
+      const localT = (t-0.5) * 2;
+      dotX = endX - (endX-startX)*localT;
+      dotY = endY - (endY-startY)*localT;
+    }
   }
 
   ctx.fillStyle = '#ffd166';
   ctx.beginPath(); ctx.arc(dotX,dotY,6,0,Math.PI*2); ctx.fill();
+  // Glow
+  ctx.fillStyle = 'rgba(255,209,102,0.3)';
+  ctx.beginPath(); ctx.arc(dotX,dotY,12,0,Math.PI*2); ctx.fill();
 
   requestAnimationFrame(drawPathCanvas);
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color) {
+  const angle = Math.atan2(y2-y1, x2-x1);
+  const midX = (x1+x2)/2, midY = (y1+y2)/2;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(midX, midY);
+  ctx.lineTo(midX-8*Math.cos(angle-0.4), midY-8*Math.sin(angle-0.4));
+  ctx.lineTo(midX-8*Math.cos(angle+0.4), midY-8*Math.sin(angle+0.4));
+  ctx.closePath(); ctx.fill();
 }
 
 // ==================== UNIT 3: Race Canvas ====================
