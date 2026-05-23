@@ -1250,39 +1250,79 @@ function startMolecularDemo(medium) {
     ctx.fillStyle = '#06080f';
     ctx.fillRect(0, 0, w, h);
     
-    // Draw grid
-    ctx.strokeStyle = 'rgba(0,245,212,0.05)';
+    // Draw grid (faint)
+    ctx.strokeStyle = 'rgba(0,245,212,0.08)';
     ctx.lineWidth = 1;
     for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
     for (let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
     
-    time += 0.05;
+    // Draw connection lines first (behind particles)
+    ctx.beginPath();
     particles.forEach((p, i) => {
-      p.y = p.baseY + Math.sin(time + p.phase) * (10 + cfg.jitter * 2);
+      if (i === 0) ctx.moveTo(p.x, p.baseY);
+      else ctx.lineTo(p.x, p.baseY);
+    });
+    ctx.strokeStyle = 'rgba(0,245,212,0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    time += 0.05 * cfg.speed;
+    
+    // Draw particles with glow
+    particles.forEach((p, i) => {
+      p.y = p.baseY + Math.sin(time + p.phase) * (12 + cfg.jitter * 3);
       p.x = p.baseX || p.x;
       if (!p.baseX) p.baseX = p.x;
       p.x = p.baseX + Math.cos(time + p.phase) * cfg.jitter;
       
+      // Glow effect
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,245,212,0.2)';
+      ctx.fill();
+      
+      // Main particle
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
       ctx.fillStyle = '#00f5d4';
       ctx.fill();
       
-      // Connection
+      // Core highlight
+      ctx.beginPath();
+      ctx.arc(p.x - 1, p.y - 1, 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      
+      // Connection to next particle
       if (i < particles.length - 1) {
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(particles[i+1].x, particles[i+1].y);
-        ctx.strokeStyle = 'rgba(0,245,212,0.15)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(0,245,212,0.25)';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
     });
     
-    // Wave indicator
+    // Wave propagation indicator (moving highlight)
+    const waveX = (time * 20) % (w + 40) - 20;
+    const waveWidth = 30;
+    const gradient = ctx.createLinearGradient(waveX - waveWidth/2, 0, waveX + waveWidth/2, 0);
+    gradient.addColorStop(0, 'rgba(255,209,102,0)');
+    gradient.addColorStop(0.5, 'rgba(255,209,102,0.4)');
+    gradient.addColorStop(1, 'rgba(255,209,102,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(waveX - waveWidth/2, 10, waveWidth, h - 20);
+    
+    // Wave indicator text
     ctx.fillStyle = '#ffd166';
-    ctx.font = '12px monospace';
+    ctx.font = 'bold 12px monospace';
     ctx.fillText('→ 声波传播方向', 20, 20);
+    
+    // Speed indicator
+    ctx.fillStyle = 'rgba(0,245,212,0.5)';
+    ctx.font = '11px monospace';
+    ctx.fillText(`振动频率: ${cfg.speed}x`, w - 100, 20);
     
     molAnimId = requestAnimationFrame(draw);
   }
