@@ -479,10 +479,10 @@ canvas { max-width: 100%; border-radius: 6px; display: block; margin: 0 auto; }
     <div style="font-size:16px;margin-bottom:12px;">📐 影子形成原理</div>
     <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px;">当光遇到不透明物体时，被阻挡的区域形成<strong>影子</strong>。影子的大小与光源位置和物体位置有关。</p>
     <div class="demo-box">
-      <canvas id="shadowCanvas" width="600" height="250"></canvas>
-      <div class="slider-control">
+      <canvas id="shadowCanvas" width="600" height="280"></canvas>
+      <div class="slider-control" style="margin-top:12px;">
         <label>太阳高度角</label>
-        <input type="range" id="sunAngle" min="10" max="80" value="45">
+        <input type="range" id="sunAngle" min="10" max="80" value="45" oninput="updateShadow()">
         <span class="value" id="sunAngleVal">45°</span>
       </div>
       <p style="font-size:12px;color:var(--text-dim);margin-top:8px">拖动滑块改变太阳角度，观察影子长度变化</p>
@@ -492,7 +492,7 @@ canvas { max-width: 100%; border-radius: 6px; display: block; margin: 0 auto; }
   <div class="anim-area">
     <div style="font-size:16px;margin-bottom:12px;">🌑 日食与月食</div>
     <div class="demo-box">
-      <canvas id="eclipseCanvas" width="600" height="200"></canvas>
+      <canvas id="eclipseCanvas" width="600" height="320"></canvas>
       <div style="margin-top:10px">
         <button class="btn" onclick="setEclipse('solar')">☀️ 日食</button>
         <button class="btn btn-ghost" onclick="setEclipse('lunar')">🌙 月食</button>
@@ -932,126 +932,426 @@ canvas { max-width: 100%; border-radius: 6px; display: block; margin: 0 auto; }
 let shadowCtx, eclipseCtx, reflectCtx, mirrorCtx, refractCtx, prismCtx, lensCtx;
 
 
-function drawShadow() {
-  const ctx = shadowCtx, w = 600, h = 250;
-  ctx.clearRect(0, 0, w, h);
+let sunAngle = 45;
+let eclipseType = 'solar';
 
-  // Ground
-  ctx.fillStyle = '#0a0e1a';
-  ctx.fillRect(0, h - 40, w, 40);
-  ctx.strokeStyle = 'rgba(252,238,10,0.2)';
-  ctx.beginPath(); ctx.moveTo(0, h - 40); ctx.lineTo(w, h - 40); ctx.stroke();
-
-  // Sun
-  const sunX = w / 2 - 150 * Math.cos(sunAngle * Math.PI / 180);
-  const sunY = h - 40 - 150 * Math.sin(sunAngle * Math.PI / 180);
-  ctx.fillStyle = '#fcee0a';
-  ctx.shadowColor = '#fcee0a'; ctx.shadowBlur = 30;
-  ctx.beginPath(); ctx.arc(sunX, sunY, 18, 0, Math.PI * 2); ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Tree
-  const treeX = w / 2, treeBase = h - 40;
-  const treeH = 100, treeW = 20;
-  ctx.fillStyle = '#2d4a3e';
-  ctx.fillRect(treeX - treeW / 2, treeBase - treeH, treeW, treeH);
-  ctx.fillStyle = '#3d6a4e';
-  ctx.beginPath(); ctx.arc(treeX, treeBase - treeH, 30, 0, Math.PI * 2); ctx.fill();
-
-  // Shadow
-  const shadowLen = treeH / Math.tan(sunAngle * Math.PI / 180);
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.beginPath();
-  ctx.moveTo(treeX + treeW / 2, treeBase);
-  ctx.lineTo(treeX + treeW / 2 + shadowLen, treeBase);
-  ctx.lineTo(treeX - treeW / 2 + shadowLen * 0.8, treeBase);
-  ctx.lineTo(treeX - treeW / 2, treeBase);
-  ctx.closePath(); ctx.fill();
-
-  // Light rays
-  ctx.strokeStyle = 'rgba(252,238,10,0.4)';
-  ctx.setLineDash([5, 5]);
-  ctx.beginPath(); ctx.moveTo(sunX, sunY); ctx.lineTo(treeX - treeW / 2, treeBase - treeH); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(sunX, sunY); ctx.lineTo(treeX + treeW / 2, treeBase - treeH); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Shadow length text
-  ctx.fillStyle = '#fcee0a';
-  ctx.font = '14px Share Tech Mono';
-  ctx.fillText(`影长 ≈ ${shadowLen.toFixed(1)} px`, treeX + 20, treeBase + 20);
+function updateShadow() {
+  const slider = document.getElementById('sunAngle');
+  const val = document.getElementById('sunAngleVal');
+  if (!slider || !val) return;
+  sunAngle = parseInt(slider.value);
+  val.textContent = sunAngle + '°';
+  drawShadow();
 }
 
-function setEclipse(type) { eclipseType = type; drawEclipse(); }
-
-function drawEclipse() {
-  const ctx = eclipseCtx, w = 600, h = 200;
+function drawShadow() {
+  const ctx = shadowCtx, w = 600, h = 280;
   ctx.clearRect(0, 0, w, h);
 
-  const sunX = 80, earthX = 520, midX = 300;
-  const y = h / 2;
+  // Background
+  ctx.fillStyle = '#06080f';
+  ctx.fillRect(0, 0, w, h);
+
+  // Ground
+  const groundY = h - 50;
+  ctx.fillStyle = 'rgba(10,14,26,0.9)';
+  ctx.fillRect(0, groundY, w, h - groundY);
+  ctx.strokeStyle = 'rgba(0,245,212,0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(w, groundY); ctx.stroke();
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,245,212,0.05)';
+  ctx.lineWidth = 1;
+  for(let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,groundY); ctx.stroke(); }
+
+  // Sun trajectory arc (dashed, showing possible sun positions)
+  ctx.strokeStyle = 'rgba(252,238,10,0.15)';
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(w / 2, groundY, 180, Math.PI, Math.PI * 1.6);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
   // Sun
+  const sunX = w / 2 - 180 * Math.cos(sunAngle * Math.PI / 180);
+  const sunY = groundY - 180 * Math.sin(sunAngle * Math.PI / 180);
+
+  // Sun glow
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, 35, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(252,238,10,0.2)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, 25, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(252,238,10,0.4)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, 16, 0, Math.PI * 2);
   ctx.fillStyle = '#fcee0a';
-  ctx.shadowColor = '#fcee0a'; ctx.shadowBlur = 40;
-  ctx.beginPath(); ctx.arc(sunX, y, 35, 0, Math.PI * 2); ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#fcee0a'; ctx.font = '12px Orbitron';
-  ctx.fillText('☀️', sunX - 8, y + 50);
+  ctx.fill();
+  ctx.strokeStyle = '#ffd166';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Sun label
+  ctx.fillStyle = '#ffd166';
+  ctx.font = 'bold 12px "Share Tech Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('☀️ 太阳', sunX, sunY - 42);
+
+  // Angle arc
+  ctx.strokeStyle = 'rgba(255,209,102,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(w / 2, groundY, 50, Math.PI, Math.PI + sunAngle * Math.PI / 180);
+  ctx.stroke();
+  ctx.fillStyle = '#ffd166';
+  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.fillText(sunAngle + '°', w / 2 - 65, groundY - 10);
+
+  // Object (person / pole)
+  const objX = w / 2, objH = 100, objW = 16;
+  const objBase = groundY;
+  const objTop = objBase - objH;
+
+  // Shadow
+  const shadowLen = objH / Math.tan(sunAngle * Math.PI / 180);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath();
+  ctx.moveTo(objX + objW / 2, objBase);
+  ctx.lineTo(objX + objW / 2 + shadowLen, objBase);
+  ctx.lineTo(objX - objW / 2 + shadowLen * 0.9, objBase - 2);
+  ctx.lineTo(objX - objW / 2, objBase);
+  ctx.closePath();
+  ctx.fill();
+  // Shadow edge highlight
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(objX + objW / 2 + shadowLen, objBase); ctx.lineTo(objX - objW / 2 + shadowLen * 0.9, objBase - 2); ctx.stroke();
+
+  // Shadow label
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.textAlign = 'center';
+  if (shadowLen > 30) {
+    ctx.fillText('影子', objX + shadowLen / 2, objBase - 8);
+  }
+
+  // Object body
+  ctx.fillStyle = '#2d4a3e';
+  ctx.fillRect(objX - objW / 2, objTop, objW, objH);
+  // Object top (head/round top)
+  ctx.fillStyle = '#3d6a4e';
+  ctx.beginPath(); ctx.arc(objX, objTop, 18, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(61,106,78,0.5)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Object label
+  ctx.fillStyle = '#3d6a4e';
+  ctx.font = 'bold 11px "Share Tech Mono", monospace';
+  ctx.fillText('👤 人', objX, objTop - 20);
+
+  // Light rays (from sun to object top edges, then extended)
+  function drawRay(fromX, fromY, toX, toY, color, alpha) {
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY); ctx.stroke();
+    // Arrow at end
+    const angle = Math.atan2(toY - fromY, toX - fromX);
+    const headLen = 8;
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headLen * Math.cos(angle - 0.5), toY - headLen * Math.sin(angle - 0.5));
+    ctx.lineTo(toX - headLen * Math.cos(angle + 0.5), toY - headLen * Math.sin(angle + 0.5));
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Top edge rays
+  drawRay(sunX, sunY, objX - objW / 2, objTop, 'rgba(252,238,10,0.5)', 0.7);
+  drawRay(sunX, sunY, objX + objW / 2, objTop, 'rgba(252,238,10,0.5)', 0.7);
+
+  // Extended ray through top edge showing shadow boundary
+  const extX = objX - objW / 2 + (objX - objW / 2 - sunX) * (objH / (groundY - objTop - sunY));
+  // Actually simpler: from sun through object edge to ground
+  const dx = (objX + objW / 2) - sunX;
+  const dy = objTop - sunY;
+  const t = (groundY - sunY) / dy;
+  const groundX = sunX + dx * t;
+  drawRay(sunX, sunY, groundX, groundY, 'rgba(252,238,10,0.25)', 0.5);
+
+  // Info panel
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(10, 10, 200, 70);
+  ctx.strokeStyle = 'rgba(0,245,212,0.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(10, 10, 200, 70);
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = '12px "Share Tech Mono", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`太阳高度角: ${sunAngle}°`, 20, 30);
+  ctx.fillText(`物体高度: ${objH}px`, 20, 50);
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText(`影长: ${shadowLen.toFixed(1)}px`, 20, 70);
+  ctx.textAlign = 'center';
+
+  // Formula hint
+  ctx.fillStyle = 'rgba(0,245,212,0.5)';
+  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText('影长 = 物体高度 ÷ tan(太阳高度角)', w - 20, 30);
+  ctx.textAlign = 'center';
+}
+
+// ==================== ECLIPSE ANIMATION ====================
+let eclipseAnimId = null;
+let eclipsePhase = 0; // 0-100 animation progress
+
+function setEclipse(type) {
+  eclipseType = type;
+  eclipsePhase = 0;
+  if (eclipseAnimId) cancelAnimationFrame(eclipseAnimId);
+  drawEclipse();
+}
+
+function drawEclipse() {
+  const ctx = eclipseCtx, w = 600, h = 320;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#06080f';
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,245,212,0.05)';
+  ctx.lineWidth = 1;
+  for(let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+  for(let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+  const sunX = 80, earthX = 520;
+  const orbitY = h / 2 - 30;
+  const resultY = h - 50;
+
+  // Orbit line
+  ctx.strokeStyle = 'rgba(0,245,212,0.15)';
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sunX, orbitY); ctx.lineTo(earthX, orbitY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // === TOP SECTION: Three-body positions ===
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = 'bold 13px "Share Tech Mono", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('三体位置关系', 20, 25);
+
+  // Sun
+  ctx.beginPath(); ctx.arc(sunX, orbitY, 30, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(252,238,10,0.3)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(sunX, orbitY, 20, 0, Math.PI * 2);
+  ctx.fillStyle = '#fcee0a'; ctx.fill();
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#ffd166';
+  ctx.font = 'bold 12px "Share Tech Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('☀️ 太阳', sunX, orbitY + 45);
 
   // Earth
+  ctx.beginPath(); ctx.arc(earthX, orbitY, 22, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,187,249,0.3)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(earthX, orbitY, 16, 0, Math.PI * 2);
+  ctx.fillStyle = '#00bbf9'; ctx.fill();
+  ctx.strokeStyle = '#00bbf9'; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = '#00bbf9';
-  ctx.beginPath(); ctx.arc(earthX, y, 30, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#00bbf9'; ctx.font = '12px Orbitron';
-  ctx.fillText('🌍', earthX - 8, y + 50);
+  ctx.fillText('🌍 地球', earthX, orbitY + 42);
 
   if (eclipseType === 'solar') {
     // Moon between Sun and Earth
-    const moonX = midX;
+    const moonX = (sunX + earthX) / 2;
+    ctx.beginPath(); ctx.arc(moonX, orbitY, 18, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(170,170,170,0.3)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(moonX, orbitY, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#aaa'; ctx.fill();
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = '#aaa';
-    ctx.beginPath(); ctx.arc(moonX, y, 25, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#aaa'; ctx.font = '12px Orbitron';
-    ctx.fillText('🌑', moonX - 8, y + 50);
+    ctx.fillText('🌑 月球', moonX, orbitY + 38);
 
-    // Shadow cone
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    // Light rays from Sun
+    const rayAlpha = 0.6;
+    for (let offset of [-15, -5, 5, 15]) {
+      const startY = orbitY + offset;
+      // Ray to left edge of Moon
+      const moonLeftY = orbitY - 12 * (offset / 30);
+      ctx.strokeStyle = `rgba(252,238,10,${rayAlpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(sunX + 20, startY); ctx.lineTo(moonX - 12, moonLeftY); ctx.stroke();
+      // Ray blocked by Moon (faint continuation)
+      if (Math.abs(offset) <= 12) {
+        // Blocked - no ray past moon
+        ctx.strokeStyle = 'rgba(252,238,10,0.15)';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(moonX + 12, orbitY + offset * 0.5); ctx.lineTo(earthX - 16, earthY || orbitY); ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        // Passes around Moon
+        const earthHitY = orbitY + offset * ((earthX - sunX) / (moonX - sunX));
+        ctx.strokeStyle = `rgba(252,238,10,${rayAlpha * 0.4})`;
+        ctx.beginPath(); ctx.moveTo(moonX + 12, orbitY + offset * 0.4); ctx.lineTo(earthX - 16, earthHitY); ctx.stroke();
+      }
+    }
+
+    // Shadow cone (Moon's shadow on Earth)
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.beginPath();
-    ctx.moveTo(sunX + 35, y - 20);
-    ctx.lineTo(moonX + 25, y - 15);
-    ctx.lineTo(earthX - 5, y - 8);
-    ctx.lineTo(earthX - 5, y + 8);
-    ctx.lineTo(moonX + 25, y + 15);
-    ctx.lineTo(sunX + 35, y + 20);
+    ctx.moveTo(moonX + 12, orbitY - 15);
+    ctx.lineTo(earthX - 5, orbitY - 25);
+    ctx.lineTo(earthX + 5, orbitY + 25);
+    ctx.lineTo(moonX + 12, orbitY + 15);
     ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Shadow label
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillText('月球影子', (moonX + earthX) / 2, orbitY + 35);
 
-    ctx.fillStyle = '#fcee0a';
-    ctx.fillText('日食：月球遮挡太阳光 → 地球影子区', 200, 30);
+    // Title
+    ctx.fillStyle = '#ffd166';
+    ctx.font = 'bold 14px "Share Tech Mono", monospace';
+    ctx.fillText('日食：月球遮挡太阳光 → 月球影子落在地球上', w / 2, 25);
+
+    // === BOTTOM SECTION: Result view ===
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = 'bold 13px "Share Tech Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('地面观测效果', 20, resultY - 30);
+
+    // Sky
+    ctx.fillStyle = 'rgba(0,187,249,0.1)';
+    ctx.fillRect(50, resultY - 20, w - 100, 40);
+    ctx.strokeStyle = 'rgba(0,187,249,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(50, resultY - 20, w - 100, 40);
+
+    // Sun as seen from Earth (partially blocked)
+    const viewSunX = w / 2;
+    ctx.beginPath(); ctx.arc(viewSunX, resultY, 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#fcee0a'; ctx.fill();
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.stroke();
+    // Moon blocking part of sun
+    ctx.beginPath(); ctx.arc(viewSunX + 6, resultY, 14, 0, Math.PI * 2);
+    ctx.fillStyle = '#06080f'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Corona effect
+    ctx.beginPath(); ctx.arc(viewSunX, resultY, 22, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(252,238,10,0.15)'; ctx.fill();
+
+    ctx.fillStyle = '#ffd166';
+    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌑 月球遮住部分太阳', viewSunX, resultY + 32);
+    ctx.fillText('地面上的人看到日食', viewSunX, resultY + 48);
+
   } else {
-    // Earth between Sun and Moon
-    const moonX = midX + 100;
+    // LUNAR ECLIPSE
+    const moonX = (sunX + earthX) / 2 + 80;
+
+    // Earth (already drawn, but reposition for lunar)
+    // Actually redraw Earth between Sun and Moon
+    // For simplicity, keep Earth at earthX, Moon further out
+
+    ctx.beginPath(); ctx.arc(moonX, orbitY, 18, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(170,170,170,0.3)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(moonX, orbitY, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#aaa'; ctx.fill();
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = '#aaa';
-    ctx.beginPath(); ctx.arc(moonX, y, 25, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#aaa'; ctx.font = '12px Orbitron';
-    ctx.fillText('🌕', moonX - 8, y + 50);
+    ctx.fillText('🌕 月球', moonX, orbitY + 38);
 
-    // Shadow cone from Earth to Moon
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    // Light rays from Sun (past Earth)
+    for (let offset of [-18, -8, 8, 18]) {
+      const startY = orbitY + offset;
+      ctx.strokeStyle = 'rgba(252,238,10,0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(sunX + 20, startY); ctx.lineTo(earthX - 16, orbitY + offset * 0.7); ctx.stroke();
+      // Ray past Earth - some blocked
+      if (Math.abs(offset) <= 16) {
+        // Blocked - enters Earth's shadow cone
+        ctx.strokeStyle = 'rgba(252,238,10,0.15)';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(earthX + 16, orbitY + offset * 0.3); ctx.lineTo(moonX - 12, orbitY + offset * 0.1); ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        // Passes around Earth
+        ctx.strokeStyle = 'rgba(252,238,10,0.4)';
+        ctx.beginPath(); ctx.moveTo(earthX + 16, orbitY + offset * 0.3); ctx.lineTo(moonX - 12, orbitY + offset * 0.8); ctx.stroke();
+      }
+    }
+
+    // Earth's shadow cone
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.beginPath();
-    ctx.moveTo(earthX - 30, y - 12);
-    ctx.lineTo(moonX, y - 20);
-    ctx.lineTo(moonX, y + 20);
-    ctx.lineTo(earthX - 30, y + 12);
+    ctx.moveTo(earthX + 16, orbitY - 18);
+    ctx.lineTo(moonX + 20, orbitY - 30);
+    ctx.lineTo(moonX + 20, orbitY + 30);
+    ctx.lineTo(earthX + 16, orbitY + 18);
     ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillText('地球影子', (earthX + moonX) / 2, orbitY + 40);
 
-    ctx.fillStyle = '#fcee0a';
-    ctx.fillText('月食：地球遮挡太阳光 → 月球进入地球影子', 200, 30);
+    // Moon in shadow (darker)
+    ctx.beginPath(); ctx.arc(moonX, orbitY, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#555'; ctx.fill();
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.stroke();
+    // Partial light on Moon
+    ctx.beginPath(); ctx.arc(moonX - 3, orbitY, 10, Math.PI * 0.5, Math.PI * 1.5);
+    ctx.fillStyle = '#aaa'; ctx.fill();
+
+    // Title
+    ctx.fillStyle = '#ffd166';
+    ctx.font = 'bold 14px "Share Tech Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('月食：地球遮挡太阳光 → 地球影子落在月球上', w / 2, 25);
+
+    // === BOTTOM SECTION: Result view ===
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = 'bold 13px "Share Tech Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('月球表面观测效果', 20, resultY - 30);
+
+    // Moon view
+    ctx.beginPath(); ctx.arc(w / 2, resultY, 20, 0, Math.PI * 2);
+    ctx.fillStyle = '#555'; ctx.fill();
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.stroke();
+    // Earth's shadow on Moon
+    ctx.beginPath(); ctx.arc(w / 2 + 5, resultY, 16, Math.PI * 0.4, Math.PI * 1.6);
+    ctx.fillStyle = '#333'; ctx.fill();
+    // Remaining lit part
+    ctx.beginPath(); ctx.arc(w / 2 - 5, resultY, 14, Math.PI * 1.4, Math.PI * 0.6);
+    ctx.fillStyle = '#aaa'; ctx.fill();
+
+    ctx.fillStyle = '#ffd166';
+    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌕 月球进入地球影子', w / 2, resultY + 32);
+    ctx.fillText('月球变暗 = 月食', w / 2, resultY + 48);
   }
 
-  // Light direction arrows
-  ctx.strokeStyle = 'rgba(252,238,10,0.3)';
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath(); ctx.moveTo(sunX + 50, y); ctx.lineTo(earthX - 40, y); ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.textAlign = 'center';
 }
+
+
 
 function setReflect(type) { reflectType = type; drawReflect(); }
 
