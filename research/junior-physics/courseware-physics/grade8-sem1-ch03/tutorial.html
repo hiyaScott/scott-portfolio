@@ -578,76 +578,7 @@ body::before {
   100% { width: 300px; height: 300px; margin-left: -150px; margin-top: -150px; opacity: 0; }
 }
 
-/* Echo animation */
-.echo-viz {
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-  height: 100px;
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(0,245,212,0.2);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.echo-source {
-  position: absolute;
-  left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  background: var(--warning);
-  border-radius: 50%;
-}
-.echo-wall {
-  position: absolute;
-  right: 20px;
-  top: 10px;
-  bottom: 10px;
-  width: 6px;
-  background: var(--text-dim);
-  border-radius: 2px;
-}
-.echo-pulse-out {
-  position: absolute;
-  left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  margin-left: -8px;
-  margin-top: -8px;
-  border: 2px solid var(--accent);
-  border-radius: 50%;
-  animation: echoOut 3s ease-out infinite;
-}
-.echo-pulse-back {
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  margin-right: -8px;
-  margin-top: -8px;
-  border: 2px solid var(--accent2);
-  border-radius: 50%;
-  animation: echoBack 3s ease-out infinite;
-  animation-delay: 1.5s;
-  opacity: 0;
-}
-@keyframes echoOut {
-  0% { width: 16px; height: 16px; opacity: 1; }
-  50% { width: 200px; height: 200px; margin-left: -100px; margin-top: -100px; opacity: 0.5; }
-  100% { width: 200px; height: 200px; opacity: 0; }
-}
-@keyframes echoBack {
-  0% { width: 16px; height: 16px; opacity: 0.5; right: 20px; }
-  50% { width: 200px; height: 200px; margin-right: -100px; margin-top: -100px; opacity: 0.5; right: 120px; }
-  100% { width: 16px; height: 16px; opacity: 0; right: 220px; }
-}
 
-/* Wave visualization */
 .wave-viz {
   position: relative;
   width: 100%;
@@ -1026,15 +957,208 @@ body::before {
 
   <div class="anim-area">
     <div style="font-size:16px;margin-bottom:12px;">回声原理</div>
-    <div class="echo-viz">
-      <div class="echo-source"></div>
-      <div class="echo-pulse-out"></div>
-      <div class="echo-pulse-back"></div>
-      <div class="echo-wall"></div>
-    </div>
-    <div style="font-size:13px;color:var(--text-dim);margin-top:8px;">
+    <canvas id="echoCanvas" width="400" height="100" style="width:100%;max-width:400px;height:auto;display:block;margin:0 auto;border:1px solid rgba(0,245,212,0.2);border-radius:4px;background:rgba(0,0,0,0.3);"></canvas>
+    <div style="font-size:13px;color:var(--text-dim);margin-top:8px;text-align:center;">
       声波发出 → 遇到墙壁反射 → 返回人耳（走了 2s 的距离）
     </div>
+    <script>
+    (function(){
+      const canvas = document.getElementById('echoCanvas');
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      const sourceX = 40, wallX = 360;
+      const midY = h / 2;
+      const speed = 2.5; // pixels per frame
+      let time = 0;
+      let phase = 'out'; // 'out' | 'hit' | 'back' | 'done'
+      let waveX = sourceX;
+      let reflectX = wallX;
+      let hitFlash = 0;
+
+      function drawArrow(x1, y1, x2, y2, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        // Arrowhead
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const headLen = 8;
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - headLen * Math.cos(angle - 0.5), y2 - headLen * Math.sin(angle - 0.5));
+        ctx.lineTo(x2 - headLen * Math.cos(angle + 0.5), y2 - headLen * Math.sin(angle + 0.5));
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, w, h);
+
+        // Background grid
+        ctx.strokeStyle = 'rgba(0,245,212,0.05)';
+        ctx.lineWidth = 1;
+        for(let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+        for(let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+        // Ground line
+        ctx.strokeStyle = 'rgba(0,187,249,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, midY + 20); ctx.lineTo(w, midY + 20); ctx.stroke();
+
+        // Source (person/ear)
+        ctx.beginPath();
+        ctx.arc(sourceX, midY, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffd166';
+        ctx.fill();
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Source glow
+        ctx.beginPath();
+        ctx.arc(sourceX, midY, 18, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,209,102,0.15)';
+        ctx.fill();
+        // Label
+        ctx.fillStyle = '#ffd166';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('声源', sourceX, midY + 32);
+
+        // Wall
+        ctx.fillStyle = 'rgba(88,96,112,0.6)';
+        ctx.fillRect(wallX, midY - 35, 8, 70);
+        ctx.strokeStyle = 'rgba(88,96,112,0.9)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(wallX, midY - 35, 8, 70);
+        // Wall hatching
+        ctx.strokeStyle = 'rgba(88,96,112,0.4)';
+        ctx.lineWidth = 1;
+        for(let i = -30; i < 30; i += 8) {
+          ctx.beginPath(); ctx.moveTo(wallX + 2, midY + i); ctx.lineTo(wallX + 6, midY + i + 4); ctx.stroke();
+        }
+        // Label
+        ctx.fillStyle = 'rgba(88,96,112,0.9)';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('墙壁', wallX + 4, midY + 45);
+
+        // Phase logic
+        if(phase === 'out') {
+          waveX += speed;
+          // Outgoing wave (concentric arcs)
+          for(let r = 10; r < (waveX - sourceX); r += 20) {
+            const alpha = 1 - r / (waveX - sourceX);
+            if(alpha <= 0) continue;
+            ctx.beginPath();
+            ctx.arc(sourceX, midY, r, -0.3, 0.3);
+            ctx.strokeStyle = `rgba(0,187,249,${alpha * 0.6})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+          // Main wave front
+          ctx.beginPath();
+          ctx.arc(sourceX, midY, waveX - sourceX, -0.4, 0.4);
+          ctx.strokeStyle = 'rgba(0,187,249,0.8)';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          // Wave front arrow
+          drawArrow(sourceX + 15, midY, waveX - 10, midY, 'rgba(0,187,249,0.7)');
+          // Label
+          ctx.fillStyle = '#00bbf9';
+          ctx.font = '11px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('声波发出 →', sourceX + (waveX - sourceX) / 2, midY - 25);
+
+          if(waveX >= wallX - 10) {
+            phase = 'hit';
+            hitFlash = 1;
+          }
+        } else if(phase === 'hit') {
+          // Collision flash at wall
+          hitFlash -= 0.05;
+          if(hitFlash > 0) {
+            ctx.beginPath();
+            ctx.arc(wallX, midY, 25 * (1 - hitFlash), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,209,102,${hitFlash * 0.5})`;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(wallX, midY, 15 * (1 - hitFlash), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,255,255,${hitFlash * 0.8})`;
+            ctx.fill();
+          }
+          // Wall collision spark
+          ctx.beginPath();
+          ctx.arc(wallX, midY, 5, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffd166';
+          ctx.fill();
+
+          reflectX = wallX;
+          phase = 'back';
+        } else if(phase === 'back') {
+          reflectX -= speed;
+          // Reflected wave (concentric arcs from wall)
+          for(let r = 10; r < (wallX - reflectX); r += 20) {
+            const alpha = 1 - r / (wallX - reflectX);
+            if(alpha <= 0) continue;
+            ctx.beginPath();
+            ctx.arc(wallX, midY, r, Math.PI - 0.3, Math.PI + 0.3);
+            ctx.strokeStyle = `rgba(255,209,102,${alpha * 0.6})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+          // Main reflected wave front
+          ctx.beginPath();
+          ctx.arc(wallX, midY, wallX - reflectX, Math.PI - 0.4, Math.PI + 0.4);
+          ctx.strokeStyle = 'rgba(255,209,102,0.8)';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          // Reflected wave arrow
+          drawArrow(wallX - 15, midY, reflectX + 10, midY, 'rgba(255,209,102,0.7)');
+          // Label
+          ctx.fillStyle = '#ffd166';
+          ctx.font = '11px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('← 反射声波', reflectX + (wallX - reflectX) / 2, midY - 25);
+
+          if(reflectX <= sourceX + 10) {
+            phase = 'done';
+            time = 0;
+          }
+        } else if(phase === 'done') {
+          time++;
+          // Show both waves faintly
+          ctx.beginPath();
+          ctx.arc(sourceX, midY, wallX - sourceX - 10, -0.3, 0.3);
+          ctx.strokeStyle = 'rgba(0,187,249,0.2)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(wallX, midY, wallX - sourceX - 10, Math.PI - 0.3, Math.PI + 0.3);
+          ctx.strokeStyle = 'rgba(255,209,102,0.2)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          // Return label
+          ctx.fillStyle = '#06d6a0';
+          ctx.font = 'bold 12px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('✓ 回声回到人耳', w / 2, midY - 25);
+
+          if(time > 60) { // ~1 second pause
+            phase = 'out';
+            waveX = sourceX;
+            reflectX = wallX;
+          }
+        }
+
+        requestAnimationFrame(draw);
+      }
+      draw();
+    })();
+    </script>
   </div>
 
   <div class="example-list">
