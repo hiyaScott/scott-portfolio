@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>花园灌溉材料报价计算器</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #ffffff;
+            --bg-section: #f5f5f5;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border-color: #e0e0e0;
+            --accent-color: #1a1a1a;
+            --accent-hover: #333333;
+            --danger-color: #dc2626;
+            --success-color: #16a34a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"), linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+            background-size: 200px 200px, 100% 100%;
+            min-height: 100vh; padding: 20px; color: var(--text-primary); -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 1200px; margin: 0 auto; background: var(--bg-card); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); overflow: hidden; }
+        .header { background: var(--bg-secondary); color: white; padding: 30px; text-align: center; border-bottom: 1px solid #333; }
+        .header h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+        .header-logo { width: 56px; height: 56px; border-radius: 8px; background: white; padding: 2px; object-fit: contain; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .header p { opacity: 0.7; font-size: 14px; color: #cccccc; }
+        .content { padding: 30px; }
+        .section { margin-bottom: 30px; padding: 25px; background: var(--bg-section); border-radius: 12px; border-left: 4px solid var(--accent-color); }
+        .section-title { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .section-title::before { content: ''; width: 8px; height: 8px; background: var(--accent-color); border-radius: 50%; }
+        .guide-section { background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); }
+        .guide-intro { color: var(--text-secondary); font-size: 15px; margin-bottom: 20px; padding: 12px 16px; background: rgba(0,0,0,0.03); border-radius: 8px; border-left: 3px solid var(--accent-color); }
+        .guide-images-row { display: flex; gap: 20px; flex-wrap: wrap; }
+        .guide-image-item { flex: 1; min-width: 300px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .guide-image-item img { width: 100%; height: auto; display: block; }
+        .guide-image-caption { padding: 15px; text-align: center; font-weight: 500; color: var(--text-primary); background: white; }
+        .form-row { display: flex; gap: 20px; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 200px; }
+        label { display: block; font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; }
+        input[type="number"], input[type="text"], select { width: 100%; padding: 12px 15px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 15px; transition: all 0.3s; background: white; -webkit-appearance: none; }
+        input[type="number"]:focus, input[type="text"]:focus, select:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(26,26,26,0.1); }
+        .radio-group { display: flex; gap: 15px; flex-wrap: wrap; }
+        .radio-item { flex: 1; min-width: 150px; padding: 15px; border: 2px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.3s; background: white; position: relative; }
+        .radio-item:hover { border-color: var(--accent-color); }
+        .radio-item.selected { border-color: var(--accent-color); background: #f8f8f8; }
+        .radio-item input { position: absolute; opacity: 0; }
+        .radio-label { font-weight: 500; color: var(--text-primary); display: block; margin-bottom: 4px; }
+        .radio-desc { font-size: 12px; color: var(--text-muted); }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 500; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--accent-color); color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 18px 40px; font-size: 18px; font-weight: 600; width: 100%; max-width: 400px; display: block; margin: 30px auto; border-radius: 12px; }
+        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 12px 35px rgba(0,0,0,0.25); }
+        .btn-primary:disabled { background: #999; cursor: not-allowed; transform: none; }
+        .preview-section { background: #f0f0f0; border-radius: 12px; padding: 25px; margin-top: 30px; }
+        .table-wrapper { overflow-x: auto; margin-bottom: 20px; border-radius: 10px; -webkit-overflow-scrolling: touch; }
+        .preview-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #333; }
+        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .summary-card { background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .summary-card .label { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+        .summary-card .value { font-size: 24px; font-weight: 700; color: var(--accent-color); }
+        .summary-card.total .value { color: var(--text-primary); }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid var(--border-color); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background: var(--bg-secondary); color: white; font-weight: 500; font-size: 14px; }
+        tr:hover { background: #f8f8f8; }
+        tr:last-child td { border-bottom: none; }
+        .text-right { text-align: right; }
+        .hidden { display: none !important; }
+        .location-group { opacity: 0.5; pointer-events: none; transition: all 0.3s; }
+        .location-group.active { opacity: 1; pointer-events: auto; }
+        .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+        .area-card { background: white; border: 2px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 15px; transition: all 0.3s; }
+        .area-card:hover { border-color: var(--accent-color); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .area-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .area-title { font-weight: 600; color: var(--text-primary); }
+        .btn-delete { background: #fee2e2; color: var(--danger-color); border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.3s; }
+        .btn-delete:hover { background: var(--danger-color); color: white; }
+        .water-source-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .water-source-card { position: relative; padding: 20px; border: 2px solid var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.3s; background: white; }
+        .water-source-card:hover { border-color: var(--accent-color); }
+        .water-source-card.selected { border-color: var(--accent-color); background: #f8f8f8; }
+        .water-source-card input { position: absolute; opacity: 0; }
+        .water-source-icon { font-size: 24px; margin-bottom: 8px; }
+        .water-source-title { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+        .water-source-desc { font-size: 12px; color: var(--text-muted); }
+        .btn-add-area { width: 100%; padding: 15px; background: white; border: 2px dashed var(--border-color); border-radius: 12px; color: var(--text-secondary); font-size: 15px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-add-area:hover { border-color: var(--accent-color); color: var(--accent-color); background: #fafafa; }
+        .highlight-gray { color: #999; font-style: italic; }
+        .badge-zigou { display: inline-block; background: #e8e8e8; color: #666; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 4px; }
+
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .container { border-radius: 12px; }
+            .header { padding: 20px 15px; }
+            .header h1 { font-size: 18px; gap: 8px; }
+            .header-logo { width: 40px; height: 40px; }
+            .content { padding: 15px; }
+            .section { padding: 15px; margin-bottom: 20px; }
+            .section-title { font-size: 16px; }
+            .form-row { flex-direction: column; gap: 12px; }
+            .form-group { min-width: 100%; }
+            .radio-group { flex-direction: column; gap: 10px; }
+            .radio-item { width: 100%; }
+            .guide-images-row { flex-direction: column; gap: 15px; }
+            .guide-image-item { min-width: 100%; }
+            .area-card { padding: 15px; }
+            .summary-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .summary-card { padding: 15px 10px; }
+            .summary-card .value { font-size: 18px; }
+            th, td { padding: 10px 8px; font-size: 12px; }
+        }
+        @media (min-width: 481px) and (max-width: 768px) {
+            .content { padding: 20px; }
+            .section { padding: 20px; }
+            .guide-image-item { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <img src="guide1.webp" alt="S-Rain" class="header-logo" onerror="this.style.display='none'" loading="lazy">
+                花园灌溉材料报价计算器
+            </h1>
+            <p>智能灌溉系统材料报价估算工具（不含安装费）</p>
+        </div>
+        <div class="content">
+            <div class="section guide-section">
+                <div class="section-title">📐 使用说明</div>
+                <div class="guide-intro">下图展示了如何将别墅庭院划分为多个绿化区域进行灌溉计算。</div>
+                <div class="guide-images-row">
+                    <div class="guide-image-item">
+                        <img src="guide_step1.jpg" alt="庭院分区示意图" onerror="this.style.display='none'" loading="lazy">
+                        <div class="guide-image-caption">第1步：测量绿化区域周长和水源情况</div>
+                    </div>
+                    <div class="guide-image-item">
+                        <img src="guide3.webp" alt="长方形测量" onerror="this.style.display='none'" loading="lazy">
+                        <div class="guide-image-caption">第2步：以长方形方式测量每个绿化区域的长宽数据</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">水源配置</div>
+                <div class="water-source-options">
+                    <div class="water-source-card" onclick="selectPipeSize(this,'25')">
+                        <input type="radio" name="pipeSize" value="25" checked>
+                        <div class="water-source-icon">🔧</div>
+                        <div class="water-source-title">自来水25mm（6分管）</div>
+                        <div class="water-source-desc">标准家庭用水管径，流量约2.5m³/h</div>
+                    </div>
+                    <div class="water-source-card" onclick="selectPipeSize(this,'32')">
+                        <input type="radio" name="pipeSize" value="32">
+                        <div class="water-source-icon">🔩</div>
+                        <div class="water-source-title">自来水32mm(一寸管)</div>
+                        <div class="water-source-desc">大流量进水管，流量约3m³/h</div>
+                    </div>
+                    <div class="water-source-card" onclick="selectPipeSize(this,'river_well')">
+                        <input type="radio" name="pipeSize" value="river_well">
+                        <div class="water-source-icon">💧</div>
+                        <div class="water-source-title">河水/井水</div>
+                        <div class="water-source-desc">需配置过滤器和潜水泵</div>
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>花园绿化周长（米）</label>
+                        <input type="number" id="gardenPerimeter" min="0" step="0.1" placeholder="请输入花园周长">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">窄灌木带/花卉/花坛偏好选项</div>
+                <div class="guide-intro">当绿化区域宽度小于1米时，系统将按此选项进行喷头选型布置。</div>
+                <div class="radio-group">
+                    <div class="radio-item selected" onclick="selectPreference(this,'drip')">
+                        <input type="radio" name="narrowPreference" value="drip" checked>
+                        <span class="radio-label">💧 滴灌管</span>
+                        <span class="radio-desc">流量低，分区少，但地表铺设显眼</span>
+                    </div>
+                    <div class="radio-item" onclick="selectPreference(this,'micro_stake')">
+                        <input type="radio" name="narrowPreference" value="micro_stake">
+                        <span class="radio-label">🔷 地插微喷头</span>
+                        <span class="radio-desc">总体流量偏高，分区多，易被破坏，有喷水效果</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">绿化区域设置</div>
+                <div id="areasContainer">
+                    <div class="empty-state" id="emptyState">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:60px;height:60px;margin-bottom:15px;opacity:0.5;">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                        <p>暂无绿化区域，请点击下方按钮添加</p>
+                    </div>
+                </div>
+                <button class="btn-add-area" onclick="addArea()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    添加绿化区域
+                </button>
+            </div>
+
+            <button class="btn-primary" onclick="generateQuotation()" id="generateBtn">生成材料报价表</button>
+
+            <div class="preview-section hidden" id="previewSection">
+                <div class="preview-title">📊 材料报价预览</div>
+                <div class="summary-cards" id="summaryCards"></div>
+                <div id="quotationTables"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let areaCount = 0;
+
+        // 喷头配置：科雨品牌8折，安装费=0
+        const sprinklerConfig = {
+            drip: { name: 'K-rain花园专用滴灌管', price: 5.6, flow: 0.01, unit: '米', brand: 'k-rain' },
+            microStake: { name: '地插微喷头', price: 3.5, flow: 0.2, unit: '个', brand: 'other' },
+            rect78012: { name: 'PRO-s-78012-矩形', price: 72, flow: 0.2, unit: '个', brand: 'k-rain' },
+            rect78004: { name: 'PRO-s-78004-矩形', price: 24, flow: 0.2, unit: '个', brand: 'k-rain' },
+            fan78012: { name: 'PRO-s-78012-扇形', price: 72, flow: 0.5, unit: '个', brand: 'k-rain' },
+            fan78004: { name: 'PRO-s-78004-扇形', price: 24, flow: 0.5, unit: '个', brand: 'k-rain' },
+            mini13012: { name: 'MiniPRO13012', price: 208, flow: 0.4, unit: '个', brand: 'k-rain' },
+            mini13003: { name: 'MiniPRO13003', price: 96, flow: 0.4, unit: '个', brand: 'k-rain' },
+            super10003: { name: 'SuperPRO10003', price: 120, flow: 0.8, unit: '个', brand: 'k-rain' }
+        };
+
+        function selectPipeSize(el, size) {
+            document.querySelectorAll('.water-source-card').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            const input = el.querySelector('input');
+            if (input) input.checked = true;
+        }
+
+        function selectPreference(el, preference) {
+            document.querySelectorAll('.radio-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            const input = el.querySelector('input');
+            if (input) input.checked = true;
+        }
+
+        function addArea() {
+            areaCount++;
+            const container = document.getElementById('areasContainer');
+            const emptyState = document.getElementById('emptyState');
+            if (emptyState) emptyState.remove();
+
+            const areaCard = document.createElement('div');
+            areaCard.className = 'area-card';
+            areaCard.id = 'area-' + areaCount;
+            areaCard.innerHTML =
+                '<div class="area-header">' +
+                    '<span class="area-title">绿化区域 #' + areaCount + '</span>' +
+                    '<button class="btn-delete" onclick="deleteArea(' + areaCount + ')">删除</button>' +
+                '</div>' +
+                '<div class="form-row">' +
+                    '<div class="form-group"><label>长度 (米)</label><input type="number" id="length-' + areaCount + '" min="0.1" step="0.1" placeholder="请输入长度" onchange="updateLocationVisibility(' + areaCount + ')"></div>' +
+                    '<div class="form-group"><label>宽度 (米)</label><input type="number" id="width-' + areaCount + '" min="0.1" step="0.1" placeholder="请输入宽度" onchange="updateLocationVisibility(' + areaCount + ')"></div>' +
+                '</div>' +
+                '<div class="form-row">' +
+                    '<div class="form-group"><label>植物类型</label><select id="type-' + areaCount + '"><option value="shrub">灌木带</option><option value="lawn">草坪</option><option value="flower">花卉</option></select></div>' +
+                    '<div class="form-group location-group" id="location-group-' + areaCount + '"><label>位置</label><select id="location-' + areaCount + '"><option value="edge">边上 (1排)</option><option value="center">中间 (2排)</option></select></div>' +
+                '</div>';
+            container.appendChild(areaCard);
+        }
+
+        function deleteArea(id) {
+            const card = document.getElementById('area-' + id);
+            if (card) {
+                card.remove();
+                const container = document.getElementById('areasContainer');
+                if (container.children.length === 0) {
+                    container.innerHTML = '<div class="empty-state" id="emptyState"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:60px;height:60px;margin-bottom:15px;opacity:0.5;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><p>暂无绿化区域，请点击下方按钮添加</p></div>';
+                }
+            }
+        }
+
+        function updateLocationVisibility(id) {
+            const width = parseFloat(document.getElementById('width-' + id)?.value) || 0;
+            const locationGroup = document.getElementById('location-group-' + id);
+            if (width > 3) { locationGroup.classList.add('active'); }
+            else { locationGroup.classList.remove('active'); document.getElementById('location-' + id).value = 'edge'; }
+        }
+
+        function getSprinklerType(width, type, location) {
+            const preference = document.querySelector('input[name="narrowPreference"]:checked');
+            const narrowType = preference ? preference.value : 'drip';
+            if (width < 1) {
+                if (type === 'shrub' || type === 'flower') return narrowType === 'micro_stake' ? 'microStake' : 'drip';
+            }
+            if (width >= 1 && width <= 1.5) { if (type === 'shrub' || type === 'flower') return 'rect78012'; if (type === 'lawn') return 'rect78004'; }
+            if (width > 1.5 && width <= 5) { if (type === 'shrub' || type === 'flower') return 'fan78012'; if (type === 'lawn') return 'fan78004'; }
+            if (width >= 5 && width < 9) { if (type === 'shrub' || type === 'flower') return 'mini13012'; if (type === 'lawn') return 'mini13003'; }
+            if (width >= 9 && width <= 30 && type === 'lawn') return 'super10003';
+            return null;
+        }
+
+        function calculateSprinklerCount(length, width, type, sprinklerType, location) {
+            if (sprinklerType === 'drip') { const rows = Math.ceil(width / 0.3); return { count: length * rows, rows: rows }; }
+            if (sprinklerType === 'microStake') { const count = Math.ceil(length / 0.6); return { count: count, rows: 1 }; }
+            if (sprinklerType === 'rect78012' || sprinklerType === 'rect78004') { const count = Math.ceil(length / 3); return { count: count, rows: 1 }; }
+            if (sprinklerType === 'fan78012' || sprinklerType === 'fan78004') {
+                let rows = 1;
+                if (width > 3) rows = (location === 'center') ? 2 : 1;
+                if (width >= 6 && width <= 9) rows = 2;
+                const countPerRow = Math.ceil(length / width);
+                return { count: countPerRow * rows, rows: rows };
+            }
+            if (sprinklerType === 'mini13012' || sprinklerType === 'mini13003') {
+                const rows = 2;
+                const countPerRow = Math.ceil(length / width);
+                return { count: countPerRow * rows, rows: rows };
+            }
+            if (sprinklerType === 'super10003') {
+                const count = Math.ceil((length / 10 + 1)) * Math.ceil((width / 10 + 1));
+                return { count: count, rows: 1 };
+            }
+            return { count: 0, rows: 0 };
+        }
+
+        function collectAreas() {
+            const areas = [];
+            document.querySelectorAll('.area-card').forEach(card => {
+                const id = parseInt(card.id.split('-')[1]);
+                const length = parseFloat(document.getElementById('length-' + id)?.value) || 0;
+                const width = parseFloat(document.getElementById('width-' + id)?.value) || 0;
+                const type = document.getElementById('type-' + id)?.value;
+                const location = document.getElementById('location-' + id)?.value || 'edge';
+                if (length > 0 && width > 0) {
+                    const sprinklerType = getSprinklerType(width, type, location);
+                    const sprinklerCount = calculateSprinklerCount(length, width, type, sprinklerType, location);
+                    areas.push({
+                        id: id, length: length, width: width, type: type,
+                        typeName: type === 'shrub' ? '灌木带' : type === 'lawn' ? '草坪' : '花卉',
+                        location: location, locationName: location === 'edge' ? '边上' : '中间',
+                        area: length * width, sprinklerType: sprinklerType,
+                        sprinklerCount: sprinklerCount.count, sprinklerRows: sprinklerCount.rows
+                    });
+                }
+            });
+            return areas;
+        }
+
+        function calculateQuotation(areas) {
+            const checkedInput = document.querySelector('input[name="pipeSize"]:checked');
+            const pipeSizeInput = checkedInput ? checkedInput.value : '25';
+            const isRiverWell = pipeSizeInput === 'river_well';
+            const pipeSize = isRiverWell ? 'river_well' : parseInt(pipeSizeInput);
+            const waterFlow = isRiverWell ? 3.5 : (pipeSize === 25 ? 2.5 : 3);
+            const gardenPerimeter = parseFloat(document.getElementById('gardenPerimeter')?.value) || 0;
+
+            const sprinklerDetails = [];
+            let totalSprinklerCost = 0;
+            let totalFlow = 0;
+            let dripTotalCost = 0;
+            let microStakeTotalCost = 0;
+            let microStakePipeLength = 0;
+            const sprinklerGroups = {};
+
+            areas.forEach(area => {
+                if (!area.sprinklerType) return;
+                const config = sprinklerConfig[area.sprinklerType];
+                const isDrip = area.sprinklerType === 'drip';
+                const isMicroStake = area.sprinklerType === 'microStake';
+                const unitPrice = config.price;
+                const count = area.sprinklerCount;
+                const itemCost = count * unitPrice;
+
+                sprinklerDetails.push({
+                    area: '区域' + area.id + '(' + area.typeName + ')',
+                    size: area.length + '×' + area.width + 'm',
+                    model: config.name, count: count, unit: config.unit,
+                    unitPrice: unitPrice, cost: itemCost,
+                    brand: config.brand
+                });
+
+                totalSprinklerCost += itemCost;
+                if (isDrip) dripTotalCost += itemCost;
+                if (isMicroStake) { microStakeTotalCost += itemCost; microStakePipeLength += area.length; }
+                if (config.flow > 0) totalFlow += count * config.flow;
+
+                if (!sprinklerGroups[area.sprinklerType]) {
+                    let spacing;
+                    if (area.sprinklerType === 'rect78012' || area.sprinklerType === 'rect78004') spacing = 3;
+                    else if (area.sprinklerType === 'super10003') spacing = 10;
+                    else if (area.sprinklerType === 'microStake') spacing = 0;
+                    else spacing = area.width;
+                    sprinklerGroups[area.sprinklerType] = { count: 0, flow: 0, flowPerUnit: config.flow, spacing: spacing };
+                }
+                sprinklerGroups[area.sprinklerType].count += count;
+                sprinklerGroups[area.sprinklerType].flow += count * config.flow;
+            });
+
+            let buriedCount = 0;
+            areas.forEach(area => {
+                if (area.sprinklerType && area.sprinklerType !== 'drip' && area.sprinklerType !== 'microStake') buriedCount += area.sprinklerCount;
+            });
+            // 千秋架：国产，价格不变，无安装费
+            const qianqiuCost = buriedCount * 6;
+
+            let valveCount = 0;
+            Object.values(sprinklerGroups).forEach(group => {
+                valveCount += Math.ceil(group.flow / waterFlow);
+            });
+            valveCount = Math.max(1, valveCount);
+
+            // 电磁阀：科雨8折，无安装费
+            const valveMaterialPrice = (pipeSize === 25) ? (180 * 0.8) : (196 * 0.8);
+            const valveCost = valveCount * valveMaterialPrice;
+
+            // 阀门箱：国产，价格不变，无安装费
+            const valveBoxCost = valveCount * 55;
+
+            // 控制器：科雨8折，无安装费
+            let controllerModel, controllerCost;
+            if (valveCount <= 4) { controllerModel = 'K-rain PRO-LC 3104'; controllerCost = 1800 * 0.8; }
+            else if (valveCount <= 8) { controllerModel = 'K-rain PRO-LC 3108'; controllerCost = 2000 * 0.8; }
+            else if (valveCount <= 12) { controllerModel = 'K-rain PRO-LC 3112'; controllerCost = 2200 * 0.8; }
+            else { controllerModel = 'K-rain PROEX-3.0'; controllerCost = 4000 * 0.8; }
+            const controllerCount = 1;
+
+            // 解码器：国产，价格不变，无安装费
+            let decoderCost = 0;
+            if (valveCount > 12) decoderCost = valveCount * 530;
+
+            // 雨感器：科雨8折，无安装费
+            const rainSensorCost = 1 * (280 * 0.8);
+
+            const mainPipeLength = gardenPerimeter;
+            let branchPipeLength = 0;
+            Object.values(sprinklerGroups).forEach(group => {
+                if (group.spacing && group.spacing > 0) branchPipeLength += group.count * group.spacing;
+            });
+
+            let tempValveCount = 0;
+            Object.values(sprinklerGroups).forEach(group => { tempValveCount += Math.ceil(group.flow / waterFlow); });
+            tempValveCount = Math.max(1, tempValveCount);
+            let mainPipeSize;
+            if (pipeSize === 32 || isRiverWell) mainPipeSize = 32;
+            else mainPipeSize = tempValveCount >= 5 ? 32 : 25;
+
+            // 主管、支管价格为0（自购）
+            const mainPipeCost = 0;
+            const branchPipeCost = 0;
+
+            const totalPipeLength = mainPipeLength + branchPipeLength + microStakePipeLength;
+
+            // PPR管件价格为0（自购）
+            const fittingCost = 0;
+
+            // 20mm PE支管：国产，价格不变，无安装费
+            const microStakePipeCost = microStakePipeLength * 2.5;
+
+            // 控制线价格为0（自购）
+            const controlLineCost = 0;
+
+            // 穿线管价格为0（自购）
+            const conduitCost = 0;
+
+            // 增压泵/河水设备：国产，价格不变，无安装费
+            let pumpCost = 0;
+            let riverWellEquipment = null;
+            if (isRiverWell) {
+                riverWellEquipment = {
+                    filter: { name: '自动冲洗过滤器', model: '待定', material: 500 },
+                    submersiblePump: { name: '灌溉潜水泵', model: '待定', material: 1600 },
+                    distributionBox: { name: '防雨配电箱', model: '待定', material: 480 }
+                };
+            } else {
+                pumpCost = 1450;
+            }
+
+            const riverWellCost = isRiverWell && riverWellEquipment ?
+                riverWellEquipment.filter.material + riverWellEquipment.submersiblePump.material + riverWellEquipment.distributionBox.material : 0;
+
+            // 滴灌管管件：滴灌管总价的20%（材料费部分）
+            const dripFittingCost = dripTotalCost * 0.2;
+
+            const totalCost = totalSprinklerCost + qianqiuCost + valveCost + valveBoxCost +
+                              controllerCost + decoderCost + rainSensorCost +
+                              microStakePipeCost + dripFittingCost + pumpCost + riverWellCost;
+
+            return {
+                areas, pipeSize, waterFlow, sprinklerDetails,
+                sprinklerCost: totalSprinklerCost,
+                buriedCount, qianqiuCost,
+                valveCount, valveModel: (pipeSize === 25) ? 'K-rain 7075型' : 'K-rain 7001型',
+                valveCost, valveBoxCost,
+                controllerModel, controllerCount, controllerCost,
+                decoderCost, rainSensorCost,
+                mainPipeLength, branchPipeLength, mainPipeSize,
+                totalPipeLength,
+                microStakePipeLength, microStakePipeCost,
+                dripFittingCost,
+                pumpCost, isRiverWell, riverWellEquipment, riverWellCost,
+                totalCost
+            };
+        }
+
+        function generateQuotation() {
+            if (typeof XLSX === 'undefined') { alert('正在加载必要的库，请稍后再试...'); return; }
+            const areas = collectAreas();
+            if (areas.length === 0) { alert('请至少添加一个绿化区域'); return; }
+            const quotation = calculateQuotation(areas);
+            displayPreview(quotation);
+            exportToExcel(quotation);
+        }
+
+        function displayPreview(quotation) {
+            const previewSection = document.getElementById('previewSection');
+            const summaryCards = document.getElementById('summaryCards');
+            const tablesContainer = document.getElementById('quotationTables');
+            previewSection.classList.remove('hidden');
+
+            const totalSprinklers = quotation.sprinklerDetails.filter(i => !i.model.includes('滴灌管') && !i.model.includes('地插微喷头')).reduce((s, i) => s + i.count, 0);
+            const totalDripMeters = quotation.sprinklerDetails.filter(i => i.model.includes('滴灌管')).reduce((s, i) => s + i.count, 0);
+            const totalMicroStakes = quotation.sprinklerDetails.filter(i => i.model.includes('地插微喷头')).reduce((s, i) => s + i.count, 0);
+            const totalGreenArea = quotation.areas.reduce((s, a) => s + (a.length * a.width), 0);
+
+            let summaryHtml =
+                '<div class="summary-card"><div class="label">绿化区域</div><div class="value">' + quotation.areas.length + ' 个</div></div>' +
+                '<div class="summary-card"><div class="label">绿化总面积</div><div class="value">' + totalGreenArea.toFixed(1) + ' ㎡</div></div>' +
+                '<div class="summary-card"><div class="label">喷头总数</div><div class="value">' + totalSprinklers + ' 个</div></div>';
+            if (totalDripMeters > 0) summaryHtml += '<div class="summary-card"><div class="label">滴灌管长度</div><div class="value">' + totalDripMeters.toFixed(1) + ' 米</div></div>';
+            if (totalMicroStakes > 0) summaryHtml += '<div class="summary-card"><div class="label">地插微喷头</div><div class="value">' + totalMicroStakes + ' 个</div></div>';
+            if (quotation.microStakePipeLength > 0) summaryHtml += '<div class="summary-card"><div class="label">20mm PE支管</div><div class="value">' + quotation.microStakePipeLength.toFixed(1) + ' 米</div></div>';
+            summaryHtml += '<div class="summary-card total"><div class="label">材料总价</div><div class="value">¥' + quotation.totalCost.toLocaleString() + '</div></div>';
+            summaryCards.innerHTML = summaryHtml;
+
+            // 喷头明细表
+            let sprinklerTable = '<h3 style="margin:20px 0 15px;color:#333;">喷头/滴灌管明细</h3><div class="table-wrapper"><table><thead><tr><th>区域</th><th>尺寸</th><th>型号</th><th class="text-right">数量</th><th class="text-right">单价</th><th class="text-right">金额</th></tr></thead><tbody>';
+            quotation.sprinklerDetails.forEach(item => {
+                const discountBadge = item.brand === 'k-rain' ? '<span class="badge-zigou">科雨8折</span>' : '';
+                sprinklerTable += '<tr><td>' + item.area + '</td><td>' + item.size + '</td><td>' + item.model + discountBadge + '</td><td class="text-right">' + item.count + item.unit + '</td><td class="text-right">¥' + item.unitPrice + '</td><td class="text-right">¥' + item.cost.toLocaleString() + '</td></tr>';
+            });
+            if (quotation.dripFittingCost > 0) {
+                sprinklerTable += '<tr><td colspan="3">滴灌管管件（滴灌管总价的20%）</td><td class="text-right">1批</td><td class="text-right">-</td><td class="text-right">¥' + quotation.dripFittingCost.toLocaleString() + '</td></tr>';
+            }
+            sprinklerTable += '<tr style="background:#f0f2ff;font-weight:600;"><td colspan="5">小计</td><td class="text-right">¥' + (quotation.sprinklerCost + quotation.dripFittingCost).toLocaleString() + '</td></tr></tbody></table></div>';
+
+            // 设备材料明细表
+            let equipmentTable = '<h3 style="margin:20px 0 15px;color:#333;">设备材料明细</h3><div class="table-wrapper"><table><thead><tr><th>项目</th><th>型号/规格</th><th class="text-right">数量</th><th class="text-right">单价</th><th class="text-right">合价</th><th>备注</th></tr></thead><tbody>';
+
+            if (quotation.buriedCount > 0) {
+                equipmentTable += '<tr><td>千秋架</td><td>4分</td><td class="text-right">' + quotation.buriedCount + '个</td><td class="text-right">¥6</td><td class="text-right">¥' + quotation.qianqiuCost.toLocaleString() + '</td><td>国产</td></tr>';
+            }
+
+            const valveUnitPrice = (quotation.pipeSize === 25) ? (180 * 0.8) : (196 * 0.8);
+            equipmentTable += '<tr><td>电磁阀</td><td>' + quotation.valveModel + '</td><td class="text-right">' + quotation.valveCount + '个</td><td class="text-right">¥' + valveUnitPrice + '<span class="badge-zigou">科雨8折</span></td><td class="text-right">¥' + quotation.valveCost.toLocaleString() + '</td><td>美国 科雨</td></tr>';
+
+            equipmentTable += '<tr><td>阀门箱</td><td>910优质款</td><td class="text-right">' + quotation.valveCount + '个</td><td class="text-right">¥55</td><td class="text-right">¥' + quotation.valveBoxCost.toLocaleString() + '</td><td>国产</td></tr>';
+
+            const controllerMaterial = quotation.controllerCost;
+            equipmentTable += '<tr><td>控制器</td><td>' + quotation.controllerModel + '</td><td class="text-right">1台</td><td class="text-right">¥' + controllerMaterial + '<span class="badge-zigou">科雨8折</span></td><td class="text-right">¥' + quotation.controllerCost.toLocaleString() + '</td><td>美国 科雨</td></tr>';
+
+            if (quotation.decoderCost > 0) {
+                equipmentTable += '<tr><td>解码器</td><td>-</td><td class="text-right">' + quotation.valveCount + '个</td><td class="text-right">¥530</td><td class="text-right">¥' + quotation.decoderCost.toLocaleString() + '</td><td>国产</td></tr>';
+            }
+
+            const rainMaterial = 280 * 0.8;
+            equipmentTable += '<tr><td>雨感器</td><td>K-rain 3208-HRS</td><td class="text-right">1台</td><td class="text-right">¥' + rainMaterial + '<span class="badge-zigou">科雨8折</span></td><td class="text-right">¥' + quotation.rainSensorCost.toLocaleString() + '</td><td>美国 科雨</td></tr>';
+
+            // 主管、支管、管件、控制线、穿线管 — 价格为0，备注自购
+            equipmentTable += '<tr class="highlight-gray"><td>主管</td><td>PPR ' + quotation.mainPipeSize + '管</td><td class="text-right">' + quotation.mainPipeLength.toFixed(1) + '米</td><td class="text-right">¥0</td><td class="text-right">¥0</td><td>自购</td></tr>';
+            equipmentTable += '<tr class="highlight-gray"><td>支管</td><td>PPR 25管</td><td class="text-right">' + quotation.branchPipeLength.toFixed(1) + '米</td><td class="text-right">¥0</td><td class="text-right">¥0</td><td>自购</td></tr>';
+
+            if (quotation.microStakePipeLength > 0) {
+                equipmentTable += '<tr><td>20mm PE支管</td><td>PE 20管（地插微喷头专用）</td><td class="text-right">' + quotation.microStakePipeLength.toFixed(1) + '米</td><td class="text-right">¥2.5</td><td class="text-right">¥' + quotation.microStakePipeCost.toLocaleString() + '</td><td>国产</td></tr>';
+            }
+
+            equipmentTable += '<tr class="highlight-gray"><td>PPR管件</td><td>-</td><td class="text-right">1批</td><td class="text-right">¥0</td><td class="text-right">¥0</td><td>自购</td></tr>';
+            equipmentTable += '<tr class="highlight-gray"><td>控制线</td><td>2×1.5</td><td class="text-right">' + quotation.mainPipeLength.toFixed(1) + '米</td><td class="text-right">¥0</td><td class="text-right">¥0</td><td>自购</td></tr>';
+            equipmentTable += '<tr class="highlight-gray"><td>穿线管</td><td>PVC25</td><td class="text-right">' + quotation.mainPipeLength.toFixed(1) + '米</td><td class="text-right">¥0</td><td class="text-right">¥0</td><td>自购</td></tr>';
+
+            if (quotation.isRiverWell && quotation.riverWellEquipment) {
+                const f = quotation.riverWellEquipment.filter;
+                equipmentTable += '<tr><td>自动冲洗过滤器</td><td>' + f.model + '</td><td class="text-right">1台</td><td class="text-right">¥' + f.material + '</td><td class="text-right">¥' + f.material.toLocaleString() + '</td><td>待定</td></tr>';
+                const p = quotation.riverWellEquipment.submersiblePump;
+                equipmentTable += '<tr><td>灌溉潜水泵</td><td>' + p.model + '</td><td class="text-right">1台</td><td class="text-right">¥' + p.material + '</td><td class="text-right">¥' + p.material.toLocaleString() + '</td><td>待定</td></tr>';
+                const b = quotation.riverWellEquipment.distributionBox;
+                equipmentTable += '<tr><td>防雨配电箱</td><td>' + b.model + '</td><td class="text-right">1台</td><td class="text-right">¥' + b.material + '</td><td class="text-right">¥' + b.material.toLocaleString() + '</td><td>待定</td></tr>';
+            } else {
+                equipmentTable += '<tr><td>增压泵</td><td>CM-5自动增压泵</td><td class="text-right">1台</td><td class="text-right">¥1,450</td><td class="text-right">¥' + quotation.pumpCost.toLocaleString() + '</td><td>国产</td></tr>';
+            }
+
+            equipmentTable += '<tr style="background:var(--accent-color);color:white;font-weight:700;font-size:16px;"><td colspan="4">材料总计</td><td class="text-right">¥' + quotation.totalCost.toLocaleString() + '</td><td></td></tr></tbody></table></div>';
+
+            tablesContainer.innerHTML = sprinklerTable + equipmentTable;
+            previewSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function exportToExcel(quotation) {
+            const wb = XLSX.utils.book_new();
+            const today = new Date();
+            const dateStr = today.getFullYear() + '年' + (today.getMonth() + 1) + '月' + today.getDate() + '日';
+            const data = [];
+
+            data.push(['灌溉系统 材料报价单', '', '', '', '', '', '', '']);
+            data.push(['']);
+            data.push(['项目地址：', '', '', '', '报价单位：', '上海新羽农业科技有限公司', '', '']);
+            data.push(['联系人及电话：', '', '', '', '合作模式：', '材料供应', '', '']);
+            data.push(['日期：', dateStr, '', '', '', '', '', '']);
+            data.push(['']);
+            data.push(['序号', '名称/型号/规格', '数量', '单位', '材料单价', '单价小计', '合价', '备注（品牌/说明）']);
+
+            let rowNum = 1;
+            let totalHejia = 0;
+            let hasDrip = false;
+
+            quotation.sprinklerDetails.forEach(item => {
+                const hejia = item.cost;
+                totalHejia += hejia;
+                const brandNote = item.brand === 'k-rain' ? '美国 科雨（8折）' : '国产';
+                if (item.model.includes('滴灌管')) hasDrip = true;
+                data.push([rowNum++, item.model, item.count, item.unit, item.unitPrice, item.unitPrice, hejia, brandNote]);
+            });
+
+            if (hasDrip && quotation.dripFittingCost > 0) {
+                totalHejia += quotation.dripFittingCost;
+                data.push([rowNum++, '滴灌管管件', '1', '批', quotation.dripFittingCost, quotation.dripFittingCost, quotation.dripFittingCost, '滴灌管总价的20%']);
+            }
+
+            if (quotation.buriedCount > 0) {
+                const hejia = quotation.qianqiuCost;
+                totalHejia += hejia;
+                data.push([rowNum++, '千秋架', quotation.buriedCount, '个', 6, 6, hejia, '国产']);
+            }
+
+            // 电磁阀：科雨8折
+            const valveMaterial = (quotation.pipeSize === 25) ? (180 * 0.8) : (196 * 0.8);
+            const valveHejia = quotation.valveCost;
+            totalHejia += valveHejia;
+            data.push([rowNum++, '电磁阀 ' + quotation.valveModel, quotation.valveCount, '个', valveMaterial, valveMaterial, valveHejia, '美国 科雨（8折）']);
+
+            const boxHejia = quotation.valveBoxCost;
+            totalHejia += boxHejia;
+            data.push([rowNum++, '阀门箱 910优质款', quotation.valveCount, '个', 55, 55, boxHejia, '国产']);
+
+            const controllerMaterial = quotation.controllerCost;
+            const controllerHejia = quotation.controllerCost;
+            totalHejia += controllerHejia;
+            data.push([rowNum++, '控制器 ' + quotation.controllerModel, 1, '台', controllerMaterial, controllerMaterial, controllerHejia, '美国 科雨（8折）']);
+
+            if (quotation.decoderCost > 0) {
+                const decoderHejia = quotation.decoderCost;
+                totalHejia += decoderHejia;
+                data.push([rowNum++, '解码器', quotation.valveCount, '个', 530, 530, decoderHejia, '国产']);
+            }
+
+            const rainMaterial = 280 * 0.8;
+            const rainHejia = quotation.rainSensorCost;
+            totalHejia += rainHejia;
+            data.push([rowNum++, '雨感器 K-rain 3208-HRS', 1, '台', rainMaterial, rainMaterial, rainHejia, '美国 科雨（8折）']);
+
+            // 主管：价格为0，自购
+            data.push([rowNum++, '主管 ' + quotation.mainPipeSize + '管', quotation.mainPipeLength.toFixed(1), '米', 0, 0, 0, '自购']);
+            // 支管：价格为0，自购
+            data.push([rowNum++, '支管 25管', quotation.branchPipeLength.toFixed(1), '米', 0, 0, 0, '自购']);
+
+            if (quotation.microStakePipeLength > 0) {
+                const microStakePipeHejia = quotation.microStakePipeCost;
+                totalHejia += microStakePipeHejia;
+                data.push([rowNum++, '20mm PE支管（地插微喷头专用）', quotation.microStakePipeLength.toFixed(1), '米', 2.5, 2.5, microStakePipeHejia, '国产']);
+            }
+
+            // PPR管件：价格为0，自购
+            data.push([rowNum++, 'PPR管件', 1, '批', 0, 0, 0, '自购']);
+            // 控制线：价格为0，自购
+            data.push([rowNum++, '控制线 2×1.5', quotation.mainPipeLength.toFixed(1), '米', 0, 0, 0, '自购']);
+            // 穿线管：价格为0，自购
+            data.push([rowNum++, '穿线管 PVC25', quotation.mainPipeLength.toFixed(1), '米', 0, 0, 0, '自购']);
+
+            if (quotation.isRiverWell && quotation.riverWellEquipment) {
+                const f = quotation.riverWellEquipment.filter;
+                data.push([rowNum++, '自动冲洗过滤器 ' + f.model, 1, '台', f.material, f.material, f.material, '待定']);
+                totalHejia += f.material;
+                const p = quotation.riverWellEquipment.submersiblePump;
+                data.push([rowNum++, '灌溉潜水泵 ' + p.model, 1, '台', p.material, p.material, p.material, '待定']);
+                totalHejia += p.material;
+                const b = quotation.riverWellEquipment.distributionBox;
+                data.push([rowNum++, '防雨配电箱 ' + b.model, 1, '台', b.material, b.material, b.material, '待定']);
+                totalHejia += b.material;
+            } else {
+                const pumpHejia = quotation.pumpCost;
+                totalHejia += pumpHejia;
+                data.push([rowNum++, '增压泵 CM-5自动增压泵', 1, '台', 1450, 1450, pumpHejia, '国产']);
+            }
+
+            // 不含土方开挖、土方回填
+
+            data.push(['']);
+            data.push(['', '一、材料费小计：', '', '', '', '', totalHejia, '']);
+
+            const maintenanceFee = totalHejia * 0.08;
+            data.push(['', '二、材料搬运、损耗和管理费（一×8%）：', '', '', '', '', maintenanceFee, '']);
+
+            const subtotal = totalHejia + maintenanceFee;
+            const vat = subtotal * 0.09;
+            data.push(['', '三、增值税[（一+二）×9%]：', '', '', '', '', vat, '']);
+
+            const grandTotal = subtotal + vat;
+            data.push(['', '四、含税总计：', '', '', '', '', grandTotal, '']);
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            ws['!cols'] = [{ wch: 8 }, { wch: 35 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }];
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+                { s: { r: 2, c: 1 }, e: { r: 2, c: 3 } },
+                { s: { r: 2, c: 5 }, e: { r: 2, c: 7 } },
+                { s: { r: 3, c: 1 }, e: { r: 3, c: 3 } },
+                { s: { r: 3, c: 5 }, e: { r: 3, c: 7 } },
+                { s: { r: 4, c: 1 }, e: { r: 4, c: 3 } }
+            ];
+            XLSX.utils.book_append_sheet(wb, ws, '材料报价单');
+            const date = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, '灌溉系统材料报价单_' + date + '.xlsx');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelector('.water-source-card').classList.add('selected');
+        });
+    </script>
+</body>
+</html>
