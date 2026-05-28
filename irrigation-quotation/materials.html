@@ -228,7 +228,10 @@
                 </button>
             </div>
 
-            <button class="btn-primary" onclick="generateQuotation()" id="generateBtn">生成材料报价表</button>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;margin:30px 0;">
+                <button class="btn-primary" onclick="generateIrrigationQuotation()" id="generateIrrigationBtn" style="margin:0;max-width:280px;">🌱 生成灌溉材料报价</button>
+                <button class="btn-primary" onclick="generateMosquitoQuotation()" id="generateMosquitoBtn" style="margin:0;max-width:280px;background:#1565c0;--accent-hover:#1976d2;">🦟 生成驱蚊材料报价</button>
+            </div>
 
             <div class="preview-section hidden" id="previewSection">
                 <div class="preview-title">📊 材料报价预览</div>
@@ -548,7 +551,7 @@
             };
         }
 
-        function generateQuotation() {
+        function generateIrrigationQuotation() {
             if (typeof XLSX === 'undefined') { alert('正在加载必要的库，请稍后再试...'); return; }
             const areas = collectAreas();
             if (areas.length === 0) { alert('请至少添加一个绿化区域'); return; }
@@ -774,6 +777,114 @@
             XLSX.utils.book_append_sheet(wb, ws, '材料报价单');
             const date = new Date().toISOString().split('T')[0];
             XLSX.writeFile(wb, '灌溉系统材料报价单_' + date + '.xlsx');
+        }
+
+        // ===================== 驱蚊系统报价 =====================
+        function calculateMosquitoQuotation() {
+            const gardenPerimeter = parseFloat(document.getElementById('gardenPerimeter')?.value) || 0;
+            if (gardenPerimeter <= 0) {
+                alert('请先填写花园绿化周长');
+                return null;
+            }
+
+            const poleCount = Math.floor(gardenPerimeter / 2);
+
+            const items = [
+                { name: 'SR-IM驱蚊机', model: '需智能电箱或控制器控制', count: 1, unit: '台', unitPrice: 2680, brand: 'SuperRain超级雨' },
+                { name: 'PE驱蚊管道', model: '12mm', count: gardenPerimeter, unit: '米', unitPrice: 1.5, brand: '国产' },
+                { name: '万向调节喷药杆（含喷头）', model: '8mm×50cm', count: poleCount, unit: '个', unitPrice: 6.5, brand: '国产' },
+                { name: '异径三通底座', model: '12mm×8mm×12mm', count: poleCount, unit: '个', unitPrice: 1.5, brand: '国产' },
+                { name: '弯头', model: '12mm', count: 10, unit: '个', unitPrice: 1.3, brand: '国产' },
+                { name: '正三通', model: '12mm', count: 5, unit: '个', unitPrice: 1.5, brand: '国产' },
+                { name: '堵头', model: '12mm', count: 4, unit: '个', unitPrice: 0.7, brand: '国产' },
+                { name: '内丝铜接头', model: '-', count: 1, unit: '个', unitPrice: 8, brand: '国产' }
+            ];
+
+            let totalCost = 0;
+            items.forEach(item => {
+                item.cost = item.count * item.unitPrice;
+                totalCost += item.cost;
+            });
+
+            return { gardenPerimeter, items, totalCost };
+        }
+
+        function generateMosquitoQuotation() {
+            if (typeof XLSX === 'undefined') { alert('正在加载必要的库，请稍后再试...'); return; }
+            const quotation = calculateMosquitoQuotation();
+            if (!quotation) return;
+            displayMosquitoPreview(quotation);
+            exportMosquitoToExcel(quotation);
+        }
+
+        function displayMosquitoPreview(quotation) {
+            const previewSection = document.getElementById('previewSection');
+            const summaryCards = document.getElementById('summaryCards');
+            const tablesContainer = document.getElementById('quotationTables');
+            previewSection.classList.remove('hidden');
+
+            summaryCards.innerHTML =
+                '<div class="summary-card"><div class="label">花园周长</div><div class="value">' + quotation.gardenPerimeter.toFixed(1) + ' 米</div></div>' +
+                '<div class="summary-card total"><div class="label">材料总价</div><div class="value">¥' + quotation.totalCost.toLocaleString() + '</div></div>';
+
+            let tableHtml = '<h3 style="margin:20px 0 15px;color:#333;">🦟 驱蚊系统材料明细</h3><div class="table-wrapper"><table><thead><tr><th>序号</th><th>名称</th><th>型号/规格</th><th class="text-right">数量</th><th class="text-right">单位</th><th class="text-right">单价</th><th class="text-right">合价</th><th>品牌</th></tr></thead><tbody>';
+            quotation.items.forEach((item, idx) => {
+                tableHtml += '<tr><td>' + (idx + 1) + '</td><td>' + item.name + '</td><td>' + item.model + '</td><td class="text-right">' + item.count + '</td><td class="text-right">' + item.unit + '</td><td class="text-right">¥' + item.unitPrice + '</td><td class="text-right">¥' + item.cost.toLocaleString() + '</td><td>' + item.brand + '</td></tr>';
+            });
+            tableHtml += '<tr style="background:var(--accent-color);color:white;font-weight:700;font-size:16px;"><td colspan="6">材料总计</td><td class="text-right">¥' + quotation.totalCost.toLocaleString() + '</td><td></td></tr></tbody></table></div>';
+
+            tablesContainer.innerHTML = tableHtml;
+            previewSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function exportMosquitoToExcel(quotation) {
+            const wb = XLSX.utils.book_new();
+            const today = new Date();
+            const dateStr = today.getFullYear() + '年' + (today.getMonth() + 1) + '月' + today.getDate() + '日';
+            const data = [];
+
+            data.push(['驱蚊系统 材料报价单', '', '', '', '', '', '', '']);
+            data.push(['']);
+            data.push(['项目地址：', '', '', '', '报价单位：', '上海新羽农业科技有限公司', '', '']);
+            data.push(['联系人及电话：', '', '', '', '合作模式：', '材料供应', '', '']);
+            data.push(['日期：', dateStr, '', '', '', '', '', '']);
+            data.push(['']);
+            data.push(['序号', '名称/型号/规格', '数量', '单位', '材料单价', '单价小计', '合价', '备注（品牌/说明）']);
+
+            let rowNum = 1;
+            let totalHejia = 0;
+            quotation.items.forEach(item => {
+                const hejia = item.cost;
+                totalHejia += hejia;
+                data.push([rowNum++, item.name + ' ' + item.model, item.count, item.unit, item.unitPrice, item.unitPrice, hejia, item.brand]);
+            });
+
+            data.push(['']);
+            data.push(['', '一、材料费小计：', '', '', '', '', totalHejia, '']);
+
+            const maintenanceFee = totalHejia * 0.08;
+            data.push(['', '二、材料搬运、损耗和管理费（一×8%）：', '', '', '', '', maintenanceFee, '']);
+
+            const subtotal = totalHejia + maintenanceFee;
+            const vat = subtotal * 0.09;
+            data.push(['', '三、增值税[（一+二）×9%]：', '', '', '', '', vat, '']);
+
+            const grandTotal = subtotal + vat;
+            data.push(['', '四、含税总计：', '', '', '', '', grandTotal, '']);
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            ws['!cols'] = [{ wch: 8 }, { wch: 35 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }];
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+                { s: { r: 2, c: 1 }, e: { r: 2, c: 3 } },
+                { s: { r: 2, c: 5 }, e: { r: 2, c: 7 } },
+                { s: { r: 3, c: 1 }, e: { r: 3, c: 3 } },
+                { s: { r: 3, c: 5 }, e: { r: 3, c: 7 } },
+                { s: { r: 4, c: 1 }, e: { r: 4, c: 3 } }
+            ];
+            XLSX.utils.book_append_sheet(wb, ws, '驱蚊材料报价单');
+            const date = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, '驱蚊系统材料报价单_' + date + '.xlsx');
         }
 
         document.addEventListener('DOMContentLoaded', function() {
