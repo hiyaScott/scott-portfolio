@@ -137,15 +137,21 @@
     const externalNote = $('#externalVideoNote');
 
     if (course.external_video) {
-      // 外部视频模式
+      // 外部视频模式 - iframe 嵌入
       if (localBox) localBox.style.display = 'none';
       if (externalBox) externalBox.style.display = 'flex';
-      if (externalLink) externalLink.href = course.external_video;
+      const frame = $('#externalVideoFrame');
+      if (frame) frame.src = course.external_video;
+      if (externalLink) {
+        externalLink.href = course.external_video;
+        externalLink.style.display = 'inline';
+      }
       if (externalNote) externalNote.textContent = course.external_note || '';
     } else {
       // 本地视频模式
       if (localBox) localBox.style.display = 'block';
       if (externalBox) externalBox.style.display = 'none';
+      if (externalLink) externalLink.style.display = 'none';
       const video = $('#courseVideo');
       if (video) {
         const source = video.querySelector('source');
