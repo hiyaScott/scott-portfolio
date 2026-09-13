@@ -170,13 +170,16 @@
     const tencentCard = $('#tencentCard');
     const tencentLink = $('#tencentLink');
     const tencentNote = $('#tencentCardNote');
+    const resourceTags = $('#resourceTags');
 
     if (course.tencent_meeting) {
       if (tencentCard) tencentCard.style.display = 'flex';
       if (tencentLink) tencentLink.href = course.tencent_meeting;
       if (tencentNote) tencentNote.textContent = course.tencent_note || '腾讯会议录制';
+      if (resourceTags) resourceTags.style.display = 'flex';
     } else {
       if (tencentCard) tencentCard.style.display = 'none';
+      if (resourceTags) resourceTags.style.display = 'none';
     }
 
     // 加载课程纪要
