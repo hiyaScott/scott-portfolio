@@ -166,6 +166,22 @@
       if (videoCard) videoCard.style.display = 'none';
     }
 
+    // 更新腾讯会议卡片
+    const tencentCard = $('#tencentCard');
+    const tencentLink = $('#tencentLink');
+    const tencentNote = $('#tencentCardNote');
+
+    if (course.tencent_meeting) {
+      if (tencentCard) tencentCard.style.display = 'flex';
+      if (tencentLink) tencentLink.href = course.tencent_meeting;
+      if (tencentNote) tencentNote.textContent = course.tencent_note || '腾讯会议录制';
+    } else {
+      if (tencentCard) tencentCard.style.display = 'none';
+    }
+
+    // 加载课程纪要
+    loadMeetingNotes(courseId);
+
     // 更新 PDF（左侧主体）
     const pdfFrame = $('#pdfFrame');
     if (pdfFrame) pdfFrame.src = course.pdf;
@@ -175,6 +191,64 @@
 
     // 渲染导航
     renderLessonNav(courseId, courses);
+  }
+
+  // ===== 加载课程纪要 =====
+  async function loadMeetingNotes(courseId) {
+    const notesContainer = $('#meetingNotes');
+    if (!notesContainer) return;
+
+    try {
+      const res = await fetch('data/meeting-notes.json');
+      if (!res.ok) return;
+      const notesData = await res.json();
+      const notes = notesData[courseId];
+      if (!notes) {
+        notesContainer.style.display = 'none';
+        return;
+      }
+
+      notesContainer.style.display = 'block';
+
+      const sourceEl = $('#notesSource');
+      if (sourceEl) sourceEl.textContent = `来源：${notes.source} · ${notes.url}`;
+
+      const summaryEl = $('#notesSummary');
+      if (summaryEl) summaryEl.textContent = notes.summary;
+
+      const sectionsEl = $('#notesSections');
+      if (sectionsEl) {
+        sectionsEl.innerHTML = (notes.sections || []).map(section => `
+          <div class="notes-section">
+            <div class="notes-section-title">
+              ${escapeHtml(section.title)}
+              <span class="notes-section-time">${escapeHtml(section.time)}</span>
+            </div>
+            ${(section.items || []).map(item => `
+              <div class="notes-item">
+                <div class="notes-item-subtitle">${escapeHtml(item.subtitle)}</div>
+                <div class="notes-item-content">${escapeHtml(item.content)}</div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('');
+      }
+
+      // 绑定展开/收起
+      const toggle = $('#notesToggle');
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          notesContainer.classList.toggle('open');
+          const content = $('#notesContent');
+          if (content) {
+            content.style.display = notesContainer.classList.contains('open') ? 'block' : 'none';
+          }
+        });
+      }
+    } catch (e) {
+      console.error('纪要加载失败:', e);
+      notesContainer.style.display = 'none';
+    }
   }
 
   // ===== 详情页：上下课导航 =====
