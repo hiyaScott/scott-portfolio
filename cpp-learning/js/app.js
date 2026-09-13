@@ -31,10 +31,10 @@
     }
   }
 
-  // ===== 首页：渲染课程卡片 =====
+  // ===== 首页：渲染课程列表（按部分分组）=====
   function renderCourseList(filterLevel = 'all') {
-    const grid = $('#courseGrid');
-    if (!grid) return;
+    const container = $('#courseGroups');
+    if (!container) return;
 
     const courses = coursesData.courses || [];
     const filtered = filterLevel === 'all'
@@ -42,15 +42,42 @@
       : courses.filter(c => c.level === filterLevel);
 
     if (filtered.length === 0) {
-      grid.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1;">
+      container.innerHTML = `
+        <div class="empty-state">
           <p>暂无该分类的课程</p>
         </div>
       `;
       return;
     }
 
-    grid.innerHTML = filtered.map(c => `
+    // 按 part 分组
+    const groups = {};
+    filtered.forEach(c => {
+      const part = c.part || '未分类';
+      if (!groups[part]) groups[part] = [];
+      groups[part].push(c);
+    });
+
+    // 保持原始顺序
+    const orderedParts = [];
+    courses.forEach(c => {
+      if (!orderedParts.includes(c.part)) orderedParts.push(c.part);
+    });
+
+    container.innerHTML = orderedParts
+      .filter(part => groups[part] && groups[part].length > 0)
+      .map(part => `
+        <section class="course-group">
+          <h3 class="group-title">${escapeHtml(part)}</h3>
+          <div class="course-grid">
+            ${groups[part].map(c => renderCard(c)).join('')}
+          </div>
+        </section>
+      `).join('');
+  }
+
+  function renderCard(c) {
+    return `
       <article class="course-card" data-id="${c.id}" onclick="goToCourse('${c.id}')">
         <div class="card-thumbnail">
           <div class="play-icon">▶</div>
@@ -67,7 +94,7 @@
           </div>
         </div>
       </article>
-    `).join('');
+    `;
   }
 
   // ===== 首页：筛选标签事件 =====
