@@ -185,6 +185,9 @@
     // 加载课程纪要
     loadMeetingNotes(courseId);
 
+    // 渲染练习题
+    renderExercises(course);
+
     // 更新 PDF（左侧主体）
     const pdfFrame = $('#pdfFrame');
     if (pdfFrame) pdfFrame.src = course.pdf;
@@ -194,6 +197,49 @@
 
     // 渲染导航
     renderLessonNav(courseId, courses);
+  }
+
+  // ===== 渲染练习题 =====
+  function renderExercises(course) {
+    const section = $('#exercisesSection');
+    const container = $('#exercisesGroups');
+    if (!section || !container) return;
+
+    const ex = course.exercises;
+    if (!ex || (!ex.basic && !ex.practice && !ex.advanced)) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+
+    const groups = [
+      { key: 'basic', label: '⭐ 基础练习', desc: '直接应用课堂知识点' },
+      { key: 'practice', label: '⭐⭐ 巩固提升', desc: '需要组合多个知识点' },
+      { key: 'advanced', label: '⭐⭐⭐ 挑战拓展', desc: '灵活运用，需要思考' }
+    ];
+
+    container.innerHTML = groups.map(g => {
+      const items = ex[g.key] || [];
+      if (items.length === 0) return '';
+      return `
+        <div class="exercise-group">
+          <div class="exercise-group-header">
+            <span class="exercise-group-label">${g.label}</span>
+            <span class="exercise-group-desc">${g.desc}</span>
+          </div>
+          <div class="exercise-list">
+            ${items.map(item => `
+              <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="exercise-item">
+                <span class="exercise-id">${escapeHtml(item.id)}</span>
+                <span class="exercise-name">${escapeHtml(item.title)}</span>
+                <span class="exercise-arrow">→</span>
+              </a>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   // ===== 加载课程纪要 =====
