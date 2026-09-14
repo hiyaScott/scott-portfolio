@@ -76,9 +76,123 @@
       `).join('');
   }
 
+  // ===== 学习状态管理 =====
+  function getProgress() {
+    try {
+      return JSON.parse(localStorage.getItem('cpp_progress') || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveProgress(progress) {
+    localStorage.setItem('cpp_progress', JSON.stringify(progress));
+  }
+
+  function getCourseProgress(courseId) {
+    return getProgress()[courseId] || 'not_started';
+  }
+
+  function setCourseProgress(courseId, status) {
+    const progress = getProgress();
+    progress[courseId] = status;
+    saveProgress(progress);
+  }
+
+  // ===== 二次确认对话框 =====
+  let confirmCallback = null;
+
+  function showConfirmDialog(title, message, onConfirm) {
+    const dialog = $('#confirmDialog');
+    const titleEl = $('#confirmDialogTitle');
+    const msgEl = $('#confirmDialogMessage');
+    const confirmBtn = $('#confirmDialogConfirmBtn');
+
+    if (!dialog || !titleEl || !msgEl || !confirmBtn) return;
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    confirmCallback = onConfirm;
+
+    // 移除旧事件，绑定新事件
+    const newBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+    newBtn.addEventListener('click', () => {
+      closeConfirmDialog();
+      if (confirmCallback) confirmCallback();
+    });
+
+    dialog.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+  }
+
+  window.closeConfirmDialog = function () {
+    const dialog = $('#confirmDialog');
+    if (dialog) dialog.style.display = 'none';
+    document.body.style.overflow = '';
+    confirmCallback = null;
+  };
+
+  // ===== 切换学习状态 =====
+  window.toggleProgress = function () {
+    if (!currentCourseId) return;
+
+    const current = getCourseProgress(currentCourseId);
+
+    if (current === 'completed') {
+      // 取消完成 — 需要确认
+      showConfirmDialog(
+        '取消完成标记',
+        '确定要将该课程标记为"未开始"吗？此操作会重置学习进度。',
+        () => {
+          setCourseProgress(currentCourseId, 'not_started');
+          updateProgressUI();
+        }
+      );
+    } else {
+      // 标记完成 — 需要确认
+      showConfirmDialog(
+        '确认完成',
+        '确定要将该课程标记为"已完成"吗？',
+        () => {
+          setCourseProgress(currentCourseId, 'completed');
+          updateProgressUI();
+        }
+      );
+    }
+  };
+
+  function updateProgressUI() {
+    if (!currentCourseId) return;
+
+    const status = getCourseProgress(currentCourseId);
+    const statusEl = $('#progressStatus');
+    const btn = $('#progressBtn');
+
+    if (!statusEl || !btn) return;
+
+    if (status === 'completed') {
+      statusEl.textContent = '✅ 已完成';
+      statusEl.className = 'progress-status status-completed';
+      btn.textContent = '取消完成标记';
+      btn.className = 'progress-btn btn-secondary';
+    } else {
+      statusEl.textContent = '○ 未开始';
+      statusEl.className = 'progress-status status-not-started';
+      btn.textContent = '标记为已完成';
+      btn.className = 'progress-btn btn-primary';
+    }
+  }
+
+  // ===== 首页：渲染课程卡片（带进度）=====
   function renderCard(c) {
     const externalBadge = c.external_video
       ? `<span class="external-badge">🔗 外部视频</span>`
+      : '';
+
+    const progress = getCourseProgress(c.id);
+    const progressBadge = progress === 'completed'
+      ? `<span class="progress-badge">✅</span>`
       : '';
 
     return `
@@ -86,6 +200,7 @@
         <div class="card-thumbnail">
           <div class="play-icon">▶</div>
           ${externalBadge}
+          ${progressBadge}
           <span class="duration">${c.duration}</span>
         </div>
         <div class="card-body">
@@ -187,6 +302,9 @@
 
     // 渲染练习题
     renderExercises(course);
+
+    // 更新学习状态UI
+    updateProgressUI();
 
     // 更新 PDF（左侧主体）
     const pdfFrame = $('#pdfFrame');
