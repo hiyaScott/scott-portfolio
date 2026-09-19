@@ -574,11 +574,15 @@
       const progressBadge = total > 0 && done > 0
         ? `<span class="progress-badge${done === total ? ' all-done' : ''}">${done}/${total}</span>`
         : '';
+      const firstPid = pids[0];
+      const thumbImg = firstPid
+        ? `<img class="wt-thumb-img" src="assets/walkthrough/${firstPid}.webp" alt="${escapeHtml(w.title)}" loading="lazy">`
+        : '';
 
       return `
         <article class="course-card" data-id="${w.id}" onclick="goToWalkthrough('${w.id}')">
           <div class="card-thumbnail wt-thumbnail">
-            <span class="wt-thumbnail-icon">📒</span>
+            ${thumbImg}
             <span class="wt-thumbnail-date">${formatWtDate(w.date)}</span>
             ${progressBadge}
           </div>
