@@ -76,33 +76,52 @@
       `).join('');
   }
 
-  // ===== 学习状态管理 =====
-  function getProgress() {
+  // ===== 题目完成状态管理（按洛谷题号，全局共享）=====
+  function getDoneProblems() {
     try {
-      return JSON.parse(localStorage.getItem('cpp_progress') || '{}');
+      return JSON.parse(localStorage.getItem('cpp_done_problems') || '{}');
     } catch (e) {
       return {};
     }
   }
 
-  function saveProgress(progress) {
-    localStorage.setItem('cpp_progress', JSON.stringify(progress));
+  function saveDoneProblems(done) {
+    localStorage.setItem('cpp_done_problems', JSON.stringify(done));
   }
 
-  function getCourseProgress(courseId) {
-    return getProgress()[courseId] || 'not_started';
+  function isProblemDone(problemId) {
+    return !!getDoneProblems()[problemId];
   }
 
-  function setCourseProgress(courseId, status) {
-    const progress = getProgress();
-    progress[courseId] = status;
-    saveProgress(progress);
+  function setProblemDone(problemId, done) {
+    const data = getDoneProblems();
+    if (done) {
+      data[problemId] = Date.now();
+    } else {
+      delete data[problemId];
+    }
+    saveDoneProblems(data);
+  }
+
+  // 统计一门课的练习题完成情况
+  function getExerciseStats(course) {
+    const ex = course && course.exercises;
+    if (!ex) return { total: 0, done: 0 };
+    const doneMap = getDoneProblems();
+    let total = 0, done = 0;
+    ['basic', 'practice', 'advanced'].forEach(k => {
+      (ex[k] || []).forEach(item => {
+        total++;
+        if (doneMap[item.id]) done++;
+      });
+    });
+    return { total, done };
   }
 
   // ===== 二次确认对话框 =====
   let confirmCallback = null;
 
-  function showConfirmDialog(title, message, onConfirm) {
+  function showConfirmDialog(title, message, onConfirm, options) {
     const dialog = $('#confirmDialog');
     const titleEl = $('#confirmDialogTitle');
     const msgEl = $('#confirmDialogMessage');
@@ -117,6 +136,7 @@
     // 移除旧事件，绑定新事件
     const newBtn = confirmBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+    newBtn.className = 'confirm-dialog-btn confirm-dialog-confirm' + (options && options.danger ? ' danger' : '');
     newBtn.addEventListener('click', () => {
       closeConfirmDialog();
       if (confirmCallback) confirmCallback();
@@ -133,66 +153,75 @@
     confirmCallback = null;
   };
 
-  // ===== 切换学习状态 =====
-  window.toggleProgress = function () {
-    if (!currentCourseId) return;
+  // ===== 切换题目完成状态（勾选/取消均需二次确认）=====
+  window.toggleProblemDone = function (event, problemId) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!problemId) return;
 
-    const current = getCourseProgress(currentCourseId);
-
-    if (current === 'completed') {
-      // 取消完成 — 需要确认
+    if (isProblemDone(problemId)) {
       showConfirmDialog(
         '取消完成标记',
-        '确定要将该课程标记为"未开始"吗？此操作会重置学习进度。',
+        `确定要取消【${problemId}】的完成标记吗？`,
         () => {
-          setCourseProgress(currentCourseId, 'not_started');
-          updateProgressUI();
-        }
+          setProblemDone(problemId, false);
+          refreshExerciseUI();
+        },
+        { danger: true }
       );
     } else {
-      // 标记完成 — 需要确认
       showConfirmDialog(
         '确认完成',
-        '确定要将该课程标记为"已完成"吗？',
+        `确定要将【${problemId}】标记为已完成吗？`,
         () => {
-          setCourseProgress(currentCourseId, 'completed');
-          updateProgressUI();
+          setProblemDone(problemId, true);
+          refreshExerciseUI();
         }
       );
     }
   };
 
-  function updateProgressUI() {
-    if (!currentCourseId) return;
-
-    const status = getCourseProgress(currentCourseId);
-    const statusEl = $('#progressStatus');
-    const btn = $('#progressBtn');
-
-    if (!statusEl || !btn) return;
-
-    if (status === 'completed') {
-      statusEl.textContent = '✅ 已完成';
-      statusEl.className = 'progress-status status-completed';
-      btn.textContent = '取消完成标记';
-      btn.className = 'progress-btn btn-secondary';
-    } else {
-      statusEl.textContent = '○ 未开始';
-      statusEl.className = 'progress-status status-not-started';
-      btn.textContent = '标记为已完成';
-      btn.className = 'progress-btn btn-primary';
+  // 刷新练习题列表 + 进度显示
+  function refreshExerciseUI() {
+    const courses = coursesData.courses || [];
+    const course = courses.find(c => c.id === currentCourseId);
+    if (course) {
+      renderExercises(course);
+      updateExerciseProgressUI(course);
     }
   }
 
-  // ===== 首页：渲染课程卡片（带进度）=====
+  // 更新"本课练习"进度条
+  function updateExerciseProgressUI(course) {
+    const section = $('#exerciseProgressSection');
+    const countEl = $('#exerciseProgressCount');
+    const barEl = $('#exerciseProgressBar');
+    if (!section || !countEl || !barEl) return;
+
+    const { total, done } = getExerciseStats(course);
+    if (total === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+    countEl.textContent = `${done} / ${total}`;
+    const percent = Math.round((done / total) * 100);
+    barEl.style.width = percent + '%';
+    barEl.classList.toggle('complete', done === total);
+  }
+
+  // ===== 首页：渲染课程卡片（带刷题进度）=====
   function renderCard(c) {
     const externalBadge = c.external_video
       ? `<span class="external-badge">🔗 外部视频</span>`
       : '';
 
-    const progress = getCourseProgress(c.id);
-    const progressBadge = progress === 'completed'
-      ? `<span class="progress-badge">✅</span>`
+    const { total, done } = getExerciseStats(c);
+    const progressBadge = total > 0 && done > 0
+      ? `<span class="progress-badge${done === total ? ' all-done' : ''}">${done}/${total}</span>`
       : '';
 
     return `
@@ -303,8 +332,8 @@
     // 渲染练习题
     renderExercises(course);
 
-    // 更新学习状态UI
-    updateProgressUI();
+    // 更新本课练习进度
+    updateExerciseProgressUI(course);
 
     // 更新 PDF（左侧主体）
     const pdfFrame = $('#pdfFrame');
@@ -347,13 +376,23 @@
             <span class="exercise-group-desc">${g.desc}</span>
           </div>
           <div class="exercise-list">
-            ${items.map(item => `
-              <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="exercise-item">
-                <span class="exercise-id">${escapeHtml(item.id)}</span>
-                <span class="exercise-name">${escapeHtml(item.title)}</span>
-                <span class="exercise-arrow">→</span>
-              </a>
-            `).join('')}
+            ${items.map(item => {
+              const done = isProblemDone(item.id);
+              return `
+              <div class="exercise-item${done ? ' done' : ''}" data-pid="${escapeHtml(item.id)}">
+                <button type="button"
+                        class="exercise-check${done ? ' checked' : ''}"
+                        onclick="toggleProblemDone(event, '${escapeHtml(item.id)}')"
+                        title="${done ? '已完成，点击取消' : '标记为已完成'}"
+                        aria-label="切换完成状态">✓</button>
+                <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="exercise-link">
+                  <span class="exercise-id">${escapeHtml(item.id)}</span>
+                  <span class="exercise-name">${escapeHtml(item.title)}</span>
+                  <span class="exercise-arrow">→</span>
+                </a>
+              </div>
+            `;
+            }).join('')}
           </div>
         </div>
       `;
