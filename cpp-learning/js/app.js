@@ -808,6 +808,9 @@
 
   function renderInline(text) {
     let s = escapeHtml(text);
+    // markdown 图片：懒加载 + 宽高比防跳动（渲染为块级，独立于段落）
+    s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,
+      '<img class="md-img" src="$2" alt="$1" loading="lazy" decoding="async">');
     s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
