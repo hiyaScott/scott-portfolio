@@ -169,6 +169,7 @@
         () => {
           setProblemDone(problemId, false);
           refreshExerciseUI();
+          refreshWalkthroughUI();
         },
         { danger: true }
       );
@@ -179,6 +180,7 @@
         () => {
           setProblemDone(problemId, true);
           refreshExerciseUI();
+          refreshWalkthroughUI();
         }
       );
     }
@@ -492,17 +494,342 @@
 
   // ===== 404 =====
   function showNotFound() {
-    const main = $('.course-main');
+    const main = $('.course-main') || $('.wt-content') || document.body;
     if (main) {
       main.innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1; padding-top: 120px;">
-          <h2 style="margin-bottom: 12px;">课程未找到</h2>
-          <p>该课程不存在或已被移除</p>
+          <h2 style="margin-bottom: 12px;">内容未找到</h2>
+          <p>该内容不存在或已被移除</p>
           <br>
           <a href="index.html" style="color: var(--accent);">← 返回课程列表</a>
         </div>
       `;
     }
+  }
+
+  // ============================================================
+  // 习题讲解板块
+  // ============================================================
+  let walkthroughsCache = null;
+  let currentWalkthrough = null; // { meta, parsed }
+
+  window.goToWalkthrough = function (id) {
+    if (!id) return;
+    location.href = `walkthrough.html?id=${id}`;
+  };
+
+  // ----- 首页：板块切换 -----
+  function initBoards() {
+    const tabs = $$('.board-tab');
+    if (!tabs.length) return;
+    const saved = localStorage.getItem('cpp_home_board') || 'courses';
+    switchBoard(saved, false);
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => switchBoard(tab.dataset.board, true));
+    });
+  }
+
+  function switchBoard(board, save) {
+    $$('.board-tab').forEach(t => t.classList.toggle('active', t.dataset.board === board));
+    const coursesBoard = $('#boardCourses');
+    const wtBoard = $('#boardWalkthrough');
+    if (coursesBoard) coursesBoard.style.display = board === 'courses' ? 'block' : 'none';
+    if (wtBoard) wtBoard.style.display = board === 'walkthrough' ? 'block' : 'none';
+    if (save) localStorage.setItem('cpp_home_board', board);
+    if (board === 'walkthrough') renderWalkthroughCards();
+  }
+
+  // ----- 首页：渲染习题讲解卡片 -----
+  async function renderWalkthroughCards() {
+    const grid = $('#walkthroughGrid');
+    if (!grid) return;
+
+    if (!walkthroughsCache) {
+      try {
+        const res = await fetch('data/walkthroughs.json');
+        walkthroughsCache = res.ok ? await res.json() : { walkthroughs: [] };
+      } catch (e) {
+        walkthroughsCache = { walkthroughs: [] };
+      }
+    }
+
+    const list = walkthroughsCache.walkthroughs || [];
+    if (list.length === 0) {
+      grid.innerHTML = `<div class="empty-state"><p>暂无习题讲解</p></div>`;
+      return;
+    }
+
+    const cards = await Promise.all(list.map(async w => {
+      let pids = [];
+      try {
+        const res = await fetch(w.md);
+        if (res.ok) {
+          const md = await res.text();
+          pids = [...md.matchAll(/^##\s+\d+\.\s*(P\d+)/gm)].map(m => m[1]);
+        }
+      } catch (e) { /* 忽略，进度显示 0 */ }
+
+      const done = pids.filter(pid => isProblemDone(pid)).length;
+      const total = pids.length;
+      const progressBadge = total > 0 && done > 0
+        ? `<span class="progress-badge${done === total ? ' all-done' : ''}">${done}/${total}</span>`
+        : '';
+
+      return `
+        <article class="course-card" data-id="${w.id}" onclick="goToWalkthrough('${w.id}')">
+          <div class="card-thumbnail wt-thumbnail">
+            <span class="wt-thumbnail-icon">📒</span>
+            <span class="wt-thumbnail-date">${formatWtDate(w.date)}</span>
+            ${progressBadge}
+          </div>
+          <div class="card-body">
+            <h3 class="card-title">${escapeHtml(w.title)}</h3>
+            <p class="card-desc">${escapeHtml(w.intro)}</p>
+            <div class="card-footer">
+              <span class="level-badge" data-level="综合">习题讲解</span>
+              <div class="card-tags">
+                ${pids.slice(0, 5).map(pid => `<span>${pid}</span>`).join('')}
+                ${total > 5 ? `<span>共${total}题</span>` : ''}
+              </div>
+            </div>
+          </div>
+        </article>
+      `;
+    }));
+
+    grid.innerHTML = cards.join('');
+  }
+
+  function formatWtDate(d) {
+    const m = String(d || '').match(/(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${parseInt(m[2], 10)}月${parseInt(m[3], 10)}日` : (d || '');
+  }
+
+  // ----- 习题讲解详情页 -----
+  async function loadWalkthroughDetail(id) {
+    try {
+      const res = await fetch('data/walkthroughs.json');
+      if (!res.ok) throw new Error('清单加载失败');
+      const data = await res.json();
+      const wt = (data.walkthroughs || []).find(w => w.id === id);
+      if (!wt) { showNotFound(); return; }
+
+      const mdRes = await fetch(wt.md);
+      if (!mdRes.ok) throw new Error('讲义加载失败');
+      const md = await mdRes.text();
+
+      const parsed = parseWalkthrough(md);
+      currentWalkthrough = { meta: wt, parsed };
+      renderWalkthrough(wt, parsed);
+    } catch (e) {
+      console.error('习题讲解加载失败:', e);
+      showNotFound();
+    }
+  }
+
+  // 解析 markdown：题号分节 + 小结 + 开头引言
+  function parseWalkthrough(md) {
+    let lines = md.replace(/\r\n/g, '\n').split('\n');
+    if (lines.length && /^#\s+/.test(lines[0])) lines = lines.slice(1);
+    while (lines.length && lines[0].trim() === '') lines.shift();
+
+    const intro = [];
+    const problems = [];
+    let summary = null;
+    let cur = intro;
+
+    lines.forEach(line => {
+      const pm = line.match(/^##\s+(\d+)\.\s*(P\d+)\s+(.+)$/);
+      if (pm) {
+        cur = { num: pm[1], pid: pm[2], title: pm[3].trim(), anchor: 'problem-' + pm[1], lines: [] };
+        problems.push(cur);
+        return;
+      }
+      if (/^##\s+/.test(line)) {
+        cur = { title: line.replace(/^##\s+/, '').trim(), anchor: 'summary', lines: [] };
+        summary = cur;
+        return;
+      }
+      if (Array.isArray(cur)) cur.push(line);
+      else cur.lines.push(line);
+    });
+
+    return { intro, problems, summary };
+  }
+
+  function renderWalkthrough(wt, parsed) {
+    document.title = `${wt.title} - 习题讲解`;
+    const navTitle = $('#navTitle');
+    if (navTitle) navTitle.textContent = '习题讲解';
+
+    const dateEl = $('#wtDate');
+    if (dateEl) dateEl.textContent = formatWtDate(wt.date);
+    const titleEl = $('#wtTitle');
+    if (titleEl) titleEl.textContent = wt.title;
+    const introEl = $('#wtIntro');
+    if (introEl) introEl.textContent = wt.intro;
+
+    const nav = $('#wtNav');
+    if (nav) {
+      nav.innerHTML = parsed.problems.map(p => `
+        <a class="wt-chip" href="#${p.anchor}">
+          <span class="wt-chip-pid">${p.pid}</span>${escapeHtml(p.title)}
+        </a>
+      `).join('');
+    }
+
+    const sections = parsed.problems.map(p => {
+      const done = isProblemDone(p.pid);
+      return `
+        <section class="wt-problem" id="${p.anchor}">
+          <div class="wt-problem-header">
+            <button type="button"
+                    class="exercise-check wt-check${done ? ' checked' : ''}"
+                    onclick="toggleProblemDone(event, '${p.pid}')"
+                    title="${done ? '已完成，点击取消' : '标记为已完成'}"
+                    aria-label="切换完成状态">✓</button>
+            <h2 class="wt-problem-title">${p.num}. <span class="wt-problem-pid">${p.pid}</span> ${escapeHtml(p.title)}</h2>
+            <a class="wt-luogu-btn" href="https://www.luogu.com.cn/problem/${p.pid}" target="_blank" rel="noopener">洛谷 ↗</a>
+          </div>
+          <div class="wt-problem-body">
+            ${renderMarkdown(p.lines)}
+          </div>
+        </section>
+      `;
+    });
+
+    if (parsed.summary) {
+      sections.push(`
+        <section class="wt-problem wt-summary" id="summary">
+          <h2 class="wt-problem-title">${escapeHtml(parsed.summary.title)}</h2>
+          <div class="wt-problem-body">${renderMarkdown(parsed.summary.lines)}</div>
+        </section>
+      `);
+    }
+
+    const content = $('#wtContent');
+    if (content) content.innerHTML = sections.join('\n');
+    updateWtProgress();
+  }
+
+  function updateWtProgress() {
+    if (!currentWalkthrough) return;
+    const bar = $('#wtProgressBar');
+    const count = $('#wtProgressCount');
+    if (!bar || !count) return;
+    const problems = currentWalkthrough.parsed.problems;
+    const total = problems.length;
+    const done = problems.filter(p => isProblemDone(p.pid)).length;
+    count.textContent = `${done} / ${total}`;
+    bar.style.width = total ? Math.round((done / total) * 100) + '%' : '0%';
+    bar.classList.toggle('complete', total > 0 && done === total);
+  }
+
+  // 勾选后原地刷新（不重排页面）
+  function refreshWalkthroughUI() {
+    if (!currentWalkthrough) return;
+    currentWalkthrough.parsed.problems.forEach(p => {
+      const sec = document.getElementById(p.anchor);
+      if (!sec) return;
+      const done = isProblemDone(p.pid);
+      const btn = sec.querySelector('.exercise-check');
+      if (btn) {
+        btn.classList.toggle('checked', done);
+        btn.title = done ? '已完成，点击取消' : '标记为已完成';
+      }
+    });
+    updateWtProgress();
+  }
+
+  // ----- 极简 Markdown 渲染（行状态机，兼容移动端）-----
+  function renderMarkdown(lines) {
+    const html = [];
+    let i = 0;
+    let para = [];
+
+    const flushPara = () => {
+      if (para.length) {
+        html.push(`<p>${para.join('<br>')}</p>`);
+        para = [];
+      }
+    };
+
+    while (i < lines.length) {
+      const line = lines[i];
+      const t = line.trim();
+
+      if (t === '') { flushPara(); i++; continue; }
+      if (t === '---') { flushPara(); html.push('<hr>'); i++; continue; }
+      if (/^###\s+/.test(t)) { flushPara(); html.push(`<h3>${renderInline(t.replace(/^###\s+/, ''))}</h3>`); i++; continue; }
+      if (/^##\s+/.test(t)) { flushPara(); html.push(`<h2>${renderInline(t.replace(/^##\s+/, ''))}</h2>`); i++; continue; }
+      if (/^```/.test(t)) {
+        flushPara();
+        const code = [];
+        i++;
+        while (i < lines.length && !/^```/.test(lines[i].trim())) { code.push(lines[i]); i++; }
+        i++; // 跳过结束 ```
+        html.push(renderCodeBlock(code.join('\n')));
+        continue;
+      }
+      if (t.startsWith('|')) {
+        flushPara();
+        const tbl = [];
+        while (i < lines.length && lines[i].trim().startsWith('|')) { tbl.push(lines[i]); i++; }
+        html.push(renderTable(tbl));
+        continue;
+      }
+      if (/^[-*]\s+/.test(t)) {
+        flushPara();
+        const items = [];
+        while (i < lines.length && /^[-*]\s+/.test(lines[i].trim())) {
+          items.push(lines[i].trim().replace(/^[-*]\s+/, ''));
+          i++;
+        }
+        html.push(`<ul>${items.map(it => `<li>${renderInline(it)}</li>`).join('')}</ul>`);
+        continue;
+      }
+      if (/^\d+\.\s+/.test(t)) {
+        flushPara();
+        const items = [];
+        while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+          items.push(lines[i].trim().replace(/^\d+\.\s+/, ''));
+          i++;
+        }
+        html.push(`<ol>${items.map(it => `<li>${renderInline(it)}</li>`).join('')}</ol>`);
+        continue;
+      }
+
+      para.push(renderInline(t));
+      i++;
+    }
+    flushPara();
+    return html.join('\n');
+  }
+
+  function renderInline(text) {
+    let s = escapeHtml(text);
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return s;
+  }
+
+  // C++ 代码块：注释高亮（这些讲义每行都有中文注释，高亮注释最提可读性）
+  function renderCodeBlock(code) {
+    const escaped = escapeHtml(code)
+      .replace(/(\/\/[^\n]*)/g, '<span class="code-comment">$1</span>');
+    return `<pre class="code-block"><code>${escaped}</code></pre>`;
+  }
+
+  function renderTable(rows) {
+    const parse = r => r.trim().replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+    const isSep = r => /^\|[\s\-|:]+\|?$/.test(r.trim());
+    const header = parse(rows[0]);
+    const body = rows.slice(1).filter(r => !isSep(r));
+    return `<div class="table-wrap"><table>
+      <thead><tr>${header.map(h => `<th>${renderInline(h)}</th>`).join('')}</tr></thead>
+      <tbody>${body.map(r => `<tr>${parse(r).map(c => `<td>${renderInline(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`;
   }
 
   // ===== HTML 转义 =====
@@ -556,11 +883,20 @@
       // 首页
       renderCourseList();
       initFilters();
+      initBoards();
     } else if (page === 'course.html') {
       // 详情页
       const id = getParam('id');
       if (id) {
         loadCourseDetail(id);
+      } else {
+        showNotFound();
+      }
+    } else if (page === 'walkthrough.html') {
+      // 习题讲解详情页
+      const id = getParam('id');
+      if (id) {
+        loadWalkthroughDetail(id);
       } else {
         showNotFound();
       }
