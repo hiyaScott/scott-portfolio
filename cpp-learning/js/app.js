@@ -138,8 +138,9 @@
     confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
     newBtn.className = 'confirm-dialog-btn confirm-dialog-confirm' + (options && options.danger ? ' danger' : '');
     newBtn.addEventListener('click', () => {
+      const cb = confirmCallback;
       closeConfirmDialog();
-      if (confirmCallback) confirmCallback();
+      if (cb) cb();
     });
 
     dialog.style.display = 'block';
