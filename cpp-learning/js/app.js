@@ -836,11 +836,24 @@
   const codeBlockStore = new Map();
 
   function stripCppComments(code) {
-    return code
-      .split('\n')
-      .map(line => line.replace(/\/\/.*$/, '').replace(/\s+$/, ''))
-      .filter(line => line !== '')
-      .join('\n');
+    const out = [];
+    let includeDone = false;
+    for (const raw of code.split('\n')) {
+      const line = raw.replace(/\/\/.*$/, '').replace(/\s+$/, '');
+      if (/^\s*#include\b/.test(line)) {
+        if (!includeDone) {
+          out.push('#include <bits/stdc++.h>');
+          includeDone = true;
+        }
+        continue;
+      }
+      if (line === '') continue;
+      // 竞赛风格：去掉 = 与比较运算符前后的空格
+      out.push(line
+        .replace(/\s*(<=|>=|==|!=)\s*/g, '$1')
+        .replace(/\s*=(?!=)\s*/g, '='));
+    }
+    return out.join('\n');
   }
 
   function highlightComments(code) {
