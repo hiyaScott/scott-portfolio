@@ -576,7 +576,7 @@
         : '';
       const firstPid = pids[0];
       const thumbImg = firstPid
-        ? `<img class="wt-thumb-img" src="assets/walkthrough/${firstPid}.webp" alt="${escapeHtml(w.title)}" loading="lazy">`
+        ? `<img class="wt-thumb-img" src="assets/walkthrough/${firstPid}.webp" alt="${escapeHtml(w.title)}" loading="lazy" onerror="this.style.display='none'">`
         : '';
 
       return `
@@ -682,7 +682,15 @@
       `).join('');
     }
 
-    const sections = parsed.problems.map(p => {
+    const sections = [];
+    if (parsed.intro && parsed.intro.some(l => l.trim())) {
+      sections.push(`
+        <section class="wt-problem wt-intro" id="intro">
+          <div class="wt-problem-body">${renderMarkdown(parsed.intro)}</div>
+        </section>
+      `);
+    }
+    sections.push(...parsed.problems.map(p => {
       const done = isProblemDone(p.pid);
       return `
         <section class="wt-problem" id="${p.anchor}">
@@ -700,7 +708,7 @@
           </div>
         </section>
       `;
-    });
+    }));
 
     if (parsed.summary) {
       sections.push(`
@@ -814,7 +822,7 @@
     let s = escapeHtml(text);
     // markdown 图片：懒加载 + 宽高比防跳动（渲染为块级，独立于段落）
     s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,
-      '<img class="md-img" src="$2" alt="$1" loading="lazy" decoding="async">');
+      '<img class="md-img" src="$2" alt="$1" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">');
     s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
@@ -829,7 +837,7 @@
   }
 
   function renderTable(rows) {
-    const parse = r => r.trim().replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+    const parse = r => r.trim().replace(/\\\|/g, '\u0001').replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim().replace(/\u0001/g, '|'));
     const isSep = r => /^\|[\s\-|:]+\|?$/.test(r.trim());
     const header = parse(rows[0]);
     const body = rows.slice(1).filter(r => !isSep(r));
