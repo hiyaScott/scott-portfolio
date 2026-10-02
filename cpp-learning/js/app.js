@@ -662,6 +662,8 @@
   }
 
   function renderWalkthrough(wt, parsed) {
+    codeBlockSeq = 0;
+    codeBlockStore.clear();
     document.title = `${wt.title} - 习题讲解`;
     const navTitle = $('#navTitle');
     if (navTitle) navTitle.textContent = '习题讲解';
@@ -829,11 +831,83 @@
     return s;
   }
 
-  // C++ 代码块：注释高亮（这些讲义每行都有中文注释，高亮注释最提可读性）
-  function renderCodeBlock(code) {
-    const escaped = escapeHtml(code)
+  // C++ 代码块：注释高亮 + 注释版/无注释版 Tab 切换 + 拷贝按钮
+  let codeBlockSeq = 0;
+  const codeBlockStore = new Map();
+
+  function stripCppComments(code) {
+    return code
+      .split('\n')
+      .map(line => line.replace(/\/\/.*$/, '').replace(/\s+$/, ''))
+      .filter(line => line !== '')
+      .join('\n');
+  }
+
+  function highlightComments(code) {
+    return escapeHtml(code)
       .replace(/(\/\/[^\n]*)/g, '<span class="code-comment">$1</span>');
-    return `<pre class="code-block"><code>${escaped}</code></pre>`;
+  }
+
+  function getCodeVariant(box, which) {
+    const store = codeBlockStore.get(box.dataset.cbid);
+    if (!store) return '';
+    if (which === 'clean') {
+      if (store.clean === null) store.clean = stripCppComments(store.full);
+      return store.clean;
+    }
+    return store.full;
+  }
+
+  function renderCodeBlock(code) {
+    const id = 'cb' + (++codeBlockSeq);
+    codeBlockStore.set(id, { full: code, clean: null });
+    return `
+      <div class="code-box" data-cbid="${id}">
+        <div class="code-box-bar">
+          <button type="button" class="code-tab active" data-tab="full" onclick="switchCodeTab(this)">注释版</button>
+          <button type="button" class="code-tab" data-tab="clean" onclick="switchCodeTab(this)">无注释</button>
+          <button type="button" class="code-copy" onclick="copyCodeBlock(this)">拷贝</button>
+        </div>
+        <pre class="code-block"><code>${highlightComments(code)}</code></pre>
+      </div>`;
+  }
+
+  window.switchCodeTab = function (btn) {
+    const box = btn.closest('.code-box');
+    if (!box) return;
+    box.querySelectorAll('.code-tab').forEach(b => b.classList.toggle('active', b === btn));
+    const code = getCodeVariant(box, btn.dataset.tab);
+    const codeEl = box.querySelector('pre.code-block code');
+    if (codeEl) codeEl.innerHTML = highlightComments(code);
+  };
+
+  window.copyCodeBlock = function (btn) {
+    const box = btn.closest('.code-box');
+    if (!box) return;
+    const activeTab = box.querySelector('.code-tab.active');
+    const text = getCodeVariant(box, activeTab ? activeTab.dataset.tab : 'full');
+    const done = () => {
+      const old = btn.textContent;
+      btn.textContent = '已复制 ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1500);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
+  };
+
+  function fallbackCopy(text, done) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { /* 忽略 */ }
+    document.body.removeChild(ta);
   }
 
   function renderTable(rows) {
