@@ -643,7 +643,7 @@
     let cur = intro;
 
     lines.forEach(line => {
-      const pm = line.match(/^##\s+(\d+)\.\s*(P\d+)\s+(.+)$/);
+      const pm = line.match(/^##\s+(\d+)\.\s*([PB]\d+)\s+(.+)$/);
       if (pm) {
         cur = { num: pm[1], pid: pm[2], title: pm[3].trim(), anchor: 'problem-' + pm[1], lines: [] };
         problems.push(cur);
